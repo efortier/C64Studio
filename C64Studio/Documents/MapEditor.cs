@@ -43,7 +43,15 @@ namespace RetroDevStudio.Documents
     private byte                        m_CurrentChar = 0;
     private byte                        m_CurrentColor = 1;
 
-    private GR.Image.MemoryImage        m_Image = new GR.Image.MemoryImage( 320, 200, GR.Drawing.PixelFormat.Format32bppRgb );
+    private const int                   MapDisplayBaseWidth = 320;
+    private const int                   MapDisplayBaseHeight = 200;
+    private const int                   MapZoomMinPercent = 50;
+    private const int                   MapZoomMaxPercent = 400;
+    private const int                   MapZoomStepPercent = 25;
+
+    private GR.Image.MemoryImage        m_Image = new GR.Image.MemoryImage( MapDisplayBaseWidth, MapDisplayBaseHeight, GR.Drawing.PixelFormat.Format32bppRgb );
+
+    private int                         m_MapZoomPercent = 100;
 
     private int                         m_CurEditorOffsetX = 0;
     private int                         m_CurEditorOffsetY = 0;
@@ -122,7 +130,7 @@ namespace RetroDevStudio.Documents
       }
 
       pictureEditor.MouseWheel += pictureEditor_MouseWheel;
-      pictureEditor.DisplayPage.Create( 320, 200, GR.Drawing.PixelFormat.Format32bppRgb );
+      pictureEditor.DisplayPage.Create( MapDisplayBaseWidth, MapDisplayBaseHeight, GR.Drawing.PixelFormat.Format32bppRgb );
       pictureEditor.PostPaint += PictureEditor_PostPaint;
       pictureTileDisplay.ClientSize = new System.Drawing.Size( 256, 256 );
       pictureTileDisplay.DisplayPage.Create( 128, 128, GR.Drawing.PixelFormat.Format32bppRgb );
@@ -132,7 +140,7 @@ namespace RetroDevStudio.Documents
 
       panelCharColors.DisplayPage.Create( 128, 8, GR.Drawing.PixelFormat.Format32bppRgb );
 
-      m_Image.Create( 320, 200, GR.Drawing.PixelFormat.Format32bppRgb );
+      m_Image.Create( MapDisplayBaseWidth, MapDisplayBaseHeight, GR.Drawing.PixelFormat.Format32bppRgb );
 
       Palette   pal = Core.MainForm.ActivePalette;
 
@@ -141,6 +149,7 @@ namespace RetroDevStudio.Documents
       PaletteManager.ApplyPalette( panelCharacters.DisplayPage );
       PaletteManager.ApplyPalette( m_Image );
       PaletteManager.ApplyPalette( panelCharColors.DisplayPage );
+      ApplyMapZoom();
 
       comboMapMultiColor1.Items.Add( "From charset" );
       comboMapMultiColor2.Items.Add( "From charset" );
@@ -220,6 +229,93 @@ namespace RetroDevStudio.Documents
       {
         return Lookup.ScreenHeightInCharacters( m_MapProject.Mode );
       }
+    }
+
+
+
+    private int ViewCharWidth
+    {
+      get
+      {
+        if ( ( pictureEditor == null )
+        ||   ( pictureEditor.DisplayPage == null )
+        ||   ( pictureEditor.DisplayPage.Width == 0 ) )
+        {
+          return ScreenCharWidth;
+        }
+        return Math.Max( 1, pictureEditor.DisplayPage.Width / 8 );
+      }
+    }
+
+
+
+    private int ViewCharHeight
+    {
+      get
+      {
+        if ( ( pictureEditor == null )
+        ||   ( pictureEditor.DisplayPage == null )
+        ||   ( pictureEditor.DisplayPage.Height == 0 ) )
+        {
+          return ScreenCharHeight;
+        }
+        return Math.Max( 1, pictureEditor.DisplayPage.Height / 8 );
+      }
+    }
+
+
+
+    private void SetMapZoomPercent( int ZoomPercent )
+    {
+      int clampedPercent = Math.Max( MapZoomMinPercent, Math.Min( MapZoomMaxPercent, ZoomPercent ) );
+      if ( clampedPercent == m_MapZoomPercent )
+      {
+        return;
+      }
+      m_MapZoomPercent = clampedPercent;
+      ApplyMapZoom();
+    }
+
+
+
+    private void ApplyMapZoom()
+    {
+      int   baseCharWidth = MapDisplayBaseWidth / 8;
+      int   baseCharHeight = MapDisplayBaseHeight / 8;
+      float zoomFactor = m_MapZoomPercent / 100.0f;
+
+      int   viewCharWidth = Math.Max( 1, (int)Math.Round( baseCharWidth / zoomFactor ) );
+      int   viewCharHeight = Math.Max( 1, (int)Math.Round( baseCharHeight / zoomFactor ) );
+
+      int   displayWidth = viewCharWidth * 8;
+      int   displayHeight = viewCharHeight * 8;
+
+      if ( ( pictureEditor.DisplayPage.Width != displayWidth )
+      ||   ( pictureEditor.DisplayPage.Height != displayHeight ) )
+      {
+        pictureEditor.DisplayPage.Resize( displayWidth, displayHeight );
+        m_Image.Create( displayWidth, displayHeight, GR.Drawing.PixelFormat.Format32bppRgb );
+        PaletteManager.ApplyPalette( pictureEditor.DisplayPage );
+        PaletteManager.ApplyPalette( m_Image );
+      }
+
+      UpdateZoomButtons();
+      AdjustScrollbars();
+      RedrawMap();
+      pictureEditor.Invalidate();
+    }
+
+
+
+    private void UpdateZoomButtons()
+    {
+      if ( ( btnZoomIn == null )
+      ||   ( btnZoomOut == null ) )
+      {
+        return;
+      }
+      btnZoomIn.Enabled = m_MapZoomPercent < MapZoomMaxPercent;
+      btnZoomOut.Enabled = m_MapZoomPercent > MapZoomMinPercent;
     }
 
 
@@ -348,31 +444,35 @@ namespace RetroDevStudio.Documents
 
         int offsetX = m_CurEditorOffsetX;
         int offsetY = m_CurEditorOffsetY;
+        int viewCharWidth = ViewCharWidth;
+        int viewCharHeight = ViewCharHeight;
+        int charPixelWidth = Math.Max( 1, TargetBuffer.Width / viewCharWidth );
+        int charPixelHeight = Math.Max( 1, TargetBuffer.Height / viewCharHeight );
 
         int x1 = offsetX;
         int x2 = offsetX + m_CurrentMap.TileSpacingX * m_CurrentMap.Tiles.Width;
         int y1 = offsetY;
         int y2 = offsetY + m_CurrentMap.TileSpacingY * m_CurrentMap.Tiles.Height;
 
-        if ( x2 - offsetX > TargetBuffer.Width / ( m_CurrentMap.TileSpacingX * 16 ) )
+        if ( x2 - offsetX > TargetBuffer.Width / ( m_CurrentMap.TileSpacingX * charPixelWidth ) )
         {
-          x2 = TargetBuffer.Width / ( m_CurrentMap.TileSpacingX * 16 ) + offsetX;
+          x2 = TargetBuffer.Width / ( m_CurrentMap.TileSpacingX * charPixelWidth ) + offsetX;
         }
-        if ( y2 - offsetY > TargetBuffer.Height / ( m_CurrentMap.TileSpacingY * 16 ) )
+        if ( y2 - offsetY > TargetBuffer.Height / ( m_CurrentMap.TileSpacingY * charPixelHeight ) )
         {
-          y2 = TargetBuffer.Height / ( m_CurrentMap.TileSpacingY * 16 ) + offsetY;
+          y2 = TargetBuffer.Height / ( m_CurrentMap.TileSpacingY * charPixelHeight ) + offsetY;
         }
 
         for ( int x = x1; x <= x2; ++x )
         {
-          TargetBuffer.Line( ( x - offsetX ) * m_CurrentMap.TileSpacingX * 16, 0,
-                             ( x - offsetX ) * m_CurrentMap.TileSpacingX * 16, TargetBuffer.Height,
+          TargetBuffer.Line( ( x - offsetX ) * m_CurrentMap.TileSpacingX * charPixelWidth, 0,
+                             ( x - offsetX ) * m_CurrentMap.TileSpacingX * charPixelWidth, TargetBuffer.Height,
                              0xffffffff );
         }
         for ( int y = y1; y <= y2; ++y )
         {
-          TargetBuffer.Line( 0, ( y - offsetY ) * m_CurrentMap.TileSpacingY * 16, 
-                             TargetBuffer.Width, ( y - offsetY ) * m_CurrentMap.TileSpacingY * 16, 
+          TargetBuffer.Line( 0, ( y - offsetY ) * m_CurrentMap.TileSpacingY * charPixelHeight,
+                             TargetBuffer.Width, ( y - offsetY ) * m_CurrentMap.TileSpacingY * charPixelHeight,
                              0xffffffff );
         }
         /*
@@ -399,10 +499,10 @@ namespace RetroDevStudio.Documents
         {
           if ( m_SelectedTiles[x, y] )
           {
-            int  sx1 = ( x - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * pictureEditor.ClientRectangle.Width / ScreenCharWidth;
-            int  sx2 = ( x + 1 - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * pictureEditor.ClientRectangle.Width / ScreenCharWidth;
-            int  sy1 = ( y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * pictureEditor.ClientRectangle.Height / ScreenCharHeight;
-            int  sy2 = ( y + 1 - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * pictureEditor.ClientRectangle.Height / ScreenCharHeight;
+            int  sx1 = ( x - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * pictureEditor.ClientRectangle.Width / ViewCharWidth;
+            int  sx2 = ( x + 1 - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * pictureEditor.ClientRectangle.Width / ViewCharWidth;
+            int  sy1 = ( y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * pictureEditor.ClientRectangle.Height / ViewCharHeight;
+            int  sy2 = ( y + 1 - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * pictureEditor.ClientRectangle.Height / ViewCharHeight;
 
             --sx2;
             --sy2;
@@ -451,10 +551,10 @@ namespace RetroDevStudio.Documents
 
         CalcRect( m_DragStartPos, m_LastDragEndPos, out o1, out o2 );
 
-        TargetBuffer.Rectangle( ( o1.X - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * pictureEditor.ClientRectangle.Width / ScreenCharWidth,
-                                ( o1.Y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * pictureEditor.ClientRectangle.Height / ScreenCharHeight,
-                                ( o2.X - o1.X + 1 ) * m_CurrentMap.TileSpacingX * pictureEditor.ClientRectangle.Width / ScreenCharWidth, 
-                                ( o2.Y - o1.Y + 1 ) * m_CurrentMap.TileSpacingY * pictureEditor.ClientRectangle.Height / ScreenCharHeight,
+        TargetBuffer.Rectangle( ( o1.X - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * pictureEditor.ClientRectangle.Width / ViewCharWidth,
+                                ( o1.Y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * pictureEditor.ClientRectangle.Height / ViewCharHeight,
+                                ( o2.X - o1.X + 1 ) * m_CurrentMap.TileSpacingX * pictureEditor.ClientRectangle.Width / ViewCharWidth, 
+                                ( o2.Y - o1.Y + 1 ) * m_CurrentMap.TileSpacingY * pictureEditor.ClientRectangle.Height / ViewCharHeight,
                                 selectionColor );
       }
 
@@ -746,8 +846,12 @@ namespace RetroDevStudio.Documents
         labelEditInfo.Text = "";
         return;
       }
-      int     charX = X / ( pictureEditor.ClientRectangle.Width / ScreenCharWidth );
-      int     charY = Y / ( pictureEditor.ClientRectangle.Height / ScreenCharHeight );
+      int     viewCharWidth = ViewCharWidth;
+      int     viewCharHeight = ViewCharHeight;
+      int     charPixelWidth = Math.Max( 1, pictureEditor.ClientRectangle.Width / viewCharWidth );
+      int     charPixelHeight = Math.Max( 1, pictureEditor.ClientRectangle.Height / viewCharHeight );
+      int     charX = X / charPixelWidth;
+      int     charY = Y / charPixelHeight;
 
       m_MousePos.X = charX / m_CurrentMap.TileSpacingX;
       m_MousePos.Y = charY / m_CurrentMap.TileSpacingY;
@@ -765,9 +869,9 @@ namespace RetroDevStudio.Documents
       int offsetY = m_CurEditorOffsetY;
 
       if ( ( charX < 0 )
-      ||   ( charX >= ScreenCharWidth )
+      ||   ( charX >= viewCharWidth )
       ||   ( charY < 0 )
-      ||   ( charY >= ScreenCharHeight ) )
+      ||   ( charY >= viewCharHeight ) )
       {
         return;
       }
@@ -1259,7 +1363,7 @@ namespace RetroDevStudio.Documents
           }
         }
       }
-      pictureEditor.DisplayPage.DrawTo( m_Image, 0, 0, 0, 0, 320, 200 );
+      pictureEditor.DisplayPage.DrawTo( m_Image, 0, 0, 0, 0, pictureEditor.DisplayPage.Width, pictureEditor.DisplayPage.Height );
       pictureEditor.Invalidate();
     }
 
@@ -2066,7 +2170,10 @@ namespace RetroDevStudio.Documents
         return;
       }
 
-      if ( m_CurrentMap.TileSpacingX * m_CurrentMap.Tiles.Width <= ScreenCharWidth )
+      int viewCharWidth = ViewCharWidth;
+      int viewCharHeight = ViewCharHeight;
+
+      if ( m_CurrentMap.TileSpacingX * m_CurrentMap.Tiles.Width <= viewCharWidth )
       {
         mapHScroll.Maximum = 0;
         mapHScroll.Enabled = false;
@@ -2074,7 +2181,7 @@ namespace RetroDevStudio.Documents
       }
       else
       {
-        mapHScroll.Maximum = ( m_CurrentMap.TileSpacingX * m_CurrentMap.Tiles.Width - ScreenCharWidth ) / m_CurrentMap.TileSpacingX + 1;
+        mapHScroll.Maximum = ( m_CurrentMap.TileSpacingX * m_CurrentMap.Tiles.Width - viewCharWidth ) / m_CurrentMap.TileSpacingX + 1;
         mapHScroll.Enabled = true;
       }
       if ( m_CurEditorOffsetX > mapHScroll.Maximum )
@@ -2083,7 +2190,7 @@ namespace RetroDevStudio.Documents
       }
 
       mapVScroll.Minimum = 0;
-      if ( m_CurrentMap.TileSpacingY * m_CurrentMap.Tiles.Height <= ScreenCharHeight )
+      if ( m_CurrentMap.TileSpacingY * m_CurrentMap.Tiles.Height <= viewCharHeight )
       {
         mapVScroll.Maximum = 0;
         mapVScroll.Enabled = false;
@@ -2091,7 +2198,7 @@ namespace RetroDevStudio.Documents
       }
       else
       {
-        mapVScroll.Maximum = ( m_CurrentMap.TileSpacingY * m_CurrentMap.Tiles.Height - ScreenCharHeight ) / m_CurrentMap.TileSpacingY + 1;
+        mapVScroll.Maximum = ( m_CurrentMap.TileSpacingY * m_CurrentMap.Tiles.Height - viewCharHeight ) / m_CurrentMap.TileSpacingY + 1;
         mapVScroll.Enabled = true;
       }
       if ( m_CurEditorOffsetY > mapVScroll.Maximum )
@@ -3513,6 +3620,20 @@ namespace RetroDevStudio.Documents
     {
       m_MapProject.ShowGrid = checkShowGrid.Checked;
       Redraw();
+    }
+
+
+
+    private void btnZoomIn_Click( DecentForms.ControlBase Sender )
+    {
+      SetMapZoomPercent( m_MapZoomPercent + MapZoomStepPercent );
+    }
+
+
+
+    private void btnZoomOut_Click( DecentForms.ControlBase Sender )
+    {
+      SetMapZoomPercent( m_MapZoomPercent - MapZoomStepPercent );
     }
 
 

@@ -42,6 +42,8 @@
       this.closeCharsetProjectToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
       this.tabEditor = new System.Windows.Forms.TabPage();
       this.btnCopyMapImage = new DecentForms.Button();
+      this.btnZoomOut = new DecentForms.Button();
+      this.btnZoomIn = new DecentForms.Button();
       this.btnToolSelect = new DecentForms.RadioButton();
       this.btnToolFill = new DecentForms.RadioButton();
       this.btnToolQuad = new DecentForms.RadioButton();
@@ -214,6 +216,8 @@
       // tabEditor
       // 
       this.tabEditor.Controls.Add(this.btnCopyMapImage);
+      this.tabEditor.Controls.Add(this.btnZoomOut);
+      this.tabEditor.Controls.Add(this.btnZoomIn);
       this.tabEditor.Controls.Add(this.btnToolSelect);
       this.tabEditor.Controls.Add(this.btnToolFill);
       this.tabEditor.Controls.Add(this.btnToolQuad);
@@ -251,6 +255,36 @@
       this.btnCopyMapImage.TabIndex = 8;
       this.toolTip1.SetToolTip(this.btnCopyMapImage, "Copy map to clipboard as image");
       this.btnCopyMapImage.Click += new DecentForms.EventHandler(this.btnCopyImage_Click);
+      // 
+      // btnZoomOut
+      // 
+      this.btnZoomOut.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+      this.btnZoomOut.BorderStyle = DecentForms.BorderStyle.FLAT;
+      this.btnZoomOut.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+      this.btnZoomOut.DialogResult = System.Windows.Forms.DialogResult.OK;
+      this.btnZoomOut.Image = null;
+      this.btnZoomOut.Location = new System.Drawing.Point(309, 432);
+      this.btnZoomOut.Name = "btnZoomOut";
+      this.btnZoomOut.Size = new System.Drawing.Size(24, 24);
+      this.btnZoomOut.TabIndex = 10;
+      this.btnZoomOut.Text = "-";
+      this.toolTip1.SetToolTip(this.btnZoomOut, "Zoom out");
+      this.btnZoomOut.Click += new DecentForms.EventHandler(this.btnZoomOut_Click);
+      // 
+      // btnZoomIn
+      // 
+      this.btnZoomIn.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+      this.btnZoomIn.BorderStyle = DecentForms.BorderStyle.FLAT;
+      this.btnZoomIn.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+      this.btnZoomIn.DialogResult = System.Windows.Forms.DialogResult.OK;
+      this.btnZoomIn.Image = null;
+      this.btnZoomIn.Location = new System.Drawing.Point(333, 432);
+      this.btnZoomIn.Name = "btnZoomIn";
+      this.btnZoomIn.Size = new System.Drawing.Size(24, 24);
+      this.btnZoomIn.TabIndex = 11;
+      this.btnZoomIn.Text = "+";
+      this.toolTip1.SetToolTip(this.btnZoomIn, "Zoom in");
+      this.btnZoomIn.Click += new DecentForms.EventHandler(this.btnZoomIn_Click);
       // 
       // btnToolSelect
       // 
@@ -1653,6 +1687,8 @@
     private DecentForms.Button btnMoveMapDown;
     private DecentForms.Button btnMoveMapUp;
     private DecentForms.Button btnCopyMapImage;
+    private DecentForms.Button btnZoomOut;
+    private DecentForms.Button btnZoomIn;
         private System.Windows.Forms.ComboBox comboMapProjectMode;
         private System.Windows.Forms.Label label25;
     private System.Windows.Forms.TabPage tabExport;
