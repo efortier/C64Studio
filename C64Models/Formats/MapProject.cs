@@ -898,6 +898,16 @@ namespace RetroDevStudio.Formats
             }
           }
         }
+        sbMaps.Append( DataByteDirective );
+        if ( !DataByteDirective.EndsWith( " " ) )
+        {
+          sbMaps.Append( ' ' );
+        }
+        sbMaps.Append( "$" );
+        sbMaps.Append( ( (byte)map.Tiles.Width ).ToString( "X2" ) );
+        sbMaps.Append( ", $" );
+        sbMaps.Append( ( (byte)map.Tiles.Height ).ToString( "X2" ) );
+        sbMaps.AppendLine();
         sbMaps.AppendLine();
         sbMaps.Append( Util.ToASMData( mapDataBuffer, WrapData, WrapByteCount, DataByteDirective ) );
         if ( hasExtraData )
