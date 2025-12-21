@@ -1167,9 +1167,16 @@ namespace RetroDevStudio.Formats
     }
 
 
+
     public bool ExportSparseTileAndMapData( out string ExportData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective, bool EmptyTileCompression, int EmptyTileIndex )
     {
       StringBuilder sb = new StringBuilder();
+
+      string labelSuffix = "";
+      if ( Settings.Assembly.IncludeSemicolonAfterSimpleLabels )
+      {
+        labelSuffix = ":";
+      }
 
       // Tiles Data
       sb.AppendLine( LabelPrefix + "TILE_COUNT=" + Tiles.Count );
@@ -1184,19 +1191,19 @@ namespace RetroDevStudio.Formats
         tileHeights.AppendU8( (byte)tile.Chars.Height );
       }
 
-      sb.AppendLine( LabelPrefix + "TILES_WIDTH" );
+      sb.AppendLine( LabelPrefix + "TILES_WIDTH" + labelSuffix );
       sb.AppendLine( Util.ToASMData( tileWidths, WrapData, WrapByteCount, DataByteDirective ) );
       sb.AppendLine();
 
-      sb.AppendLine( LabelPrefix + "TILES_HEIGHT" );
+      sb.AppendLine( LabelPrefix + "TILES_HEIGHT" + labelSuffix );
       sb.AppendLine( Util.ToASMData( tileHeights, WrapData, WrapByteCount, DataByteDirective ) );
       sb.AppendLine();
 
-      sb.AppendLine( LabelPrefix + "TILES_CHAR_DATA" );
+      sb.AppendLine( LabelPrefix + "TILES_CHAR_DATA" + labelSuffix );
       for ( int i = 0; i < Tiles.Count; ++i )
       {
         var tile = Tiles[i];
-        sb.Append( LabelPrefix + "TILE_CHAR_" + i.ToString( "D2" ) + " " );
+        sb.Append( LabelPrefix + "TILE_CHAR_" + i.ToString( "D2" ) + labelSuffix + " " );
         
         GR.Memory.ByteBuffer charData = new GR.Memory.ByteBuffer();
         for ( int y = 0; y < tile.Chars.Height; ++y )
@@ -1206,15 +1213,20 @@ namespace RetroDevStudio.Formats
             charData.AppendU8( tile.Chars[x, y].Character );
           }
         }
-        sb.AppendLine( Util.ToASMData( charData, false, 0, DataByteDirective ) + "\t\t\t" + Settings.Assembly.CommentChars + " tile " + i + ", " + tile.Chars.Width + "x" + tile.Chars.Height );
+        sb.Append( Util.ToASMData( charData, false, 0, DataByteDirective ) );
+        if ( Settings.Assembly.MapSizeCommentEnabled )
+        {
+          sb.Append( "\t\t\t" + Settings.Assembly.CommentChars + " tile " + i + ", " + tile.Chars.Width + "x" + tile.Chars.Height );
+        }
+        sb.AppendLine();
       }
       sb.AppendLine();
 
-      sb.AppendLine( LabelPrefix + "TILES_COLOR_DATA" );
+      sb.AppendLine( LabelPrefix + "TILES_COLOR_DATA" + labelSuffix );
       for ( int i = 0; i < Tiles.Count; ++i )
       {
         var tile = Tiles[i];
-        sb.Append( LabelPrefix + "TILE_COLOR_" + i.ToString( "D2" ) + " " );
+        sb.Append( LabelPrefix + "TILE_COLOR_" + i.ToString( "D2" ) + labelSuffix + " " );
 
         GR.Memory.ByteBuffer colorData = new GR.Memory.ByteBuffer();
         for ( int y = 0; y < tile.Chars.Height; ++y )
@@ -1229,7 +1241,7 @@ namespace RetroDevStudio.Formats
       sb.AppendLine();
 
       // Tables
-      sb.AppendLine( LabelPrefix + "TILES_CHAR_TABLE_LOW" );
+      sb.AppendLine( LabelPrefix + "TILES_CHAR_TABLE_LOW" + labelSuffix );
       GR.Memory.ByteBuffer tableLow = new GR.Memory.ByteBuffer();
       StringBuilder sbTable = new StringBuilder();
       sbTable.Append( DataByteDirective + " " );
@@ -1241,7 +1253,7 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( sbTable.ToString() );
       sb.AppendLine();
 
-      sb.AppendLine( LabelPrefix + "TILES_CHAR_TABLE_HIGH" );
+      sb.AppendLine( LabelPrefix + "TILES_CHAR_TABLE_HIGH" + labelSuffix );
       sbTable = new StringBuilder();
       sbTable.Append( DataByteDirective + " " );
       for ( int i = 0; i < Tiles.Count; ++i )
@@ -1252,7 +1264,7 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( sbTable.ToString() );
       sb.AppendLine();
 
-      sb.AppendLine( LabelPrefix + "TILES_COLOR_TABLE_LOW" );
+      sb.AppendLine( LabelPrefix + "TILES_COLOR_TABLE_LOW" + labelSuffix );
       sbTable = new StringBuilder();
       sbTable.Append( DataByteDirective + " " );
       for ( int i = 0; i < Tiles.Count; ++i )
@@ -1263,7 +1275,7 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( sbTable.ToString() );
       sb.AppendLine();
 
-      sb.AppendLine( LabelPrefix + "TILES_COLOR_TABLE_HIGH" );
+      sb.AppendLine( LabelPrefix + "TILES_COLOR_TABLE_HIGH" + labelSuffix );
       sbTable = new StringBuilder();
       sbTable.Append( DataByteDirective + " " );
       for ( int i = 0; i < Tiles.Count; ++i )
@@ -1275,11 +1287,14 @@ namespace RetroDevStudio.Formats
       sb.AppendLine();
 
       // Map Data
-      sb.AppendLine( Settings.Assembly.CommentChars + " map data" );
+      if ( Settings.Assembly.MapSizeCommentEnabled )
+      {
+        sb.AppendLine( Settings.Assembly.CommentChars + " map data" );
+      }
       sb.AppendLine( LabelPrefix + "MAP_COUNT=" + Maps.Count );
       sb.AppendLine();
 
-      sb.AppendLine( LabelPrefix + "MAPS_TABLE_LOW" );
+      sb.AppendLine( LabelPrefix + "MAPS_TABLE_LOW" + labelSuffix );
       sbTable = new StringBuilder();
       sbTable.Append( DataByteDirective + " " );
       for ( int i = 0; i < Maps.Count; ++i )
@@ -1290,7 +1305,7 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( sbTable.ToString() );
       sb.AppendLine();
       
-      sb.AppendLine( LabelPrefix + "MAPS_TABLE_HIGH" );
+      sb.AppendLine( LabelPrefix + "MAPS_TABLE_HIGH" + labelSuffix );
       sbTable = new StringBuilder();
       sbTable.Append( DataByteDirective + " " );
       for ( int i = 0; i < Maps.Count; ++i )
@@ -1304,13 +1319,23 @@ namespace RetroDevStudio.Formats
       for ( int i = 0; i < Maps.Count; ++i )
       {
         var map = Maps[i];
-        sb.AppendLine( LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + " " + Settings.Assembly.CommentChars + " " + map.Name );
+        sb.Append( LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + labelSuffix + " " );
+        if ( Settings.Assembly.MapSizeCommentEnabled )
+        {
+          sb.Append( Settings.Assembly.CommentChars + " " + map.Name );
+        }
+        sb.AppendLine();
         
         // Map Size
         GR.Memory.ByteBuffer mapSize = new GR.Memory.ByteBuffer();
         mapSize.AppendU8( (byte)map.Tiles.Width );
         mapSize.AppendU8( (byte)map.Tiles.Height );
-        sb.AppendLine( Util.ToASMData( mapSize, false, 0, DataByteDirective ) + " " + Settings.Assembly.CommentChars + " map width, height" );
+        sb.Append( Util.ToASMData( mapSize, false, 0, DataByteDirective ) );
+        if ( Settings.Assembly.MapSizeCommentEnabled )
+        {
+          sb.Append( " " + Settings.Assembly.CommentChars + " map width, height" );
+        }
+        sb.AppendLine();
 
         // Collect tiles
         GR.Memory.ByteBuffer mapTiles = new GR.Memory.ByteBuffer();
@@ -1336,7 +1361,12 @@ namespace RetroDevStudio.Formats
         GR.Memory.ByteBuffer listSize = new GR.Memory.ByteBuffer();
         listSize.AppendU8( (byte)( tileCount & 0xff ) );
         listSize.AppendU8( (byte)( ( tileCount >> 8 ) & 0xff ) );
-        sb.AppendLine( Util.ToASMData( listSize, false, 0, DataByteDirective ) + " " + Settings.Assembly.CommentChars + " tile count" );
+        sb.Append( Util.ToASMData( listSize, false, 0, DataByteDirective ) );
+        if ( Settings.Assembly.MapSizeCommentEnabled )
+        {
+          sb.Append( " " + Settings.Assembly.CommentChars + " tile count" );
+        }
+        sb.AppendLine();
 
         int ptr = 0;
         while ( ptr < mapTiles.Length )
@@ -1352,13 +1382,18 @@ namespace RetroDevStudio.Formats
            
            string entryHex = Util.ToASMData( entry, false, 0, DataByteDirective );
            
-           string comment = "";
-           if ( t < Tiles.Count )
+           sb.Append( entryHex );
+           if ( Settings.Assembly.MapSizeCommentEnabled )
            {
-              var tile = Tiles[t];
-              comment = Settings.Assembly.CommentChars + " tile " + t + ", " + tile.Chars.Width + "x" + tile.Chars.Height;
+             string comment = "";
+             if ( t < Tiles.Count )
+             {
+                var tile = Tiles[t];
+                comment = Settings.Assembly.CommentChars + " tile " + t + ", " + tile.Chars.Width + "x" + tile.Chars.Height;
+             }
+             sb.Append( "\t\t" + comment );
            }
-           sb.AppendLine( entryHex + "\t\t" + comment );
+           sb.AppendLine();
            ptr += 3;
         }
         sb.AppendLine();
@@ -1367,6 +1402,7 @@ namespace RetroDevStudio.Formats
       ExportData = sb.ToString();
       return true;
     }
+
 
   }
 }
