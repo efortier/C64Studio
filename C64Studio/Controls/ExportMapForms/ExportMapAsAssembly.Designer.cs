@@ -33,6 +33,8 @@ namespace RetroDevStudio.Controls
       this.checkVariableNameLabelPrefix = new System.Windows.Forms.CheckBox();
       this.editVariableNameLabelPrefix = new System.Windows.Forms.TextBox();
       this.checkIncludeSemicolonAfterSimpleLabels = new System.Windows.Forms.CheckBox();
+      this.labelCommentCharacters = new System.Windows.Forms.Label();
+      this.editCommentCharacters = new System.Windows.Forms.TextBox();
       this.checkExportToDataIncludeRes = new System.Windows.Forms.CheckBox();
       this.checkExportToDataWrap = new System.Windows.Forms.CheckBox();
       this.editWrapByteCount = new System.Windows.Forms.TextBox();
@@ -79,6 +81,23 @@ namespace RetroDevStudio.Controls
       this.checkIncludeSemicolonAfterSimpleLabels.TabIndex = 7;
       this.checkIncludeSemicolonAfterSimpleLabels.Text = "Include colon after simple labels";
       this.checkIncludeSemicolonAfterSimpleLabels.UseVisualStyleBackColor = true;
+      // 
+      // labelCommentCharacters
+      // 
+      this.labelCommentCharacters.AutoSize = true;
+      this.labelCommentCharacters.Location = new System.Drawing.Point(3, 120);
+      this.labelCommentCharacters.Name = "labelCommentCharacters";
+      this.labelCommentCharacters.Size = new System.Drawing.Size(103, 13);
+      this.labelCommentCharacters.TabIndex = 20;
+      this.labelCommentCharacters.Text = "Comment characters";
+      // 
+      // editCommentCharacters
+      // 
+      this.editCommentCharacters.Location = new System.Drawing.Point(200, 117);
+      this.editCommentCharacters.Name = "editCommentCharacters";
+      this.editCommentCharacters.Size = new System.Drawing.Size(64, 20);
+      this.editCommentCharacters.TabIndex = 8;
+      this.editCommentCharacters.Text = ";";
       // 
       // checkExportToDataIncludeRes
       // 
@@ -135,6 +154,8 @@ namespace RetroDevStudio.Controls
       // 
       this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
       this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+      this.Controls.Add(this.editCommentCharacters);
+      this.Controls.Add(this.labelCommentCharacters);
       this.Controls.Add(this.checkIncludeSemicolonAfterSimpleLabels);
       this.Controls.Add(this.editVariableNameLabelPrefix);
       this.Controls.Add(this.checkVariableNameLabelPrefix);
@@ -156,6 +177,8 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.CheckBox checkVariableNameLabelPrefix;
     private System.Windows.Forms.TextBox editVariableNameLabelPrefix;
     private System.Windows.Forms.CheckBox checkIncludeSemicolonAfterSimpleLabels;
+    private System.Windows.Forms.Label labelCommentCharacters;
+    private System.Windows.Forms.TextBox editCommentCharacters;
     private System.Windows.Forms.CheckBox checkExportToDataIncludeRes;
     private System.Windows.Forms.CheckBox checkExportToDataWrap;
     private System.Windows.Forms.TextBox editWrapByteCount;

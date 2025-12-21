@@ -35,6 +35,7 @@ namespace RetroDevStudio.Controls
       checkExportHex.CheckedChanged += HandleSettingsChanged;
       editVariableNameLabelPrefix.TextChanged += HandleSettingsChanged;
       checkIncludeSemicolonAfterSimpleLabels.CheckedChanged += HandleSettingsChanged;
+      editCommentCharacters.TextChanged += HandleSettingsChanged;
     }
 
 
@@ -155,7 +156,7 @@ namespace RetroDevStudio.Controls
       if ( ( Info.ExportType == MapExportType.MAP_DATA )
       ||   ( Info.ExportType == MapExportType.TILE_AND_MAP_DATA ) )
       {
-        Info.Map.ExportMapsAsAssembly( !Info.RowByRow, out mapData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix );
+        Info.Map.ExportMapsAsAssembly( !Info.RowByRow, out mapData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix, editCommentCharacters.Text ?? "" );
       }
 
       string resultText = "";
@@ -231,6 +232,12 @@ namespace RetroDevStudio.Controls
         checkVariableNameLabelPrefix.Checked = assemblySettings.VariableNameLabelPrefixEnabled;
         editVariableNameLabelPrefix.Text = assemblySettings.VariableNameLabelPrefix ?? "";
         checkIncludeSemicolonAfterSimpleLabels.Checked = assemblySettings.IncludeSemicolonAfterSimpleLabels;
+        string commentChars = assemblySettings.CommentChars;
+        if ( string.IsNullOrEmpty( commentChars ) )
+        {
+          commentChars = ";";
+        }
+        editCommentCharacters.Text = commentChars;
         editPrefix.Enabled = checkExportToDataIncludeRes.Checked;
         editWrapByteCount.Enabled = checkExportToDataWrap.Checked;
         editVariableNameLabelPrefix.Enabled = checkVariableNameLabelPrefix.Checked;
@@ -260,6 +267,7 @@ namespace RetroDevStudio.Controls
       assemblySettings.VariableNameLabelPrefixEnabled = checkVariableNameLabelPrefix.Checked;
       assemblySettings.VariableNameLabelPrefix = editVariableNameLabelPrefix.Text ?? "";
       assemblySettings.IncludeSemicolonAfterSimpleLabels = checkIncludeSemicolonAfterSimpleLabels.Checked;
+      assemblySettings.CommentChars = editCommentCharacters.Text ?? "";
     }
 
 

@@ -1539,7 +1539,7 @@ namespace RetroDevStudio.Parser
         }
         else if ( method == "MAP" )
         {
-          map.ExportMapsAsAssembly( false, out textToInclude, labelPrefix, false, 0, MacroByType( RetroDevStudio.Types.MacroInfo.PseudoOpType.BYTE ) );
+          map.ExportMapsAsAssembly( false, out textToInclude, labelPrefix, false, 0, MacroByType( RetroDevStudio.Types.MacroInfo.PseudoOpType.BYTE ), ";" );
           map.ExportTileNamesAsAssembly( out string textToIncludeTiles, labelPrefix );
           textToInclude = textToIncludeTiles + textToInclude;
         }
@@ -1549,7 +1549,7 @@ namespace RetroDevStudio.Parser
         }
         else if ( method == "MAPVERTICAL" )
         {
-          map.ExportMapsAsAssembly( true, out textToInclude, labelPrefix, false, 0, MacroByType( RetroDevStudio.Types.MacroInfo.PseudoOpType.BYTE ) );
+          map.ExportMapsAsAssembly( true, out textToInclude, labelPrefix, false, 0, MacroByType( RetroDevStudio.Types.MacroInfo.PseudoOpType.BYTE ), ";" );
           map.ExportTileNamesAsAssembly( out string textToIncludeTiles, labelPrefix );
           textToInclude = textToIncludeTiles + textToInclude;
         }
@@ -1606,7 +1606,7 @@ namespace RetroDevStudio.Parser
           map.ExportTilesAsAssembly( out dummy, labelPrefix, false, 0, MacroByType( RetroDevStudio.Types.MacroInfo.PseudoOpType.BYTE ) );
           textToInclude += dummy;
 
-          map.ExportMapsAsAssembly( false, out dummy, labelPrefix, false, 0, MacroByType( RetroDevStudio.Types.MacroInfo.PseudoOpType.BYTE ) );
+          map.ExportMapsAsAssembly( false, out dummy, labelPrefix, false, 0, MacroByType( RetroDevStudio.Types.MacroInfo.PseudoOpType.BYTE ), ";" );
           textToInclude += dummy;
 
           map.ExportTileNamesAsAssembly( out string textToIncludeTiles, labelPrefix );
@@ -1618,7 +1618,7 @@ namespace RetroDevStudio.Parser
           map.ExportTilesAsAssembly( out dummy, labelPrefix, false, 0, MacroByType( RetroDevStudio.Types.MacroInfo.PseudoOpType.BYTE ) );
           textToInclude += dummy;
 
-          map.ExportMapsAsAssembly( true, out dummy, labelPrefix, false, 0, MacroByType( RetroDevStudio.Types.MacroInfo.PseudoOpType.BYTE ) );
+          map.ExportMapsAsAssembly( true, out dummy, labelPrefix, false, 0, MacroByType( RetroDevStudio.Types.MacroInfo.PseudoOpType.BYTE ), ";" );
           textToInclude += dummy;
 
           map.ExportTileNamesAsAssembly( out string textToIncludeTiles, labelPrefix );
