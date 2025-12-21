@@ -48,6 +48,39 @@ namespace RetroDevStudio.Formats
       public TextCharMode       AlternativeMode = TextCharMode.UNKNOWN;
     };
 
+    public class ExportSettings
+    {
+      public class AssemblySettings
+      {
+        public bool   PrefixWith = true;
+        public string Prefix = "!byte ";
+        public bool   WrapAt = true;
+        public int    WrapByteCount = 8;
+        public bool   ExportHex = true;
+      }
+
+      public class BinarySettings
+      {
+        public bool   PrefixLoadAddress = false;
+        public string PrefixLoadAddressHex = "";
+      }
+
+      public class TargetSettings
+      {
+        public string TargetFilename = "";
+      }
+
+      public int    ExportDataIndex = 0;
+      public int    ExportOrientationIndex = 0;
+      public int    ExportMethodIndex = 0;
+
+      public AssemblySettings  Assembly = new AssemblySettings();
+      public BinarySettings    Binary = new BinarySettings();
+      public BinarySettings    CharsetBinary = new BinarySettings();
+      public TargetSettings    CharsetProject = new TargetSettings();
+      public TargetSettings    Charscreen = new TargetSettings();
+    };
+
 
     public List<Tile>                   Tiles = new List<Tile>();
 
@@ -65,6 +98,7 @@ namespace RetroDevStudio.Formats
     public TextMode                     Mode = TextMode.COMMODORE_40_X_25_HIRES;
     public CharsetProject               Charset = new Formats.CharsetProject();
     public bool                         ShowGrid = false;
+    public ExportSettings               Settings = new ExportSettings();
 
 
 
@@ -87,6 +121,7 @@ namespace RetroDevStudio.Formats
       Tiles.Clear();
       Maps.Clear();
       ExternalCharset = "";
+      Settings = new ExportSettings();
     }
 
 
@@ -183,6 +218,24 @@ namespace RetroDevStudio.Formats
       }
 
       projectFile.Append( chunkProjectData.ToBuffer() );
+
+      GR.IO.FileChunk chunkExportSettings = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS );
+      chunkExportSettings.AppendU32( 0 );
+      chunkExportSettings.AppendI32(Settings.ExportDataIndex );
+      chunkExportSettings.AppendI32(Settings.ExportOrientationIndex );
+      chunkExportSettings.AppendI32( Settings.ExportMethodIndex );
+      chunkExportSettings.AppendI32( Settings.Assembly.PrefixWith ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.Assembly.Prefix ?? "" );
+      chunkExportSettings.AppendI32( Settings.Assembly.WrapAt ? 1 : 0 );
+      chunkExportSettings.AppendI32( Settings.Assembly.WrapByteCount );
+      chunkExportSettings.AppendI32( Settings.Assembly.ExportHex ? 1 : 0 );
+      chunkExportSettings.AppendI32( Settings.Binary.PrefixLoadAddress ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.Binary.PrefixLoadAddressHex ?? "" );
+      chunkExportSettings.AppendI32( Settings.CharsetBinary.PrefixLoadAddress ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.CharsetBinary.PrefixLoadAddressHex ?? "" );
+      chunkExportSettings.AppendString( Settings.CharsetProject.TargetFilename ?? "" );
+      chunkExportSettings.AppendString( Settings.Charscreen.TargetFilename ?? "" );
+      projectFile.Append( chunkExportSettings.ToBuffer() );
       return projectFile;
     }
 
@@ -316,6 +369,28 @@ namespace RetroDevStudio.Formats
                     }
                     break;
                 }
+              }
+            }
+            break;
+          case FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS:
+            {
+              uint version = chunkReader.ReadUInt32();
+              if ( version == 0 )
+              {
+                Settings.ExportDataIndex = chunkReader.ReadInt32();
+                Settings.ExportOrientationIndex = chunkReader.ReadInt32();
+                Settings.ExportMethodIndex = chunkReader.ReadInt32();
+                Settings.Assembly.PrefixWith = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.Prefix = chunkReader.ReadString();
+                Settings.Assembly.WrapAt = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.WrapByteCount = chunkReader.ReadInt32();
+                Settings.Assembly.ExportHex = ( chunkReader.ReadInt32() != 0 );
+                Settings.Binary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.Binary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetBinary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.CharsetBinary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetProject.TargetFilename = chunkReader.ReadString();
+                Settings.Charscreen.TargetFilename = chunkReader.ReadString();
               }
             }
             break;

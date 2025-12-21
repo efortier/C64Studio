@@ -1,5 +1,6 @@
 ﻿using RetroDevStudio.Types;
 using RetroDevStudio.Formats;
+using System;
 using System.Windows.Forms;
 using RetroDevStudio.Documents;
 using static RetroDevStudio.Documents.BaseDocument;
@@ -9,6 +10,8 @@ namespace RetroDevStudio.Controls
 {
   public partial class ExportMapAsCharscreen : ExportMapFormBase
   {
+    private bool m_ApplyingSettings = false;
+
     public ExportMapAsCharscreen() :
       base( null )
     { 
@@ -26,6 +29,7 @@ namespace RetroDevStudio.Controls
       comboCharscreenFiles.SelectedIndex = 0;
 
       Core.MainForm.ApplicationEvent += new MainForm.ApplicationEventHandler( MainForm_ApplicationEvent );
+      comboCharscreenFiles.SelectedIndexChanged += comboCharscreenFiles_SelectedIndexChanged;
     }
 
 
@@ -126,6 +130,70 @@ namespace RetroDevStudio.Controls
         charEditor.SetModified();
       }
       return true;
+    }
+
+    private void comboCharscreenFiles_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      if ( !m_ApplyingSettings )
+      {
+        RaiseSettingsChanged();
+      }
+    }
+
+    public override void ApplyExportSettings( MapProject.ExportSettings Settings )
+    {
+      if ( Settings == null )
+      {
+        return;
+      }
+      m_ApplyingSettings = true;
+      try
+      {
+        int targetIndex = 0;
+        string targetFilename = Settings.Charscreen.TargetFilename;
+        if ( !string.IsNullOrEmpty( targetFilename ) )
+        {
+          for ( int i = 0; i < comboCharscreenFiles.Items.Count; ++i )
+          {
+            var comboItem = (Types.ComboItem)comboCharscreenFiles.Items[i];
+            var docInfo = comboItem?.Tag as DocumentInfo;
+            if ( docInfo == null )
+            {
+              continue;
+            }
+            if ( string.Equals( docInfo.DocumentFilename ?? "", targetFilename, StringComparison.OrdinalIgnoreCase )
+            ||   string.Equals( docInfo.FullPath ?? "", targetFilename, StringComparison.OrdinalIgnoreCase ) )
+            {
+              targetIndex = i;
+              break;
+            }
+          }
+        }
+        if ( comboCharscreenFiles.Items.Count > 0 )
+        {
+          comboCharscreenFiles.SelectedIndex = targetIndex;
+        }
+      }
+      finally
+      {
+        m_ApplyingSettings = false;
+      }
+    }
+
+    public override void UpdateExportSettings( MapProject.ExportSettings Settings )
+    {
+      if ( Settings == null )
+      {
+        return;
+      }
+      string targetFilename = "";
+      var comboItem = comboCharscreenFiles.SelectedItem as Types.ComboItem;
+      var docInfo = comboItem?.Tag as DocumentInfo;
+      if ( docInfo != null )
+      {
+        targetFilename = docInfo.DocumentFilename ?? docInfo.FullPath ?? "";
+      }
+      Settings.Charscreen.TargetFilename = targetFilename;
     }
 
 

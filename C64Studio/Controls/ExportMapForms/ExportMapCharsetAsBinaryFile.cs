@@ -17,6 +17,8 @@ namespace RetroDevStudio.Controls
 {
   public partial class ExportMapCharsetAsBinaryFile : ExportMapFormBase
   {
+    private bool m_ApplyingSettings = false;
+
     public ExportMapCharsetAsBinaryFile() :
       base( null )
     { 
@@ -28,6 +30,7 @@ namespace RetroDevStudio.Controls
       base( Core )
     {
       InitializeComponent();
+      editPrefixLoadAddress.TextChanged += HandleSettingsChanged;
     }
 
 
@@ -70,6 +73,10 @@ namespace RetroDevStudio.Controls
     private void checkPrefixLoadAddress_CheckedChanged(object sender, EventArgs e)
     {
       editPrefixLoadAddress.Enabled = checkPrefixLoadAddress.Checked;
+      if ( !m_ApplyingSettings )
+      {
+        RaiseSettingsChanged();
+      }
     }
 
 
@@ -89,6 +96,45 @@ namespace RetroDevStudio.Controls
       {
         e.Handled = true;
       }
+    }
+
+    private void HandleSettingsChanged( object sender, EventArgs e )
+    {
+      if ( !m_ApplyingSettings )
+      {
+        RaiseSettingsChanged();
+      }
+    }
+
+    public override void ApplyExportSettings( MapProject.ExportSettings Settings )
+    {
+      if ( Settings == null )
+      {
+        return;
+      }
+      m_ApplyingSettings = true;
+      try
+      {
+        var binarySettings = Settings.CharsetBinary;
+        checkPrefixLoadAddress.Checked = binarySettings.PrefixLoadAddress;
+        editPrefixLoadAddress.Text = binarySettings.PrefixLoadAddressHex ?? "";
+        editPrefixLoadAddress.Enabled = checkPrefixLoadAddress.Checked;
+      }
+      finally
+      {
+        m_ApplyingSettings = false;
+      }
+    }
+
+    public override void UpdateExportSettings( MapProject.ExportSettings Settings )
+    {
+      if ( Settings == null )
+      {
+        return;
+      }
+      var binarySettings = Settings.CharsetBinary;
+      binarySettings.PrefixLoadAddress = checkPrefixLoadAddress.Checked;
+      binarySettings.PrefixLoadAddressHex = editPrefixLoadAddress.Text ?? "";
     }
 
 

@@ -76,6 +76,7 @@ namespace RetroDevStudio.Documents
 
     private ExportMapFormBase           m_ExportForm = null;
     private ImportMapFormBase           m_ImportForm = null;
+    private bool                        m_ApplyingExportSettings = false;
 
     private List<int>                   _TileUsage = new List<int>();
 
@@ -183,6 +184,8 @@ namespace RetroDevStudio.Documents
 
       comboExportOrientation.SelectedIndex = 0;
       comboExportData.SelectedIndex = 0;
+      comboExportData.SelectedIndexChanged += ExportSettingsChanged;
+      comboExportOrientation.SelectedIndexChanged += ExportSettingsChanged;
 
       foreach ( TextMode mode in Enum.GetValues( typeof( TextMode ) ) )
       {
@@ -1585,6 +1588,7 @@ namespace RetroDevStudio.Documents
       comboTileBGColor4.SelectedIndex = m_MapProject.BGColor4;
       comboMapProjectMode.SelectedIndex = (int)m_MapProject.Mode;
       checkShowGrid.Checked = m_MapProject.ShowGrid;
+      ApplyExportSettingsToUI();
 
       for ( int i = 0; i < m_MapProject.Charset.TotalNumberOfCharacters; ++i )
       {
@@ -1686,6 +1690,7 @@ namespace RetroDevStudio.Documents
 
     public override GR.Memory.ByteBuffer SaveToBuffer()
     {
+      UpdateExportSettingsFromUI( false );
       return m_MapProject.SaveToBuffer();
     }
 
@@ -4170,10 +4175,102 @@ namespace RetroDevStudio.Documents
 
 
 
+    private void ApplyExportSettingsToUI()
+    {
+      if ( m_MapProject == null )
+      {
+        return;
+      }
+      m_ApplyingExportSettings = true;
+      try
+      {
+        if ( comboExportData.Items.Count > 0 )
+        {
+          comboExportData.SelectedIndex = ClampExportIndex( m_MapProject.Settings.ExportDataIndex, comboExportData.Items.Count );
+        }
+        if ( comboExportOrientation.Items.Count > 0 )
+        {
+          comboExportOrientation.SelectedIndex = ClampExportIndex( m_MapProject.Settings.ExportOrientationIndex, comboExportOrientation.Items.Count );
+        }
+        if ( comboExportMethod.Items.Count > 0 )
+        {
+          comboExportMethod.SelectedIndex = ClampExportIndex( m_MapProject.Settings.ExportMethodIndex, comboExportMethod.Items.Count );
+        }
+        ApplyExportSettingsToForm();
+      }
+      finally
+      {
+        m_ApplyingExportSettings = false;
+      }
+    }
+
+    private void ApplyExportSettingsToForm()
+    {
+      if ( m_ExportForm != null )
+      {
+        m_ExportForm.ApplyExportSettings( m_MapProject.Settings);
+      }
+    }
+
+    private void UpdateExportSettingsFromUI( bool MarkModified )
+    {
+      if ( m_MapProject == null )
+      {
+        return;
+      }
+      m_MapProject.Settings.ExportDataIndex = ( comboExportData.SelectedIndex >= 0 ) ? comboExportData.SelectedIndex : 0;
+      m_MapProject.Settings.ExportOrientationIndex = ( comboExportOrientation.SelectedIndex >= 0 ) ? comboExportOrientation.SelectedIndex : 0;
+      m_MapProject.Settings.ExportMethodIndex = ( comboExportMethod.SelectedIndex >= 0 ) ? comboExportMethod.SelectedIndex : 0;
+      if ( m_ExportForm != null )
+      {
+        m_ExportForm.UpdateExportSettings( m_MapProject.Settings);
+      }
+      if ( MarkModified )
+      {
+        SetModified();
+      }
+    }
+
+    private void ExportSettingsChanged()
+    {
+      if ( m_ApplyingExportSettings )
+      {
+        return;
+      }
+      UpdateExportSettingsFromUI( true );
+    }
+
+    private void ExportSettingsChanged( object sender, EventArgs e )
+    {
+      ExportSettingsChanged();
+    }
+
+    private void ExportForm_SettingsChanged( object sender, EventArgs e )
+    {
+      ExportSettingsChanged();
+    }
+
+    private int ClampExportIndex( int Index, int Count )
+    {
+      if ( Count <= 0 )
+      {
+        return -1;
+      }
+      if ( ( Index < 0 )
+      ||   ( Index >= Count ) )
+      {
+        return 0;
+      }
+      return Index;
+    }
+
+
+
     private void comboExportMethod_SelectedIndexChanged( object sender, EventArgs e )
     {
       if ( m_ExportForm != null )
       {
+        m_ExportForm.SettingsChanged -= ExportForm_SettingsChanged;
         m_ExportForm.Dispose();
         m_ExportForm = null;
       }
@@ -4189,6 +4286,12 @@ namespace RetroDevStudio.Documents
       m_ExportForm = (ExportMapFormBase)Activator.CreateInstance( item.second, new object[] { Core } );
       m_ExportForm.Parent = panelExport;
       m_ExportForm.CreateControl();
+      m_ExportForm.SettingsChanged += ExportForm_SettingsChanged;
+      ApplyExportSettingsToForm();
+      if ( !m_ApplyingExportSettings )
+      {
+        UpdateExportSettingsFromUI( true );
+      }
     }
 
 

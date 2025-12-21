@@ -15,6 +15,7 @@ namespace RetroDevStudio.Controls
   public partial class ExportMapFormBase : UserControl
   {
     public StudioCore                   Core = null;
+    public event EventHandler           SettingsChanged;
 
 
 
@@ -37,6 +38,19 @@ namespace RetroDevStudio.Controls
     public virtual bool HandleExport( ExportMapInfo Info, TextBox EditOutput, DocumentInfo DocInfo )
     {
       return false;
+    }
+
+    public virtual void ApplyExportSettings( MapProject.ExportSettings Settings )
+    {
+    }
+
+    public virtual void UpdateExportSettings( MapProject.ExportSettings Settings )
+    {
+    }
+
+    protected void RaiseSettingsChanged()
+    {
+      SettingsChanged?.Invoke( this, EventArgs.Empty );
     }
 
 

@@ -16,6 +16,8 @@ namespace RetroDevStudio.Controls
 {
   public partial class ExportMapAsAssembly : ExportMapFormBase
   {
+    private bool m_ApplyingSettings = false;
+
     public ExportMapAsAssembly() :
       base( null )
     { 
@@ -27,6 +29,9 @@ namespace RetroDevStudio.Controls
       base( Core )
     {
       InitializeComponent();
+      editPrefix.TextChanged += HandleSettingsChanged;
+      editWrapByteCount.TextChanged += HandleSettingsChanged;
+      checkExportHex.CheckedChanged += HandleSettingsChanged;
     }
 
 
@@ -34,6 +39,10 @@ namespace RetroDevStudio.Controls
     private void checkExportToDataWrap_CheckedChanged( object sender, EventArgs e )
     {
       editWrapByteCount.Enabled = checkExportToDataWrap.Checked;
+      if ( !m_ApplyingSettings )
+      {
+        RaiseSettingsChanged();
+      }
     }
 
 
@@ -172,6 +181,65 @@ namespace RetroDevStudio.Controls
     private void checkExportToDataIncludeRes_CheckedChanged( object sender, EventArgs e )
     {
       editPrefix.Enabled = checkExportToDataIncludeRes.Checked;
+      if ( !m_ApplyingSettings )
+      {
+        RaiseSettingsChanged();
+      }
+    }
+
+    private void HandleSettingsChanged( object sender, EventArgs e )
+    {
+      if ( !m_ApplyingSettings )
+      {
+        RaiseSettingsChanged();
+      }
+    }
+
+    public override void ApplyExportSettings( MapProject.ExportSettings Settings )
+    {
+      if ( Settings == null )
+      {
+        return;
+      }
+      m_ApplyingSettings = true;
+      try
+      {
+        var assemblySettings = Settings.Assembly;
+        checkExportToDataIncludeRes.Checked = assemblySettings.PrefixWith;
+        editPrefix.Text = assemblySettings.Prefix ?? "";
+        checkExportToDataWrap.Checked = assemblySettings.WrapAt;
+        int wrapCount = assemblySettings.WrapByteCount;
+        if ( wrapCount <= 0 )
+        {
+          wrapCount = 8;
+        }
+        editWrapByteCount.Text = wrapCount.ToString();
+        checkExportHex.Checked = assemblySettings.ExportHex;
+        editPrefix.Enabled = checkExportToDataIncludeRes.Checked;
+        editWrapByteCount.Enabled = checkExportToDataWrap.Checked;
+      }
+      finally
+      {
+        m_ApplyingSettings = false;
+      }
+    }
+
+    public override void UpdateExportSettings( MapProject.ExportSettings Settings )
+    {
+      if ( Settings == null )
+      {
+        return;
+      }
+      var assemblySettings = Settings.Assembly;
+      assemblySettings.PrefixWith = checkExportToDataIncludeRes.Checked;
+      assemblySettings.Prefix = editPrefix.Text ?? "";
+      assemblySettings.WrapAt = checkExportToDataWrap.Checked;
+      assemblySettings.WrapByteCount = GR.Convert.ToI32( editWrapByteCount.Text );
+      if ( assemblySettings.WrapByteCount <= 0 )
+      {
+        assemblySettings.WrapByteCount = 8;
+      }
+      assemblySettings.ExportHex = checkExportHex.Checked;
     }
 
 
