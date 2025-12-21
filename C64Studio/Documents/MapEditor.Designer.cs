@@ -415,7 +415,7 @@
       this.comboTiles.ItemHeight = 24;
       this.comboTiles.Location = new System.Drawing.Point(8, 6);
       this.comboTiles.Name = "comboTiles";
-      this.comboTiles.Size = new System.Drawing.Size(160, 404);
+      this.comboTiles.Size = new System.Drawing.Size(160, 299);
       this.comboTiles.TabIndex = 2;
       this.comboTiles.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.comboTiles_DrawItem);
       this.comboTiles.SelectedIndexChanged += new System.EventHandler(this.comboTiles_SelectedIndexChanged);
@@ -751,7 +751,7 @@
       this.mapHScroll.DisplayType = DecentForms.ScrollBar.SBDisplayType.RAISED;
       this.mapHScroll.Enabled = false;
       this.mapHScroll.LargeChange = 10;
-      this.mapHScroll.Location = new System.Drawing.Point(174, 413);
+      this.mapHScroll.Location = new System.Drawing.Point(174, 308);
       this.mapHScroll.Maximum = 100;
       this.mapHScroll.Minimum = 0;
       this.mapHScroll.Name = "mapHScroll";
@@ -771,7 +771,7 @@
       this.mapVScroll.Maximum = 100;
       this.mapVScroll.Minimum = 0;
       this.mapVScroll.Name = "mapVScroll";
-      this.mapVScroll.Size = new System.Drawing.Size(16, 404);
+      this.mapVScroll.Size = new System.Drawing.Size(16, 299);
       this.mapVScroll.SmallChange = 1;
       this.mapVScroll.TabIndex = 23;
       this.mapVScroll.Value = 0;
@@ -803,7 +803,7 @@
       this.pictureEditor.Image = null;
       this.pictureEditor.Location = new System.Drawing.Point(174, 6);
       this.pictureEditor.Name = "pictureEditor";
-      this.pictureEditor.Size = new System.Drawing.Size(478, 404);
+      this.pictureEditor.Size = new System.Drawing.Size(478, 299);
       this.pictureEditor.TabIndex = 0;
       this.pictureEditor.TabStop = false;
       this.pictureEditor.Paint += new System.Windows.Forms.PaintEventHandler(this.pictureEditor_Paint);
