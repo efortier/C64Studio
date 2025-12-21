@@ -47,7 +47,7 @@
       this.labelAutoSaveInfo1 = new System.Windows.Forms.Label();
       this.labelAutoSaveInfo2 = new System.Windows.Forms.Label();
       this.checkRunningUnderWINE = new System.Windows.Forms.CheckBox();
-      this.checkDisableSplashScreen = new System.Windows.Forms.CheckBox();
+      this.checkRunningUnderWINE = new System.Windows.Forms.CheckBox();
       this.groupBox1.SuspendLayout();
       this.SuspendLayout();
       // 
@@ -262,23 +262,13 @@
       this.checkRunningUnderWINE.Text = "Running under WINE";
       this.checkRunningUnderWINE.UseVisualStyleBackColor = true;
       this.checkRunningUnderWINE.CheckedChanged += new System.EventHandler(this.checkRunningUnderWINE_CheckedChanged);
-      // 
-      // checkDisableSplashScreen
-      // 
-      this.checkDisableSplashScreen.CheckAlign = System.Drawing.ContentAlignment.MiddleRight;
-      this.checkDisableSplashScreen.Location = new System.Drawing.Point(3, 263);
-      this.checkDisableSplashScreen.Name = "checkDisableSplashScreen";
-      this.checkDisableSplashScreen.Size = new System.Drawing.Size(230, 24);
-      this.checkDisableSplashScreen.TabIndex = 11;
-      this.checkDisableSplashScreen.Text = "Disable splash screen";
-      this.checkDisableSplashScreen.UseVisualStyleBackColor = true;
-      this.checkDisableSplashScreen.CheckedChanged += new System.EventHandler(this.checkDisableSplashScreen_CheckedChanged);
+
       // 
       // DlgPrefApplication
       // 
       this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
       this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-      this.Controls.Add(this.checkDisableSplashScreen);
+
       this.Controls.Add(this.labelAutoSaveInfo2);
       this.Controls.Add(this.labelAutoSaveInfo1);
       this.Controls.Add(this.editAutoSaveDelay);
@@ -324,6 +314,6 @@
     private System.Windows.Forms.Label labelAutoSaveInfo1;
     private System.Windows.Forms.Label labelAutoSaveInfo2;
     private System.Windows.Forms.CheckBox checkRunningUnderWINE;
-    private System.Windows.Forms.CheckBox checkDisableSplashScreen;
+
   }
 }

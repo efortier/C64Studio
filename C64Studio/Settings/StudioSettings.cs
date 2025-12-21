@@ -235,7 +235,7 @@ namespace RetroDevStudio
 
     public bool                                 CheckForUpdates = true;
     public DateTime                             LastUpdateCheck = DateTime.MinValue;
-    public bool                                 DisableSplashScreen = false;
+
 
     public AppMode                              StudioAppMode = AppMode.UNDECIDED;
     public bool                                 IsRunningUnderWINE = false;  
@@ -882,7 +882,7 @@ namespace RetroDevStudio
       chunkEnvironment.AppendU8( (byte)( !AutoSaveSettings ? 1 : 0 ) );
       chunkEnvironment.AppendI32( AutoSaveSettingsDelayMilliSeconds );
       chunkEnvironment.AppendU32( (byte)( IsRunningUnderWINE ? 1 : 0 ) );
-      chunkEnvironment.AppendU8( (byte)( DisableSplashScreen ? 1 : 0 ) );
+
 
       SettingsData.Append( chunkEnvironment.ToBuffer() );
 
@@ -1491,10 +1491,7 @@ namespace RetroDevStudio
               AutoSaveSettings                = ( binIn.ReadUInt8() == 0 );
               AutoSaveSettingsDelayMilliSeconds = binIn.ReadInt32();
               IsRunningUnderWINE              = ( binIn.ReadUInt32() == 1 );
-              if ( binIn.Position < binIn.Size )
-              {
-                DisableSplashScreen = ( binIn.ReadUInt8() != 0 );
-              }
+
 
               SysWrapper.s_IsRunningUnderWINE = IsRunningUnderWINE;
             }
