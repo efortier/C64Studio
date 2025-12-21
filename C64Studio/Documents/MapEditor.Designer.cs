@@ -54,7 +54,7 @@
       this.groupMapExtraData = new System.Windows.Forms.GroupBox();
       this.editMapExtraData = new System.Windows.Forms.TextBox();
       this.label20 = new System.Windows.Forms.Label();
-      this.comboTiles = new System.Windows.Forms.ComboBox();
+      this.comboTiles = new System.Windows.Forms.ListBox();
       this.comboMapProjectMode = new System.Windows.Forms.ComboBox();
       this.comboMaps = new System.Windows.Forms.ComboBox();
       this.groupSize = new System.Windows.Forms.GroupBox();
@@ -408,12 +408,14 @@
       // 
       // comboTiles
       // 
+      this.comboTiles.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
       this.comboTiles.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
-      this.comboTiles.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
       this.comboTiles.FormattingEnabled = true;
-      this.comboTiles.Location = new System.Drawing.Point(684, 414);
+      this.comboTiles.IntegralHeight = false;
+      this.comboTiles.ItemHeight = 24;
+      this.comboTiles.Location = new System.Drawing.Point(8, 6);
       this.comboTiles.Name = "comboTiles";
-      this.comboTiles.Size = new System.Drawing.Size(264, 21);
+      this.comboTiles.Size = new System.Drawing.Size(160, 404);
       this.comboTiles.TabIndex = 2;
       this.comboTiles.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.comboTiles_DrawItem);
       this.comboTiles.SelectedIndexChanged += new System.EventHandler(this.comboTiles_SelectedIndexChanged);
@@ -749,11 +751,11 @@
       this.mapHScroll.DisplayType = DecentForms.ScrollBar.SBDisplayType.RAISED;
       this.mapHScroll.Enabled = false;
       this.mapHScroll.LargeChange = 10;
-      this.mapHScroll.Location = new System.Drawing.Point(8, 413);
+      this.mapHScroll.Location = new System.Drawing.Point(174, 413);
       this.mapHScroll.Maximum = 100;
       this.mapHScroll.Minimum = 0;
       this.mapHScroll.Name = "mapHScroll";
-      this.mapHScroll.Size = new System.Drawing.Size(644, 16);
+      this.mapHScroll.Size = new System.Drawing.Size(478, 16);
       this.mapHScroll.SmallChange = 1;
       this.mapHScroll.TabIndex = 24;
       this.mapHScroll.Value = 0;
@@ -799,9 +801,9 @@
       this.pictureEditor.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
       this.pictureEditor.DisplayPage = fastImage1;
       this.pictureEditor.Image = null;
-      this.pictureEditor.Location = new System.Drawing.Point(8, 6);
+      this.pictureEditor.Location = new System.Drawing.Point(174, 6);
       this.pictureEditor.Name = "pictureEditor";
-      this.pictureEditor.Size = new System.Drawing.Size(644, 404);
+      this.pictureEditor.Size = new System.Drawing.Size(478, 404);
       this.pictureEditor.TabIndex = 0;
       this.pictureEditor.TabStop = false;
       this.pictureEditor.Paint += new System.Windows.Forms.PaintEventHandler(this.pictureEditor_Paint);
@@ -821,6 +823,7 @@
       this.tabMapEditor.SelectedIndex = 0;
       this.tabMapEditor.Size = new System.Drawing.Size(1064, 501);
       this.tabMapEditor.TabIndex = 0;
+      this.tabMapEditor.SelectedIndexChanged += new System.EventHandler(this.tabMapEditor_SelectedIndexChanged);
       // 
       // tabTiles
       // 
@@ -1663,7 +1666,7 @@
     private System.Windows.Forms.ColumnHeader columnHeader7;
     private System.Windows.Forms.TextBox editTileSpacingH;
     private System.Windows.Forms.TextBox editTileSpacingW;
-    private System.Windows.Forms.ComboBox comboTiles;
+    private System.Windows.Forms.ListBox comboTiles;
     private DecentForms.Button btnMoveTileDown;
     private DecentForms.Button btnMoveTileUp;
     private System.Windows.Forms.GroupBox groupMapExtraData;

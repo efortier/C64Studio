@@ -48,6 +48,7 @@ namespace RetroDevStudio.Documents
     private const int                   MapZoomMinPercent = 50;
     private const int                   MapZoomMaxPercent = 400;
     private const int                   MapZoomStepPercent = 25;
+    private const int                   MapTileListItemHeight = 24;
 
     private GR.Image.MemoryImage        m_Image = new GR.Image.MemoryImage( MapDisplayBaseWidth, MapDisplayBaseHeight, GR.Drawing.PixelFormat.Format32bppRgb );
 
@@ -109,6 +110,8 @@ namespace RetroDevStudio.Documents
       characterEditor.Core = Core;
 
       GR.Image.DPIHandler.ResizeControlsForDPI( this );
+
+      comboTiles.ItemHeight = MapTileListItemHeight;
 
       characterEditor.UndoManager = DocumentInfo.UndoManager;
       characterEditor.Core = Core;
@@ -1525,7 +1528,6 @@ namespace RetroDevStudio.Documents
         listTileInfo.Items.Add( item );
       }
 
-      comboTiles.DropDownHeight = comboTiles.DropDownHeight;
       int index = 0;
       foreach ( var map in m_MapProject.Maps )
       {
@@ -1573,6 +1575,48 @@ namespace RetroDevStudio.Documents
 
       EnableFileWatcher();
       return true;
+    }
+
+    private void RefreshMapTileList()
+    {
+      if ( comboTiles == null )
+      {
+        return;
+      }
+
+      int selectedIndex = comboTiles.SelectedIndex;
+      int selectedTileIndex = -1;
+      if ( m_CurrentEditorTile != null )
+      {
+        selectedTileIndex = m_CurrentEditorTile.Index;
+      }
+
+      comboTiles.BeginUpdate();
+      try
+      {
+        comboTiles.Items.Clear();
+        foreach ( var tile in m_MapProject.Tiles )
+        {
+          comboTiles.Items.Add( new GR.Generic.Tupel<string, Formats.MapProject.Tile>( tile.Name, tile ) );
+        }
+        comboTiles.ItemHeight = MapTileListItemHeight;
+      }
+      finally
+      {
+        comboTiles.EndUpdate();
+      }
+
+      int restoreIndex = ( selectedTileIndex >= 0 ) ? selectedTileIndex : selectedIndex;
+      if ( ( restoreIndex >= 0 )
+      &&   ( restoreIndex < comboTiles.Items.Count ) )
+      {
+        comboTiles.SelectedIndex = restoreIndex;
+      }
+      else if ( comboTiles.Items.Count > 0 )
+      {
+        comboTiles.SelectedIndex = 0;
+      }
+      comboTiles.Invalidate();
     }
 
 
@@ -2329,7 +2373,7 @@ namespace RetroDevStudio.Documents
       editTileSpacingH.Text = m_CurrentMap.TileSpacingY.ToString();
       editMapWidth.Text = m_CurrentMap.Tiles.Width.ToString();
       editMapHeight.Text = m_CurrentMap.Tiles.Height.ToString();
-      comboTiles.ItemHeight = m_CurrentMap.TileSpacingY * 8 * 2;
+      comboTiles.ItemHeight = MapTileListItemHeight;
       //editMapExtraData.Text = FormatExtraData( m_CurrentMap.ExtraData );
       editMapExtraData.Text = m_CurrentMap.ExtraDataText;
       comboMapMultiColor1.SelectedIndex = m_CurrentMap.AlternativeMultiColor1 + 1;
@@ -2721,55 +2765,61 @@ namespace RetroDevStudio.Documents
     private void comboTiles_DrawItem( object sender, DrawItemEventArgs e )
     {
       e.DrawBackground();
-      if ( ( m_CurrentMap == null )
-      ||   ( e.Index == -1 ) )
+      if ( ( e.Index < 0 )
+      ||   ( e.Index >= comboTiles.Items.Count ) )
       {
         e.DrawFocusRectangle();
         return;
       }
 
-      Formats.MapProject.Tile tile = ( (GR.Generic.Tupel<string, Formats.MapProject.Tile>)comboTiles.Items[e.Index] ).second;
-
-      int tileW = tile.Chars.Width * 8 * 2;
-      int tileH = tile.Chars.Height * 8 * 2;
-      System.Drawing.Rectangle itemRect = new System.Drawing.Rectangle( e.Bounds.Left + ( e.Bounds.Width - tileW ), e.Bounds.Top, tileW, e.Bounds.Height );
-
-
-
-      GR.Image.FastImage memImage = new GR.Image.FastImage( tile.Chars.Width * 8, tile.Chars.Height * 8, GR.Drawing.PixelFormat.Format32bppRgb );
-      PaletteManager.ApplyPalette( memImage );
-
-      for ( int j = 0; j < tile.Chars.Height; ++j )
+      var tileInfo = (GR.Generic.Tupel<string, Formats.MapProject.Tile>)comboTiles.Items[e.Index];
+      Formats.MapProject.Tile tile = tileInfo.second;
+      if ( tile == null )
       {
-        for ( int i = 0; i < tile.Chars.Width; ++i )
-        {
-          Formats.MapProject.TileChar character = tile.Chars[i, j];
+        e.DrawFocusRectangle();
+        return;
+      }
 
-          DrawCharImage( memImage, i * 8, j * 8, character.Character, character.Color );
+      int previewPadding = 2;
+      int previewSize = Math.Max( 1, e.Bounds.Height - previewPadding * 2 );
+      System.Drawing.Rectangle previewRect = new System.Drawing.Rectangle( e.Bounds.Left + previewPadding,
+                                                                           e.Bounds.Top + ( e.Bounds.Height - previewSize ) / 2,
+                                                                           previewSize,
+                                                                           previewSize );
+
+      if ( ( tile.Chars.Width > 0 )
+      &&   ( tile.Chars.Height > 0 ) )
+      {
+        GR.Image.FastImage memImage = new GR.Image.FastImage( tile.Chars.Width * 8, tile.Chars.Height * 8, GR.Drawing.PixelFormat.Format32bppRgb );
+        PaletteManager.ApplyPalette( memImage );
+
+        for ( int j = 0; j < tile.Chars.Height; ++j )
+        {
+          for ( int i = 0; i < tile.Chars.Width; ++i )
+          {
+            Formats.MapProject.TileChar character = tile.Chars[i, j];
+
+            DrawCharImage( memImage, i * 8, j * 8, character.Character, character.Color );
+          }
+        }
+
+        IntPtr hdc = e.Graphics.GetHdc();
+        try
+        {
+          memImage.DrawToHDC( hdc, previewRect );
+        }
+        finally
+        {
+          e.Graphics.ReleaseHdc();
+          memImage.Dispose();
         }
       }
-      memImage.DrawToHDC( e.Graphics.GetHdc(), itemRect );
-      memImage.Dispose();
-      e.Graphics.ReleaseHdc();
 
-      if ( ( e.State & DrawItemState.Selected ) != 0 )
-      {
-        e.Graphics.DrawString( e.Index.ToString() + ":" + comboTiles.Items[e.Index].ToString(), comboTiles.Font, new System.Drawing.SolidBrush( System.Drawing.Color.White ), 3.0f, e.Bounds.Top + 1.0f );
-        if ( ( e.Index >= 0 )
-        &&   ( e.Index < _TileUsage.Count ) )
-        {
-          e.Graphics.DrawString( $"used {_TileUsage[e.Index].ToString()} times", comboTiles.Font, new System.Drawing.SolidBrush( System.Drawing.Color.White ), 3.0f, e.Bounds.Top + comboTiles.Font.Height + 2.0f );
-        }
-      }
-      else
-      {
-        e.Graphics.DrawString( e.Index.ToString() + ":" + comboTiles.Items[e.Index].ToString(), comboTiles.Font, new System.Drawing.SolidBrush( System.Drawing.Color.Black ), 3.0f, e.Bounds.Top + 1.0f );
-        if ( ( e.Index >= 0 )
-        &&   ( e.Index < _TileUsage.Count ) )
-        {
-          e.Graphics.DrawString( $"used {_TileUsage[e.Index].ToString()} times", comboTiles.Font, new System.Drawing.SolidBrush( System.Drawing.Color.Black ), 3.0f, e.Bounds.Top + comboTiles.Font.Height + 2.0f );
-        }
-      }
+      string label = e.Index.ToString() + ": " + tile.Name;
+      int textX = previewRect.Right + 6;
+      int textY = e.Bounds.Top + ( e.Bounds.Height - comboTiles.Font.Height ) / 2;
+      System.Drawing.Brush textBrush = ( ( e.State & DrawItemState.Selected ) != 0 ) ? System.Drawing.SystemBrushes.HighlightText : System.Drawing.SystemBrushes.WindowText;
+      e.Graphics.DrawString( label, comboTiles.Font, textBrush, textX, textY );
       e.DrawFocusRectangle();
     }
 
@@ -2783,6 +2833,14 @@ namespace RetroDevStudio.Documents
         return;
       }
       m_CurrentEditorTile = ( (GR.Generic.Tupel<string, Formats.MapProject.Tile>)comboTiles.SelectedItem ).second;
+    }
+
+    private void tabMapEditor_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      if ( tabMapEditor.SelectedTab == tabEditor )
+      {
+        RefreshMapTileList();
+      }
     }
 
 
