@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
@@ -32,6 +33,8 @@ namespace RetroDevStudio.Controls
       editPrefix.TextChanged += HandleSettingsChanged;
       editWrapByteCount.TextChanged += HandleSettingsChanged;
       checkExportHex.CheckedChanged += HandleSettingsChanged;
+      editVariableNameLabelPrefix.TextChanged += HandleSettingsChanged;
+      checkIncludeSemicolonAfterSimpleLabels.CheckedChanged += HandleSettingsChanged;
     }
 
 
@@ -172,6 +175,7 @@ namespace RetroDevStudio.Controls
           break;
       }
 
+      resultText = ApplyLabelFormatting( resultText );
       EditOutput.Text = resultText;
       return true;
     }
@@ -181,6 +185,15 @@ namespace RetroDevStudio.Controls
     private void checkExportToDataIncludeRes_CheckedChanged( object sender, EventArgs e )
     {
       editPrefix.Enabled = checkExportToDataIncludeRes.Checked;
+      if ( !m_ApplyingSettings )
+      {
+        RaiseSettingsChanged();
+      }
+    }
+
+    private void checkVariableNameLabelPrefix_CheckedChanged( object sender, EventArgs e )
+    {
+      editVariableNameLabelPrefix.Enabled = checkVariableNameLabelPrefix.Checked;
       if ( !m_ApplyingSettings )
       {
         RaiseSettingsChanged();
@@ -215,8 +228,12 @@ namespace RetroDevStudio.Controls
         }
         editWrapByteCount.Text = wrapCount.ToString();
         checkExportHex.Checked = assemblySettings.ExportHex;
+        checkVariableNameLabelPrefix.Checked = assemblySettings.VariableNameLabelPrefixEnabled;
+        editVariableNameLabelPrefix.Text = assemblySettings.VariableNameLabelPrefix ?? "";
+        checkIncludeSemicolonAfterSimpleLabels.Checked = assemblySettings.IncludeSemicolonAfterSimpleLabels;
         editPrefix.Enabled = checkExportToDataIncludeRes.Checked;
         editWrapByteCount.Enabled = checkExportToDataWrap.Checked;
+        editVariableNameLabelPrefix.Enabled = checkVariableNameLabelPrefix.Checked;
       }
       finally
       {
@@ -240,6 +257,115 @@ namespace RetroDevStudio.Controls
         assemblySettings.WrapByteCount = 8;
       }
       assemblySettings.ExportHex = checkExportHex.Checked;
+      assemblySettings.VariableNameLabelPrefixEnabled = checkVariableNameLabelPrefix.Checked;
+      assemblySettings.VariableNameLabelPrefix = editVariableNameLabelPrefix.Text ?? "";
+      assemblySettings.IncludeSemicolonAfterSimpleLabels = checkIncludeSemicolonAfterSimpleLabels.Checked;
+    }
+
+
+    private string ApplyLabelFormatting( string Source )
+    {
+      if ( string.IsNullOrEmpty( Source ) )
+      {
+        return Source;
+      }
+
+      string rawLabelPrefix = editVariableNameLabelPrefix.Text ?? "";
+      string labelPrefix = rawLabelPrefix.Trim();
+      bool useLabelPrefix = checkVariableNameLabelPrefix.Checked && ( labelPrefix.Length > 0 );
+      bool includeLabelSuffix = checkIncludeSemicolonAfterSimpleLabels.Checked;
+
+      if ( !useLabelPrefix && !includeLabelSuffix )
+      {
+        return Source;
+      }
+
+      bool endsWithNewLine = Source.EndsWith( "\n" );
+      var sb = new StringBuilder();
+      using ( var reader = new StringReader( Source ) )
+      {
+        string line;
+        while ( ( line = reader.ReadLine() ) != null )
+        {
+          string trimmedStart = line.TrimStart();
+          string trimmedLine = trimmedStart.TrimEnd();
+          string modifiedLine = line;
+          bool hasLeadingWhitespace = line.Length != trimmedStart.Length;
+
+          if ( !string.IsNullOrEmpty( trimmedLine ) )
+          {
+            if ( useLabelPrefix && !hasLeadingWhitespace && IsEquateLine( trimmedLine ) )
+            {
+              string leadingWhitespace = line.Substring( 0, line.Length - trimmedStart.Length );
+              modifiedLine = leadingWhitespace + labelPrefix + " " + trimmedStart;
+            }
+            else if ( includeLabelSuffix && !hasLeadingWhitespace && IsSimpleLabelLine( trimmedLine ) )
+            {
+              string leadingWhitespace = line.Substring( 0, line.Length - trimmedStart.Length );
+              modifiedLine = leadingWhitespace + trimmedLine + ":";
+            }
+          }
+
+          sb.AppendLine( modifiedLine );
+        }
+      }
+
+      if ( !endsWithNewLine && sb.Length >= Environment.NewLine.Length )
+      {
+        sb.Length -= Environment.NewLine.Length;
+      }
+      return sb.ToString();
+    }
+
+    private bool IsEquateLine( string TrimmedLine )
+    {
+      if ( string.IsNullOrEmpty( TrimmedLine ) )
+      {
+        return false;
+      }
+      char firstChar = TrimmedLine[0];
+      if ( ( firstChar == ';' )
+      ||   ( firstChar == '.' )
+      ||   ( firstChar == '#' )
+      ||   ( firstChar == '/' )
+      ||   ( firstChar == '!' ) )
+      {
+        return false;
+      }
+      return TrimmedLine.Contains( "=" );
+    }
+
+    private bool IsSimpleLabelLine( string TrimmedLine )
+    {
+      if ( string.IsNullOrEmpty( TrimmedLine ) )
+      {
+        return false;
+      }
+      char firstChar = TrimmedLine[0];
+      if ( ( firstChar == ';' )
+      ||   ( firstChar == '.' )
+      ||   ( firstChar == '#' )
+      ||   ( firstChar == '/' )
+      ||   ( firstChar == '!' ) )
+      {
+        return false;
+      }
+      if ( TrimmedLine.EndsWith( ":" ) )
+      {
+        return false;
+      }
+      if ( TrimmedLine.Contains( "=" ) )
+      {
+        return false;
+      }
+      for ( int i = 0; i < TrimmedLine.Length; ++i )
+      {
+        if ( char.IsWhiteSpace( TrimmedLine[i] ) )
+        {
+          return false;
+        }
+      }
+      return true;
     }
 
 

@@ -30,6 +30,9 @@ namespace RetroDevStudio.Controls
     private void InitializeComponent()
     {
       this.checkExportHex = new System.Windows.Forms.CheckBox();
+      this.checkVariableNameLabelPrefix = new System.Windows.Forms.CheckBox();
+      this.editVariableNameLabelPrefix = new System.Windows.Forms.TextBox();
+      this.checkIncludeSemicolonAfterSimpleLabels = new System.Windows.Forms.CheckBox();
       this.checkExportToDataIncludeRes = new System.Windows.Forms.CheckBox();
       this.checkExportToDataWrap = new System.Windows.Forms.CheckBox();
       this.editWrapByteCount = new System.Windows.Forms.TextBox();
@@ -48,6 +51,34 @@ namespace RetroDevStudio.Controls
       this.checkExportHex.TabIndex = 4;
       this.checkExportHex.Text = "Export with Hex notation";
       this.checkExportHex.UseVisualStyleBackColor = true;
+      // 
+      // checkVariableNameLabelPrefix
+      // 
+      this.checkVariableNameLabelPrefix.AutoSize = true;
+      this.checkVariableNameLabelPrefix.Location = new System.Drawing.Point(3, 72);
+      this.checkVariableNameLabelPrefix.Name = "checkVariableNameLabelPrefix";
+      this.checkVariableNameLabelPrefix.Size = new System.Drawing.Size(168, 17);
+      this.checkVariableNameLabelPrefix.TabIndex = 5;
+      this.checkVariableNameLabelPrefix.Text = "Variable name label Prefix";
+      this.checkVariableNameLabelPrefix.UseVisualStyleBackColor = true;
+      this.checkVariableNameLabelPrefix.CheckedChanged += new System.EventHandler(this.checkVariableNameLabelPrefix_CheckedChanged);
+      // 
+      // editVariableNameLabelPrefix
+      // 
+      this.editVariableNameLabelPrefix.Location = new System.Drawing.Point(200, 70);
+      this.editVariableNameLabelPrefix.Name = "editVariableNameLabelPrefix";
+      this.editVariableNameLabelPrefix.Size = new System.Drawing.Size(64, 20);
+      this.editVariableNameLabelPrefix.TabIndex = 6;
+      // 
+      // checkIncludeSemicolonAfterSimpleLabels
+      // 
+      this.checkIncludeSemicolonAfterSimpleLabels.AutoSize = true;
+      this.checkIncludeSemicolonAfterSimpleLabels.Location = new System.Drawing.Point(3, 95);
+      this.checkIncludeSemicolonAfterSimpleLabels.Name = "checkIncludeSemicolonAfterSimpleLabels";
+      this.checkIncludeSemicolonAfterSimpleLabels.Size = new System.Drawing.Size(210, 17);
+      this.checkIncludeSemicolonAfterSimpleLabels.TabIndex = 7;
+      this.checkIncludeSemicolonAfterSimpleLabels.Text = "Include colon after simple labels";
+      this.checkIncludeSemicolonAfterSimpleLabels.UseVisualStyleBackColor = true;
       // 
       // checkExportToDataIncludeRes
       // 
@@ -104,6 +135,9 @@ namespace RetroDevStudio.Controls
       // 
       this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
       this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+      this.Controls.Add(this.checkIncludeSemicolonAfterSimpleLabels);
+      this.Controls.Add(this.editVariableNameLabelPrefix);
+      this.Controls.Add(this.checkVariableNameLabelPrefix);
       this.Controls.Add(this.checkExportHex);
       this.Controls.Add(this.checkExportToDataIncludeRes);
       this.Controls.Add(this.checkExportToDataWrap);
@@ -119,6 +153,9 @@ namespace RetroDevStudio.Controls
 
     #endregion
     private System.Windows.Forms.CheckBox checkExportHex;
+    private System.Windows.Forms.CheckBox checkVariableNameLabelPrefix;
+    private System.Windows.Forms.TextBox editVariableNameLabelPrefix;
+    private System.Windows.Forms.CheckBox checkIncludeSemicolonAfterSimpleLabels;
     private System.Windows.Forms.CheckBox checkExportToDataIncludeRes;
     private System.Windows.Forms.CheckBox checkExportToDataWrap;
     private System.Windows.Forms.TextBox editWrapByteCount;
