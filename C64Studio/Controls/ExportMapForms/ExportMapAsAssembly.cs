@@ -18,6 +18,8 @@ namespace RetroDevStudio.Controls
   public partial class ExportMapAsAssembly : ExportMapFormBase
   {
     private bool m_ApplyingSettings = false;
+    private System.Windows.Forms.CheckBox checkEmptyTile;
+    private System.Windows.Forms.TextBox editEmptyTileIndex;
 
     public ExportMapAsAssembly() :
       base( null )
@@ -30,6 +32,36 @@ namespace RetroDevStudio.Controls
       base( Core )
     {
       InitializeComponent();
+      
+      this.checkEmptyTile = new System.Windows.Forms.CheckBox();
+      this.editEmptyTileIndex = new System.Windows.Forms.TextBox();
+
+      // 
+      // checkEmptyTile
+      // 
+      this.checkEmptyTile.AutoSize = true;
+      this.checkEmptyTile.Location = new System.Drawing.Point(3, 145);
+      this.checkEmptyTile.Name = "checkEmptyTile";
+      this.checkEmptyTile.Size = new System.Drawing.Size(122, 17);
+      this.checkEmptyTile.TabIndex = 10;
+      this.checkEmptyTile.Text = "Empty tile number";
+      this.checkEmptyTile.UseVisualStyleBackColor = true;
+      this.checkEmptyTile.CheckedChanged += new System.EventHandler(this.checkEmptyTile_CheckedChanged);
+      
+      // 
+      // editEmptyTileIndex
+      // 
+      this.editEmptyTileIndex.Location = new System.Drawing.Point(200, 142);
+      this.editEmptyTileIndex.Name = "editEmptyTileIndex";
+      this.editEmptyTileIndex.Size = new System.Drawing.Size(64, 20);
+      this.editEmptyTileIndex.TabIndex = 11;
+      this.editEmptyTileIndex.Text = "0";
+      this.editEmptyTileIndex.TextChanged += HandleSettingsChanged;
+      
+      this.Controls.Add(this.editEmptyTileIndex);
+      this.Controls.Add(this.checkEmptyTile);
+      
+      
       editPrefix.TextChanged += HandleSettingsChanged;
       editWrapByteCount.TextChanged += HandleSettingsChanged;
       checkExportHex.CheckedChanged += HandleSettingsChanged;
@@ -37,6 +69,15 @@ namespace RetroDevStudio.Controls
       checkIncludeSemicolonAfterSimpleLabels.CheckedChanged += HandleSettingsChanged;
       checkCommentCharacters.CheckedChanged += checkCommentCharacters_CheckedChanged;
       editCommentCharacters.TextChanged += HandleSettingsChanged;
+    }
+
+    private void checkEmptyTile_CheckedChanged(object sender, EventArgs e)
+    {
+      editEmptyTileIndex.Enabled = checkEmptyTile.Checked;
+      if (!m_ApplyingSettings)
+      {
+        RaiseSettingsChanged();
+      }
     }
 
 
@@ -160,6 +201,10 @@ namespace RetroDevStudio.Controls
         string commentChars = checkCommentCharacters.Checked ? ( editCommentCharacters.Text ?? "" ) : "";
         Info.Map.ExportMapsAsAssembly( !Info.RowByRow, out mapData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix, commentChars );
       }
+      if ( Info.ExportType == MapExportType.SPARSE_TILE_AND_MAP_DATA )
+      {
+        Info.Map.ExportSparseTileAndMapData( out mapData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix, checkEmptyTile.Checked, GR.Convert.ToI32( editEmptyTileIndex.Text ) );
+      }
 
       string resultText = "";
 
@@ -175,6 +220,9 @@ namespace RetroDevStudio.Controls
           break;
         case MapExportType.TILE_AND_MAP_DATA:
           resultText = tileData + mapData;
+          break;
+        case MapExportType.SPARSE_TILE_AND_MAP_DATA:
+          resultText = mapData;
           break;
       }
 
@@ -254,6 +302,10 @@ namespace RetroDevStudio.Controls
         editWrapByteCount.Enabled = checkExportToDataWrap.Checked;
         editVariableNameLabelPrefix.Enabled = checkVariableNameLabelPrefix.Checked;
         editCommentCharacters.Enabled = checkCommentCharacters.Checked;
+        
+        checkEmptyTile.Checked = assemblySettings.EmptyTileCompressionEnabled;
+        editEmptyTileIndex.Text = assemblySettings.EmptyTileIndex.ToString();
+        editEmptyTileIndex.Enabled = checkEmptyTile.Checked;
       }
       finally
       {
@@ -282,6 +334,8 @@ namespace RetroDevStudio.Controls
       assemblySettings.IncludeSemicolonAfterSimpleLabels = checkIncludeSemicolonAfterSimpleLabels.Checked;
       assemblySettings.MapSizeCommentEnabled = checkCommentCharacters.Checked;
       assemblySettings.CommentChars = editCommentCharacters.Text ?? "";
+      assemblySettings.EmptyTileCompressionEnabled = checkEmptyTile.Checked;
+      assemblySettings.EmptyTileIndex = GR.Convert.ToI32( editEmptyTileIndex.Text );
     }
 
 

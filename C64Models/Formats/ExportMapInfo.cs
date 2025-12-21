@@ -26,6 +26,8 @@ namespace RetroDevStudio.Formats
     [Description( "tile data, then map data (all maps)" )]
     TILE_AND_MAP_DATA,
     [Description( "map data from selection (current map)" )]
-    MAP_DATA_SELECTION
+    MAP_DATA_SELECTION,
+    [Description( "Sparse tile and map data (all maps)" )]
+    SPARSE_TILE_AND_MAP_DATA
   }
 }

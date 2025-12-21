@@ -62,6 +62,8 @@ namespace RetroDevStudio.Formats
         public bool   IncludeSemicolonAfterSimpleLabels = false;
         public bool   MapSizeCommentEnabled = true;
         public string CommentChars = ";";
+        public bool   EmptyTileCompressionEnabled = false;
+        public int    EmptyTileIndex = 0;
       }
 
       public class BinarySettings
@@ -225,7 +227,7 @@ namespace RetroDevStudio.Formats
       projectFile.Append( chunkProjectData.ToBuffer() );
 
       GR.IO.FileChunk chunkExportSettings = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS );
-      chunkExportSettings.AppendU32( 3 );
+      chunkExportSettings.AppendU32( 4 );
       chunkExportSettings.AppendI32(Settings.ExportDataIndex );
       chunkExportSettings.AppendI32(Settings.ExportOrientationIndex );
       chunkExportSettings.AppendI32( Settings.ExportMethodIndex );
@@ -239,6 +241,8 @@ namespace RetroDevStudio.Formats
       chunkExportSettings.AppendI32( Settings.Assembly.IncludeSemicolonAfterSimpleLabels ? 1 : 0 );
       chunkExportSettings.AppendI32( Settings.Assembly.MapSizeCommentEnabled ? 1 : 0 );
       chunkExportSettings.AppendString( Settings.Assembly.CommentChars ?? "" );
+      chunkExportSettings.AppendI32( Settings.Assembly.EmptyTileCompressionEnabled ? 1 : 0 );
+      chunkExportSettings.AppendI32( Settings.Assembly.EmptyTileIndex );
       chunkExportSettings.AppendI32( Settings.Binary.PrefixLoadAddress ? 1 : 0 );
       chunkExportSettings.AppendString( Settings.Binary.PrefixLoadAddressHex ?? "" );
       chunkExportSettings.AppendI32( Settings.CharsetBinary.PrefixLoadAddress ? 1 : 0 );
@@ -461,6 +465,30 @@ namespace RetroDevStudio.Formats
                 Settings.Assembly.IncludeSemicolonAfterSimpleLabels = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.MapSizeCommentEnabled = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.CommentChars = chunkReader.ReadString();
+                Settings.Binary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.Binary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetBinary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.CharsetBinary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetProject.TargetFilename = chunkReader.ReadString();
+                Settings.Charscreen.TargetFilename = chunkReader.ReadString();
+              }
+              else if ( version == 4 )
+              {
+                Settings.ExportDataIndex = chunkReader.ReadInt32();
+                Settings.ExportOrientationIndex = chunkReader.ReadInt32();
+                Settings.ExportMethodIndex = chunkReader.ReadInt32();
+                Settings.Assembly.PrefixWith = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.Prefix = chunkReader.ReadString();
+                Settings.Assembly.WrapAt = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.WrapByteCount = chunkReader.ReadInt32();
+                Settings.Assembly.ExportHex = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.VariableNameLabelPrefixEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.VariableNameLabelPrefix = chunkReader.ReadString();
+                Settings.Assembly.IncludeSemicolonAfterSimpleLabels = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.MapSizeCommentEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.CommentChars = chunkReader.ReadString();
+                Settings.Assembly.EmptyTileCompressionEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.EmptyTileIndex = chunkReader.ReadInt32();
                 Settings.Binary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
                 Settings.Binary.PrefixLoadAddressHex = chunkReader.ReadString();
                 Settings.CharsetBinary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
@@ -1136,6 +1164,208 @@ namespace RetroDevStudio.Formats
           }
         }
       }
+    }
+
+
+    public bool ExportSparseTileAndMapData( out string ExportData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective, bool EmptyTileCompression, int EmptyTileIndex )
+    {
+      StringBuilder sb = new StringBuilder();
+
+      // Tiles Data
+      sb.AppendLine( LabelPrefix + "TILE_COUNT=" + Tiles.Count );
+      sb.AppendLine();
+
+      GR.Memory.ByteBuffer tileWidths = new GR.Memory.ByteBuffer();
+      GR.Memory.ByteBuffer tileHeights = new GR.Memory.ByteBuffer();
+
+      foreach ( var tile in Tiles )
+      {
+        tileWidths.AppendU8( (byte)tile.Chars.Width );
+        tileHeights.AppendU8( (byte)tile.Chars.Height );
+      }
+
+      sb.AppendLine( LabelPrefix + "TILES_WIDTH" );
+      sb.AppendLine( Util.ToASMData( tileWidths, WrapData, WrapByteCount, DataByteDirective ) );
+      sb.AppendLine();
+
+      sb.AppendLine( LabelPrefix + "TILES_HEIGHT" );
+      sb.AppendLine( Util.ToASMData( tileHeights, WrapData, WrapByteCount, DataByteDirective ) );
+      sb.AppendLine();
+
+      sb.AppendLine( LabelPrefix + "TILES_CHAR_DATA" );
+      for ( int i = 0; i < Tiles.Count; ++i )
+      {
+        var tile = Tiles[i];
+        sb.Append( LabelPrefix + "TILE_CHAR_" + i.ToString( "D2" ) + " " );
+        
+        GR.Memory.ByteBuffer charData = new GR.Memory.ByteBuffer();
+        for ( int y = 0; y < tile.Chars.Height; ++y )
+        {
+          for ( int x = 0; x < tile.Chars.Width; ++x )
+          {
+            charData.AppendU8( tile.Chars[x, y].Character );
+          }
+        }
+        sb.AppendLine( Util.ToASMData( charData, false, 0, DataByteDirective ) + "\t\t\t" + Settings.Assembly.CommentChars + " tile " + i + ", " + tile.Chars.Width + "x" + tile.Chars.Height );
+      }
+      sb.AppendLine();
+
+      sb.AppendLine( LabelPrefix + "TILES_COLOR_DATA" );
+      for ( int i = 0; i < Tiles.Count; ++i )
+      {
+        var tile = Tiles[i];
+        sb.Append( LabelPrefix + "TILE_COLOR_" + i.ToString( "D2" ) + " " );
+
+        GR.Memory.ByteBuffer colorData = new GR.Memory.ByteBuffer();
+        for ( int y = 0; y < tile.Chars.Height; ++y )
+        {
+          for ( int x = 0; x < tile.Chars.Width; ++x )
+          {
+            colorData.AppendU8( tile.Chars[x, y].Color );
+          }
+        }
+        sb.AppendLine( Util.ToASMData( colorData, false, 0, DataByteDirective ) );
+      }
+      sb.AppendLine();
+
+      // Tables
+      sb.AppendLine( LabelPrefix + "TILES_CHAR_TABLE_LOW" );
+      GR.Memory.ByteBuffer tableLow = new GR.Memory.ByteBuffer();
+      StringBuilder sbTable = new StringBuilder();
+      sbTable.Append( DataByteDirective + " " );
+      for ( int i = 0; i < Tiles.Count; ++i )
+      {
+        if ( i > 0 ) sbTable.Append( ", " );
+        sbTable.Append( "<" + LabelPrefix + "TILE_CHAR_" + i.ToString( "D2" ) );
+      }
+      sb.AppendLine( sbTable.ToString() );
+      sb.AppendLine();
+
+      sb.AppendLine( LabelPrefix + "TILES_CHAR_TABLE_HIGH" );
+      sbTable = new StringBuilder();
+      sbTable.Append( DataByteDirective + " " );
+      for ( int i = 0; i < Tiles.Count; ++i )
+      {
+        if ( i > 0 ) sbTable.Append( ", " );
+        sbTable.Append( ">" + LabelPrefix + "TILE_CHAR_" + i.ToString( "D2" ) );
+      }
+      sb.AppendLine( sbTable.ToString() );
+      sb.AppendLine();
+
+      sb.AppendLine( LabelPrefix + "TILES_COLOR_TABLE_LOW" );
+      sbTable = new StringBuilder();
+      sbTable.Append( DataByteDirective + " " );
+      for ( int i = 0; i < Tiles.Count; ++i )
+      {
+        if ( i > 0 ) sbTable.Append( ", " );
+        sbTable.Append( "<" + LabelPrefix + "TILE_COLOR_" + i.ToString( "D2" ) );
+      }
+      sb.AppendLine( sbTable.ToString() );
+      sb.AppendLine();
+
+      sb.AppendLine( LabelPrefix + "TILES_COLOR_TABLE_HIGH" );
+      sbTable = new StringBuilder();
+      sbTable.Append( DataByteDirective + " " );
+      for ( int i = 0; i < Tiles.Count; ++i )
+      {
+        if ( i > 0 ) sbTable.Append( ", " );
+        sbTable.Append( ">" + LabelPrefix + "TILE_COLOR_" + i.ToString( "D2" ) );
+      }
+      sb.AppendLine( sbTable.ToString() );
+      sb.AppendLine();
+
+      // Map Data
+      sb.AppendLine( Settings.Assembly.CommentChars + " map data" );
+      sb.AppendLine( LabelPrefix + "MAP_COUNT=" + Maps.Count );
+      sb.AppendLine();
+
+      sb.AppendLine( LabelPrefix + "MAPS_TABLE_LOW" );
+      sbTable = new StringBuilder();
+      sbTable.Append( DataByteDirective + " " );
+      for ( int i = 0; i < Maps.Count; ++i )
+      {
+        if ( i > 0 ) sbTable.Append( ", " );
+        sbTable.Append( "<" + LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) );
+      }
+      sb.AppendLine( sbTable.ToString() );
+      sb.AppendLine();
+      
+      sb.AppendLine( LabelPrefix + "MAPS_TABLE_HIGH" );
+      sbTable = new StringBuilder();
+      sbTable.Append( DataByteDirective + " " );
+      for ( int i = 0; i < Maps.Count; ++i )
+      {
+        if ( i > 0 ) sbTable.Append( ", " );
+        sbTable.Append( ">" + LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) );
+      }
+      sb.AppendLine( sbTable.ToString() );
+      sb.AppendLine();
+
+      for ( int i = 0; i < Maps.Count; ++i )
+      {
+        var map = Maps[i];
+        sb.AppendLine( LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + " " + Settings.Assembly.CommentChars + " " + map.Name );
+        
+        // Map Size
+        GR.Memory.ByteBuffer mapSize = new GR.Memory.ByteBuffer();
+        mapSize.AppendU8( (byte)map.Tiles.Width );
+        mapSize.AppendU8( (byte)map.Tiles.Height );
+        sb.AppendLine( Util.ToASMData( mapSize, false, 0, DataByteDirective ) + " " + Settings.Assembly.CommentChars + " map width, height" );
+
+        // Collect tiles
+        GR.Memory.ByteBuffer mapTiles = new GR.Memory.ByteBuffer();
+        int tileCount = 0;
+        for ( int y = 0; y < map.Tiles.Height; ++y )
+        {
+          for ( int x = 0; x < map.Tiles.Width; ++x )
+          {
+            int tileIndex = map.Tiles[x, y];
+            if ( ( EmptyTileCompression )
+            &&   ( tileIndex == EmptyTileIndex ) )
+            {
+              continue;
+            }
+            mapTiles.AppendU8( (byte)tileIndex );
+            mapTiles.AppendU8( (byte)x );
+            mapTiles.AppendU8( (byte)y );
+            tileCount++;
+          }
+        }
+
+        // List size
+        GR.Memory.ByteBuffer listSize = new GR.Memory.ByteBuffer();
+        listSize.AppendU8( (byte)( tileCount & 0xff ) );
+        listSize.AppendU8( (byte)( ( tileCount >> 8 ) & 0xff ) );
+        sb.AppendLine( Util.ToASMData( listSize, false, 0, DataByteDirective ) + " " + Settings.Assembly.CommentChars + " tile count" );
+
+        int ptr = 0;
+        while ( ptr < mapTiles.Length )
+        {
+           byte t = mapTiles.ByteAt( ptr );
+           byte tx = mapTiles.ByteAt( ptr + 1 );
+           byte ty = mapTiles.ByteAt( ptr + 2 );
+           
+           GR.Memory.ByteBuffer entry = new GR.Memory.ByteBuffer();
+           entry.AppendU8( t );
+           entry.AppendU8( tx );
+           entry.AppendU8( ty );
+           
+           string entryHex = Util.ToASMData( entry, false, 0, DataByteDirective );
+           
+           string comment = "";
+           if ( t < Tiles.Count )
+           {
+              var tile = Tiles[t];
+              comment = Settings.Assembly.CommentChars + " tile " + t + ", " + tile.Chars.Width + "x" + tile.Chars.Height;
+           }
+           sb.AppendLine( entryHex + "\t\t" + comment );
+           ptr += 3;
+        }
+        sb.AppendLine();
+      }
+
+      ExportData = sb.ToString();
+      return true;
     }
 
   }
