@@ -1391,6 +1391,21 @@ namespace RetroDevStudio.Documents
       int offsetX = m_CurEditorOffsetX;
       int offsetY = m_CurEditorOffsetY;
 
+      int spacingX = Math.Max( 1, m_CurrentMap.TileSpacingX );
+      int spacingY = Math.Max( 1, m_CurrentMap.TileSpacingY );
+      bool needsCoverage = false;
+      for ( int i = 0; i < m_MapProject.Tiles.Count; ++i )
+      {
+        var tileToCheck = m_MapProject.Tiles[i];
+        if ( ( tileToCheck.Chars.Width > spacingX )
+        ||   ( tileToCheck.Chars.Height > spacingY ) )
+        {
+          needsCoverage = true;
+          break;
+        }
+      }
+      bool[,] coveredTiles = needsCoverage ? new bool[m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height] : null;
+
       int x1 = offsetX;
       int x2 = offsetX + ( pictureEditor.DisplayPage.Width / ( 8 * m_CurrentMap.TileSpacingX ) );
       int y1 = offsetY;
@@ -1402,6 +1417,11 @@ namespace RetroDevStudio.Documents
         {
           if ( ( x >= m_CurrentMap.Tiles.Width )
           ||   ( y >= m_CurrentMap.Tiles.Height ) )
+          {
+            continue;
+          }
+          if ( ( coveredTiles != null )
+          &&   ( coveredTiles[x, y] ) )
           {
             continue;
           }
@@ -1431,6 +1451,28 @@ namespace RetroDevStudio.Documents
                                                           ( ( x - offsetX ) * m_CurrentMap.TileSpacingX + i ) * 8,
                                                           ( ( y - offsetY ) * m_CurrentMap.TileSpacingY + j ) * 8,
                                                           alternativeSettings );
+              }
+            }
+            if ( coveredTiles != null )
+            {
+              int coverTilesX = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Width / (float)spacingX ) );
+              int coverTilesY = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Height / (float)spacingY ) );
+              for ( int coverY = 0; coverY < coverTilesY; ++coverY )
+              {
+                int targetY = y + coverY;
+                if ( targetY >= m_CurrentMap.Tiles.Height )
+                {
+                  break;
+                }
+                for ( int coverX = 0; coverX < coverTilesX; ++coverX )
+                {
+                  int targetX = x + coverX;
+                  if ( targetX >= m_CurrentMap.Tiles.Width )
+                  {
+                    break;
+                  }
+                  coveredTiles[targetX, targetY] = true;
+                }
               }
             }
           }
@@ -3863,10 +3905,30 @@ namespace RetroDevStudio.Documents
       }
       fullImage.Box( 0, 0, fullImage.Width, fullImage.Height, m_MapProject.Charset.Colors.Palette.ColorValues[bgColor] );
 
+      int spacingX = Math.Max( 1, m_CurrentMap.TileSpacingX );
+      int spacingY = Math.Max( 1, m_CurrentMap.TileSpacingY );
+      bool needsCoverage = false;
+      for ( int i = 0; i < m_MapProject.Tiles.Count; ++i )
+      {
+        var tileToCheck = m_MapProject.Tiles[i];
+        if ( ( tileToCheck.Chars.Width > spacingX )
+        ||   ( tileToCheck.Chars.Height > spacingY ) )
+        {
+          needsCoverage = true;
+          break;
+        }
+      }
+      bool[,] coveredTiles = needsCoverage ? new bool[m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height] : null;
+
       for ( int y = 0; y < m_CurrentMap.Tiles.Height; ++y )
       {
         for ( int x = 0; x < m_CurrentMap.Tiles.Width; ++x )
         {
+          if ( ( coveredTiles != null )
+          &&   ( coveredTiles[x, y] ) )
+          {
+            continue;
+          }
           var tileIndex = m_CurrentMap.Tiles[x,y];
           if ( ( tileIndex < 0 )
           ||   ( tileIndex >= m_MapProject.Tiles.Count ) )
@@ -3895,6 +3957,28 @@ namespace RetroDevStudio.Documents
                                                         ( x * m_CurrentMap.TileSpacingX + i ) * 8,
                                                         ( y * m_CurrentMap.TileSpacingY + j ) * 8,
                                                         alternativeSettings );
+            }
+          }
+          if ( coveredTiles != null )
+          {
+            int coverTilesX = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Width / (float)spacingX ) );
+            int coverTilesY = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Height / (float)spacingY ) );
+            for ( int coverY = 0; coverY < coverTilesY; ++coverY )
+            {
+              int targetY = y + coverY;
+              if ( targetY >= m_CurrentMap.Tiles.Height )
+              {
+                break;
+              }
+              for ( int coverX = 0; coverX < coverTilesX; ++coverX )
+              {
+                int targetX = x + coverX;
+                if ( targetX >= m_CurrentMap.Tiles.Width )
+                {
+                  break;
+                }
+                coveredTiles[targetX, targetY] = true;
+              }
             }
           }
         }
