@@ -33,7 +33,7 @@ namespace RetroDevStudio.Controls
       this.checkVariableNameLabelPrefix = new System.Windows.Forms.CheckBox();
       this.editVariableNameLabelPrefix = new System.Windows.Forms.TextBox();
       this.checkIncludeSemicolonAfterSimpleLabels = new System.Windows.Forms.CheckBox();
-      this.labelCommentCharacters = new System.Windows.Forms.Label();
+      this.checkCommentCharacters = new System.Windows.Forms.CheckBox();
       this.editCommentCharacters = new System.Windows.Forms.TextBox();
       this.checkExportToDataIncludeRes = new System.Windows.Forms.CheckBox();
       this.checkExportToDataWrap = new System.Windows.Forms.CheckBox();
@@ -82,21 +82,24 @@ namespace RetroDevStudio.Controls
       this.checkIncludeSemicolonAfterSimpleLabels.Text = "Include colon after simple labels";
       this.checkIncludeSemicolonAfterSimpleLabels.UseVisualStyleBackColor = true;
       // 
-      // labelCommentCharacters
+      // checkCommentCharacters
       // 
-      this.labelCommentCharacters.AutoSize = true;
-      this.labelCommentCharacters.Location = new System.Drawing.Point(3, 120);
-      this.labelCommentCharacters.Name = "labelCommentCharacters";
-      this.labelCommentCharacters.Size = new System.Drawing.Size(103, 13);
-      this.labelCommentCharacters.TabIndex = 20;
-      this.labelCommentCharacters.Text = "Comment characters";
+      this.checkCommentCharacters.AutoSize = true;
+      this.checkCommentCharacters.Checked = true;
+      this.checkCommentCharacters.CheckState = System.Windows.Forms.CheckState.Checked;
+      this.checkCommentCharacters.Location = new System.Drawing.Point(3, 120);
+      this.checkCommentCharacters.Name = "checkCommentCharacters";
+      this.checkCommentCharacters.Size = new System.Drawing.Size(122, 17);
+      this.checkCommentCharacters.TabIndex = 8;
+      this.checkCommentCharacters.Text = "Comment characters";
+      this.checkCommentCharacters.UseVisualStyleBackColor = true;
       // 
       // editCommentCharacters
       // 
       this.editCommentCharacters.Location = new System.Drawing.Point(200, 117);
       this.editCommentCharacters.Name = "editCommentCharacters";
       this.editCommentCharacters.Size = new System.Drawing.Size(64, 20);
-      this.editCommentCharacters.TabIndex = 8;
+      this.editCommentCharacters.TabIndex = 9;
       this.editCommentCharacters.Text = ";";
       // 
       // checkExportToDataIncludeRes
@@ -155,7 +158,7 @@ namespace RetroDevStudio.Controls
       this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
       this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
       this.Controls.Add(this.editCommentCharacters);
-      this.Controls.Add(this.labelCommentCharacters);
+      this.Controls.Add(this.checkCommentCharacters);
       this.Controls.Add(this.checkIncludeSemicolonAfterSimpleLabels);
       this.Controls.Add(this.editVariableNameLabelPrefix);
       this.Controls.Add(this.checkVariableNameLabelPrefix);
@@ -177,7 +180,7 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.CheckBox checkVariableNameLabelPrefix;
     private System.Windows.Forms.TextBox editVariableNameLabelPrefix;
     private System.Windows.Forms.CheckBox checkIncludeSemicolonAfterSimpleLabels;
-    private System.Windows.Forms.Label labelCommentCharacters;
+    private System.Windows.Forms.CheckBox checkCommentCharacters;
     private System.Windows.Forms.TextBox editCommentCharacters;
     private System.Windows.Forms.CheckBox checkExportToDataIncludeRes;
     private System.Windows.Forms.CheckBox checkExportToDataWrap;

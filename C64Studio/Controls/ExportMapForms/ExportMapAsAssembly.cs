@@ -35,6 +35,7 @@ namespace RetroDevStudio.Controls
       checkExportHex.CheckedChanged += HandleSettingsChanged;
       editVariableNameLabelPrefix.TextChanged += HandleSettingsChanged;
       checkIncludeSemicolonAfterSimpleLabels.CheckedChanged += HandleSettingsChanged;
+      checkCommentCharacters.CheckedChanged += checkCommentCharacters_CheckedChanged;
       editCommentCharacters.TextChanged += HandleSettingsChanged;
     }
 
@@ -156,7 +157,8 @@ namespace RetroDevStudio.Controls
       if ( ( Info.ExportType == MapExportType.MAP_DATA )
       ||   ( Info.ExportType == MapExportType.TILE_AND_MAP_DATA ) )
       {
-        Info.Map.ExportMapsAsAssembly( !Info.RowByRow, out mapData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix, editCommentCharacters.Text ?? "" );
+        string commentChars = checkCommentCharacters.Checked ? ( editCommentCharacters.Text ?? "" ) : "";
+        Info.Map.ExportMapsAsAssembly( !Info.RowByRow, out mapData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix, commentChars );
       }
 
       string resultText = "";
@@ -201,6 +203,15 @@ namespace RetroDevStudio.Controls
       }
     }
 
+    private void checkCommentCharacters_CheckedChanged( object sender, EventArgs e )
+    {
+      editCommentCharacters.Enabled = checkCommentCharacters.Checked;
+      if ( !m_ApplyingSettings )
+      {
+        RaiseSettingsChanged();
+      }
+    }
+
     private void HandleSettingsChanged( object sender, EventArgs e )
     {
       if ( !m_ApplyingSettings )
@@ -238,9 +249,11 @@ namespace RetroDevStudio.Controls
           commentChars = ";";
         }
         editCommentCharacters.Text = commentChars;
+        checkCommentCharacters.Checked = assemblySettings.MapSizeCommentEnabled;
         editPrefix.Enabled = checkExportToDataIncludeRes.Checked;
         editWrapByteCount.Enabled = checkExportToDataWrap.Checked;
         editVariableNameLabelPrefix.Enabled = checkVariableNameLabelPrefix.Checked;
+        editCommentCharacters.Enabled = checkCommentCharacters.Checked;
       }
       finally
       {
@@ -267,6 +280,7 @@ namespace RetroDevStudio.Controls
       assemblySettings.VariableNameLabelPrefixEnabled = checkVariableNameLabelPrefix.Checked;
       assemblySettings.VariableNameLabelPrefix = editVariableNameLabelPrefix.Text ?? "";
       assemblySettings.IncludeSemicolonAfterSimpleLabels = checkIncludeSemicolonAfterSimpleLabels.Checked;
+      assemblySettings.MapSizeCommentEnabled = checkCommentCharacters.Checked;
       assemblySettings.CommentChars = editCommentCharacters.Text ?? "";
     }
 

@@ -60,6 +60,7 @@ namespace RetroDevStudio.Formats
         public bool   VariableNameLabelPrefixEnabled = false;
         public string VariableNameLabelPrefix = "";
         public bool   IncludeSemicolonAfterSimpleLabels = false;
+        public bool   MapSizeCommentEnabled = true;
         public string CommentChars = ";";
       }
 
@@ -224,7 +225,7 @@ namespace RetroDevStudio.Formats
       projectFile.Append( chunkProjectData.ToBuffer() );
 
       GR.IO.FileChunk chunkExportSettings = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS );
-      chunkExportSettings.AppendU32( 2 );
+      chunkExportSettings.AppendU32( 3 );
       chunkExportSettings.AppendI32(Settings.ExportDataIndex );
       chunkExportSettings.AppendI32(Settings.ExportOrientationIndex );
       chunkExportSettings.AppendI32( Settings.ExportMethodIndex );
@@ -236,6 +237,7 @@ namespace RetroDevStudio.Formats
       chunkExportSettings.AppendI32( Settings.Assembly.VariableNameLabelPrefixEnabled ? 1 : 0 );
       chunkExportSettings.AppendString( Settings.Assembly.VariableNameLabelPrefix ?? "" );
       chunkExportSettings.AppendI32( Settings.Assembly.IncludeSemicolonAfterSimpleLabels ? 1 : 0 );
+      chunkExportSettings.AppendI32( Settings.Assembly.MapSizeCommentEnabled ? 1 : 0 );
       chunkExportSettings.AppendString( Settings.Assembly.CommentChars ?? "" );
       chunkExportSettings.AppendI32( Settings.Binary.PrefixLoadAddress ? 1 : 0 );
       chunkExportSettings.AppendString( Settings.Binary.PrefixLoadAddressHex ?? "" );
@@ -413,6 +415,7 @@ namespace RetroDevStudio.Formats
                 Settings.Assembly.VariableNameLabelPrefixEnabled = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.VariableNameLabelPrefix = chunkReader.ReadString();
                 Settings.Assembly.IncludeSemicolonAfterSimpleLabels = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.MapSizeCommentEnabled = true;
                 Settings.Assembly.CommentChars = ";";
                 Settings.Binary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
                 Settings.Binary.PrefixLoadAddressHex = chunkReader.ReadString();
@@ -434,6 +437,29 @@ namespace RetroDevStudio.Formats
                 Settings.Assembly.VariableNameLabelPrefixEnabled = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.VariableNameLabelPrefix = chunkReader.ReadString();
                 Settings.Assembly.IncludeSemicolonAfterSimpleLabels = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.CommentChars = chunkReader.ReadString();
+                Settings.Assembly.MapSizeCommentEnabled = !string.IsNullOrEmpty( Settings.Assembly.CommentChars );
+                Settings.Binary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.Binary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetBinary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.CharsetBinary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetProject.TargetFilename = chunkReader.ReadString();
+                Settings.Charscreen.TargetFilename = chunkReader.ReadString();
+              }
+              else if ( version == 3 )
+              {
+                Settings.ExportDataIndex = chunkReader.ReadInt32();
+                Settings.ExportOrientationIndex = chunkReader.ReadInt32();
+                Settings.ExportMethodIndex = chunkReader.ReadInt32();
+                Settings.Assembly.PrefixWith = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.Prefix = chunkReader.ReadString();
+                Settings.Assembly.WrapAt = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.WrapByteCount = chunkReader.ReadInt32();
+                Settings.Assembly.ExportHex = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.VariableNameLabelPrefixEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.VariableNameLabelPrefix = chunkReader.ReadString();
+                Settings.Assembly.IncludeSemicolonAfterSimpleLabels = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.MapSizeCommentEnabled = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.CommentChars = chunkReader.ReadString();
                 Settings.Binary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
                 Settings.Binary.PrefixLoadAddressHex = chunkReader.ReadString();

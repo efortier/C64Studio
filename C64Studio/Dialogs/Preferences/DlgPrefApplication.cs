@@ -26,7 +26,7 @@ namespace RetroDevStudio.Dialogs.Preferences
 
     public DlgPrefApplication( StudioCore Core ) : base( Core )
     {
-      _Keywords.AddRange( new string[] { "application", "general", "generic", "mode", "mru", "solution", "compiler", "messages", "environment", "update", "check" } );
+      _Keywords.AddRange( new string[] { "application", "general", "generic", "mode", "mru", "solution", "compiler", "messages", "environment", "update", "check", "splash" } );
 
       InitializeComponent();
     }
@@ -45,6 +45,7 @@ namespace RetroDevStudio.Dialogs.Preferences
       checkAutoSaveSettings.Checked               = Core.Settings.AutoSaveSettings;
       editAutoSaveDelay.Text                      = Core.Settings.AutoSaveSettingsDelayMilliSeconds.ToString();
       checkRunningUnderWINE.Checked               = Core.Settings.IsRunningUnderWINE;
+      checkDisableSplashScreen.Checked            = Core.Settings.DisableSplashScreen;
     }
 
 
@@ -70,6 +71,7 @@ namespace RetroDevStudio.Dialogs.Preferences
       xmlEnvironment.AddAttribute( "AutoSaveSettings", Core.Settings.AutoSaveSettings ? "yes" : "no" );
       xmlEnvironment.AddAttribute( "AutoSaveSettingsDelayMS", Core.Settings.AutoSaveSettingsDelayMilliSeconds.ToString() );
       xmlEnvironment.AddAttribute( "IsRunningUnderWINE", Core.Settings.IsRunningUnderWINE ? "yes" : "no" );
+      xmlEnvironment.AddAttribute( "DisableSplashScreen", Core.Settings.DisableSplashScreen ? "yes" : "no" );
     }
 
 
@@ -89,6 +91,7 @@ namespace RetroDevStudio.Dialogs.Preferences
         Core.Settings.AutoSaveSettings              = IsSettingTrue( xmlEnvironment.Attribute( "AutoSaveSettings" ) );
         Core.Settings.AutoSaveSettingsDelayMilliSeconds = GR.Convert.ToI32( xmlEnvironment.Attribute( "AutoSaveSettingsDelayMS" ) );
         Core.Settings.IsRunningUnderWINE            = IsSettingTrue( xmlEnvironment.Attribute( "IsRunningUnderWINE" ) );
+        Core.Settings.DisableSplashScreen           = IsSettingTrue( xmlEnvironment.Attribute( "DisableSplashScreen" ) );
       }
     }
     
@@ -278,6 +281,16 @@ namespace RetroDevStudio.Dialogs.Preferences
       {
         Core.Settings.IsRunningUnderWINE = checkRunningUnderWINE.Checked;
         SysWrapper.s_IsRunningUnderWINE = checkRunningUnderWINE.Checked;
+      }
+    }
+
+
+
+    private void checkDisableSplashScreen_CheckedChanged( object sender, EventArgs e )
+    {
+      if ( Core.Settings.DisableSplashScreen != checkDisableSplashScreen.Checked )
+      {
+        Core.Settings.DisableSplashScreen = checkDisableSplashScreen.Checked;
       }
     }
 
