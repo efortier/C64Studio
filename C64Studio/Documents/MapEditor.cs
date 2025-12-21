@@ -149,7 +149,10 @@ namespace RetroDevStudio.Documents
       PaletteManager.ApplyPalette( panelCharacters.DisplayPage );
       PaletteManager.ApplyPalette( m_Image );
       PaletteManager.ApplyPalette( panelCharColors.DisplayPage );
-      ApplyMapZoom();
+      if ( Core != null )
+      {
+        SetMapZoomPercent( Core.Settings.MapEditorZoomPercent );
+      }
 
       comboMapMultiColor1.Items.Add( "From charset" );
       comboMapMultiColor2.Items.Add( "From charset" );
@@ -273,6 +276,11 @@ namespace RetroDevStudio.Documents
         return;
       }
       m_MapZoomPercent = clampedPercent;
+      if ( ( Core != null )
+      &&   ( Core.Settings != null ) )
+      {
+        Core.Settings.MapEditorZoomPercent = m_MapZoomPercent;
+      }
       ApplyMapZoom();
     }
 
@@ -309,13 +317,29 @@ namespace RetroDevStudio.Documents
 
     private void UpdateZoomButtons()
     {
-      if ( ( btnZoomIn == null )
-      ||   ( btnZoomOut == null ) )
+      if ( btnZoomIn != null )
       {
-        return;
+        btnZoomIn.Enabled = m_MapZoomPercent < MapZoomMaxPercent;
       }
-      btnZoomIn.Enabled = m_MapZoomPercent < MapZoomMaxPercent;
-      btnZoomOut.Enabled = m_MapZoomPercent > MapZoomMinPercent;
+      if ( btnZoomOut != null )
+      {
+        btnZoomOut.Enabled = m_MapZoomPercent > MapZoomMinPercent;
+      }
+      if ( labelZoom != null )
+      {
+        labelZoom.Text = m_MapZoomPercent.ToString() + "%";
+      }
+    }
+
+
+
+    private static int ScaleCoordCeil( int SourceCoord, int SourceSize, int TargetSize )
+    {
+      if ( SourceSize <= 0 )
+      {
+        return 0;
+      }
+      return (int)Math.Ceiling( SourceCoord * (double)TargetSize / SourceSize );
     }
 
 
@@ -434,6 +458,20 @@ namespace RetroDevStudio.Documents
 
     private void PictureEditor_PostPaint( GR.Image.FastImage TargetBuffer )
     {
+      if ( ( pictureEditor.DisplayPage.Width == 0 )
+      ||   ( pictureEditor.DisplayPage.Height == 0 )
+      ||   ( TargetBuffer.Width == 0 )
+      ||   ( TargetBuffer.Height == 0 ) )
+      {
+        return;
+      }
+      int   sourceWidth = pictureEditor.DisplayPage.Width;
+      int   sourceHeight = pictureEditor.DisplayPage.Height;
+      int   targetWidth = TargetBuffer.Width;
+      int   targetHeight = TargetBuffer.Height;
+      int   targetMaxX = targetWidth - 1;
+      int   targetMaxY = targetHeight - 1;
+
       if ( m_MapProject.ShowGrid )
       {
         if ( m_CurrentMap == null )
@@ -446,33 +484,25 @@ namespace RetroDevStudio.Documents
         int offsetY = m_CurEditorOffsetY;
         int viewCharWidth = ViewCharWidth;
         int viewCharHeight = ViewCharHeight;
-        int charPixelWidth = Math.Max( 1, TargetBuffer.Width / viewCharWidth );
-        int charPixelHeight = Math.Max( 1, TargetBuffer.Height / viewCharHeight );
-
         int x1 = offsetX;
-        int x2 = offsetX + m_CurrentMap.TileSpacingX * m_CurrentMap.Tiles.Width;
         int y1 = offsetY;
-        int y2 = offsetY + m_CurrentMap.TileSpacingY * m_CurrentMap.Tiles.Height;
-
-        if ( x2 - offsetX > TargetBuffer.Width / ( m_CurrentMap.TileSpacingX * charPixelWidth ) )
-        {
-          x2 = TargetBuffer.Width / ( m_CurrentMap.TileSpacingX * charPixelWidth ) + offsetX;
-        }
-        if ( y2 - offsetY > TargetBuffer.Height / ( m_CurrentMap.TileSpacingY * charPixelHeight ) )
-        {
-          y2 = TargetBuffer.Height / ( m_CurrentMap.TileSpacingY * charPixelHeight ) + offsetY;
-        }
+        int x2 = Math.Min( offsetX + (int)Math.Ceiling( viewCharWidth / (float)m_CurrentMap.TileSpacingX ), offsetX + m_CurrentMap.Tiles.Width );
+        int y2 = Math.Min( offsetY + (int)Math.Ceiling( viewCharHeight / (float)m_CurrentMap.TileSpacingY ), offsetY + m_CurrentMap.Tiles.Height );
 
         for ( int x = x1; x <= x2; ++x )
         {
-          TargetBuffer.Line( ( x - offsetX ) * m_CurrentMap.TileSpacingX * charPixelWidth, 0,
-                             ( x - offsetX ) * m_CurrentMap.TileSpacingX * charPixelWidth, TargetBuffer.Height,
+          int sourceX = ( x - offsetX ) * m_CurrentMap.TileSpacingX * 8;
+          int targetX = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX, sourceWidth, targetWidth ) ) );
+          TargetBuffer.Line( targetX, 0,
+                             targetX, TargetBuffer.Height,
                              0xffffffff );
         }
         for ( int y = y1; y <= y2; ++y )
         {
-          TargetBuffer.Line( 0, ( y - offsetY ) * m_CurrentMap.TileSpacingY * charPixelHeight,
-                             TargetBuffer.Width, ( y - offsetY ) * m_CurrentMap.TileSpacingY * charPixelHeight,
+          int sourceY = ( y - offsetY ) * m_CurrentMap.TileSpacingY * 8;
+          int targetY = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( sourceY, sourceHeight, targetHeight ) ) );
+          TargetBuffer.Line( 0, targetY,
+                             TargetBuffer.Width, targetY,
                              0xffffffff );
         }
         /*
@@ -499,13 +529,24 @@ namespace RetroDevStudio.Documents
         {
           if ( m_SelectedTiles[x, y] )
           {
-            int  sx1 = ( x - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * pictureEditor.ClientRectangle.Width / ViewCharWidth;
-            int  sx2 = ( x + 1 - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * pictureEditor.ClientRectangle.Width / ViewCharWidth;
-            int  sy1 = ( y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * pictureEditor.ClientRectangle.Height / ViewCharHeight;
-            int  sy2 = ( y + 1 - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * pictureEditor.ClientRectangle.Height / ViewCharHeight;
+            int  sourceX1 = ( x - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
+            int  sourceX2 = ( x + 1 - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
+            int  sourceY1 = ( y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
+            int  sourceY2 = ( y + 1 - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
 
-            --sx2;
-            --sy2;
+            int  sx1 = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX1, sourceWidth, targetWidth ) ) );
+            int  sx2 = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX2, sourceWidth, targetWidth ) - 1 ) );
+            int  sy1 = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( sourceY1, sourceHeight, targetHeight ) ) );
+            int  sy2 = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( sourceY2, sourceHeight, targetHeight ) - 1 ) );
+
+            if ( sx2 < sx1 )
+            {
+              sx2 = sx1;
+            }
+            if ( sy2 < sy1 )
+            {
+              sy2 = sy1;
+            }
 
             if ( ( y == 0 )
             ||   ( !m_SelectedTiles[x, y - 1] ) )
@@ -551,10 +592,25 @@ namespace RetroDevStudio.Documents
 
         CalcRect( m_DragStartPos, m_LastDragEndPos, out o1, out o2 );
 
-        TargetBuffer.Rectangle( ( o1.X - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * pictureEditor.ClientRectangle.Width / ViewCharWidth,
-                                ( o1.Y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * pictureEditor.ClientRectangle.Height / ViewCharHeight,
-                                ( o2.X - o1.X + 1 ) * m_CurrentMap.TileSpacingX * pictureEditor.ClientRectangle.Width / ViewCharWidth, 
-                                ( o2.Y - o1.Y + 1 ) * m_CurrentMap.TileSpacingY * pictureEditor.ClientRectangle.Height / ViewCharHeight,
+        int sourceX = ( o1.X - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
+        int sourceY = ( o1.Y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
+        int sourceW = ( o2.X - o1.X + 1 ) * m_CurrentMap.TileSpacingX * 8;
+        int sourceH = ( o2.Y - o1.Y + 1 ) * m_CurrentMap.TileSpacingY * 8;
+
+        int sourceX2 = sourceX + sourceW;
+        int sourceY2 = sourceY + sourceH;
+
+        int targetX = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX, sourceWidth, targetWidth ) ) );
+        int targetY = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( sourceY, sourceHeight, targetHeight ) ) );
+        int targetX2 = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX2, sourceWidth, targetWidth ) - 1 ) );
+        int targetY2 = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( sourceY2, sourceHeight, targetHeight ) - 1 ) );
+        int targetW = Math.Max( 1, targetX2 - targetX + 1 );
+        int targetH = Math.Max( 1, targetY2 - targetY + 1 );
+
+        TargetBuffer.Rectangle( targetX,
+                                targetY,
+                                targetW,
+                                targetH,
                                 selectionColor );
       }
 
@@ -848,10 +904,24 @@ namespace RetroDevStudio.Documents
       }
       int     viewCharWidth = ViewCharWidth;
       int     viewCharHeight = ViewCharHeight;
-      int     charPixelWidth = Math.Max( 1, pictureEditor.ClientRectangle.Width / viewCharWidth );
-      int     charPixelHeight = Math.Max( 1, pictureEditor.ClientRectangle.Height / viewCharHeight );
-      int     charX = X / charPixelWidth;
-      int     charY = Y / charPixelHeight;
+      if ( ( pictureEditor.ClientRectangle.Width <= 0 )
+      ||   ( pictureEditor.ClientRectangle.Height <= 0 )
+      ||   ( pictureEditor.DisplayPage.Width == 0 )
+      ||   ( pictureEditor.DisplayPage.Height == 0 ) )
+      {
+        return;
+      }
+
+      float   scaleX = pictureEditor.DisplayPage.Width / (float)pictureEditor.ClientRectangle.Width;
+      float   scaleY = pictureEditor.DisplayPage.Height / (float)pictureEditor.ClientRectangle.Height;
+      int     sourceX = (int)Math.Floor( X * scaleX );
+      int     sourceY = (int)Math.Floor( Y * scaleY );
+
+      sourceX = Math.Max( 0, Math.Min( pictureEditor.DisplayPage.Width - 1, sourceX ) );
+      sourceY = Math.Max( 0, Math.Min( pictureEditor.DisplayPage.Height - 1, sourceY ) );
+
+      int     charX = sourceX / 8;
+      int     charY = sourceY / 8;
 
       m_MousePos.X = charX / m_CurrentMap.TileSpacingX;
       m_MousePos.Y = charY / m_CurrentMap.TileSpacingY;

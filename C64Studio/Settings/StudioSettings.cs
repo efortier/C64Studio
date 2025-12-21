@@ -229,6 +229,7 @@ namespace RetroDevStudio
     public Encoding                             SourceFileEncoding = Encoding.UTF8;
 
     public int                                  HelpZoomFactor = 100;
+    public int                                  MapEditorZoomPercent = 100;
 
     public List<DebugMemoryViewSettings>        DebugMemoryViews = new List<DebugMemoryViewSettings>();
 
@@ -696,6 +697,10 @@ namespace RetroDevStudio
       chunkUI.AppendU8( (byte)( ToolbarActiveDebugger ? 1 : 0 ) );
       chunkUI.AppendI32( MRUMaxCount );
       SettingsData.Append( chunkUI.ToBuffer() );
+
+      GR.IO.FileChunk chunkMapEditor = new GR.IO.FileChunk( FileChunkConstants.SETTINGS_MAP_EDITOR );
+      chunkMapEditor.AppendI32( MapEditorZoomPercent );
+      SettingsData.Append( chunkMapEditor.ToBuffer() );
 
       GR.IO.FileChunk chunkRunEmu = new GR.IO.FileChunk( FileChunkConstants.SETTINGS_RUN_EMULATOR );
       chunkRunEmu.AppendU8( (byte)( TrueDriveEnabled ? 1 : 0 ) );
@@ -1238,6 +1243,14 @@ namespace RetroDevStudio
               {
                 MRUMaxCount = 4;
               }
+            }
+            break;
+          case FileChunkConstants.SETTINGS_MAP_EDITOR:
+            {
+              GR.IO.IReader binIn = chunkData.MemoryReader();
+
+              MapEditorZoomPercent = binIn.ReadInt32();
+              MapEditorZoomPercent = GR.MathUtil.Clamp( 50, MapEditorZoomPercent, 400 );
             }
             break;
           case FileChunkConstants.SETTINGS_RUN_EMULATOR:
@@ -1851,6 +1864,7 @@ namespace RetroDevStudio
       {
         AutoSaveSettingsDelayMilliSeconds = 300000;
       }
+      MapEditorZoomPercent = GR.MathUtil.Clamp( 50, MapEditorZoomPercent, 400 );
 
       // key bindings
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.SAVE_DOCUMENT, Keys.Control | Keys.S );

@@ -42,6 +42,7 @@
       this.closeCharsetProjectToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
       this.tabEditor = new System.Windows.Forms.TabPage();
       this.btnCopyMapImage = new DecentForms.Button();
+      this.labelZoom = new System.Windows.Forms.Label();
       this.btnZoomOut = new DecentForms.Button();
       this.btnZoomIn = new DecentForms.Button();
       this.btnToolSelect = new DecentForms.RadioButton();
@@ -216,6 +217,7 @@
       // tabEditor
       // 
       this.tabEditor.Controls.Add(this.btnCopyMapImage);
+      this.tabEditor.Controls.Add(this.labelZoom);
       this.tabEditor.Controls.Add(this.btnZoomOut);
       this.tabEditor.Controls.Add(this.btnZoomIn);
       this.tabEditor.Controls.Add(this.btnToolSelect);
@@ -255,6 +257,15 @@
       this.btnCopyMapImage.TabIndex = 8;
       this.toolTip1.SetToolTip(this.btnCopyMapImage, "Copy map to clipboard as image");
       this.btnCopyMapImage.Click += new DecentForms.EventHandler(this.btnCopyImage_Click);
+      // 
+      // labelZoom
+      // 
+      this.labelZoom.AutoSize = true;
+      this.labelZoom.Location = new System.Drawing.Point(260, 437);
+      this.labelZoom.Name = "labelZoom";
+      this.labelZoom.Size = new System.Drawing.Size(33, 13);
+      this.labelZoom.TabIndex = 9;
+      this.labelZoom.Text = "100%";
       // 
       // btnZoomOut
       // 
@@ -1689,6 +1700,7 @@
     private DecentForms.Button btnCopyMapImage;
     private DecentForms.Button btnZoomOut;
     private DecentForms.Button btnZoomIn;
+    private System.Windows.Forms.Label labelZoom;
         private System.Windows.Forms.ComboBox comboMapProjectMode;
         private System.Windows.Forms.Label label25;
     private System.Windows.Forms.TabPage tabExport;
