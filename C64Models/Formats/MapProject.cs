@@ -67,7 +67,10 @@ namespace RetroDevStudio.Formats
         public int    EmptyTileIndex = 0;
         public bool   SaveOnExport = false;
         public string ExportDirectory = "";
+
         public string ExportFilename = "";
+        public bool   ExportTilesetColors = true;
+        public bool   ExportMapColors = true;
       }
 
       public class BinarySettings
@@ -232,7 +235,7 @@ namespace RetroDevStudio.Formats
       projectFile.Append( chunkProjectData.ToBuffer() );
 
       GR.IO.FileChunk chunkExportSettings = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS );
-      chunkExportSettings.AppendU32( 5 );
+      chunkExportSettings.AppendU32( 6 );
       chunkExportSettings.AppendI32(Settings.ExportDataIndex );
       chunkExportSettings.AppendI32(Settings.ExportOrientationIndex );
       chunkExportSettings.AppendI32( Settings.ExportMethodIndex );
@@ -257,6 +260,8 @@ namespace RetroDevStudio.Formats
       chunkExportSettings.AppendString( Settings.CharsetBinary.PrefixLoadAddressHex ?? "" );
       chunkExportSettings.AppendString( Settings.CharsetProject.TargetFilename ?? "" );
       chunkExportSettings.AppendString( Settings.Charscreen.TargetFilename ?? "" );
+      chunkExportSettings.AppendI32( Settings.Assembly.ExportTilesetColors ? 1 : 0 );
+      chunkExportSettings.AppendI32( Settings.Assembly.ExportMapColors ? 1 : 0 );
       projectFile.Append( chunkExportSettings.ToBuffer() );
       return projectFile;
     }
@@ -534,6 +539,35 @@ namespace RetroDevStudio.Formats
                 Settings.CharsetBinary.PrefixLoadAddressHex = chunkReader.ReadString();
                 Settings.CharsetProject.TargetFilename = chunkReader.ReadString();
                 Settings.Charscreen.TargetFilename = chunkReader.ReadString();
+              }
+              else if ( version == 6 )
+              {
+                Settings.ExportDataIndex = chunkReader.ReadInt32();
+                Settings.ExportOrientationIndex = chunkReader.ReadInt32();
+                Settings.ExportMethodIndex = chunkReader.ReadInt32();
+                Settings.Assembly.PrefixWith = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.Prefix = chunkReader.ReadString();
+                Settings.Assembly.WrapAt = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.WrapByteCount = chunkReader.ReadInt32();
+                Settings.Assembly.ExportHex = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.VariableNameLabelPrefixEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.VariableNameLabelPrefix = chunkReader.ReadString();
+                Settings.Assembly.IncludeSemicolonAfterSimpleLabels = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.MapSizeCommentEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.CommentChars = chunkReader.ReadString();
+                Settings.Assembly.EmptyTileCompressionEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.EmptyTileIndex = chunkReader.ReadInt32();
+                Settings.Assembly.SaveOnExport = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportDirectory = chunkReader.ReadString();
+                Settings.Assembly.ExportFilename = chunkReader.ReadString();
+                Settings.Binary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.Binary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetBinary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.CharsetBinary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetProject.TargetFilename = chunkReader.ReadString();
+                Settings.Charscreen.TargetFilename = chunkReader.ReadString();
+                Settings.Assembly.ExportTilesetColors = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportMapColors = ( chunkReader.ReadInt32() != 0 );
               }
             }
             break;
@@ -1227,28 +1261,31 @@ namespace RetroDevStudio.Formats
       string[]  commentLabels = { "background color", "multicolor 1", "multicolor 2" };
       int[]     colors = { BackgroundColor, MultiColor1, MultiColor2 };
 
-      for ( int i = 0; i < 3; ++i )
+      if ( Settings.Assembly.ExportTilesetColors )
       {
-        int     colorIndex = colors[i] & 0x0f;
-
-        string    line = LabelPrefix + colorLabels[i] + labelSuffix + " = $" + colorIndex.ToString( "X2" );
-
-        if ( Settings.Assembly.MapSizeCommentEnabled )
+        for ( int i = 0; i < 3; ++i )
         {
-          line += " " + Settings.Assembly.CommentChars + " " + commentLabels[i] + " = ";
+          int     colorIndex = colors[i] & 0x0f;
 
-          if ( colorIndex < 16 )
+          string    line = LabelPrefix + colorLabels[i] + labelSuffix + " = $" + colorIndex.ToString( "X2" );
+
+          if ( Settings.Assembly.MapSizeCommentEnabled )
           {
-            line += colorNames[colorIndex];
+            line += " " + Settings.Assembly.CommentChars + " " + commentLabels[i] + " = ";
+
+            if ( colorIndex < 16 )
+            {
+              line += colorNames[colorIndex];
+            }
+            else
+            {
+              line += "unknown";
+            }
           }
-          else
-          {
-            line += "unknown";
-          }
+          sb.AppendLine( line );
         }
-        sb.AppendLine( line );
+        sb.AppendLine();
       }
-      sb.AppendLine();
 
       sb.AppendLine( LabelPrefix + "TILE_COUNT=" + Tiles.Count );
       sb.AppendLine();
@@ -1406,49 +1443,52 @@ namespace RetroDevStudio.Formats
         }
         sb.AppendLine();
 
-        // 1 byte BG color
-        // 1 byte MC 1
-        // 1 byte MC 2
-        int   effectiveBGColor = map.AlternativeBackgroundColor;
-        if ( effectiveBGColor == -1 )
+        if ( Settings.Assembly.ExportMapColors )
         {
-          effectiveBGColor = BackgroundColor;
-        }
-        int   effectiveMC1 = map.AlternativeMultiColor1;
-        if ( effectiveMC1 == -1 )
-        {
-          effectiveMC1 = Charset.Colors.MultiColor1;
-        }
-        int   effectiveMC2 = map.AlternativeMultiColor2;
-        if ( effectiveMC2 == -1 )
-        {
-          effectiveMC2 = Charset.Colors.MultiColor2;
-        }
-        sb.Append( DataByteDirective + " $" + ( effectiveBGColor & 0x0f ).ToString( "X2" ) + ",$" + ( effectiveMC1 & 0x0f ).ToString( "X2" ) + ",$" + ( effectiveMC2 & 0x0f ).ToString( "X2" ) );
-        if ( Settings.Assembly.MapSizeCommentEnabled )
-        {
-          string    colorNameBG = "unknown";
-          string    colorNameMC1 = "unknown";
-          string    colorNameMC2 = "unknown";
+          // 1 byte BG color
+          // 1 byte MC 1
+          // 1 byte MC 2
+          int   effectiveBGColor = map.AlternativeBackgroundColor;
+          if ( effectiveBGColor == -1 )
+          {
+            effectiveBGColor = BackgroundColor;
+          }
+          int   effectiveMC1 = map.AlternativeMultiColor1;
+          if ( effectiveMC1 == -1 )
+          {
+            effectiveMC1 = Charset.Colors.MultiColor1;
+          }
+          int   effectiveMC2 = map.AlternativeMultiColor2;
+          if ( effectiveMC2 == -1 )
+          {
+            effectiveMC2 = Charset.Colors.MultiColor2;
+          }
+          sb.Append( DataByteDirective + " $" + ( effectiveBGColor & 0x0f ).ToString( "X2" ) + ",$" + ( effectiveMC1 & 0x0f ).ToString( "X2" ) + ",$" + ( effectiveMC2 & 0x0f ).ToString( "X2" ) );
+          if ( Settings.Assembly.MapSizeCommentEnabled )
+          {
+            string    colorNameBG = "unknown";
+            string    colorNameMC1 = "unknown";
+            string    colorNameMC2 = "unknown";
 
-          if ( ( effectiveBGColor >= 0 )
-          &&   ( effectiveBGColor < 16 ) )
-          {
-            colorNameBG = colorNames[effectiveBGColor];
+            if ( ( effectiveBGColor >= 0 )
+            &&   ( effectiveBGColor < 16 ) )
+            {
+              colorNameBG = colorNames[effectiveBGColor];
+            }
+            if ( ( effectiveMC1 >= 0 )
+            &&   ( effectiveMC1 < 16 ) )
+            {
+              colorNameMC1 = colorNames[effectiveMC1];
+            }
+            if ( ( effectiveMC2 >= 0 )
+            &&   ( effectiveMC2 < 16 ) )
+            {
+              colorNameMC2 = colorNames[effectiveMC2];
+            }
+            sb.Append( " " + Settings.Assembly.CommentChars + " background color, MC1, MC2: " + colorNameBG + ", " + colorNameMC1 + ", " + colorNameMC2 );
           }
-          if ( ( effectiveMC1 >= 0 )
-          &&   ( effectiveMC1 < 16 ) )
-          {
-            colorNameMC1 = colorNames[effectiveMC1];
-          }
-          if ( ( effectiveMC2 >= 0 )
-          &&   ( effectiveMC2 < 16 ) )
-          {
-            colorNameMC2 = colorNames[effectiveMC2];
-          }
-          sb.Append( " " + Settings.Assembly.CommentChars + " background color, MC1, MC2: " + colorNameBG + ", " + colorNameMC1 + ", " + colorNameMC2 );
+          sb.AppendLine();
         }
-        sb.AppendLine();
 
 
         // Map Size
