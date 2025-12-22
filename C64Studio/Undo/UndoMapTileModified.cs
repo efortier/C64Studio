@@ -37,6 +37,7 @@ namespace RetroDevStudio.Undo
       }
 
       this.Tile.Name = Tile.Name;
+      this.Tile.Passable = Tile.Passable;
     }
 
 
@@ -75,6 +76,7 @@ namespace RetroDevStudio.Undo
       }
 
       newTile.Name = Tile.Name;
+      newTile.Passable = Tile.Passable;
       MapEditor.TileModified( TileIndex );
     }
   }

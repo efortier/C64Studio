@@ -110,6 +110,7 @@
             this.editTileName = new System.Windows.Forms.TextBox();
             this.editTileHeight = new System.Windows.Forms.TextBox();
             this.editTileWidth = new System.Windows.Forms.TextBox();
+            this.checkTilePassable = new System.Windows.Forms.CheckBox();
             this.label17 = new System.Windows.Forms.Label();
             this.labelTilesBGColor4 = new System.Windows.Forms.Label();
             this.labelTilesMulticolor2 = new System.Windows.Forms.Label();
@@ -839,6 +840,7 @@
             this.tabTiles.Controls.Add(this.editTileName);
             this.tabTiles.Controls.Add(this.editTileHeight);
             this.tabTiles.Controls.Add(this.editTileWidth);
+            this.tabTiles.Controls.Add(this.checkTilePassable);
             this.tabTiles.Controls.Add(this.label17);
             this.tabTiles.Controls.Add(this.labelTilesBGColor4);
             this.tabTiles.Controls.Add(this.labelTilesMulticolor2);
@@ -1068,6 +1070,18 @@
             this.editTileWidth.Name = "editTileWidth";
             this.editTileWidth.Size = new System.Drawing.Size(100, 20);
             this.editTileWidth.TabIndex = 23;
+            // 
+            // checkTilePassable
+            // 
+            this.checkTilePassable.AutoSize = true;
+            this.checkTilePassable.Location = new System.Drawing.Point(540, 10);
+            this.checkTilePassable.Name = "checkTilePassable";
+            this.checkTilePassable.Size = new System.Drawing.Size(71, 17);
+            this.checkTilePassable.TabIndex = 23;
+            this.checkTilePassable.Text = "Passable";
+            this.checkTilePassable.UseVisualStyleBackColor = true;
+            this.checkTilePassable.Checked = true;
+            this.checkTilePassable.CheckedChanged += new System.EventHandler(this.checkTilePassable_CheckedChanged);
             // 
             // label17
             // 
@@ -1643,6 +1657,7 @@
     private System.Windows.Forms.TextBox editTileName;
     private System.Windows.Forms.TextBox editTileHeight;
     private System.Windows.Forms.TextBox editTileWidth;
+    private System.Windows.Forms.CheckBox checkTilePassable;
     private System.Windows.Forms.Label label17;
     private System.Windows.Forms.Label label16;
     private System.Windows.Forms.Label label4;

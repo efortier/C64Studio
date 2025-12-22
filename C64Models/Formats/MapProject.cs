@@ -22,6 +22,7 @@ namespace RetroDevStudio.Formats
       public GR.Game.Layer<TileChar> Chars = new GR.Game.Layer<TileChar>();
       public string       Name = "";
       public int          Index = 0;
+      public bool         Passable = true;
 
       public Tile()
       {
@@ -177,6 +178,7 @@ namespace RetroDevStudio.Formats
             chunkTile.AppendU8( tChar.Color );
           }
         }
+        chunkTile.AppendU8( tile.Passable ? (byte)1 : (byte)0 );
         chunkProjectData.Append( chunkTile.ToBuffer() );
       }
       foreach ( Map map in Maps )
@@ -326,6 +328,10 @@ namespace RetroDevStudio.Formats
                           tile.Chars[i, j].Character = subChunkReader.ReadUInt8();
                           tile.Chars[i, j].Color = subChunkReader.ReadUInt8();
                         }
+                      }
+                      if ( subChunkReader.Position < subChunkReader.Size )
+                      {
+                        tile.Passable = ( subChunkReader.ReadUInt8() != 0 );
                       }
                       Tiles.Add( tile );
                       tile.Index = Tiles.Count - 1;
@@ -1230,6 +1236,15 @@ namespace RetroDevStudio.Formats
 
       sb.AppendLine( LabelPrefix + "TILES_HEIGHT" + labelSuffix );
       sb.AppendLine( Util.ToASMData( tileHeights, WrapData, WrapByteCount, DataByteDirective ) );
+      sb.AppendLine();
+
+      sb.AppendLine( LabelPrefix + "TILES_FLAGS" + labelSuffix );
+      GR.Memory.ByteBuffer tileFlags = new GR.Memory.ByteBuffer();
+      foreach ( var tile in Tiles )
+      {
+        tileFlags.AppendU8( (byte)( tile.Passable ? 1 : 0 ) );
+      }
+      sb.AppendLine( Util.ToASMData( tileFlags, WrapData, WrapByteCount, DataByteDirective ) );
       sb.AppendLine();
 
       sb.AppendLine( LabelPrefix + "TILES_CHAR_DATA" + labelSuffix );

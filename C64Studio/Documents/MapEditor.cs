@@ -77,6 +77,7 @@ namespace RetroDevStudio.Documents
     private ExportMapFormBase           m_ExportForm = null;
     private ImportMapFormBase           m_ImportForm = null;
     private bool                        m_ApplyingExportSettings = false;
+    private bool                        m_ApplyingTileSettings = false;
 
     private List<int>                   _TileUsage = new List<int>();
 
@@ -2561,6 +2562,10 @@ namespace RetroDevStudio.Documents
 
       m_CurrentEditedTile = (Formats.MapProject.Tile)listTileInfo.SelectedItems[0].Tag;
 
+      m_ApplyingTileSettings = true;
+      checkTilePassable.Checked = m_CurrentEditedTile.Passable;
+      m_ApplyingTileSettings = false;
+
       editTileWidth.Text = m_CurrentEditedTile.Chars.Width.ToString();
       editTileHeight.Text = m_CurrentEditedTile.Chars.Height.ToString();
       editTileName.Text = m_CurrentEditedTile.Name;
@@ -2918,6 +2923,22 @@ namespace RetroDevStudio.Documents
       RedrawMap();
     }
 
+
+
+    private void checkTilePassable_CheckedChanged( object sender, EventArgs e )
+    {
+      if ( ( m_CurrentEditedTile == null )
+      ||   ( m_ApplyingTileSettings ) )
+      {
+        return;
+      }
+      if ( m_CurrentEditedTile.Passable != checkTilePassable.Checked )
+      {
+        DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
+        m_CurrentEditedTile.Passable = checkTilePassable.Checked;
+        SetModified();
+      }
+    }
 
 
     private void btnTileApply_Click( DecentForms.ControlBase Sender )
