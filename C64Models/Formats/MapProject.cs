@@ -1218,6 +1218,38 @@ namespace RetroDevStudio.Formats
       }
 
       // Tiles Data
+      string[] colorNames = new string[] {
+        "black", "white", "red", "cyan", "purple", "green", "blue", "yellow",
+        "orange", "brown", "light red", "dark grey", "grey", "light green", "light blue", "light grey"
+      };
+
+      string[]  colorLabels = { "TILESET_BG_COLOR", "TILESET_MC1_COLOR", "TILESET_MC2_COLOR" };
+      string[]  commentLabels = { "background color", "multicolor 1", "multicolor 2" };
+      int[]     colors = { BackgroundColor, MultiColor1, MultiColor2 };
+
+      for ( int i = 0; i < 3; ++i )
+      {
+        int     colorIndex = colors[i] & 0x0f;
+
+        string    line = LabelPrefix + colorLabels[i] + labelSuffix + " = $" + colorIndex.ToString( "X2" );
+
+        if ( Settings.Assembly.MapSizeCommentEnabled )
+        {
+          line += " " + Settings.Assembly.CommentChars + " " + commentLabels[i] + " = ";
+
+          if ( colorIndex < 16 )
+          {
+            line += colorNames[colorIndex];
+          }
+          else
+          {
+            line += "unknown";
+          }
+        }
+        sb.AppendLine( line );
+      }
+      sb.AppendLine();
+
       sb.AppendLine( LabelPrefix + "TILE_COUNT=" + Tiles.Count );
       sb.AppendLine();
 

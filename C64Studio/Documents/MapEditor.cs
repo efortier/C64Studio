@@ -3453,7 +3453,7 @@ namespace RetroDevStudio.Documents
       }
       else
       {
-        e.Graphics.DrawString( combo.Items[e.Index].ToString(), combo.Font, new System.Drawing.SolidBrush( System.Drawing.Color.Black ), 3.0f, e.Bounds.Top + 1.0f );
+        e.Graphics.DrawString( combo.Items[e.Index].ToString(), combo.Font, new System.Drawing.SolidBrush(e.ForeColor), 3.0f, e.Bounds.Top + 1.0f );
       }
 
     }
