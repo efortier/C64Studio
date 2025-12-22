@@ -169,7 +169,7 @@ namespace RetroDevStudio.Controls
       this.Controls.Add(this.label2);
       this.Controls.Add(this.editPrefix);
       this.Name = "ExportMapAsAssembly";
-      this.Size = new System.Drawing.Size(317, 317);
+      this.Size = new System.Drawing.Size(427, 317);
       this.ResumeLayout(false);
       this.PerformLayout();
 

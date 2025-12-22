@@ -64,6 +64,9 @@ namespace RetroDevStudio.Formats
         public string CommentChars = ";";
         public bool   EmptyTileCompressionEnabled = false;
         public int    EmptyTileIndex = 0;
+        public bool   SaveOnExport = false;
+        public string ExportDirectory = "";
+        public string ExportFilename = "";
       }
 
       public class BinarySettings
@@ -227,7 +230,7 @@ namespace RetroDevStudio.Formats
       projectFile.Append( chunkProjectData.ToBuffer() );
 
       GR.IO.FileChunk chunkExportSettings = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS );
-      chunkExportSettings.AppendU32( 4 );
+      chunkExportSettings.AppendU32( 5 );
       chunkExportSettings.AppendI32(Settings.ExportDataIndex );
       chunkExportSettings.AppendI32(Settings.ExportOrientationIndex );
       chunkExportSettings.AppendI32( Settings.ExportMethodIndex );
@@ -243,6 +246,9 @@ namespace RetroDevStudio.Formats
       chunkExportSettings.AppendString( Settings.Assembly.CommentChars ?? "" );
       chunkExportSettings.AppendI32( Settings.Assembly.EmptyTileCompressionEnabled ? 1 : 0 );
       chunkExportSettings.AppendI32( Settings.Assembly.EmptyTileIndex );
+      chunkExportSettings.AppendI32( Settings.Assembly.SaveOnExport ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.Assembly.ExportDirectory ?? "" );
+      chunkExportSettings.AppendString( Settings.Assembly.ExportFilename ?? "" );
       chunkExportSettings.AppendI32( Settings.Binary.PrefixLoadAddress ? 1 : 0 );
       chunkExportSettings.AppendString( Settings.Binary.PrefixLoadAddressHex ?? "" );
       chunkExportSettings.AppendI32( Settings.CharsetBinary.PrefixLoadAddress ? 1 : 0 );
@@ -489,6 +495,33 @@ namespace RetroDevStudio.Formats
                 Settings.Assembly.CommentChars = chunkReader.ReadString();
                 Settings.Assembly.EmptyTileCompressionEnabled = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.EmptyTileIndex = chunkReader.ReadInt32();
+                Settings.Binary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.Binary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetBinary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.CharsetBinary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetProject.TargetFilename = chunkReader.ReadString();
+                Settings.Charscreen.TargetFilename = chunkReader.ReadString();
+              }
+              else if ( version == 5 )
+              {
+                Settings.ExportDataIndex = chunkReader.ReadInt32();
+                Settings.ExportOrientationIndex = chunkReader.ReadInt32();
+                Settings.ExportMethodIndex = chunkReader.ReadInt32();
+                Settings.Assembly.PrefixWith = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.Prefix = chunkReader.ReadString();
+                Settings.Assembly.WrapAt = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.WrapByteCount = chunkReader.ReadInt32();
+                Settings.Assembly.ExportHex = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.VariableNameLabelPrefixEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.VariableNameLabelPrefix = chunkReader.ReadString();
+                Settings.Assembly.IncludeSemicolonAfterSimpleLabels = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.MapSizeCommentEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.CommentChars = chunkReader.ReadString();
+                Settings.Assembly.EmptyTileCompressionEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.EmptyTileIndex = chunkReader.ReadInt32();
+                Settings.Assembly.SaveOnExport = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportDirectory = chunkReader.ReadString();
+                Settings.Assembly.ExportFilename = chunkReader.ReadString();
                 Settings.Binary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
                 Settings.Binary.PrefixLoadAddressHex = chunkReader.ReadString();
                 Settings.CharsetBinary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );

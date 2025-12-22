@@ -20,6 +20,12 @@ namespace RetroDevStudio.Controls
     private bool m_ApplyingSettings = false;
     private System.Windows.Forms.CheckBox checkEmptyTile;
     private System.Windows.Forms.TextBox editEmptyTileIndex;
+    private System.Windows.Forms.CheckBox checkSaveOnExport;
+    private System.Windows.Forms.TextBox editExportDirectory;
+    private System.Windows.Forms.Button btnBrowseExportDirectory;
+    private System.Windows.Forms.TextBox editExportFilename;
+    private System.Windows.Forms.Label labelExportDirectory;
+    private System.Windows.Forms.Label labelExportFilename;
 
     public ExportMapAsAssembly() :
       base( null )
@@ -35,6 +41,12 @@ namespace RetroDevStudio.Controls
       
       this.checkEmptyTile = new System.Windows.Forms.CheckBox();
       this.editEmptyTileIndex = new System.Windows.Forms.TextBox();
+      this.checkSaveOnExport = new System.Windows.Forms.CheckBox();
+      this.editExportDirectory = new System.Windows.Forms.TextBox();
+      this.btnBrowseExportDirectory = new System.Windows.Forms.Button();
+      this.editExportFilename = new System.Windows.Forms.TextBox();
+      this.labelExportDirectory = new System.Windows.Forms.Label();
+      this.labelExportFilename = new System.Windows.Forms.Label();
 
       // 
       // checkEmptyTile
@@ -57,7 +69,77 @@ namespace RetroDevStudio.Controls
       this.editEmptyTileIndex.TabIndex = 11;
       this.editEmptyTileIndex.Text = "0";
       this.editEmptyTileIndex.TextChanged += HandleSettingsChanged;
+
+      // 
+      // checkSaveOnExport
+      // 
+      this.checkSaveOnExport.AutoSize = true;
+      this.checkSaveOnExport.Location = new System.Drawing.Point(3, 168);
+      this.checkSaveOnExport.Name = "checkSaveOnExport";
+      this.checkSaveOnExport.Size = new System.Drawing.Size(122, 17);
+      this.checkSaveOnExport.TabIndex = 12;
+      this.checkSaveOnExport.Text = "Save on export";
+      this.checkSaveOnExport.UseVisualStyleBackColor = true;
+      this.checkSaveOnExport.CheckedChanged += new System.EventHandler(this.checkSaveOnExport_CheckedChanged);
+
+      // 
+      // labelExportDirectory
+      // 
+      this.labelExportDirectory.AutoSize = true;
+      this.labelExportDirectory.Location = new System.Drawing.Point(3, 191);
+      this.labelExportDirectory.Name = "labelExportDirectory";
+      this.labelExportDirectory.Size = new System.Drawing.Size(84, 13);
+      this.labelExportDirectory.TabIndex = 13;
+      this.labelExportDirectory.Text = "Export directory:";
+
+      // 
+      // editExportDirectory
+      // 
+      this.editExportDirectory.Enabled = false;
+      this.editExportDirectory.Location = new System.Drawing.Point(100, 188);
+      this.editExportDirectory.Name = "editExportDirectory";
+      this.editExportDirectory.Size = new System.Drawing.Size(214, 20);
+      this.editExportDirectory.TabIndex = 14;
+      this.editExportDirectory.TextChanged += HandleSettingsChanged;
+
+      // 
+      // btnBrowseExportDirectory
+      // 
+      this.btnBrowseExportDirectory.Enabled = false;
+      this.btnBrowseExportDirectory.Location = new System.Drawing.Point(350, 186);
+      this.btnBrowseExportDirectory.Name = "btnBrowseExportDirectory";
+      this.btnBrowseExportDirectory.Size = new System.Drawing.Size(75, 23);
+      this.btnBrowseExportDirectory.TabIndex = 15;
+      this.btnBrowseExportDirectory.Text = "Browse...";
+      this.btnBrowseExportDirectory.UseVisualStyleBackColor = true;
+      this.btnBrowseExportDirectory.Click += new System.EventHandler(this.btnBrowseExportDirectory_Click);
+
+      // 
+      // labelExportFilename
+      // 
+      this.labelExportFilename.AutoSize = true;
+      this.labelExportFilename.Location = new System.Drawing.Point(3, 217);
+      this.labelExportFilename.Name = "labelExportFilename";
+      this.labelExportFilename.Size = new System.Drawing.Size(82, 13);
+      this.labelExportFilename.TabIndex = 16;
+      this.labelExportFilename.Text = "Export filename:";
+
+      // 
+      // editExportFilename
+      // 
+      this.editExportFilename.Enabled = false;
+      this.editExportFilename.Location = new System.Drawing.Point(100, 214);
+      this.editExportFilename.Name = "editExportFilename";
+      this.editExportFilename.Size = new System.Drawing.Size(214, 20);
+      this.editExportFilename.TabIndex = 17;
+      this.editExportFilename.TextChanged += HandleSettingsChanged;
       
+      this.Controls.Add(this.editExportFilename);
+      this.Controls.Add(this.labelExportFilename);
+      this.Controls.Add(this.btnBrowseExportDirectory);
+      this.Controls.Add(this.editExportDirectory);
+      this.Controls.Add(this.labelExportDirectory);
+      this.Controls.Add(this.checkSaveOnExport);
       this.Controls.Add(this.editEmptyTileIndex);
       this.Controls.Add(this.checkEmptyTile);
       
@@ -77,6 +159,33 @@ namespace RetroDevStudio.Controls
       if (!m_ApplyingSettings)
       {
         RaiseSettingsChanged();
+      }
+    }
+
+    private void checkSaveOnExport_CheckedChanged(object sender, EventArgs e)
+    {
+      editExportDirectory.Enabled = checkSaveOnExport.Checked;
+      btnBrowseExportDirectory.Enabled = checkSaveOnExport.Checked;
+      editExportFilename.Enabled = checkSaveOnExport.Checked;
+
+      if (!m_ApplyingSettings)
+      {
+        RaiseSettingsChanged();
+      }
+    }
+
+    private void btnBrowseExportDirectory_Click(object sender, EventArgs e)
+    {
+      System.Windows.Forms.FolderBrowserDialog browser = new System.Windows.Forms.FolderBrowserDialog();
+      
+      if ( !string.IsNullOrEmpty( editExportDirectory.Text ) )
+
+      {
+        browser.SelectedPath = editExportDirectory.Text;
+      }
+      if ( browser.ShowDialog() == System.Windows.Forms.DialogResult.OK )
+      {
+        editExportDirectory.Text = browser.SelectedPath;
       }
     }
 
@@ -228,6 +337,49 @@ namespace RetroDevStudio.Controls
 
       resultText = ApplyLabelFormatting( resultText );
       EditOutput.Text = resultText;
+      
+      if ( ( checkSaveOnExport.Checked ) 
+      &&   ( resultText.Length > 0 ) )
+      {
+        if ( !string.IsNullOrEmpty( editExportFilename.Text ) )
+        {
+          string    fullPath = editExportFilename.Text;
+          string    exportDirectory = editExportDirectory.Text;
+          
+          if ( string.IsNullOrEmpty( exportDirectory ) )
+          {
+            fullPath = System.IO.Path.Combine( System.IO.Path.GetDirectoryName( DocInfo.FullPath ), editExportFilename.Text );
+          }
+          else
+          {
+            try
+            {
+               fullPath = System.IO.Path.Combine( exportDirectory, editExportFilename.Text );
+            }
+            catch ( Exception )
+            {
+              // invalid path combination?
+              fullPath = editExportFilename.Text;
+            }
+          }
+          if ( System.IO.File.Exists( fullPath ) )
+          {
+            if ( System.Windows.Forms.MessageBox.Show( "The file " + fullPath + " already exists.\r\nOverwrite?", "File already exists", System.Windows.Forms.MessageBoxButtons.YesNo ) == System.Windows.Forms.DialogResult.No )
+            {
+              return true;
+            }
+          }
+          try
+          {
+            System.IO.File.WriteAllText( fullPath, resultText );
+          }
+          catch ( Exception ex )
+          {
+            Core.Notification.MessageBox( "Error saving file", "Could not save exported file:\r\n" + ex.Message );
+          }
+        }
+      }
+      
       return true;
     }
 
@@ -306,6 +458,14 @@ namespace RetroDevStudio.Controls
         checkEmptyTile.Checked = assemblySettings.EmptyTileCompressionEnabled;
         editEmptyTileIndex.Text = assemblySettings.EmptyTileIndex.ToString();
         editEmptyTileIndex.Enabled = checkEmptyTile.Checked;
+        
+        checkSaveOnExport.Checked = assemblySettings.SaveOnExport;
+        editExportDirectory.Text = assemblySettings.ExportDirectory;
+        editExportFilename.Text = assemblySettings.ExportFilename;
+        
+        editExportDirectory.Enabled = checkSaveOnExport.Checked;
+        btnBrowseExportDirectory.Enabled = checkSaveOnExport.Checked;
+        editExportFilename.Enabled = checkSaveOnExport.Checked;
       }
       finally
       {
@@ -336,6 +496,9 @@ namespace RetroDevStudio.Controls
       assemblySettings.CommentChars = editCommentCharacters.Text ?? "";
       assemblySettings.EmptyTileCompressionEnabled = checkEmptyTile.Checked;
       assemblySettings.EmptyTileIndex = GR.Convert.ToI32( editEmptyTileIndex.Text );
+      assemblySettings.SaveOnExport = checkSaveOnExport.Checked;
+      assemblySettings.ExportDirectory = editExportDirectory.Text;
+      assemblySettings.ExportFilename = editExportFilename.Text;
     }
 
 
