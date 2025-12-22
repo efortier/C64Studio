@@ -1405,7 +1405,52 @@ namespace RetroDevStudio.Formats
           sb.Append( Settings.Assembly.CommentChars + " " + map.Name );
         }
         sb.AppendLine();
-        
+
+        // 1 byte BG color
+        // 1 byte MC 1
+        // 1 byte MC 2
+        int   effectiveBGColor = map.AlternativeBackgroundColor;
+        if ( effectiveBGColor == -1 )
+        {
+          effectiveBGColor = BackgroundColor;
+        }
+        int   effectiveMC1 = map.AlternativeMultiColor1;
+        if ( effectiveMC1 == -1 )
+        {
+          effectiveMC1 = Charset.Colors.MultiColor1;
+        }
+        int   effectiveMC2 = map.AlternativeMultiColor2;
+        if ( effectiveMC2 == -1 )
+        {
+          effectiveMC2 = Charset.Colors.MultiColor2;
+        }
+        sb.Append( DataByteDirective + " $" + ( effectiveBGColor & 0x0f ).ToString( "X2" ) + ",$" + ( effectiveMC1 & 0x0f ).ToString( "X2" ) + ",$" + ( effectiveMC2 & 0x0f ).ToString( "X2" ) );
+        if ( Settings.Assembly.MapSizeCommentEnabled )
+        {
+          string    colorNameBG = "unknown";
+          string    colorNameMC1 = "unknown";
+          string    colorNameMC2 = "unknown";
+
+          if ( ( effectiveBGColor >= 0 )
+          &&   ( effectiveBGColor < 16 ) )
+          {
+            colorNameBG = colorNames[effectiveBGColor];
+          }
+          if ( ( effectiveMC1 >= 0 )
+          &&   ( effectiveMC1 < 16 ) )
+          {
+            colorNameMC1 = colorNames[effectiveMC1];
+          }
+          if ( ( effectiveMC2 >= 0 )
+          &&   ( effectiveMC2 < 16 ) )
+          {
+            colorNameMC2 = colorNames[effectiveMC2];
+          }
+          sb.Append( " " + Settings.Assembly.CommentChars + " background color, MC1, MC2: " + colorNameBG + ", " + colorNameMC1 + ", " + colorNameMC2 );
+        }
+        sb.AppendLine();
+
+
         // Map Size
         GR.Memory.ByteBuffer mapSize = new GR.Memory.ByteBuffer();
         mapSize.AppendU8( (byte)map.Tiles.Width );
