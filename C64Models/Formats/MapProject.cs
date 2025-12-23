@@ -1267,7 +1267,7 @@ namespace RetroDevStudio.Formats
         {
           int     colorIndex = colors[i] & 0x0f;
 
-          string    line = LabelPrefix + colorLabels[i] + labelSuffix + " = $" + colorIndex.ToString( "X2" );
+          string    line = LabelPrefix + colorLabels[i] + " = $" + colorIndex.ToString( "X2" );
 
           if ( Settings.Assembly.MapSizeCommentEnabled )
           {
@@ -1411,6 +1411,66 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( LabelPrefix + "MAP_COUNT=" + Maps.Count );
       sb.AppendLine();
 
+      // Global Map Tables
+      // MAPS_WIDTH
+      sb.AppendLine( LabelPrefix + "MAPS_WIDTH" + labelSuffix );
+      GR.Memory.ByteBuffer mapWidths = new GR.Memory.ByteBuffer();
+      for ( int i = 0; i < Maps.Count; ++i )
+      {
+        mapWidths.AppendU8( (byte)Maps[i].Tiles.Width );
+      }
+      sb.AppendLine( Util.ToASMData( mapWidths, WrapData, WrapByteCount, DataByteDirective ) );
+      sb.AppendLine();
+
+      // MAPS_HEIGHT
+      sb.AppendLine( LabelPrefix + "MAPS_HEIGHT" + labelSuffix );
+      GR.Memory.ByteBuffer mapHeights = new GR.Memory.ByteBuffer();
+      for ( int i = 0; i < Maps.Count; ++i )
+      {
+        mapHeights.AppendU8( (byte)Maps[i].Tiles.Height );
+      }
+      sb.AppendLine( Util.ToASMData( mapHeights, WrapData, WrapByteCount, DataByteDirective ) );
+      sb.AppendLine();
+
+      if ( Settings.Assembly.ExportMapColors )
+      {
+        // MAPS_BG_COLOR
+        sb.AppendLine( LabelPrefix + "MAPS_BG_COLOR" + labelSuffix );
+        GR.Memory.ByteBuffer mapBGColors = new GR.Memory.ByteBuffer();
+        for ( int i = 0; i < Maps.Count; ++i )
+        {
+          int effectiveBGColor = Maps[i].AlternativeBackgroundColor;
+          if ( effectiveBGColor == -1 ) effectiveBGColor = BackgroundColor;
+          mapBGColors.AppendU8( (byte)( effectiveBGColor & 0x0f ) );
+        }
+        sb.AppendLine( Util.ToASMData( mapBGColors, WrapData, WrapByteCount, DataByteDirective ) );
+        sb.AppendLine();
+
+        // MAPS_MC1_COLOR
+        sb.AppendLine( LabelPrefix + "MAPS_MC1_COLOR" + labelSuffix );
+        GR.Memory.ByteBuffer mapMC1Colors = new GR.Memory.ByteBuffer();
+        for ( int i = 0; i < Maps.Count; ++i )
+        {
+          int effectiveMC1 = Maps[i].AlternativeMultiColor1;
+          if ( effectiveMC1 == -1 ) effectiveMC1 = Charset.Colors.MultiColor1;
+          mapMC1Colors.AppendU8( (byte)( effectiveMC1 & 0x0f ) );
+        }
+        sb.AppendLine( Util.ToASMData( mapMC1Colors, WrapData, WrapByteCount, DataByteDirective ) );
+        sb.AppendLine();
+
+        // MAPS_MC2_COLOR
+        sb.AppendLine( LabelPrefix + "MAPS_MC2_COLOR" + labelSuffix );
+        GR.Memory.ByteBuffer mapMC2Colors = new GR.Memory.ByteBuffer();
+        for ( int i = 0; i < Maps.Count; ++i )
+        {
+          int effectiveMC2 = Maps[i].AlternativeMultiColor2;
+          if ( effectiveMC2 == -1 ) effectiveMC2 = Charset.Colors.MultiColor2;
+          mapMC2Colors.AppendU8( (byte)( effectiveMC2 & 0x0f ) );
+        }
+        sb.AppendLine( Util.ToASMData( mapMC2Colors, WrapData, WrapByteCount, DataByteDirective ) );
+        sb.AppendLine();
+      }
+
       sb.AppendLine( LabelPrefix + "MAPS_TABLE_LOW" + labelSuffix );
       sbTable = new StringBuilder();
       sbTable.Append( DataByteDirective + " " );
@@ -1443,68 +1503,8 @@ namespace RetroDevStudio.Formats
         }
         sb.AppendLine();
 
-        if ( Settings.Assembly.ExportMapColors )
-        {
-          // 1 byte BG color
-          // 1 byte MC 1
-          // 1 byte MC 2
-          int   effectiveBGColor = map.AlternativeBackgroundColor;
-          if ( effectiveBGColor == -1 )
-          {
-            effectiveBGColor = BackgroundColor;
-          }
-          int   effectiveMC1 = map.AlternativeMultiColor1;
-          if ( effectiveMC1 == -1 )
-          {
-            effectiveMC1 = Charset.Colors.MultiColor1;
-          }
-          int   effectiveMC2 = map.AlternativeMultiColor2;
-          if ( effectiveMC2 == -1 )
-          {
-            effectiveMC2 = Charset.Colors.MultiColor2;
-          }
-          sb.Append( DataByteDirective + " $" + ( effectiveBGColor & 0x0f ).ToString( "X2" ) + ",$" + ( effectiveMC1 & 0x0f ).ToString( "X2" ) + ",$" + ( effectiveMC2 & 0x0f ).ToString( "X2" ) );
-          if ( Settings.Assembly.MapSizeCommentEnabled )
-          {
-            string    colorNameBG = "unknown";
-            string    colorNameMC1 = "unknown";
-            string    colorNameMC2 = "unknown";
-
-            if ( ( effectiveBGColor >= 0 )
-            &&   ( effectiveBGColor < 16 ) )
-            {
-              colorNameBG = colorNames[effectiveBGColor];
-            }
-            if ( ( effectiveMC1 >= 0 )
-            &&   ( effectiveMC1 < 16 ) )
-            {
-              colorNameMC1 = colorNames[effectiveMC1];
-            }
-            if ( ( effectiveMC2 >= 0 )
-            &&   ( effectiveMC2 < 16 ) )
-            {
-              colorNameMC2 = colorNames[effectiveMC2];
-            }
-            sb.Append( " " + Settings.Assembly.CommentChars + " background color, MC1, MC2: " + colorNameBG + ", " + colorNameMC1 + ", " + colorNameMC2 );
-          }
-          sb.AppendLine();
-        }
-
-
-        // Map Size
-        GR.Memory.ByteBuffer mapSize = new GR.Memory.ByteBuffer();
-        mapSize.AppendU8( (byte)map.Tiles.Width );
-        mapSize.AppendU8( (byte)map.Tiles.Height );
-        sb.Append( Util.ToASMData( mapSize, false, 0, DataByteDirective ) );
-        if ( Settings.Assembly.MapSizeCommentEnabled )
-        {
-          sb.Append( " " + Settings.Assembly.CommentChars + " map width, height" );
-        }
-        sb.AppendLine();
-
         // Collect tiles
         GR.Memory.ByteBuffer mapTiles = new GR.Memory.ByteBuffer();
-        int tileCount = 0;
         for ( int y = 0; y < map.Tiles.Height; ++y )
         {
           for ( int x = 0; x < map.Tiles.Width; ++x )
@@ -1518,21 +1518,10 @@ namespace RetroDevStudio.Formats
             mapTiles.AppendU8( (byte)tileIndex );
             mapTiles.AppendU8( (byte)x );
             mapTiles.AppendU8( (byte)y );
-            tileCount++;
           }
         }
 
-        // List size
-        GR.Memory.ByteBuffer listSize = new GR.Memory.ByteBuffer();
-        listSize.AppendU8( (byte)( tileCount & 0xff ) );
-        listSize.AppendU8( (byte)( ( tileCount >> 8 ) & 0xff ) );
-        sb.Append( Util.ToASMData( listSize, false, 0, DataByteDirective ) );
-        if ( Settings.Assembly.MapSizeCommentEnabled )
-        {
-          sb.Append( " " + Settings.Assembly.CommentChars + " tile count" );
-        }
-        sb.AppendLine();
-
+        // Map Tile Data
         int ptr = 0;
         while ( ptr < mapTiles.Length )
         {
@@ -1561,6 +1550,14 @@ namespace RetroDevStudio.Formats
            sb.AppendLine();
            ptr += 3;
         }
+
+        // Terminator
+        sb.Append( DataByteDirective + " $FF,$FF,$FF" );
+        if ( Settings.Assembly.MapSizeCommentEnabled )
+        {
+          sb.Append( "\t" + Settings.Assembly.CommentChars + " end of map" );
+        }
+        sb.AppendLine();
         sb.AppendLine();
       }
 
