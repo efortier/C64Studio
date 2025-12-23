@@ -40,6 +40,8 @@ namespace RetroDevStudio.Controls
       this.editWrapByteCount = new System.Windows.Forms.TextBox();
       this.label2 = new System.Windows.Forms.Label();
       this.editPrefix = new System.Windows.Forms.TextBox();
+      this.checkAddFilenamespace = new System.Windows.Forms.CheckBox();
+      this.editFilenamespace = new System.Windows.Forms.TextBox();
       this.SuspendLayout();
       // 
       // checkExportHex
@@ -153,10 +155,32 @@ namespace RetroDevStudio.Controls
       this.editPrefix.TabIndex = 1;
       this.editPrefix.Text = "!byte ";
       // 
+      // checkAddFilenamespace
+      // 
+      this.checkAddFilenamespace.AutoSize = true;
+      this.checkAddFilenamespace.Location = new System.Drawing.Point(3, 320);
+      this.checkAddFilenamespace.Name = "checkAddFilenamespace";
+      this.checkAddFilenamespace.Size = new System.Drawing.Size(122, 17);
+      this.checkAddFilenamespace.TabIndex = 15;
+      this.checkAddFilenamespace.Text = "Add filenamespace";
+      this.checkAddFilenamespace.UseVisualStyleBackColor = true;
+      this.checkAddFilenamespace.CheckedChanged += new System.EventHandler(this.checkAddFilenamespace_CheckedChanged);
+      // 
+      // editFilenamespace
+      // 
+      this.editFilenamespace.Location = new System.Drawing.Point(200, 317);
+      this.editFilenamespace.Name = "editFilenamespace";
+      this.editFilenamespace.Size = new System.Drawing.Size(214, 20);
+      this.editFilenamespace.TabIndex = 16;
+      this.editFilenamespace.Enabled = false;
+      this.editFilenamespace.TextChanged += new System.EventHandler(this.editFilenamespace_TextChanged);
+      // 
       // ExportMapAsAssembly
       // 
       this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
       this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+      this.Controls.Add(this.editFilenamespace);
+      this.Controls.Add(this.checkAddFilenamespace);
       this.Controls.Add(this.editCommentCharacters);
       this.Controls.Add(this.checkCommentCharacters);
       this.Controls.Add(this.checkIncludeSemicolonAfterSimpleLabels);
@@ -169,7 +193,7 @@ namespace RetroDevStudio.Controls
       this.Controls.Add(this.label2);
       this.Controls.Add(this.editPrefix);
       this.Name = "ExportMapAsAssembly";
-      this.Size = new System.Drawing.Size(427, 317);
+      this.Size = new System.Drawing.Size(427, 360);
       this.ResumeLayout(false);
       this.PerformLayout();
 
@@ -187,5 +211,7 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.TextBox editWrapByteCount;
     private System.Windows.Forms.Label label2;
     private System.Windows.Forms.TextBox editPrefix;
+    private System.Windows.Forms.CheckBox checkAddFilenamespace;
+    private System.Windows.Forms.TextBox editFilenamespace;
   }
 }

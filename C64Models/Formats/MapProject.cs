@@ -71,6 +71,8 @@ namespace RetroDevStudio.Formats
         public string ExportFilename = "";
         public bool   ExportTilesetColors = true;
         public bool   ExportMapColors = true;
+        public bool   AddFilenamespace = false;
+        public string Filenamespace = "";
       }
 
       public class BinarySettings
@@ -235,7 +237,7 @@ namespace RetroDevStudio.Formats
       projectFile.Append( chunkProjectData.ToBuffer() );
 
       GR.IO.FileChunk chunkExportSettings = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS );
-      chunkExportSettings.AppendU32( 6 );
+      chunkExportSettings.AppendU32( 7 );
       chunkExportSettings.AppendI32(Settings.ExportDataIndex );
       chunkExportSettings.AppendI32(Settings.ExportOrientationIndex );
       chunkExportSettings.AppendI32( Settings.ExportMethodIndex );
@@ -262,6 +264,8 @@ namespace RetroDevStudio.Formats
       chunkExportSettings.AppendString( Settings.Charscreen.TargetFilename ?? "" );
       chunkExportSettings.AppendI32( Settings.Assembly.ExportTilesetColors ? 1 : 0 );
       chunkExportSettings.AppendI32( Settings.Assembly.ExportMapColors ? 1 : 0 );
+      chunkExportSettings.AppendI32( Settings.Assembly.AddFilenamespace ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.Assembly.Filenamespace ?? "" );
       projectFile.Append( chunkExportSettings.ToBuffer() );
       return projectFile;
     }
@@ -568,6 +572,37 @@ namespace RetroDevStudio.Formats
                 Settings.Charscreen.TargetFilename = chunkReader.ReadString();
                 Settings.Assembly.ExportTilesetColors = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.ExportMapColors = ( chunkReader.ReadInt32() != 0 );
+              }
+              else if ( version == 7 )
+              {
+                Settings.ExportDataIndex = chunkReader.ReadInt32();
+                Settings.ExportOrientationIndex = chunkReader.ReadInt32();
+                Settings.ExportMethodIndex = chunkReader.ReadInt32();
+                Settings.Assembly.PrefixWith = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.Prefix = chunkReader.ReadString();
+                Settings.Assembly.WrapAt = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.WrapByteCount = chunkReader.ReadInt32();
+                Settings.Assembly.ExportHex = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.VariableNameLabelPrefixEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.VariableNameLabelPrefix = chunkReader.ReadString();
+                Settings.Assembly.IncludeSemicolonAfterSimpleLabels = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.MapSizeCommentEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.CommentChars = chunkReader.ReadString();
+                Settings.Assembly.EmptyTileCompressionEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.EmptyTileIndex = chunkReader.ReadInt32();
+                Settings.Assembly.SaveOnExport = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportDirectory = chunkReader.ReadString();
+                Settings.Assembly.ExportFilename = chunkReader.ReadString();
+                Settings.Binary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.Binary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetBinary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.CharsetBinary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetProject.TargetFilename = chunkReader.ReadString();
+                Settings.Charscreen.TargetFilename = chunkReader.ReadString();
+                Settings.Assembly.ExportTilesetColors = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportMapColors = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.AddFilenamespace = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.Filenamespace = chunkReader.ReadString();
               }
             }
             break;
@@ -1241,9 +1276,16 @@ namespace RetroDevStudio.Formats
 
 
 
-    public bool ExportSparseTileAndMapData( out string ExportData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective, bool EmptyTileCompression, int EmptyTileIndex )
+    public bool ExportSparseTileAndMapData( out string ExportData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective, bool EmptyTileCompression, int EmptyTileIndex, bool AddFilenamespace, string Filenamespace )
     {
       StringBuilder sb = new StringBuilder();
+
+      if ( AddFilenamespace )
+      {
+         sb.Append( ".filenamespace " );
+         sb.AppendLine( Filenamespace );
+         sb.AppendLine();
+      }
 
       string labelSuffix = "";
       if ( Settings.Assembly.IncludeSemicolonAfterSimpleLabels )

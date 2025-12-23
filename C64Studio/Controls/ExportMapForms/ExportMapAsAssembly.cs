@@ -207,6 +207,31 @@ namespace RetroDevStudio.Controls
       }
     }
 
+    private void checkAddFilenamespace_CheckedChanged(object sender, EventArgs e)
+    {
+      editFilenamespace.Enabled = checkAddFilenamespace.Checked;
+      if ( ( checkAddFilenamespace.Checked )
+      &&   ( string.IsNullOrEmpty( editFilenamespace.Text ) ) )
+      {
+        if ( Core.MainForm.ActiveDocument != null )
+        {
+          editFilenamespace.Text = System.IO.Path.GetFileNameWithoutExtension( Core.MainForm.ActiveDocument.DocumentInfo.DocumentFilename );
+        }
+      }
+      if (!m_ApplyingSettings)
+      {
+        RaiseSettingsChanged();
+      }
+    }
+
+    private void editFilenamespace_TextChanged(object sender, EventArgs e)
+    {
+      if (!m_ApplyingSettings)
+      {
+        RaiseSettingsChanged();
+      }
+    }
+
     private void checkSaveOnExport_CheckedChanged(object sender, EventArgs e)
     {
       editExportDirectory.Enabled = checkSaveOnExport.Checked;
@@ -357,7 +382,7 @@ namespace RetroDevStudio.Controls
       }
       if ( Info.ExportType == MapExportType.SPARSE_TILE_AND_MAP_DATA )
       {
-        Info.Map.ExportSparseTileAndMapData( out mapData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix, checkEmptyTile.Checked, GR.Convert.ToI32( editEmptyTileIndex.Text ) );
+        Info.Map.ExportSparseTileAndMapData( out mapData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix, checkEmptyTile.Checked, GR.Convert.ToI32( editEmptyTileIndex.Text ), checkAddFilenamespace.Checked, editFilenamespace.Text );
       }
 
       string resultText = "";
@@ -514,6 +539,9 @@ namespace RetroDevStudio.Controls
 
         checkExportTilesetColors.Checked = assemblySettings.ExportTilesetColors;
         checkExportMapColors.Checked = assemblySettings.ExportMapColors;
+        checkAddFilenamespace.Checked = assemblySettings.AddFilenamespace;
+        editFilenamespace.Text = assemblySettings.Filenamespace;
+        editFilenamespace.Enabled = checkAddFilenamespace.Checked;
       }
       finally
       {
@@ -547,6 +575,8 @@ namespace RetroDevStudio.Controls
       assemblySettings.SaveOnExport = checkSaveOnExport.Checked;
       assemblySettings.ExportTilesetColors = checkExportTilesetColors.Checked;
       assemblySettings.ExportMapColors = checkExportMapColors.Checked;
+      assemblySettings.AddFilenamespace = checkAddFilenamespace.Checked;
+      assemblySettings.Filenamespace = editFilenamespace.Text;
       assemblySettings.ExportDirectory = editExportDirectory.Text;
       assemblySettings.ExportFilename = editExportFilename.Text;
     }
