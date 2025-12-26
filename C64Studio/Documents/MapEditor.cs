@@ -186,7 +186,9 @@ namespace RetroDevStudio.Documents
       comboExportOrientation.SelectedIndex = 0;
       comboExportData.SelectedIndex = 0;
       comboExportData.SelectedIndexChanged += ExportSettingsChanged;
+      comboExportData.SelectedIndexChanged += ExportSettingsChanged;
       comboExportOrientation.SelectedIndexChanged += ExportSettingsChanged;
+      comboRightClickBehavior.SelectedIndexChanged += comboRightClickBehavior_SelectedIndexChanged;
 
       foreach ( TextMode mode in Enum.GetValues( typeof( TextMode ) ) )
       {
@@ -216,6 +218,7 @@ namespace RetroDevStudio.Documents
       }
 
       characterEditor.CharsetUpdated( m_MapProject.Charset );
+      RefreshMapTileList();
       Modified = false;
 
       ResumeLayout();
@@ -659,6 +662,14 @@ namespace RetroDevStudio.Documents
           }
         }
       }
+    }
+
+
+
+    protected override void OnEnter( EventArgs e )
+    {
+      base.OnEnter( e );
+      RefreshMapTileList();
     }
 
 
@@ -1296,14 +1307,46 @@ namespace RetroDevStudio.Documents
       }
       if ( ( Buttons & MouseButtons.Right ) != 0 )
       {
-        int tileIndex = m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY];
-        if ( tileIndex < m_MapProject.Tiles.Count )
+        if ( string.IsNullOrEmpty( m_MapProject.RightClickAction ) )
         {
-          m_CurrentEditorTile = m_MapProject.Tiles[tileIndex];
-          if ( ( tileIndex >= 0 )
-          &&   ( tileIndex < comboTiles.Items.Count ) )
+          int tileIndex = m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY];
+          if ( tileIndex < m_MapProject.Tiles.Count )
           {
-            comboTiles.SelectedIndex = tileIndex;
+            m_CurrentEditorTile = m_MapProject.Tiles[tileIndex];
+            if ( ( tileIndex >= 0 )
+            &&   ( tileIndex < comboTiles.Items.Count ) )
+            {
+              comboTiles.SelectedIndex = tileIndex;
+            }
+          }
+        }
+        else
+        {
+          // paint with selected tile
+          MapProject.Tile tileToUse = null;
+          foreach ( var tile in m_MapProject.Tiles )
+          {
+            if ( tile.Name == m_MapProject.RightClickAction )
+            {
+              tileToUse = tile;
+              break;
+            }
+          }
+          if ( tileToUse != null )
+          {
+            DrawTile( trueX, trueY, tileToUse.Index );
+            m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY] = tileToUse.Index;
+
+            pictureEditor.DisplayPage.DrawTo( m_Image,
+                            trueX * 8 * m_CurrentMap.TileSpacingX,
+                            trueY * 8 * m_CurrentMap.TileSpacingY,
+                            trueX * 8 * m_CurrentMap.TileSpacingX,
+                            trueY * 8 * m_CurrentMap.TileSpacingY,
+                            8 * m_CurrentMap.TileSpacingX, 8 * m_CurrentMap.TileSpacingY );
+            pictureEditor.Invalidate( new System.Drawing.Rectangle( ( trueX + offsetX ) * 8 * m_CurrentMap.TileSpacingX,
+                                                                    ( trueY + offsetY ) * 8 * m_CurrentMap.TileSpacingY,
+                                                                    8 * m_CurrentMap.TileSpacingX, 8 * m_CurrentMap.TileSpacingY ) );
+            Modified = true;
           }
         }
       }
@@ -1561,20 +1604,7 @@ namespace RetroDevStudio.Documents
       {
         return false;
       }
-      foreach ( var tile in m_MapProject.Tiles )
-      {
-        comboTiles.Items.Add( new GR.Generic.Tupel<string, Formats.MapProject.Tile>( tile.Name, tile ) );
-
-        ListViewItem item = new ListViewItem();
-
-        item.Text = tile.Index.ToString();
-        item.SubItems.Add( tile.Name );
-        item.SubItems.Add( tile.Chars.Width.ToString() + "x" + tile.Chars.Height.ToString() );
-        item.SubItems.Add( "0" );
-        item.Tag = tile;
-
-        listTileInfo.Items.Add( item );
-      }
+      RefreshMapTileList();
 
       int index = 0;
       foreach ( var map in m_MapProject.Maps )
@@ -1644,9 +1674,20 @@ namespace RetroDevStudio.Documents
       try
       {
         comboTiles.Items.Clear();
+        listTileInfo.Items.Clear();
         foreach ( var tile in m_MapProject.Tiles )
         {
           comboTiles.Items.Add( new GR.Generic.Tupel<string, Formats.MapProject.Tile>( tile.Name, tile ) );
+
+          ListViewItem item = new ListViewItem();
+
+          item.Text = tile.Index.ToString();
+          item.SubItems.Add( tile.Name );
+          item.SubItems.Add( tile.Chars.Width.ToString() + "x" + tile.Chars.Height.ToString() );
+          item.SubItems.Add( "0" );
+          item.Tag = tile;
+
+          listTileInfo.Items.Add( item );
         }
         comboTiles.ItemHeight = MapTileListItemHeight;
       }
@@ -1654,6 +1695,36 @@ namespace RetroDevStudio.Documents
       {
         comboTiles.EndUpdate();
       }
+
+      int selectedRightClickIndex = comboRightClickBehavior.SelectedIndex;
+      comboRightClickBehavior.BeginUpdate();
+      comboRightClickBehavior.Items.Clear();
+      comboRightClickBehavior.Items.Add( "Default" );
+      foreach ( var tile in m_MapProject.Tiles )
+      {
+        comboRightClickBehavior.Items.Add( "Use " + tile.Index + ": " + tile.Name );
+      }
+      if ( string.IsNullOrEmpty( m_MapProject.RightClickAction ) )
+      {
+        comboRightClickBehavior.SelectedIndex = 0;
+      }
+      else
+      {
+        for ( int i = 0; i < m_MapProject.Tiles.Count; ++i )
+        {
+          if ( m_MapProject.Tiles[i].Name == m_MapProject.RightClickAction )
+          {
+            comboRightClickBehavior.SelectedIndex = i + 1;
+            break;
+          }
+        }
+        if ( comboRightClickBehavior.SelectedIndex == -1 )
+        {
+          comboRightClickBehavior.SelectedIndex = 0;
+          m_MapProject.RightClickAction = "";
+        }
+      }
+      comboRightClickBehavior.EndUpdate();
 
       int restoreIndex = ( selectedTileIndex >= 0 ) ? selectedTileIndex : selectedIndex;
       if ( ( restoreIndex >= 0 )
@@ -1666,6 +1737,27 @@ namespace RetroDevStudio.Documents
         comboTiles.SelectedIndex = 0;
       }
       comboTiles.Invalidate();
+    }
+
+
+
+    private void comboRightClickBehavior_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      if ( comboRightClickBehavior.SelectedIndex == 0 )
+      {
+        m_MapProject.RightClickAction = "";
+      }
+      else
+      {
+        // "Default" is 0
+        int tileIndex = comboRightClickBehavior.SelectedIndex - 1;
+        if ( ( tileIndex >= 0 )
+        &&   ( tileIndex < m_MapProject.Tiles.Count ) )
+        {
+          m_MapProject.RightClickAction = m_MapProject.Tiles[tileIndex].Name;
+        }
+      }
+      Modified = true;
     }
 
 

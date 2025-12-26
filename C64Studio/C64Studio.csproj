@@ -10,6 +10,8 @@
 	  <IsWindows Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true'">true</IsWindows>
     <Platforms>AnyCPU;ARM64</Platforms>
     <ApplicationIcon>c64.ico</ApplicationIcon>
+    <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
+    <GenerateResourceWarnOnBinaryFormatterUse>false</GenerateResourceWarnOnBinaryFormatterUse>
   </PropertyGroup>
   <PropertyGroup Condition="'$(IsWindows)'=='true'">
 	<DefineConstants>OS_WINDOWS</DefineConstants>
@@ -600,6 +602,7 @@
   <ItemGroup>
     <PackageReference Include="DockPanelSuite" Version="3.1.1" />
     <PackageReference Include="DockPanelSuite.ThemeVS2005" Version="3.1.1" />
+    <PackageReference Include="System.Resources.Extensions" Version="10.0.1" Condition="'$(TargetFramework)' != 'net3.5'" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)'=='net8.0-windows'">
     <FrameworkReference Include="Microsoft.WindowsDesktop.App" />

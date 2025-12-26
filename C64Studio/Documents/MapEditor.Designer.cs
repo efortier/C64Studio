@@ -57,6 +57,8 @@
             this.comboTiles = new System.Windows.Forms.ListBox();
             this.comboMapProjectMode = new System.Windows.Forms.ComboBox();
             this.comboMaps = new System.Windows.Forms.ComboBox();
+            this.labelRightClickBehavior = new System.Windows.Forms.Label();
+            this.comboRightClickBehavior = new System.Windows.Forms.ComboBox();
             this.groupSize = new System.Windows.Forms.GroupBox();
             this.checkShowGrid = new System.Windows.Forms.CheckBox();
             this.comboMapAlternativeMode = new System.Windows.Forms.ComboBox();
@@ -228,6 +230,8 @@
             this.tabEditor.Controls.Add(this.btnToolEdit);
             this.tabEditor.Controls.Add(this.labelEditInfo);
             this.tabEditor.Controls.Add(this.groupMapExtraData);
+            this.tabEditor.Controls.Add(this.labelRightClickBehavior);
+            this.tabEditor.Controls.Add(this.comboRightClickBehavior);
             this.tabEditor.Controls.Add(this.comboTiles);
             this.tabEditor.Controls.Add(this.comboMapProjectMode);
             this.tabEditor.Controls.Add(this.comboMaps);
@@ -406,6 +410,24 @@
             this.label20.Size = new System.Drawing.Size(139, 13);
             this.label20.TabIndex = 0;
             this.label20.Text = "Additional Binary Data (Hex)";
+            // 
+            // labelRightClickBehavior
+            // 
+            this.labelRightClickBehavior.AutoSize = true;
+            this.labelRightClickBehavior.Location = new System.Drawing.Point(1011, 411);
+            this.labelRightClickBehavior.Name = "labelRightClickBehavior";
+            this.labelRightClickBehavior.Size = new System.Drawing.Size(100, 13);
+            this.labelRightClickBehavior.TabIndex = 32;
+            this.labelRightClickBehavior.Text = "Right-click behavior:";
+            // 
+            // comboRightClickBehavior
+            // 
+            this.comboRightClickBehavior.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboRightClickBehavior.FormattingEnabled = true;
+            this.comboRightClickBehavior.Location = new System.Drawing.Point(1011, 427);
+            this.comboRightClickBehavior.Name = "comboRightClickBehavior";
+            this.comboRightClickBehavior.Size = new System.Drawing.Size(266, 21);
+            this.comboRightClickBehavior.TabIndex = 33;
             // 
             // comboTiles
             // 
@@ -1735,5 +1757,7 @@
     private DecentForms.Button btnImport;
     private System.Windows.Forms.ComboBox comboImportMethod;
     private System.Windows.Forms.Label label2;
+    private System.Windows.Forms.Label labelRightClickBehavior;
+    private System.Windows.Forms.ComboBox comboRightClickBehavior;
   }
 }

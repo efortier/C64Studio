@@ -113,6 +113,7 @@ namespace RetroDevStudio.Formats
     public int                          MultiColor1 = 0;
     public int                          MultiColor2 = 0;
     public int                          BGColor4 = 0;
+    public string                       RightClickAction = "";
 
     /// <summary>
     /// This mode is used to display/build the tiles
@@ -143,6 +144,7 @@ namespace RetroDevStudio.Formats
       Tiles.Clear();
       Maps.Clear();
       ExternalCharset = "";
+      RightClickAction = "";
       Settings = new ExportSettings();
     }
 
@@ -154,9 +156,10 @@ namespace RetroDevStudio.Formats
 
       GR.IO.FileChunk chunkProjectInfo = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_INFO );
       // version
-      chunkProjectInfo.AppendU32( 0 );
+      chunkProjectInfo.AppendU32( 1 );
       chunkProjectInfo.AppendString( ExternalCharset );
       chunkProjectInfo.AppendI32( ShowGrid ? 1 : 0 );
+      chunkProjectInfo.AppendString( RightClickAction );
       projectFile.Append( chunkProjectInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkCharset = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET );
@@ -307,6 +310,14 @@ namespace RetroDevStudio.Formats
               importedCharSet = chunkReader.ReadString();
 
               ShowGrid = ( chunkReader.ReadInt32() == 1 );
+              if ( version >= 1 )
+              {
+                RightClickAction = chunkReader.ReadString();
+              }
+              else
+              {
+                RightClickAction = "";
+              }
             }
             break;
           case FileChunkConstants.MAP_CHARSET:
