@@ -119,7 +119,7 @@ namespace RetroDevStudio.Controls
       // 
       // groupAutoSave
       // 
-      this.groupAutoSave.Location = new System.Drawing.Point(3, 260);
+      this.groupAutoSave.Location = new System.Drawing.Point(3, 283);
       this.groupAutoSave.Name = "groupAutoSave";
       this.groupAutoSave.Size = new System.Drawing.Size(420, 100);
       this.groupAutoSave.TabIndex = 14;
@@ -204,7 +204,7 @@ namespace RetroDevStudio.Controls
       //
       // groupCharset
       //
-      this.groupCharset.Location = new System.Drawing.Point(3, 366);
+      this.groupCharset.Location = new System.Drawing.Point(3, 389);
       this.groupCharset.Name = "groupCharset";
       this.groupCharset.Size = new System.Drawing.Size(420, 100);
       this.groupCharset.TabIndex = 15;
@@ -285,7 +285,7 @@ namespace RetroDevStudio.Controls
 
       this.checkAlwaysOverwrite = new System.Windows.Forms.CheckBox();
       this.checkAlwaysOverwrite.AutoSize = true;
-      this.checkAlwaysOverwrite.Location = new System.Drawing.Point(3, 472);
+      this.checkAlwaysOverwrite.Location = new System.Drawing.Point(3, 260);
       this.checkAlwaysOverwrite.Name = "checkAlwaysOverwrite";
       this.checkAlwaysOverwrite.Size = new System.Drawing.Size(122, 17);
       this.checkAlwaysOverwrite.TabIndex = 16;
@@ -294,8 +294,8 @@ namespace RetroDevStudio.Controls
       this.checkAlwaysOverwrite.CheckedChanged += HandleSettingsChanged;
       this.Controls.Add(this.checkAlwaysOverwrite);
 
-      this.checkAddFilenamespace.Location = new System.Drawing.Point(3, 496);
-      this.editFilenamespace.Location = new System.Drawing.Point(200, 493);
+      this.checkAddFilenamespace.Location = new System.Drawing.Point(3, 495);
+      this.editFilenamespace.Location = new System.Drawing.Point(200, 492);
       this.Size = new System.Drawing.Size(427, 524);
 
       this.Controls.Add(this.editEmptyTileIndex);
