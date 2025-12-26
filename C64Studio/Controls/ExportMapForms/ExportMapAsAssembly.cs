@@ -58,7 +58,7 @@ namespace RetroDevStudio.Controls
       // checkEmptyTile
       // 
       this.checkEmptyTile.AutoSize = true;
-      this.checkEmptyTile.Location = new System.Drawing.Point(3, 145);
+      this.checkEmptyTile.Location = new System.Drawing.Point(3, 191);
       this.checkEmptyTile.Name = "checkEmptyTile";
       this.checkEmptyTile.Size = new System.Drawing.Size(122, 17);
       this.checkEmptyTile.TabIndex = 10;
@@ -69,7 +69,7 @@ namespace RetroDevStudio.Controls
       // 
       // editEmptyTileIndex
       // 
-      this.editEmptyTileIndex.Location = new System.Drawing.Point(200, 142);
+      this.editEmptyTileIndex.Location = new System.Drawing.Point(200, 188);
       this.editEmptyTileIndex.Name = "editEmptyTileIndex";
       this.editEmptyTileIndex.Size = new System.Drawing.Size(64, 20);
       this.editEmptyTileIndex.TabIndex = 11;
@@ -80,7 +80,7 @@ namespace RetroDevStudio.Controls
       // checkExportTilesetColors
       // 
       this.checkExportTilesetColors.AutoSize = true;
-      this.checkExportTilesetColors.Location = new System.Drawing.Point(3, 168);
+      this.checkExportTilesetColors.Location = new System.Drawing.Point(3, 214);
       this.checkExportTilesetColors.Name = "checkExportTilesetColors";
       this.checkExportTilesetColors.Size = new System.Drawing.Size(122, 17);
       this.checkExportTilesetColors.TabIndex = 12;
@@ -92,7 +92,7 @@ namespace RetroDevStudio.Controls
       // checkExportMapColors
       // 
       this.checkExportMapColors.AutoSize = true;
-      this.checkExportMapColors.Location = new System.Drawing.Point(3, 191);
+      this.checkExportMapColors.Location = new System.Drawing.Point(3, 237);
       this.checkExportMapColors.Name = "checkExportMapColors";
       this.checkExportMapColors.Size = new System.Drawing.Size(122, 17);
       this.checkExportMapColors.TabIndex = 13;
@@ -103,7 +103,7 @@ namespace RetroDevStudio.Controls
       // 
       // groupAutoSave
       // 
-      this.groupAutoSave.Location = new System.Drawing.Point(3, 214);
+      this.groupAutoSave.Location = new System.Drawing.Point(3, 260);
       this.groupAutoSave.Name = "groupAutoSave";
       this.groupAutoSave.Size = new System.Drawing.Size(420, 100);
       this.groupAutoSave.TabIndex = 14;
@@ -196,6 +196,25 @@ namespace RetroDevStudio.Controls
       checkIncludeSemicolonAfterSimpleLabels.CheckedChanged += HandleSettingsChanged;
       checkCommentCharacters.CheckedChanged += checkCommentCharacters_CheckedChanged;
       editCommentCharacters.TextChanged += HandleSettingsChanged;
+      checkExportSparseMaps.CheckedChanged += checkExportSparseMaps_CheckedChanged;
+      checkWrapMapData.CheckedChanged += checkWrapMapData_CheckedChanged;
+    }
+
+    private void checkWrapMapData_CheckedChanged( object sender, EventArgs e )
+    {
+      if ( !m_ApplyingSettings )
+      {
+        RaiseSettingsChanged();
+      }
+    }
+
+    private void checkExportSparseMaps_CheckedChanged( object sender, EventArgs e )
+    {
+      checkWrapMapData.Enabled = !checkExportSparseMaps.Checked;
+      if ( !m_ApplyingSettings )
+      {
+        RaiseSettingsChanged();
+      }
     }
 
     private void checkEmptyTile_CheckedChanged(object sender, EventArgs e)
@@ -382,7 +401,7 @@ namespace RetroDevStudio.Controls
       }
       if ( Info.ExportType == MapExportType.SPARSE_TILE_AND_MAP_DATA )
       {
-        Info.Map.ExportSparseTileAndMapData( out mapData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix, checkEmptyTile.Checked, GR.Convert.ToI32( editEmptyTileIndex.Text ), checkAddFilenamespace.Checked, editFilenamespace.Text );
+        Info.Map.ExportSparseTileAndMapData( out mapData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix, checkEmptyTile.Checked, GR.Convert.ToI32( editEmptyTileIndex.Text ), checkAddFilenamespace.Checked, editFilenamespace.Text, checkExportSparseMaps.Checked, checkWrapMapData.Checked );
       }
 
       string resultText = "";
@@ -542,6 +561,9 @@ namespace RetroDevStudio.Controls
         checkAddFilenamespace.Checked = assemblySettings.AddFilenamespace;
         editFilenamespace.Text = assemblySettings.Filenamespace;
         editFilenamespace.Enabled = checkAddFilenamespace.Checked;
+        checkExportSparseMaps.Checked = assemblySettings.ExportSparseMaps;
+        checkWrapMapData.Checked = assemblySettings.WrapMapData;
+        checkWrapMapData.Enabled = !checkExportSparseMaps.Checked;
       }
       finally
       {
@@ -579,6 +601,8 @@ namespace RetroDevStudio.Controls
       assemblySettings.Filenamespace = editFilenamespace.Text;
       assemblySettings.ExportDirectory = editExportDirectory.Text;
       assemblySettings.ExportFilename = editExportFilename.Text;
+      assemblySettings.ExportSparseMaps = checkExportSparseMaps.Checked;
+      assemblySettings.WrapMapData = checkWrapMapData.Checked;
     }
 
 

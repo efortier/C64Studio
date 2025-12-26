@@ -30,6 +30,8 @@ namespace RetroDevStudio.Controls
     private void InitializeComponent()
     {
       this.checkExportHex = new System.Windows.Forms.CheckBox();
+      this.checkExportSparseMaps = new System.Windows.Forms.CheckBox();
+      this.checkWrapMapData = new System.Windows.Forms.CheckBox();
       this.checkVariableNameLabelPrefix = new System.Windows.Forms.CheckBox();
       this.editVariableNameLabelPrefix = new System.Windows.Forms.TextBox();
       this.checkIncludeSemicolonAfterSimpleLabels = new System.Windows.Forms.CheckBox();
@@ -56,10 +58,34 @@ namespace RetroDevStudio.Controls
       this.checkExportHex.Text = "Export with Hex notation";
       this.checkExportHex.UseVisualStyleBackColor = true;
       // 
+      // checkExportSparseMaps
+      // 
+      this.checkExportSparseMaps.AutoSize = true;
+      this.checkExportSparseMaps.Location = new System.Drawing.Point(3, 72);
+      this.checkExportSparseMaps.Name = "checkExportSparseMaps";
+      this.checkExportSparseMaps.Size = new System.Drawing.Size(141, 17);
+      this.checkExportSparseMaps.TabIndex = 4;
+      this.checkExportSparseMaps.Text = "Export sparse maps";
+      this.checkExportSparseMaps.UseVisualStyleBackColor = true;
+      this.checkExportSparseMaps.CheckedChanged += new System.EventHandler(this.checkExportSparseMaps_CheckedChanged);
+      // 
+      // checkWrapMapData
+      // 
+      this.checkWrapMapData.AutoSize = true;
+      this.checkWrapMapData.Location = new System.Drawing.Point(3, 95);
+      this.checkWrapMapData.Name = "checkWrapMapData";
+      this.checkWrapMapData.Size = new System.Drawing.Size(141, 17);
+      this.checkWrapMapData.Checked = true;
+      this.checkWrapMapData.CheckState = System.Windows.Forms.CheckState.Checked;
+      this.checkWrapMapData.TabIndex = 4;
+      this.checkWrapMapData.Text = "Wrap map data";
+      this.checkWrapMapData.UseVisualStyleBackColor = true;
+      this.checkWrapMapData.CheckedChanged += new System.EventHandler(this.checkWrapMapData_CheckedChanged);
+      // 
       // checkVariableNameLabelPrefix
       // 
       this.checkVariableNameLabelPrefix.AutoSize = true;
-      this.checkVariableNameLabelPrefix.Location = new System.Drawing.Point(3, 72);
+      this.checkVariableNameLabelPrefix.Location = new System.Drawing.Point(3, 118);
       this.checkVariableNameLabelPrefix.Name = "checkVariableNameLabelPrefix";
       this.checkVariableNameLabelPrefix.Size = new System.Drawing.Size(168, 17);
       this.checkVariableNameLabelPrefix.TabIndex = 5;
@@ -69,7 +95,7 @@ namespace RetroDevStudio.Controls
       // 
       // editVariableNameLabelPrefix
       // 
-      this.editVariableNameLabelPrefix.Location = new System.Drawing.Point(200, 70);
+      this.editVariableNameLabelPrefix.Location = new System.Drawing.Point(200, 116);
       this.editVariableNameLabelPrefix.Name = "editVariableNameLabelPrefix";
       this.editVariableNameLabelPrefix.Size = new System.Drawing.Size(64, 20);
       this.editVariableNameLabelPrefix.TabIndex = 6;
@@ -77,7 +103,7 @@ namespace RetroDevStudio.Controls
       // checkIncludeSemicolonAfterSimpleLabels
       // 
       this.checkIncludeSemicolonAfterSimpleLabels.AutoSize = true;
-      this.checkIncludeSemicolonAfterSimpleLabels.Location = new System.Drawing.Point(3, 95);
+      this.checkIncludeSemicolonAfterSimpleLabels.Location = new System.Drawing.Point(3, 141);
       this.checkIncludeSemicolonAfterSimpleLabels.Name = "checkIncludeSemicolonAfterSimpleLabels";
       this.checkIncludeSemicolonAfterSimpleLabels.Size = new System.Drawing.Size(210, 17);
       this.checkIncludeSemicolonAfterSimpleLabels.TabIndex = 7;
@@ -89,7 +115,7 @@ namespace RetroDevStudio.Controls
       this.checkCommentCharacters.AutoSize = true;
       this.checkCommentCharacters.Checked = true;
       this.checkCommentCharacters.CheckState = System.Windows.Forms.CheckState.Checked;
-      this.checkCommentCharacters.Location = new System.Drawing.Point(3, 120);
+      this.checkCommentCharacters.Location = new System.Drawing.Point(3, 166);
       this.checkCommentCharacters.Name = "checkCommentCharacters";
       this.checkCommentCharacters.Size = new System.Drawing.Size(122, 17);
       this.checkCommentCharacters.TabIndex = 8;
@@ -98,7 +124,7 @@ namespace RetroDevStudio.Controls
       // 
       // editCommentCharacters
       // 
-      this.editCommentCharacters.Location = new System.Drawing.Point(200, 117);
+      this.editCommentCharacters.Location = new System.Drawing.Point(200, 163);
       this.editCommentCharacters.Name = "editCommentCharacters";
       this.editCommentCharacters.Size = new System.Drawing.Size(64, 20);
       this.editCommentCharacters.TabIndex = 9;
@@ -158,7 +184,7 @@ namespace RetroDevStudio.Controls
       // checkAddFilenamespace
       // 
       this.checkAddFilenamespace.AutoSize = true;
-      this.checkAddFilenamespace.Location = new System.Drawing.Point(3, 320);
+      this.checkAddFilenamespace.Location = new System.Drawing.Point(3, 366);
       this.checkAddFilenamespace.Name = "checkAddFilenamespace";
       this.checkAddFilenamespace.Size = new System.Drawing.Size(122, 17);
       this.checkAddFilenamespace.TabIndex = 15;
@@ -168,7 +194,7 @@ namespace RetroDevStudio.Controls
       // 
       // editFilenamespace
       // 
-      this.editFilenamespace.Location = new System.Drawing.Point(200, 317);
+      this.editFilenamespace.Location = new System.Drawing.Point(200, 363);
       this.editFilenamespace.Name = "editFilenamespace";
       this.editFilenamespace.Size = new System.Drawing.Size(214, 20);
       this.editFilenamespace.TabIndex = 16;
@@ -192,6 +218,8 @@ namespace RetroDevStudio.Controls
       this.Controls.Add(this.editWrapByteCount);
       this.Controls.Add(this.label2);
       this.Controls.Add(this.editPrefix);
+      this.Controls.Add(this.checkExportSparseMaps);
+      this.Controls.Add(this.checkWrapMapData);
       this.Name = "ExportMapAsAssembly";
       this.Size = new System.Drawing.Size(427, 360);
       this.ResumeLayout(false);
@@ -213,5 +241,7 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.TextBox editPrefix;
     private System.Windows.Forms.CheckBox checkAddFilenamespace;
     private System.Windows.Forms.TextBox editFilenamespace;
+    private System.Windows.Forms.CheckBox checkExportSparseMaps;
+    private System.Windows.Forms.CheckBox checkWrapMapData;
   }
 }

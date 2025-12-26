@@ -73,6 +73,8 @@ namespace RetroDevStudio.Formats
         public bool   ExportMapColors = true;
         public bool   AddFilenamespace = false;
         public string Filenamespace = "";
+        public bool   ExportSparseMaps = false;
+        public bool   WrapMapData = true;
       }
 
       public class BinarySettings
@@ -237,7 +239,7 @@ namespace RetroDevStudio.Formats
       projectFile.Append( chunkProjectData.ToBuffer() );
 
       GR.IO.FileChunk chunkExportSettings = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS );
-      chunkExportSettings.AppendU32( 7 );
+      chunkExportSettings.AppendU32( 8 );
       chunkExportSettings.AppendI32(Settings.ExportDataIndex );
       chunkExportSettings.AppendI32(Settings.ExportOrientationIndex );
       chunkExportSettings.AppendI32( Settings.ExportMethodIndex );
@@ -266,6 +268,8 @@ namespace RetroDevStudio.Formats
       chunkExportSettings.AppendI32( Settings.Assembly.ExportMapColors ? 1 : 0 );
       chunkExportSettings.AppendI32( Settings.Assembly.AddFilenamespace ? 1 : 0 );
       chunkExportSettings.AppendString( Settings.Assembly.Filenamespace ?? "" );
+      chunkExportSettings.AppendI32( Settings.Assembly.ExportSparseMaps ? 1 : 0 );
+      chunkExportSettings.AppendI32( Settings.Assembly.WrapMapData ? 1 : 0 );
       projectFile.Append( chunkExportSettings.ToBuffer() );
       return projectFile;
     }
@@ -603,6 +607,39 @@ namespace RetroDevStudio.Formats
                 Settings.Assembly.ExportMapColors = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.AddFilenamespace = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.Filenamespace = chunkReader.ReadString();
+              }
+              else if ( version == 8 )
+              {
+                Settings.ExportDataIndex = chunkReader.ReadInt32();
+                Settings.ExportOrientationIndex = chunkReader.ReadInt32();
+                Settings.ExportMethodIndex = chunkReader.ReadInt32();
+                Settings.Assembly.PrefixWith = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.Prefix = chunkReader.ReadString();
+                Settings.Assembly.WrapAt = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.WrapByteCount = chunkReader.ReadInt32();
+                Settings.Assembly.ExportHex = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.VariableNameLabelPrefixEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.VariableNameLabelPrefix = chunkReader.ReadString();
+                Settings.Assembly.IncludeSemicolonAfterSimpleLabels = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.MapSizeCommentEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.CommentChars = chunkReader.ReadString();
+                Settings.Assembly.EmptyTileCompressionEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.EmptyTileIndex = chunkReader.ReadInt32();
+                Settings.Assembly.SaveOnExport = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportDirectory = chunkReader.ReadString();
+                Settings.Assembly.ExportFilename = chunkReader.ReadString();
+                Settings.Binary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.Binary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetBinary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.CharsetBinary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetProject.TargetFilename = chunkReader.ReadString();
+                Settings.Charscreen.TargetFilename = chunkReader.ReadString();
+                Settings.Assembly.ExportTilesetColors = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportMapColors = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.AddFilenamespace = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.Filenamespace = chunkReader.ReadString();
+                Settings.Assembly.ExportSparseMaps = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.WrapMapData = ( chunkReader.ReadInt32() != 0 );
               }
             }
             break;
@@ -1276,7 +1313,7 @@ namespace RetroDevStudio.Formats
 
 
 
-    public bool ExportSparseTileAndMapData( out string ExportData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective, bool EmptyTileCompression, int EmptyTileIndex, bool AddFilenamespace, string Filenamespace )
+    public bool ExportSparseTileAndMapData( out string ExportData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective, bool EmptyTileCompression, int EmptyTileIndex, bool AddFilenamespace, string Filenamespace, bool ExportSparseMaps, bool WrapMapData )
     {
       StringBuilder sb = new StringBuilder();
 
@@ -1381,25 +1418,6 @@ namespace RetroDevStudio.Formats
       }
       sb.AppendLine();
 
-      sb.AppendLine( LabelPrefix + "TILES_COLOR_DATA" + labelSuffix );
-      for ( int i = 0; i < Tiles.Count; ++i )
-      {
-        var tile = Tiles[i];
-        sb.Append( LabelPrefix + "TILE_COLOR_" + i.ToString( "D2" ) + labelSuffix + " " );
-
-        GR.Memory.ByteBuffer colorData = new GR.Memory.ByteBuffer();
-        for ( int y = 0; y < tile.Chars.Height; ++y )
-        {
-          for ( int x = 0; x < tile.Chars.Width; ++x )
-          {
-            colorData.AppendU8( tile.Chars[x, y].Color );
-          }
-        }
-        sb.AppendLine( Util.ToASMData( colorData, false, 0, DataByteDirective ) );
-      }
-      sb.AppendLine();
-
-      // Tables
       sb.AppendLine( LabelPrefix + "TILES_CHAR_TABLE_LOW" + labelSuffix );
       GR.Memory.ByteBuffer tableLow = new GR.Memory.ByteBuffer();
       StringBuilder sbTable = new StringBuilder();
@@ -1421,6 +1439,24 @@ namespace RetroDevStudio.Formats
         sbTable.Append( ">" + LabelPrefix + "TILE_CHAR_" + i.ToString( "D2" ) );
       }
       sb.AppendLine( sbTable.ToString() );
+      sb.AppendLine();
+
+      sb.AppendLine( LabelPrefix + "TILES_COLOR_DATA" + labelSuffix );
+      for ( int i = 0; i < Tiles.Count; ++i )
+      {
+        var tile = Tiles[i];
+        sb.Append( LabelPrefix + "TILE_COLOR_" + i.ToString( "D2" ) + labelSuffix + " " );
+
+        GR.Memory.ByteBuffer colorData = new GR.Memory.ByteBuffer();
+        for ( int y = 0; y < tile.Chars.Height; ++y )
+        {
+          for ( int x = 0; x < tile.Chars.Width; ++x )
+          {
+            colorData.AppendU8( tile.Chars[x, y].Color );
+          }
+        }
+        sb.AppendLine( Util.ToASMData( colorData, false, 0, DataByteDirective ) );
+      }
       sb.AppendLine();
 
       sb.AppendLine( LabelPrefix + "TILES_COLOR_TABLE_LOW" + labelSuffix );
@@ -1545,62 +1581,94 @@ namespace RetroDevStudio.Formats
         }
         sb.AppendLine();
 
+
         // Collect tiles
         GR.Memory.ByteBuffer mapTiles = new GR.Memory.ByteBuffer();
-        for ( int y = 0; y < map.Tiles.Height; ++y )
+        if ( ExportSparseMaps )
         {
-          for ( int x = 0; x < map.Tiles.Width; ++x )
+          for ( int y = 0; y < map.Tiles.Height; ++y )
           {
-            int tileIndex = map.Tiles[x, y];
-            if ( ( EmptyTileCompression )
-            &&   ( tileIndex == EmptyTileIndex ) )
+            for ( int x = 0; x < map.Tiles.Width; ++x )
             {
-              continue;
+              int tileIndex = map.Tiles[x, y];
+              if ( ( EmptyTileCompression )
+              &&   ( tileIndex == EmptyTileIndex ) )
+              {
+                continue;
+              }
+              mapTiles.AppendU8( (byte)tileIndex );
+              mapTiles.AppendU8( (byte)x );
+              mapTiles.AppendU8( (byte)y );
             }
-            mapTiles.AppendU8( (byte)tileIndex );
-            mapTiles.AppendU8( (byte)x );
-            mapTiles.AppendU8( (byte)y );
           }
-        }
 
-        // Map Tile Data
-        int ptr = 0;
-        while ( ptr < mapTiles.Length )
-        {
-           byte t = mapTiles.ByteAt( ptr );
-           byte tx = mapTiles.ByteAt( ptr + 1 );
-           byte ty = mapTiles.ByteAt( ptr + 2 );
-           
-           GR.Memory.ByteBuffer entry = new GR.Memory.ByteBuffer();
-           entry.AppendU8( t );
-           entry.AppendU8( tx );
-           entry.AppendU8( ty );
-           
-           string entryHex = Util.ToASMData( entry, false, 0, DataByteDirective );
-           
-           sb.Append( entryHex );
-           if ( Settings.Assembly.MapSizeCommentEnabled )
-           {
-             string comment = "";
-             if ( t < Tiles.Count )
-             {
+          // Map Tile Data
+          int ptr = 0;
+          while ( ptr < mapTiles.Length )
+          {
+            byte t = mapTiles.ByteAt( ptr );
+            byte tx = mapTiles.ByteAt( ptr + 1 );
+            byte ty = mapTiles.ByteAt( ptr + 2 );
+
+            GR.Memory.ByteBuffer entry = new GR.Memory.ByteBuffer();
+            entry.AppendU8( t );
+            entry.AppendU8( tx );
+            entry.AppendU8( ty );
+
+            string entryHex = Util.ToASMData( entry, false, 0, DataByteDirective );
+
+            sb.Append( entryHex );
+            if ( Settings.Assembly.MapSizeCommentEnabled )
+            {
+              string comment = "";
+              if ( t < Tiles.Count )
+              {
                 var tile = Tiles[t];
                 comment = Settings.Assembly.CommentChars + " tile " + t + ", " + tile.Chars.Width + "x" + tile.Chars.Height;
-             }
-             sb.Append( "\t\t" + comment );
-           }
-           sb.AppendLine();
-           ptr += 3;
-        }
+              }
+              sb.Append( "\t\t" + comment );
+            }
+            sb.AppendLine();
+            ptr += 3;
+          }
 
-        // Terminator
-        sb.Append( DataByteDirective + " $FF,$FF,$FF" );
-        if ( Settings.Assembly.MapSizeCommentEnabled )
-        {
-          sb.Append( "\t" + Settings.Assembly.CommentChars + " end of map" );
+          // Terminator
+          sb.Append( DataByteDirective + " $FF,$FF,$FF" );
+          if ( Settings.Assembly.MapSizeCommentEnabled )
+          {
+            sb.Append( "\t" + Settings.Assembly.CommentChars + " end of map" );
+          }
+          sb.AppendLine();
         }
-        sb.AppendLine();
-        sb.AppendLine();
+        else
+        {
+          // dense
+          if ( WrapMapData )
+          {
+            // like regular export
+            for ( int y = 0; y < map.Tiles.Height; ++y )
+            {
+              for ( int x = 0; x < map.Tiles.Width; ++x )
+              {
+                mapTiles.AppendU8( (byte)map.Tiles[x, y] );
+              }
+            }
+            sb.AppendLine( Util.ToASMData( mapTiles, WrapData, WrapByteCount, DataByteDirective ) );
+          }
+          else
+          {
+            // one line per row
+            for ( int y = 0; y < map.Tiles.Height; ++y )
+            {
+              for ( int x = 0; x < map.Tiles.Width; ++x )
+              {
+                mapTiles.AppendU8( (byte)map.Tiles[x, y] );
+              }
+              sb.AppendLine( Util.ToASMData( mapTiles, false, 0, DataByteDirective ) );
+              mapTiles.Clear();
+            }
+          }
+        }
       }
 
       ExportData = sb.ToString();

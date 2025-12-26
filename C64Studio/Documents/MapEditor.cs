@@ -774,6 +774,8 @@ namespace RetroDevStudio.Documents
     {
       pictureEditor.Focus();
       HandleMouseOnEditor( e.X, e.Y, e.Button );
+      RedrawMap();
+      pictureEditor.Invalidate();
     }
 
 
