@@ -78,6 +78,7 @@ namespace RetroDevStudio.Formats
         public bool   ExportCharset = false;
         public string CharsetExportDirectory = "";
         public string CharsetExportFilename = "";
+        public bool   AlwaysOverwrite = false;
       }
 
       public class BinarySettings
@@ -242,7 +243,7 @@ namespace RetroDevStudio.Formats
       projectFile.Append( chunkProjectData.ToBuffer() );
 
       GR.IO.FileChunk chunkExportSettings = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS );
-      chunkExportSettings.AppendU32( 9 );
+      chunkExportSettings.AppendU32( 10 );
       chunkExportSettings.AppendI32(Settings.ExportDataIndex );
       chunkExportSettings.AppendI32(Settings.ExportOrientationIndex );
       chunkExportSettings.AppendI32( Settings.ExportMethodIndex );
@@ -276,6 +277,7 @@ namespace RetroDevStudio.Formats
       chunkExportSettings.AppendI32( Settings.Assembly.ExportCharset ? 1 : 0 );
       chunkExportSettings.AppendString( Settings.Assembly.CharsetExportDirectory ?? "" );
       chunkExportSettings.AppendString( Settings.Assembly.CharsetExportFilename ?? "" );
+      chunkExportSettings.AppendI32( Settings.Assembly.AlwaysOverwrite ? 1 : 0 );
       projectFile.Append( chunkExportSettings.ToBuffer() );
       return projectFile;
     }
@@ -682,6 +684,43 @@ namespace RetroDevStudio.Formats
                 Settings.Assembly.ExportCharset = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.CharsetExportDirectory = chunkReader.ReadString();
                 Settings.Assembly.CharsetExportFilename = chunkReader.ReadString();
+              }
+              else if ( version == 10 )
+              {
+                Settings.ExportDataIndex = chunkReader.ReadInt32();
+                Settings.ExportOrientationIndex = chunkReader.ReadInt32();
+                Settings.ExportMethodIndex = chunkReader.ReadInt32();
+                Settings.Assembly.PrefixWith = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.Prefix = chunkReader.ReadString();
+                Settings.Assembly.WrapAt = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.WrapByteCount = chunkReader.ReadInt32();
+                Settings.Assembly.ExportHex = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.VariableNameLabelPrefixEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.VariableNameLabelPrefix = chunkReader.ReadString();
+                Settings.Assembly.IncludeSemicolonAfterSimpleLabels = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.MapSizeCommentEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.CommentChars = chunkReader.ReadString();
+                Settings.Assembly.EmptyTileCompressionEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.EmptyTileIndex = chunkReader.ReadInt32();
+                Settings.Assembly.SaveOnExport = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportDirectory = chunkReader.ReadString();
+                Settings.Assembly.ExportFilename = chunkReader.ReadString();
+                Settings.Binary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.Binary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetBinary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.CharsetBinary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetProject.TargetFilename = chunkReader.ReadString();
+                Settings.Charscreen.TargetFilename = chunkReader.ReadString();
+                Settings.Assembly.ExportTilesetColors = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportMapColors = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.AddFilenamespace = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.Filenamespace = chunkReader.ReadString();
+                Settings.Assembly.ExportSparseMaps = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.WrapMapData = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportCharset = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.CharsetExportDirectory = chunkReader.ReadString();
+                Settings.Assembly.CharsetExportFilename = chunkReader.ReadString();
+                Settings.Assembly.AlwaysOverwrite = ( chunkReader.ReadInt32() != 0 );
               }
             }
             break;

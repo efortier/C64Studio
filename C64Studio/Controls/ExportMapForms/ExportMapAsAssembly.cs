@@ -36,6 +36,7 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.Button btnBrowseCharsetExportDirectory;
     private System.Windows.Forms.Label labelCharsetExportFilename;
     private System.Windows.Forms.TextBox editCharsetExportFilename;
+    private System.Windows.Forms.CheckBox checkAlwaysOverwrite;
 
     public ExportMapAsAssembly() :
       base( null )
@@ -282,9 +283,20 @@ namespace RetroDevStudio.Controls
       this.groupCharset.Controls.Add(this.checkExportCharset);
       this.Controls.Add(this.groupCharset);
 
-      this.checkAddFilenamespace.Location = new System.Drawing.Point(3, 472);
-      this.editFilenamespace.Location = new System.Drawing.Point(200, 469);
-      this.Size = new System.Drawing.Size(427, 500);
+      this.checkAlwaysOverwrite = new System.Windows.Forms.CheckBox();
+      this.checkAlwaysOverwrite.AutoSize = true;
+      this.checkAlwaysOverwrite.Location = new System.Drawing.Point(3, 472);
+      this.checkAlwaysOverwrite.Name = "checkAlwaysOverwrite";
+      this.checkAlwaysOverwrite.Size = new System.Drawing.Size(122, 17);
+      this.checkAlwaysOverwrite.TabIndex = 16;
+      this.checkAlwaysOverwrite.Text = "Always overwrite on export";
+      this.checkAlwaysOverwrite.UseVisualStyleBackColor = true;
+      this.checkAlwaysOverwrite.CheckedChanged += HandleSettingsChanged;
+      this.Controls.Add(this.checkAlwaysOverwrite);
+
+      this.checkAddFilenamespace.Location = new System.Drawing.Point(3, 496);
+      this.editFilenamespace.Location = new System.Drawing.Point(200, 493);
+      this.Size = new System.Drawing.Size(427, 524);
 
       this.Controls.Add(this.editEmptyTileIndex);
       this.Controls.Add(this.checkEmptyTile);
@@ -357,6 +369,14 @@ namespace RetroDevStudio.Controls
       editExportDirectory.Enabled = checkSaveOnExport.Checked;
       btnBrowseExportDirectory.Enabled = checkSaveOnExport.Checked;
       editExportFilename.Enabled = checkSaveOnExport.Checked;
+      if ( checkSaveOnExport.Checked )
+      {
+        checkAlwaysOverwrite.Enabled = true;
+      }
+      else
+      {
+        checkAlwaysOverwrite.Enabled = checkExportCharset.Checked;
+      }
 
       if (!m_ApplyingSettings)
       {
@@ -369,6 +389,14 @@ namespace RetroDevStudio.Controls
       editCharsetExportDirectory.Enabled = checkExportCharset.Checked;
       btnBrowseCharsetExportDirectory.Enabled = checkExportCharset.Checked;
       editCharsetExportFilename.Enabled = checkExportCharset.Checked;
+      if ( checkExportCharset.Checked )
+      {
+        checkAlwaysOverwrite.Enabled = true;
+      }
+      else
+      {
+        checkAlwaysOverwrite.Enabled = checkSaveOnExport.Checked;
+      }
 
       if ( ( checkExportCharset.Checked )
       &&   ( string.IsNullOrEmpty( editCharsetExportDirectory.Text ) ) )
@@ -581,7 +609,8 @@ namespace RetroDevStudio.Controls
           }
           if ( System.IO.File.Exists( fullPath ) )
           {
-            if ( System.Windows.Forms.MessageBox.Show( "The file " + fullPath + " already exists.\r\nOverwrite?", "File already exists", System.Windows.Forms.MessageBoxButtons.YesNo ) == System.Windows.Forms.DialogResult.No )
+            if ( ( !checkAlwaysOverwrite.Checked )
+            &&   ( System.Windows.Forms.MessageBox.Show( "The file " + fullPath + " already exists.\r\nOverwrite?", "File already exists", System.Windows.Forms.MessageBoxButtons.YesNo ) == System.Windows.Forms.DialogResult.No ) )
             {
               return true;
             }
@@ -646,7 +675,8 @@ namespace RetroDevStudio.Controls
           }
           if ( System.IO.File.Exists( fullPath ) )
           {
-            if ( System.Windows.Forms.MessageBox.Show( "The file " + fullPath + " already exists.\r\nOverwrite?", "File already exists", System.Windows.Forms.MessageBoxButtons.YesNo ) == System.Windows.Forms.DialogResult.No )
+            if ( ( !checkAlwaysOverwrite.Checked )
+            &&   ( System.Windows.Forms.MessageBox.Show( "The file " + fullPath + " already exists.\r\nOverwrite?", "File already exists", System.Windows.Forms.MessageBoxButtons.YesNo ) == System.Windows.Forms.DialogResult.No ) )
             {
               return true;
             }
@@ -765,6 +795,8 @@ namespace RetroDevStudio.Controls
         editCharsetExportDirectory.Enabled = checkExportCharset.Checked;
         btnBrowseCharsetExportDirectory.Enabled = checkExportCharset.Checked;
         editCharsetExportFilename.Enabled = checkExportCharset.Checked;
+
+        checkAlwaysOverwrite.Checked = assemblySettings.AlwaysOverwrite;
       }
       finally
       {
@@ -807,6 +839,7 @@ namespace RetroDevStudio.Controls
       assemblySettings.ExportCharset = checkExportCharset.Checked;
       assemblySettings.CharsetExportDirectory = editCharsetExportDirectory.Text;
       assemblySettings.CharsetExportFilename = editCharsetExportFilename.Text;
+      assemblySettings.AlwaysOverwrite = checkAlwaysOverwrite.Checked;
     }
 
 
