@@ -4509,6 +4509,12 @@ namespace RetroDevStudio.Documents
 
 
 
+
+
+    private void characterEditor_Load( object sender, EventArgs e )
+    {
+    }
+
   }
 }
 

@@ -717,6 +717,18 @@ namespace RetroDevStudio.Controls
         SelectCategory( m_Project.Characters[m_CurrentChar].Category );
         RedrawColorPicker();
       }
+      ValidateMoveButtons();
+    }
+
+
+
+    private void ValidateMoveButtons()
+    {
+      bool enable = ( panelCharacters.SelectedIndices.Count == 1 );
+      btnCharMoveUp.Enabled = enable;
+      btnCharMoveDown.Enabled = enable;
+      btnCharMoveLeft.Enabled = enable;
+      btnCharMoveRight.Enabled = enable;
     }
 
 
@@ -2531,6 +2543,134 @@ namespace RetroDevStudio.Controls
         modifiedChars.Add( i );
       }
       RaiseModifiedEvent( modifiedChars );
+    }
+
+
+
+    private void SwapCharacter( int Offset )
+    {
+      if ( panelCharacters.SelectedIndices.Count != 1 )
+      {
+        return;
+      }
+      int currentIndex = panelCharacters.SelectedIndex;
+      int targetIndex = currentIndex + Offset;
+
+      if ( ( targetIndex < 0 )
+      ||   ( targetIndex >= m_Project.TotalNumberOfCharacters ) )
+      {
+        return;
+      }
+
+      if ( Lookup.IsECMMode( m_Project.Mode ) )
+      {
+        // stay in 64 char block
+        if ( currentIndex / 64 != targetIndex / 64 )
+        {
+          return;
+        }
+      }
+
+      //UndoManager.AddUndoTask( new Undo.UndoCharacterEditorCharChange( this, m_Project, 0, m_Project.TotalNumberOfCharacters ) );
+      UndoManager.AddUndoTask( new Undo.UndoCharacterEditorCharChange( this, m_Project, Math.Min( currentIndex, targetIndex ), Math.Abs( targetIndex - currentIndex ) + 1 ) );
+
+      int[]   charMapNewToOld = new int[m_Project.TotalNumberOfCharacters];
+      int[]   charMapOldToNew = new int[m_Project.TotalNumberOfCharacters];
+      for ( int i = 0; i < m_Project.TotalNumberOfCharacters; ++i )
+      {
+        charMapNewToOld[i] = i;
+        charMapOldToNew[i] = i;
+      }
+
+      if ( Lookup.IsECMMode( m_Project.Mode ) ) 
+      {
+        for ( int i = 0; i < 4; ++i )
+        {
+          charMapOldToNew[i * 64 + currentIndex % 64] = i * 64 + targetIndex % 64;
+          charMapOldToNew[i * 64 + targetIndex % 64] = i * 64 + currentIndex % 64;
+          
+          charMapNewToOld[i * 64 + currentIndex % 64] = i * 64 + targetIndex % 64;
+          charMapNewToOld[i * 64 + targetIndex % 64] = i * 64 + currentIndex % 64;
+        }
+      }
+      else
+      {
+        charMapOldToNew[currentIndex] = targetIndex;
+        charMapOldToNew[targetIndex] = currentIndex;
+        
+        charMapNewToOld[currentIndex] = targetIndex;
+        charMapNewToOld[targetIndex] = currentIndex;
+      }
+
+      // Swap Data
+      var tempChar = m_Project.Characters[currentIndex];
+      m_Project.Characters[currentIndex] = m_Project.Characters[targetIndex];
+      m_Project.Characters[targetIndex] = tempChar;
+      
+      var tempItem = panelCharacters.Items[currentIndex];
+      panelCharacters.Items[currentIndex] = panelCharacters.Items[targetIndex];
+      panelCharacters.Items[targetIndex] = tempItem;
+
+      if ( Lookup.IsECMMode( m_Project.Mode ) )
+      {
+        for ( int i = 1; i < 4; ++i )
+        {
+          int Source = currentIndex % 64 + i * 64;
+          int Target = targetIndex % 64 + i * 64;
+          
+          tempChar = m_Project.Characters[Source];
+          m_Project.Characters[Source] = m_Project.Characters[Target];
+          m_Project.Characters[Target] = tempChar;
+          
+          tempItem = panelCharacters.Items[Source];
+          panelCharacters.Items[Source] = panelCharacters.Items[Target];
+          panelCharacters.Items[Target] = tempItem;
+        }
+      }
+
+      // Update Selection to follow the character
+      panelCharacters.SelectedIndex = targetIndex;
+
+      // Events
+      //panelCharacters.Invalidate();
+      RedrawPlayground();
+      canvasEditor.Invalidate();
+      RedrawColorPicker();
+
+      RaiseCharactersShiftedEvent( charMapOldToNew, charMapNewToOld );
+
+      var modifiedChars = new List<int>();
+      modifiedChars.Add( currentIndex );
+      modifiedChars.Add( targetIndex );
+      RaiseModifiedEvent( modifiedChars );
+    }
+
+
+
+    private void btnCharMoveUp_Click( DecentForms.ControlBase Sender )
+    {
+      SwapCharacter( -16 );
+    }
+
+
+
+    private void btnCharMoveDown_Click( DecentForms.ControlBase Sender )
+    {
+      SwapCharacter( 16 );
+    }
+
+
+
+    private void btnCharMoveLeft_Click( DecentForms.ControlBase Sender )
+    {
+      SwapCharacter( -1 );
+    }
+
+
+
+    private void btnCharMoveRight_Click( DecentForms.ControlBase Sender )
+    {
+      SwapCharacter( 1 );
     }
 
 
