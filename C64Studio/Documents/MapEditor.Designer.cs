@@ -161,12 +161,17 @@
             this.tabEditor.SuspendLayout();
             this.groupMapExtraData.SuspendLayout();
             this.groupSize.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureEditor)).BeginInit();
             this.tabMapEditor.SuspendLayout();
             this.tabTiles.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.panelCharColors)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureTileDisplay)).BeginInit();
             this.tabCharset.SuspendLayout();
             this.tabExport.SuspendLayout();
             this.tabImport.SuspendLayout();
             this.tabPage1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.fastPictureBox1)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.fastPictureBox2)).BeginInit();
             this.SuspendLayout();
             // 
             // menuStrip1
@@ -1269,13 +1274,13 @@
             // 
             // tabCharset
             // 
+            this.tabCharset.Controls.Add(this.characterEditor);
             this.tabCharset.Location = new System.Drawing.Point(4, 22);
             this.tabCharset.Name = "tabCharset";
             this.tabCharset.Size = new System.Drawing.Size(1326, 589);
             this.tabCharset.TabIndex = 3;
             this.tabCharset.Text = "Character Set";
             this.tabCharset.UseVisualStyleBackColor = true;
-            this.tabCharset.Controls.Add(this.characterEditor);
             // 
             // characterEditor
             // 
@@ -1335,7 +1340,7 @@
             | System.Windows.Forms.AnchorStyles.Left)));
             this.panelExport.Location = new System.Drawing.Point(9, 83);
             this.panelExport.Name = "panelExport";
-            this.panelExport.Size = new System.Drawing.Size(439, 498);
+            this.panelExport.Size = new System.Drawing.Size(842, 498);
             this.panelExport.TabIndex = 41;
             // 
             // editDataExport
@@ -1343,11 +1348,11 @@
             this.editDataExport.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.editDataExport.Location = new System.Drawing.Point(451, 6);
+            this.editDataExport.Location = new System.Drawing.Point(857, 6);
             this.editDataExport.Multiline = true;
             this.editDataExport.Name = "editDataExport";
             this.editDataExport.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.editDataExport.Size = new System.Drawing.Size(867, 575);
+            this.editDataExport.Size = new System.Drawing.Size(461, 575);
             this.editDataExport.TabIndex = 40;
             this.editDataExport.WordWrap = false;
             // 
@@ -1613,9 +1618,12 @@
             this.groupMapExtraData.PerformLayout();
             this.groupSize.ResumeLayout(false);
             this.groupSize.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureEditor)).EndInit();
             this.tabMapEditor.ResumeLayout(false);
             this.tabTiles.ResumeLayout(false);
             this.tabTiles.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.panelCharColors)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureTileDisplay)).EndInit();
             this.tabCharset.ResumeLayout(false);
             this.tabExport.ResumeLayout(false);
             this.tabExport.PerformLayout();
@@ -1623,6 +1631,9 @@
             this.tabImport.PerformLayout();
             this.tabPage1.ResumeLayout(false);
             this.tabPage1.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.fastPictureBox1)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.fastPictureBox2)).EndInit();
+            this.ResumeLayout(false);
             this.PerformLayout();
 
     }
