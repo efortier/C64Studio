@@ -1698,6 +1698,7 @@ namespace RetroDevStudio.Documents
 
       int selectedRightClickIndex = comboRightClickBehavior.SelectedIndex;
       comboRightClickBehavior.BeginUpdate();
+      comboRightClickBehavior.SelectedIndexChanged -= comboRightClickBehavior_SelectedIndexChanged;
       comboRightClickBehavior.Items.Clear();
       comboRightClickBehavior.Items.Add( "Default" );
       foreach ( var tile in m_MapProject.Tiles )
@@ -1724,6 +1725,7 @@ namespace RetroDevStudio.Documents
           m_MapProject.RightClickAction = "";
         }
       }
+      comboRightClickBehavior.SelectedIndexChanged += comboRightClickBehavior_SelectedIndexChanged;
       comboRightClickBehavior.EndUpdate();
 
       int restoreIndex = ( selectedTileIndex >= 0 ) ? selectedTileIndex : selectedIndex;
