@@ -201,6 +201,7 @@ namespace RetroDevStudio.Controls
 
     public override bool HandleExport( ExportMapInfo Info, TextBox EditOutput, DocumentInfo DocInfo )
     {
+      UpdateExportSettings( Info.Map.Settings );
       int wrapByteCount = GetExportWrapCount();
       string prefix = editPrefix.Text;
 
@@ -516,6 +517,7 @@ namespace RetroDevStudio.Controls
         editCharsetExportFilename.Enabled = checkExportCharset.Checked;
 
         checkAlwaysOverwrite.Checked = assemblySettings.AlwaysOverwrite;
+        checkExportMapAsCharAndColors.Checked = assemblySettings.ExportMapAsCharAndColors;
       }
       finally
       {
@@ -558,7 +560,9 @@ namespace RetroDevStudio.Controls
       assemblySettings.ExportCharset = checkExportCharset.Checked;
       assemblySettings.CharsetExportDirectory = editCharsetExportDirectory.Text;
       assemblySettings.CharsetExportFilename = editCharsetExportFilename.Text;
+      assemblySettings.CharsetExportFilename = editCharsetExportFilename.Text;
       assemblySettings.AlwaysOverwrite = checkAlwaysOverwrite.Checked;
+      assemblySettings.ExportMapAsCharAndColors = checkExportMapAsCharAndColors.Checked;
     }
 
 

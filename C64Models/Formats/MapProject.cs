@@ -79,6 +79,7 @@ namespace RetroDevStudio.Formats
         public string CharsetExportDirectory = "";
         public string CharsetExportFilename = "";
         public bool   AlwaysOverwrite = false;
+        public bool   ExportMapAsCharAndColors = false;
       }
 
       public class BinarySettings
@@ -246,7 +247,7 @@ namespace RetroDevStudio.Formats
       projectFile.Append( chunkProjectData.ToBuffer() );
 
       GR.IO.FileChunk chunkExportSettings = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS );
-      chunkExportSettings.AppendU32( 10 );
+      chunkExportSettings.AppendU32( 11 );
       chunkExportSettings.AppendI32(Settings.ExportDataIndex );
       chunkExportSettings.AppendI32(Settings.ExportOrientationIndex );
       chunkExportSettings.AppendI32( Settings.ExportMethodIndex );
@@ -281,6 +282,7 @@ namespace RetroDevStudio.Formats
       chunkExportSettings.AppendString( Settings.Assembly.CharsetExportDirectory ?? "" );
       chunkExportSettings.AppendString( Settings.Assembly.CharsetExportFilename ?? "" );
       chunkExportSettings.AppendI32( Settings.Assembly.AlwaysOverwrite ? 1 : 0 );
+      chunkExportSettings.AppendI32( Settings.Assembly.ExportMapAsCharAndColors ? 1 : 0 );
       projectFile.Append( chunkExportSettings.ToBuffer() );
       return projectFile;
     }
@@ -733,6 +735,44 @@ namespace RetroDevStudio.Formats
                 Settings.Assembly.CharsetExportFilename = chunkReader.ReadString();
                 Settings.Assembly.AlwaysOverwrite = ( chunkReader.ReadInt32() != 0 );
               }
+              else if ( version == 11 )
+              {
+                Settings.ExportDataIndex = chunkReader.ReadInt32();
+                Settings.ExportOrientationIndex = chunkReader.ReadInt32();
+                Settings.ExportMethodIndex = chunkReader.ReadInt32();
+                Settings.Assembly.PrefixWith = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.Prefix = chunkReader.ReadString();
+                Settings.Assembly.WrapAt = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.WrapByteCount = chunkReader.ReadInt32();
+                Settings.Assembly.ExportHex = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.VariableNameLabelPrefixEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.VariableNameLabelPrefix = chunkReader.ReadString();
+                Settings.Assembly.IncludeSemicolonAfterSimpleLabels = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.MapSizeCommentEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.CommentChars = chunkReader.ReadString();
+                Settings.Assembly.EmptyTileCompressionEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.EmptyTileIndex = chunkReader.ReadInt32();
+                Settings.Assembly.SaveOnExport = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportDirectory = chunkReader.ReadString();
+                Settings.Assembly.ExportFilename = chunkReader.ReadString();
+                Settings.Binary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.Binary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetBinary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.CharsetBinary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetProject.TargetFilename = chunkReader.ReadString();
+                Settings.Charscreen.TargetFilename = chunkReader.ReadString();
+                Settings.Assembly.ExportTilesetColors = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportMapColors = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.AddFilenamespace = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.Filenamespace = chunkReader.ReadString();
+                Settings.Assembly.ExportSparseMaps = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.WrapMapData = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportCharset = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.CharsetExportDirectory = chunkReader.ReadString();
+                Settings.Assembly.CharsetExportFilename = chunkReader.ReadString();
+                Settings.Assembly.AlwaysOverwrite = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportMapAsCharAndColors = ( chunkReader.ReadInt32() != 0 );
+              }
             }
             break;
         }
@@ -1161,6 +1201,29 @@ namespace RetroDevStudio.Formats
       }
       sbMaps.AppendLine();
 
+      if ( ( Settings.Assembly.ExportMapAsCharAndColors )
+      &&   ( Settings.Assembly.ExportMapColors ) )
+      {
+        sbMaps.Append( LabelPrefix );
+        sbMaps.AppendLine( "MAPS_COLOR_TABLE_LOW" );
+        for ( int i = 0; i < Maps.Count; ++i )
+        {
+          sbMaps.Append( DataByteDirective );
+          sbMaps.Append( ' ' );
+          sbMaps.AppendLine( "<" + LabelPrefix + "MAP_" + NormalizeAsLabel( Maps[i].Name.ToUpper() ) + "_COLOR" );
+        }
+        sbMaps.AppendLine();
+        sbMaps.Append( LabelPrefix );
+        sbMaps.AppendLine( "MAPS_COLOR_TABLE_HIGH" );
+        for ( int i = 0; i < Maps.Count; ++i )
+        {
+          sbMaps.Append( DataByteDirective );
+          sbMaps.Append( ' ' );
+          sbMaps.AppendLine( ">" + LabelPrefix + "MAP_" + NormalizeAsLabel( Maps[i].Name.ToUpper() ) + "_COLOR" );
+        }
+        sbMaps.AppendLine();
+      }
+
       if ( hasExtraData )
       {
         sbMaps.Append( LabelPrefix );
@@ -1191,25 +1254,82 @@ namespace RetroDevStudio.Formats
         sbMaps.Append( LabelPrefix );
         sbMaps.AppendLine( "MAP_" + NormalizeAsLabel( map.Name.ToUpper() ) );
 
-        GR.Memory.ByteBuffer mapDataBuffer = new GR.Memory.ByteBuffer( (uint)( map.Tiles.Width * map.Tiles.Height ) );
+        GR.Memory.ByteBuffer mapDataBuffer = new GR.Memory.ByteBuffer();
+        GR.Memory.ByteBuffer mapColorBuffer = new GR.Memory.ByteBuffer();
+        int     exportWidth = map.Tiles.Width;
+        int     exportHeight = map.Tiles.Height;
 
-        if ( Vertical )
+        if ( Settings.Assembly.ExportMapAsCharAndColors )
         {
+          exportWidth = map.Tiles.Width * map.TileSpacingX;
+          exportHeight = map.Tiles.Height * map.TileSpacingY;
+          mapDataBuffer.Resize( (uint)( exportWidth * exportHeight ) );
+          if ( Settings.Assembly.ExportMapColors )
+          {
+            mapColorBuffer.Resize( (uint)( exportWidth * exportHeight ) );
+          }
           for ( int y = 0; y < map.Tiles.Height; ++y )
           {
             for ( int x = 0; x < map.Tiles.Width; ++x )
             {
-              mapDataBuffer.SetU8At( x * map.Tiles.Height + y, (byte)map.Tiles[x, y] );
+              int tileIndex = map.Tiles[x, y];
+              if ( ( tileIndex >= 0 )
+              &&   ( tileIndex < Tiles.Count ) )
+              {
+                var tile = Tiles[tileIndex];
+                for ( int ty = 0; ty < tile.Chars.Height; ++ty )
+                {
+                  for ( int tx = 0; tx < tile.Chars.Width; ++tx )
+                  {
+                    int finalX = x * map.TileSpacingX + tx;
+                    int finalY = y * map.TileSpacingY + ty;
+
+                    if ( ( finalX < exportWidth )
+                    &&   ( finalY < exportHeight ) )
+                    {
+                      int offset = 0;
+                      if ( Vertical )
+                      {
+                        offset = finalX * exportHeight + finalY;
+                      }
+                      else
+                      {
+                        offset = finalX + finalY * exportWidth;
+                      }
+
+                      mapDataBuffer.SetU8At( offset, tile.Chars[tx, ty].Character );
+                      if ( Settings.Assembly.ExportMapColors )
+                      {
+                        mapColorBuffer.SetU8At( offset, tile.Chars[tx, ty].Color );
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
         }
         else
         {
-          for ( int y = 0; y < map.Tiles.Height; ++y )
+          mapDataBuffer.Resize( (uint)( exportWidth * exportHeight ) );
+          if ( Vertical )
           {
-            for ( int x = 0; x < map.Tiles.Width; ++x )
+            for ( int y = 0; y < map.Tiles.Height; ++y )
             {
-              mapDataBuffer.SetU8At( x + y * map.Tiles.Width, (byte)map.Tiles[x, y] );
+              for ( int x = 0; x < map.Tiles.Width; ++x )
+              {
+                mapDataBuffer.SetU8At( x * map.Tiles.Height + y, (byte)map.Tiles[x, y] );
+              }
+            }
+          }
+          else
+          {
+            for ( int y = 0; y < map.Tiles.Height; ++y )
+            {
+              for ( int x = 0; x < map.Tiles.Width; ++x )
+              {
+                mapDataBuffer.SetU8At( x + y * map.Tiles.Width, (byte)map.Tiles[x, y] );
+              }
             }
           }
         }
@@ -1219,9 +1339,9 @@ namespace RetroDevStudio.Formats
           sbMaps.Append( ' ' );
         }
         sbMaps.Append( "$" );
-        sbMaps.Append( ( (byte)map.Tiles.Width ).ToString( "X2" ) );
+        sbMaps.Append( ( (byte)exportWidth ).ToString( "X2" ) );
         sbMaps.Append( ", $" );
-        sbMaps.Append( ( (byte)map.Tiles.Height ).ToString( "X2" ) );
+        sbMaps.Append( ( (byte)exportHeight ).ToString( "X2" ) );
         if ( !string.IsNullOrEmpty( CommentChars ) )
         {
           sbMaps.Append( ' ' );
@@ -1235,6 +1355,14 @@ namespace RetroDevStudio.Formats
         sbMaps.AppendLine();
         sbMaps.AppendLine();
         sbMaps.Append( Util.ToASMData( mapDataBuffer, WrapData, WrapByteCount, DataByteDirective ) );
+        if ( ( Settings.Assembly.ExportMapAsCharAndColors )
+        &&   ( Settings.Assembly.ExportMapColors ) )
+        {
+          sbMaps.AppendLine();
+          sbMaps.Append( LabelPrefix );
+          sbMaps.AppendLine( "MAP_" + NormalizeAsLabel( map.Name.ToUpper() ) + "_COLOR" );
+          sbMaps.Append( Util.ToASMData( mapColorBuffer, WrapData, WrapByteCount, DataByteDirective ) );
+        }
         if ( hasExtraData )
         //&&   ( map.ExtraDataText.Length > 0 ) )
         {
@@ -1641,6 +1769,32 @@ namespace RetroDevStudio.Formats
         sb.AppendLine();
       }
 
+      if ( ( Settings.Assembly.ExportMapAsCharAndColors )
+      &&   ( Settings.Assembly.ExportMapColors ) )
+      {
+        sb.AppendLine( LabelPrefix + "MAPS_COLOR_TABLE_LOW" + labelSuffix );
+        sbTable = new StringBuilder();
+        sbTable.Append( DataByteDirective + " " );
+        for ( int i = 0; i < Maps.Count; ++i )
+        {
+          if ( i > 0 ) sbTable.Append( ", " );
+          sbTable.Append( "<" + LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + "_COLOR" );
+        }
+        sb.AppendLine( sbTable.ToString() );
+        sb.AppendLine();
+
+        sb.AppendLine( LabelPrefix + "MAPS_COLOR_TABLE_HIGH" + labelSuffix );
+        sbTable = new StringBuilder();
+        sbTable.Append( DataByteDirective + " " );
+        for ( int i = 0; i < Maps.Count; ++i )
+        {
+          if ( i > 0 ) sbTable.Append( ", " );
+          sbTable.Append( ">" + LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + "_COLOR" );
+        }
+        sb.AppendLine( sbTable.ToString() );
+        sb.AppendLine();
+      }
+
       sb.AppendLine( LabelPrefix + "MAPS_TABLE_LOW" + labelSuffix );
       sbTable = new StringBuilder();
       sbTable.Append( DataByteDirective + " " );
@@ -1731,6 +1885,63 @@ namespace RetroDevStudio.Formats
             sb.Append( "\t" + Settings.Assembly.CommentChars + " end of map" );
           }
           sb.AppendLine();
+        }
+        else if ( Settings.Assembly.ExportMapAsCharAndColors )
+        {
+          GR.Memory.ByteBuffer mapColorBuffer = new GR.Memory.ByteBuffer();
+          int     exportWidth = map.Tiles.Width * map.TileSpacingX;
+          int     exportHeight = map.Tiles.Height * map.TileSpacingY;
+
+          mapTiles.Resize( (uint)( exportWidth * exportHeight ) );
+          if ( Settings.Assembly.ExportMapColors )
+          {
+            mapColorBuffer.Resize( (uint)( exportWidth * exportHeight ) );
+          }
+          for ( int y = 0; y < map.Tiles.Height; ++y )
+          {
+            for ( int x = 0; x < map.Tiles.Width; ++x )
+            {
+              int tileIndex = map.Tiles[x, y];
+              if ( ( tileIndex >= 0 )
+              &&   ( tileIndex < Tiles.Count ) )
+              {
+                var tile = Tiles[tileIndex];
+                for ( int ty = 0; ty < tile.Chars.Height; ++ty )
+                {
+                  for ( int tx = 0; tx < tile.Chars.Width; ++tx )
+                  {
+                    int finalX = x * map.TileSpacingX + tx;
+                    int finalY = y * map.TileSpacingY + ty;
+
+                    if ( ( finalX < exportWidth )
+                    &&   ( finalY < exportHeight ) )
+                    {
+                      int offset = finalX + finalY * exportWidth;
+
+                      mapTiles.SetU8At( offset, tile.Chars[tx, ty].Character );
+                      if ( Settings.Assembly.ExportMapColors )
+                      {
+                        mapColorBuffer.SetU8At( offset, tile.Chars[tx, ty].Color );
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+          sb.AppendLine( Util.ToASMData( mapTiles, WrapData, WrapByteCount, DataByteDirective ) );
+
+          if ( Settings.Assembly.ExportMapColors )
+          {
+            sb.AppendLine();
+            sb.Append( LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + "_COLOR" + labelSuffix + " " );
+            if ( Settings.Assembly.MapSizeCommentEnabled )
+            {
+              sb.Append( Settings.Assembly.CommentChars + " " + map.Name );
+            }
+            sb.AppendLine();
+            sb.AppendLine( Util.ToASMData( mapColorBuffer, WrapData, WrapByteCount, DataByteDirective ) );
+          }
         }
         else
         {

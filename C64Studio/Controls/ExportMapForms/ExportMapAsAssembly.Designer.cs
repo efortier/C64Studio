@@ -63,6 +63,7 @@ namespace RetroDevStudio.Controls
             this.labelCharsetExportDirectory = new System.Windows.Forms.Label();
             this.checkExportCharset = new System.Windows.Forms.CheckBox();
             this.checkAlwaysOverwrite = new System.Windows.Forms.CheckBox();
+            this.checkExportMapAsCharAndColors = new System.Windows.Forms.CheckBox();
             this.groupAutoSave.SuspendLayout();
             this.groupCharset.SuspendLayout();
             this.SuspendLayout();
@@ -428,10 +429,22 @@ namespace RetroDevStudio.Controls
             this.checkAlwaysOverwrite.UseVisualStyleBackColor = true;
             this.checkAlwaysOverwrite.CheckedChanged += new System.EventHandler(this.HandleSettingsChanged);
             // 
+            // checkExportMapAsCharAndColors
+            // 
+            this.checkExportMapAsCharAndColors.AutoSize = true;
+            this.checkExportMapAsCharAndColors.Location = new System.Drawing.Point(420, 100);
+            this.checkExportMapAsCharAndColors.Name = "checkExportMapAsCharAndColors";
+            this.checkExportMapAsCharAndColors.Size = new System.Drawing.Size(152, 17);
+            this.checkExportMapAsCharAndColors.TabIndex = 23;
+            this.checkExportMapAsCharAndColors.Text = "Export map as character and colors";
+            this.checkExportMapAsCharAndColors.UseVisualStyleBackColor = true;
+            this.checkExportMapAsCharAndColors.CheckedChanged += new System.EventHandler(this.HandleSettingsChanged);
+            // 
             // ExportMapAsAssembly
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.Controls.Add(this.checkExportMapAsCharAndColors);
             this.Controls.Add(this.checkAlwaysOverwrite);
             this.Controls.Add(this.groupCharset);
             this.Controls.Add(this.groupAutoSave);
@@ -500,5 +513,6 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.Label labelCharsetExportDirectory;
     private System.Windows.Forms.CheckBox checkExportCharset;
     private System.Windows.Forms.CheckBox checkAlwaysOverwrite;
+    private System.Windows.Forms.CheckBox checkExportMapAsCharAndColors;
   }
 }
