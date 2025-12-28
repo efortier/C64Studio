@@ -279,7 +279,7 @@ namespace RetroDevStudio.Controls
             this.groupAutoSave.Controls.Add(this.editExportDirectory);
             this.groupAutoSave.Controls.Add(this.labelExportDirectory);
             this.groupAutoSave.Controls.Add(this.checkSaveOnExport);
-            this.groupAutoSave.Location = new System.Drawing.Point(3, 210);
+            this.groupAutoSave.Location = new System.Drawing.Point(0, 219);
             this.groupAutoSave.Name = "groupAutoSave";
             this.groupAutoSave.Size = new System.Drawing.Size(397, 100);
             this.groupAutoSave.TabIndex = 23;
@@ -352,7 +352,7 @@ namespace RetroDevStudio.Controls
             this.groupCharset.Controls.Add(this.editCharsetExportDirectory);
             this.groupCharset.Controls.Add(this.labelCharsetExportDirectory);
             this.groupCharset.Controls.Add(this.checkExportCharset);
-            this.groupCharset.Location = new System.Drawing.Point(3, 316);
+            this.groupCharset.Location = new System.Drawing.Point(3, 325);
             this.groupCharset.Name = "groupCharset";
             this.groupCharset.Size = new System.Drawing.Size(397, 100);
             this.groupCharset.TabIndex = 24;
@@ -420,7 +420,7 @@ namespace RetroDevStudio.Controls
             // checkAlwaysOverwrite
             // 
             this.checkAlwaysOverwrite.AutoSize = true;
-            this.checkAlwaysOverwrite.Location = new System.Drawing.Point(420, 100);
+            this.checkAlwaysOverwrite.Location = new System.Drawing.Point(3, 196);
             this.checkAlwaysOverwrite.Name = "checkAlwaysOverwrite";
             this.checkAlwaysOverwrite.Size = new System.Drawing.Size(152, 17);
             this.checkAlwaysOverwrite.TabIndex = 22;
