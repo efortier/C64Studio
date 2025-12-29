@@ -102,11 +102,11 @@
             this.btnTileDelete = new DecentForms.Button();
             this.btnTileClone = new DecentForms.Button();
             this.btnTileAdd = new DecentForms.Button();
-            this.listTileChars = new System.Windows.Forms.ListView();
+            this.listTileChars = new RetroDevStudio.Controls.CSListView();
             this.columnHeader5 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeader6 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeader7 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-            this.listTileInfo = new System.Windows.Forms.ListView();
+            this.listTileInfo = new RetroDevStudio.Controls.CSListView();
             this.columnHeader4 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeader1 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeader2 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
@@ -1043,6 +1043,9 @@
             this.listTileChars.HideSelection = false;
             this.listTileChars.Location = new System.Drawing.Point(3, 247);
             this.listTileChars.Name = "listTileChars";
+            this.listTileChars.OwnerDraw = true;
+            this.listTileChars.SelectedTextBGColor = ((uint)(4294901760u));
+            this.listTileChars.SelectedTextColor = ((uint)(4294967295u));
             this.listTileChars.Size = new System.Drawing.Size(176, 162);
             this.listTileChars.TabIndex = 24;
             this.listTileChars.UseCompatibleStateImageBehavior = false;
@@ -1075,6 +1078,9 @@
             this.listTileInfo.HideSelection = false;
             this.listTileInfo.Location = new System.Drawing.Point(3, 8);
             this.listTileInfo.Name = "listTileInfo";
+            this.listTileInfo.OwnerDraw = true;
+            this.listTileInfo.SelectedTextBGColor = ((uint)(4294901760u));
+            this.listTileInfo.SelectedTextColor = ((uint)(4294967295u));
             this.listTileInfo.Size = new System.Drawing.Size(359, 203);
             this.listTileInfo.TabIndex = 24;
             this.listTileInfo.UseCompatibleStateImageBehavior = false;
@@ -1715,7 +1721,7 @@
     private System.Windows.Forms.TextBox editMapHeight;
     private System.Windows.Forms.Label label3;
     private System.Windows.Forms.TextBox editMapWidth;
-    private System.Windows.Forms.ListView listTileInfo;
+    private RetroDevStudio.Controls.CSListView listTileInfo;
     private System.Windows.Forms.TextBox editTileName;
     private System.Windows.Forms.TextBox editTileHeight;
     private System.Windows.Forms.TextBox editTileWidth;
@@ -1737,7 +1743,7 @@
     private DecentForms.Button btnMapDelete;
     private System.Windows.Forms.ComboBox comboMaps;
     private System.Windows.Forms.Label label19;
-    private System.Windows.Forms.ListView listTileChars;
+    private RetroDevStudio.Controls.CSListView listTileChars;
     private System.Windows.Forms.ColumnHeader columnHeader5;
     private System.Windows.Forms.ColumnHeader columnHeader6;
     private System.Windows.Forms.ColumnHeader columnHeader7;
