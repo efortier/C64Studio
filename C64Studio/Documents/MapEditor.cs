@@ -2660,6 +2660,7 @@ namespace RetroDevStudio.Documents
 
       m_ApplyingTileSettings = true;
       checkTilePassable.Checked = m_CurrentEditedTile.Passable;
+      checkNotExportedOnMap.Checked = m_CurrentEditedTile.NotExportedOnMap;
       m_ApplyingTileSettings = false;
 
       editTileWidth.Text = m_CurrentEditedTile.Chars.Width.ToString();
@@ -3032,6 +3033,21 @@ namespace RetroDevStudio.Documents
       {
         DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
         m_CurrentEditedTile.Passable = checkTilePassable.Checked;
+        SetModified();
+      }
+    }
+
+    private void checkNotExportedOnMap_CheckedChanged( object sender, EventArgs e )
+    {
+      if ( ( m_CurrentEditedTile == null )
+      ||   ( m_ApplyingTileSettings ) )
+      {
+        return;
+      }
+      if ( m_CurrentEditedTile.NotExportedOnMap != checkNotExportedOnMap.Checked )
+      {
+        DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
+        m_CurrentEditedTile.NotExportedOnMap = checkNotExportedOnMap.Checked;
         SetModified();
       }
     }

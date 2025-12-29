@@ -23,6 +23,7 @@ namespace RetroDevStudio.Formats
       public string       Name = "";
       public int          Index = 0;
       public bool         Passable = true;
+      public bool         NotExportedOnMap = false;
 
       public Tile()
       {
@@ -193,6 +194,7 @@ namespace RetroDevStudio.Formats
           }
         }
         chunkTile.AppendU8( tile.Passable ? (byte)1 : (byte)0 );
+        chunkTile.AppendU8( tile.NotExportedOnMap ? (byte)1 : (byte)0 );
         chunkProjectData.Append( chunkTile.ToBuffer() );
       }
       foreach ( Map map in Maps )
@@ -364,6 +366,10 @@ namespace RetroDevStudio.Formats
                       if ( subChunkReader.Position < subChunkReader.Size )
                       {
                         tile.Passable = ( subChunkReader.ReadUInt8() != 0 );
+                      }
+                      if ( subChunkReader.Position < subChunkReader.Size )
+                      {
+                        tile.NotExportedOnMap = ( subChunkReader.ReadUInt8() != 0 );
                       }
                       Tiles.Add( tile );
                       tile.Index = Tiles.Count - 1;
@@ -916,7 +922,13 @@ namespace RetroDevStudio.Formats
         {
           for ( int x = 0; x < Map.Tiles.Width; ++x )
           {
-            mapDataBuffer.SetU8At( x + y * Map.Tiles.Width, (byte)Map.Tiles[x, y] );
+            int tileIndex = Map.Tiles[x, y];
+            if ( ( tileIndex < Tiles.Count )
+            &&   ( Tiles[tileIndex].NotExportedOnMap ) )
+            {
+               tileIndex = 0;
+            }
+            mapDataBuffer.SetU8At( x + y * Map.Tiles.Width, (byte)tileIndex );
           }
         }
       }
@@ -926,7 +938,13 @@ namespace RetroDevStudio.Formats
         {
           for ( int y = 0; y < Map.Tiles.Height; ++y )          
           {
-            mapDataBuffer.SetU8At( x + y * Map.Tiles.Width, (byte)Map.Tiles[x, y] );
+            int tileIndex = Map.Tiles[x, y];
+            if ( ( tileIndex < Tiles.Count )
+            &&   ( Tiles[tileIndex].NotExportedOnMap ) )
+            {
+               tileIndex = 0;
+            }
+            mapDataBuffer.SetU8At( x + y * Map.Tiles.Width, (byte)tileIndex );
           }
         }
       }
@@ -1312,6 +1330,10 @@ namespace RetroDevStudio.Formats
               &&   ( tileIndex < Tiles.Count ) )
               {
                 var tile = Tiles[tileIndex];
+                if ( tile.NotExportedOnMap )
+                {
+                  continue;
+                }
                 for ( int ty = 0; ty < tile.Chars.Height; ++ty )
                 {
                   for ( int tx = 0; tx < tile.Chars.Width; ++tx )
@@ -1353,7 +1375,13 @@ namespace RetroDevStudio.Formats
             {
               for ( int x = 0; x < map.Tiles.Width; ++x )
               {
-                mapDataBuffer.SetU8At( x * map.Tiles.Height + y, (byte)map.Tiles[x, y] );
+                int tileIndex = map.Tiles[x, y];
+                if ( ( tileIndex < Tiles.Count )
+                &&   ( Tiles[tileIndex].NotExportedOnMap ) )
+                {
+                   tileIndex = Settings.Assembly.EmptyTileIndex;
+                }
+                mapDataBuffer.SetU8At( x * map.Tiles.Height + y, (byte)tileIndex );
               }
             }
           }
@@ -1363,7 +1391,13 @@ namespace RetroDevStudio.Formats
             {
               for ( int x = 0; x < map.Tiles.Width; ++x )
               {
-                mapDataBuffer.SetU8At( x + y * map.Tiles.Width, (byte)map.Tiles[x, y] );
+                int tileIndex = map.Tiles[x, y];
+                if ( ( tileIndex < Tiles.Count )
+                &&   ( Tiles[tileIndex].NotExportedOnMap ) )
+                {
+                   tileIndex = Settings.Assembly.EmptyTileIndex;
+                }
+                mapDataBuffer.SetU8At( x + y * map.Tiles.Width, (byte)tileIndex );
               }
             }
           }
@@ -1886,6 +1920,10 @@ namespace RetroDevStudio.Formats
               &&   ( tileIndex < Tiles.Count ) )
               {
                 var tile = Tiles[tileIndex];
+                if ( tile.NotExportedOnMap )
+                {
+                  continue;
+                }
                 for ( int ty = 0; ty < tile.Chars.Height; ++ty )
                 {
                   for ( int tx = 0; tx < tile.Chars.Width; ++tx )
@@ -1933,7 +1971,16 @@ namespace RetroDevStudio.Formats
             {
               for ( int x = 0; x < map.Tiles.Width; ++x )
               {
-                mapTiles.AppendU8( (byte)map.Tiles[x, y] );
+                int     tileIndex = map.Tiles[x, y];
+                if ( ( tileIndex >= 0 )
+                &&   ( tileIndex < Tiles.Count ) )
+                {
+                  if ( Tiles[tileIndex].NotExportedOnMap )
+                  {
+                    tileIndex = EmptyTileIndex;
+                  }
+                }
+                mapTiles.AppendU8( (byte)tileIndex );
               }
             }
             sb.AppendLine( Util.ToASMData( mapTiles, WrapData, WrapByteCount, DataByteDirective ) );
@@ -1945,7 +1992,16 @@ namespace RetroDevStudio.Formats
             {
               for ( int x = 0; x < map.Tiles.Width; ++x )
               {
-                mapTiles.AppendU8( (byte)map.Tiles[x, y] );
+                int     tileIndex = map.Tiles[x, y];
+                if ( ( tileIndex >= 0 )
+                &&   ( tileIndex < Tiles.Count ) )
+                {
+                  if ( Tiles[tileIndex].NotExportedOnMap )
+                  {
+                    tileIndex = EmptyTileIndex;
+                  }
+                }
+                mapTiles.AppendU8( (byte)tileIndex );
               }
               sb.AppendLine( Util.ToASMData( mapTiles, false, 0, DataByteDirective ) );
               mapTiles.Clear();
