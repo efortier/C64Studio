@@ -2692,6 +2692,7 @@ namespace RetroDevStudio.Documents
       {
         btnCopyTileCharToNextIncreased.Enabled  = false;
         btnSetNextTileChar.Enabled              = false;
+        panelCharColors.Enabled                 = false;
 
         RedrawTile();
         return;
@@ -2771,6 +2772,7 @@ namespace RetroDevStudio.Documents
       {
         btnCopyTileCharToNextIncreased.Enabled  = false;
         btnSetNextTileChar.Enabled              = false;
+        panelCharColors.Enabled                 = false;
         return;
       }
       m_CurrentTileChar = null;
@@ -2778,12 +2780,14 @@ namespace RetroDevStudio.Documents
       {
         btnCopyTileCharToNextIncreased.Enabled  = false;
         btnSetNextTileChar.Enabled              = false;
+        panelCharColors.Enabled                 = false;
         return;
       }
       m_CurrentTileChar = (Formats.MapProject.TileChar)listTileChars.SelectedItems[0].Tag;
 
       btnCopyTileCharToNextIncreased.Enabled  = ( listTileChars.SelectedIndices[0] + 1 < listTileChars.Items.Count );
       btnSetNextTileChar.Enabled              = ( listTileChars.SelectedIndices[0] + 1 < listTileChars.Items.Count );
+      panelCharColors.Enabled                 = true;
 
       panelCharacters.SelectedIndex = m_CurrentTileChar.Character;
       m_CurrentColor = m_CurrentTileChar.Color;
