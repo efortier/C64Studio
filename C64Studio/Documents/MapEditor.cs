@@ -2172,7 +2172,10 @@ namespace RetroDevStudio.Documents
       RedrawColorChooser();
 
       if ( ( m_CurrentTileChar != null )
-      &&   ( m_CurrentTileChar.Character != m_CurrentChar ) )
+      &&   ( m_CurrentTileChar.Character != m_CurrentChar ) 
+      &&   ( m_CurrentTileChar.Color != m_CurrentColor )
+      &&   ( listTileInfo.SelectedIndices.Count > 0 )
+      &&   ( listTileChars.SelectedItems.Count > 0 ) )
       {
         DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
 
@@ -2227,7 +2230,9 @@ namespace RetroDevStudio.Documents
         RedrawColorChooser();
 
         if ( ( m_CurrentTileChar != null )
-        &&   ( m_CurrentTileChar.Color != m_CurrentColor ) )
+        &&   ( m_CurrentTileChar.Color != m_CurrentColor )
+        &&   ( listTileInfo.SelectedIndices.Count > 0 )
+        &&   ( listTileChars.SelectedItems.Count > 0 ) )
         {
           DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
 
