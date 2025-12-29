@@ -287,7 +287,7 @@ namespace RetroDevStudio.Controls
       }
       if ( Info.ExportType == MapExportType.SPARSE_TILE_AND_MAP_DATA )
       {
-        Info.Map.ExportSparseTileAndMapData( out mapData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix, checkEmptyTile.Checked, GR.Convert.ToI32( editEmptyTileIndex.Text ), checkAddFilenamespace.Checked, editFilenamespace.Text, checkWrapMapData.Checked );
+        Info.Map.ExportSparseTileAndMapData( !Info.RowByRow, out mapData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix, checkEmptyTile.Checked, GR.Convert.ToI32( editEmptyTileIndex.Text ), checkAddFilenamespace.Checked, editFilenamespace.Text, checkWrapMapData.Checked );
       }
       if ( checkExportCharset.Checked )
       {

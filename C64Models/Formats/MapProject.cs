@@ -1081,6 +1081,14 @@ namespace RetroDevStudio.Formats
       StringBuilder sb = new StringBuilder();
 
       sb.AppendLine( LabelPrefix + "NUM_TILES = " + Tiles.Count );
+      sb.AppendLine();
+      if ( ( Settings.Assembly.MapSizeCommentEnabled ) && ( !string.IsNullOrEmpty( Settings.Assembly.CommentChars ) ) )
+      {
+        for ( int i = 0; i < Tiles.Count; ++i )
+        {
+          sb.AppendLine( Settings.Assembly.CommentChars + " " + i.ToString( "D2" ) + ": " + Tiles[i].Name );
+        }
+      }
 
       for ( int j = 0; j < maxTileHeight; ++j )
       {
@@ -1574,7 +1582,7 @@ namespace RetroDevStudio.Formats
 
 
 
-    public bool ExportSparseTileAndMapData( out string ExportData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective, bool EmptyTileCompression, int EmptyTileIndex, bool AddFilenamespace, string Filenamespace, bool WrapMapData )
+    public bool ExportSparseTileAndMapData( bool Vertical, out string ExportData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective, bool EmptyTileCompression, int EmptyTileIndex, bool AddFilenamespace, string Filenamespace, bool WrapMapData )
     {
       StringBuilder sb = new StringBuilder();
 
@@ -1609,7 +1617,7 @@ namespace RetroDevStudio.Formats
 
           string    line = LabelPrefix + colorLabels[i] + " = $" + colorIndex.ToString( "X2" );
 
-          if ( Settings.Assembly.MapSizeCommentEnabled )
+          if ( ( Settings.Assembly.MapSizeCommentEnabled ) && ( !string.IsNullOrEmpty( Settings.Assembly.CommentChars ) ) )
           {
             line += " " + Settings.Assembly.CommentChars + " " + commentLabels[i] + " = ";
 
@@ -1629,6 +1637,14 @@ namespace RetroDevStudio.Formats
 
       sb.AppendLine( LabelPrefix + "TILE_COUNT=" + Tiles.Count );
       sb.AppendLine();
+      if ( ( Settings.Assembly.MapSizeCommentEnabled ) && ( !string.IsNullOrEmpty( Settings.Assembly.CommentChars ) ) )
+      {
+        for ( int i = 0; i < Tiles.Count; ++i )
+        {
+          sb.AppendLine( Settings.Assembly.CommentChars + " " + i.ToString( "D2" ) + ": " + Tiles[i].Name );
+        }
+      }
+      sb.AppendLine();
 
       GR.Memory.ByteBuffer tileWidths = new GR.Memory.ByteBuffer();
       GR.Memory.ByteBuffer tileHeights = new GR.Memory.ByteBuffer();
@@ -1641,11 +1657,9 @@ namespace RetroDevStudio.Formats
 
       sb.AppendLine( LabelPrefix + "TILES_WIDTH" + labelSuffix );
       sb.AppendLine( Util.ToASMData( tileWidths, WrapData, WrapByteCount, DataByteDirective ) );
-      sb.AppendLine();
 
       sb.AppendLine( LabelPrefix + "TILES_HEIGHT" + labelSuffix );
       sb.AppendLine( Util.ToASMData( tileHeights, WrapData, WrapByteCount, DataByteDirective ) );
-      sb.AppendLine();
 
       sb.AppendLine( LabelPrefix + "TILES_FLAGS" + labelSuffix );
       GR.Memory.ByteBuffer tileFlags = new GR.Memory.ByteBuffer();
@@ -1654,7 +1668,6 @@ namespace RetroDevStudio.Formats
         tileFlags.AppendU8( (byte)( tile.Passable ? 1 : 0 ) );
       }
       sb.AppendLine( Util.ToASMData( tileFlags, WrapData, WrapByteCount, DataByteDirective ) );
-      sb.AppendLine();
 
       sb.AppendLine( LabelPrefix + "TILES_CHAR_DATA" + labelSuffix );
       for ( int i = 0; i < Tiles.Count; ++i )
@@ -1671,7 +1684,7 @@ namespace RetroDevStudio.Formats
           }
         }
         sb.Append( Util.ToASMData( charData, false, 0, DataByteDirective ) );
-        if ( Settings.Assembly.MapSizeCommentEnabled )
+        if ( ( Settings.Assembly.MapSizeCommentEnabled ) && ( !string.IsNullOrEmpty( Settings.Assembly.CommentChars ) ) )
         {
           sb.Append( "\t\t\t" + Settings.Assembly.CommentChars + " tile " + i + ", " + tile.Chars.Width + "x" + tile.Chars.Height );
         }
@@ -1743,7 +1756,7 @@ namespace RetroDevStudio.Formats
       sb.AppendLine();
 
       // Map Data
-      if ( Settings.Assembly.MapSizeCommentEnabled )
+      if ( ( Settings.Assembly.MapSizeCommentEnabled ) && ( !string.IsNullOrEmpty( Settings.Assembly.CommentChars ) ) )
       {
         sb.AppendLine( Settings.Assembly.CommentChars + " map data" );
       }
@@ -1862,7 +1875,7 @@ namespace RetroDevStudio.Formats
       {
         var map = Maps[i];
         sb.Append( LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + labelSuffix + " " );
-        if ( Settings.Assembly.MapSizeCommentEnabled )
+        if ( (Settings.Assembly.MapSizeCommentEnabled) && (!string.IsNullOrEmpty(Settings.Assembly.CommentChars)) )
         {
           sb.Append( Settings.Assembly.CommentChars + " " + map.Name );
         }
@@ -1919,9 +1932,8 @@ namespace RetroDevStudio.Formats
 
           if ( Settings.Assembly.ExportMapColors )
           {
-            sb.AppendLine();
             sb.Append( LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + "_COLOR" + labelSuffix + " " );
-            if ( Settings.Assembly.MapSizeCommentEnabled )
+            if ( (Settings.Assembly.MapSizeCommentEnabled) && (!string.IsNullOrEmpty(Settings.Assembly.CommentChars)) )
             {
               sb.Append( Settings.Assembly.CommentChars + " " + map.Name );
             }
@@ -1946,15 +1958,35 @@ namespace RetroDevStudio.Formats
           }
           else
           {
-            // one line per row
-            for ( int y = 0; y < map.Tiles.Height; ++y )
+            // dense
+            var mapData = ExportMapAsBuffer( map, !Vertical );
+
+            if ( WrapMapData )
             {
-              for ( int x = 0; x < map.Tiles.Width; ++x )
+              // like regular export
+              sb.AppendLine( Util.ToASMData( mapData, WrapData, WrapByteCount, DataByteDirective ) );
+            }
+            else
+            {
+              // one line per row
+              // RowByRow = !Vertical
+              // if Vertical = false (Horizontal), we want Width bytes per line
+              // if Vertical = true (Vertical), we want Height bytes per line
+              // ExportMapAsBuffer returns data ordered by the requested direction
+              // So we just chop it into linear chunks of the minor dimension stride
+              int stride = Vertical ? map.Tiles.Height : map.Tiles.Width;
+              int numLines = (int)mapData.Length / stride;
+              GR.Memory.ByteBuffer  lineData = new GR.Memory.ByteBuffer();
+              for ( int k = 0; k < numLines; ++k )
               {
-                mapTiles.AppendU8( (byte)GetExportTileIndex( map.Tiles[x, y] ) );
+                lineData.Clear();
+                // manually copy bytes to avoid allocating new buffer if possible, but AppendU8 is fast
+                for ( int x = 0; x < stride; ++x )
+                {
+                  lineData.AppendU8( mapData.ByteAt( k * stride + x ) );
+                }
+                sb.AppendLine( Util.ToASMData( lineData, false, 0, DataByteDirective ) );
               }
-              sb.AppendLine( Util.ToASMData( mapTiles, false, 0, DataByteDirective ) );
-              mapTiles.Clear();
             }
           }
         }
