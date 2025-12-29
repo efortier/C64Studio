@@ -998,8 +998,36 @@ namespace RetroDevStudio.Formats
 
         if ( Settings.Assembly.ExportMapAsCharAndColors )
         {
-          exportWidth = map.Tiles.Width * map.TileSpacingX;
-          exportHeight = map.Tiles.Height * map.TileSpacingY;
+          exportWidth = 0;
+          exportHeight = 0;
+          for ( int y = 0; y < map.Tiles.Height; ++y )
+          {
+            for ( int x = 0; x < map.Tiles.Width; ++x )
+            {
+              int tileIndex = GetExportTileIndex( map.Tiles[x, y] );
+              if ( ( tileIndex >= 0 )
+              &&   ( tileIndex < Tiles.Count ) )
+              {
+                var tile = Tiles[tileIndex];
+                if ( x * map.TileSpacingX + tile.Chars.Width > exportWidth )
+                {
+                  exportWidth = x * map.TileSpacingX + tile.Chars.Width;
+                }
+                if ( y * map.TileSpacingY + tile.Chars.Height > exportHeight )
+                {
+                  exportHeight = y * map.TileSpacingY + tile.Chars.Height;
+                }
+              }
+            }
+          }
+          if ( exportWidth == 0 )
+          {
+             exportWidth = map.Tiles.Width * map.TileSpacingX;
+          }
+          if ( exportHeight == 0 )
+          {
+             exportHeight = map.Tiles.Height * map.TileSpacingY;
+          }
           mapDataBuffer.Resize( (uint)( exportWidth * exportHeight ) );
           if ( Settings.Assembly.ExportMapColors )
           {
@@ -1011,7 +1039,8 @@ namespace RetroDevStudio.Formats
             {
               int tileIndex = GetExportTileIndex( map.Tiles[x, y] );
               if ( ( tileIndex >= 0 )
-              &&   ( tileIndex < Tiles.Count ) )
+              &&   ( tileIndex < Tiles.Count )
+              &&   ( tileIndex != Settings.Assembly.EmptyTileIndex ) )
               {
                 var tile = Tiles[tileIndex];
                 for ( int ty = 0; ty < tile.Chars.Height; ++ty )
@@ -1654,8 +1683,36 @@ namespace RetroDevStudio.Formats
         if ( Settings.Assembly.ExportMapAsCharAndColors )
         {
           GR.Memory.ByteBuffer mapColorBuffer = new GR.Memory.ByteBuffer();
-          int     exportWidth = map.Tiles.Width * map.TileSpacingX;
-          int     exportHeight = map.Tiles.Height * map.TileSpacingY;
+          int     exportWidth = 0;
+          int     exportHeight = 0;
+          for ( int y = 0; y < map.Tiles.Height; ++y )
+          {
+            for ( int x = 0; x < map.Tiles.Width; ++x )
+            {
+              int tileIndex = GetExportTileIndex( map.Tiles[x, y] );
+              if ( ( tileIndex >= 0 )
+              &&   ( tileIndex < Tiles.Count ) )
+              {
+                var tile = Tiles[tileIndex];
+                if ( x * map.TileSpacingX + tile.Chars.Width > exportWidth )
+                {
+                   exportWidth = x * map.TileSpacingX + tile.Chars.Width;
+                }
+                if ( y * map.TileSpacingY + tile.Chars.Height > exportHeight )
+                {
+                   exportHeight = y * map.TileSpacingY + tile.Chars.Height;
+                }
+              }
+            }
+          }
+          if ( exportWidth == 0 )
+          {
+             exportWidth = map.Tiles.Width * map.TileSpacingX;
+          }
+          if ( exportHeight == 0 )
+          {
+             exportHeight = map.Tiles.Height * map.TileSpacingY;
+          }
 
           mapTiles.Resize( (uint)( exportWidth * exportHeight ) );
           if ( Settings.Assembly.ExportMapColors )
@@ -1668,7 +1725,8 @@ namespace RetroDevStudio.Formats
             {
               int tileIndex = GetExportTileIndex( map.Tiles[x, y] );
               if ( ( tileIndex >= 0 )
-              &&   ( tileIndex < Tiles.Count ) )
+              &&   ( tileIndex < Tiles.Count )
+              &&   ( tileIndex != Settings.Assembly.EmptyTileIndex ) )
               {
                 var tile = Tiles[tileIndex];
                 for ( int ty = 0; ty < tile.Chars.Height; ++ty )
