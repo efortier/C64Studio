@@ -1698,6 +1698,17 @@ namespace RetroDevStudio.Documents
         selectedTileIndex = m_CurrentEditorTile.Index;
       }
 
+      int listTileIndex = -1;
+      if ( listTileInfo.SelectedIndices.Count > 0 )
+      {
+        listTileIndex = listTileInfo.SelectedIndices[0];
+      }
+      int listCharIndex = -1;
+      if ( listTileChars.SelectedIndices.Count > 0 )
+      {
+        listCharIndex = listTileChars.SelectedIndices[0];
+      }
+
       comboTiles.BeginUpdate();
       try
       {
@@ -1765,6 +1776,22 @@ namespace RetroDevStudio.Documents
       else if ( comboTiles.Items.Count > 0 )
       {
         comboTiles.SelectedIndex = 0;
+      }
+
+      if ( ( listTileIndex >= 0 )
+      &&   ( listTileIndex < listTileInfo.Items.Count ) )
+      {
+        listTileInfo.SelectedIndices.Clear();
+        listTileInfo.SelectedIndices.Add( listTileIndex );
+        listTileInfo.EnsureVisible( listTileIndex );
+
+        if ( ( listCharIndex >= 0 )
+        &&   ( listCharIndex < listTileChars.Items.Count ) )
+        {
+          listTileChars.SelectedIndices.Clear();
+          listTileChars.SelectedIndices.Add( listCharIndex );
+          listTileChars.EnsureVisible( listCharIndex );
+        }
       }
       comboTiles.Invalidate();
     }
