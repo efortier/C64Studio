@@ -117,6 +117,7 @@ namespace RetroDevStudio.Formats
     public int                          MultiColor2 = 0;
     public int                          BGColor4 = 0;
     public string                       RightClickAction = "";
+    public int                          DesignerBackgroundColor = 0;
 
     /// <summary>
     /// This mode is used to display/build the tiles
@@ -287,6 +288,7 @@ namespace RetroDevStudio.Formats
       chunkExportSettings.AppendI32( Settings.Assembly.ExportMapAsCharAndColors ? 1 : 0 );
       chunkExportSettings.AppendI32( Settings.Assembly.ExportPassableBitfields ? 1 : 0 );
       chunkExportSettings.AppendI32( Settings.Assembly.ExportPassableBitfieldsAsBinary ? 1 : 0 );
+      chunkExportSettings.AppendI32( DesignerBackgroundColor );
       projectFile.Append( chunkExportSettings.ToBuffer() );
       return projectFile;
     }
@@ -481,6 +483,10 @@ namespace RetroDevStudio.Formats
                 Settings.Assembly.ExportMapAsCharAndColors = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.ExportPassableBitfields = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.ExportPassableBitfieldsAsBinary = ( chunkReader.ReadInt32() != 0 );
+                if ( chunkReader.Position < chunkReader.Size )
+                {
+                  DesignerBackgroundColor = chunkReader.ReadInt32();
+                }
               }
             }
             break;

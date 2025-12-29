@@ -165,6 +165,7 @@ namespace RetroDevStudio.Documents
       comboMapAlternativeBGColor4.Items.Add( "Project" );
       for ( int i = 0; i < 16; ++i )
       {
+        comboDesignerBackground.Items.Add( i.ToString( "d2" ) );
         comboTileBackground.Items.Add( i.ToString( "d2" ) );
         comboTileMulticolor1.Items.Add( i.ToString( "d2" ) );
         comboTileMulticolor2.Items.Add( i.ToString( "d2" ) );
@@ -180,7 +181,9 @@ namespace RetroDevStudio.Documents
       comboTileBGColor4.SelectedIndex = 0;
       comboMapMultiColor1.SelectedIndex = 0;
       comboMapMultiColor2.SelectedIndex = 0;
+      comboMapMultiColor2.SelectedIndex = 0;
       comboMapBGColor.SelectedIndex = 0;
+      comboDesignerBackground.SelectedIndex = 0;
       comboMapAlternativeBGColor4.SelectedIndex = 0;
 
       comboExportOrientation.SelectedIndex = 0;
@@ -189,6 +192,7 @@ namespace RetroDevStudio.Documents
       comboExportData.SelectedIndexChanged += ExportSettingsChanged;
       comboExportOrientation.SelectedIndexChanged += ExportSettingsChanged;
       comboRightClickBehavior.SelectedIndexChanged += comboRightClickBehavior_SelectedIndexChanged;
+      comboDesignerBackground.SelectedIndexChanged += comboDesignerBackground_SelectedIndexChanged;
 
       foreach ( TextMode mode in Enum.GetValues( typeof( TextMode ) ) )
       {
@@ -1439,11 +1443,11 @@ namespace RetroDevStudio.Documents
 
       if ( fillWidth < pictureEditor.DisplayPage.Width )
       {
-        pictureEditor.DisplayPage.Box( fillWidth, 0, pictureEditor.DisplayPage.Width - fillWidth, pictureEditor.DisplayPage.Height, m_MapProject.Charset.Colors.Palette.ColorValues[0] );
+        pictureEditor.DisplayPage.Box( fillWidth, 0, pictureEditor.DisplayPage.Width - fillWidth, pictureEditor.DisplayPage.Height, m_MapProject.Charset.Colors.Palette.ColorValues[m_MapProject.DesignerBackgroundColor] );
       }
       if ( fillHeight < pictureEditor.DisplayPage.Height )
       {
-        pictureEditor.DisplayPage.Box( 0, fillHeight, fillWidth, pictureEditor.DisplayPage.Height - fillHeight, m_MapProject.Charset.Colors.Palette.ColorValues[0] );
+        pictureEditor.DisplayPage.Box( 0, fillHeight, fillWidth, pictureEditor.DisplayPage.Height - fillHeight, m_MapProject.Charset.Colors.Palette.ColorValues[m_MapProject.DesignerBackgroundColor] );
       }
 
       if ( m_CurrentMap == null )
@@ -1631,6 +1635,15 @@ namespace RetroDevStudio.Documents
 
 
       comboTileBackground.SelectedIndex   = m_MapProject.BackgroundColor;
+      if ( ( m_MapProject.DesignerBackgroundColor >= 0 )
+      &&   ( m_MapProject.DesignerBackgroundColor < 16 ) )
+      {
+        comboDesignerBackground.SelectedIndex = m_MapProject.DesignerBackgroundColor;
+      }
+      else
+      {
+        comboDesignerBackground.SelectedIndex = 0;
+      }
       comboTileMulticolor1.SelectedIndex = m_MapProject.MultiColor1;
       comboTileMulticolor2.SelectedIndex = m_MapProject.MultiColor2;
       comboTileBGColor4.SelectedIndex = m_MapProject.BGColor4;
@@ -1777,7 +1790,15 @@ namespace RetroDevStudio.Documents
       Modified = true;
     }
 
-
+    private void comboDesignerBackground_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      if ( m_MapProject.DesignerBackgroundColor != comboDesignerBackground.SelectedIndex )
+      {
+        m_MapProject.DesignerBackgroundColor = comboDesignerBackground.SelectedIndex;
+        RedrawMap();
+        Modified = true;
+      }
+    }
 
     public override bool LoadDocument()
     {

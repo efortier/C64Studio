@@ -56,6 +56,8 @@
             this.label20 = new System.Windows.Forms.Label();
             this.labelRightClickBehavior = new System.Windows.Forms.Label();
             this.comboRightClickBehavior = new System.Windows.Forms.ComboBox();
+            this.labelDesignerBackground = new System.Windows.Forms.Label();
+            this.comboDesignerBackground = new System.Windows.Forms.ComboBox();
             this.comboTiles = new System.Windows.Forms.ListBox();
             this.comboMapProjectMode = new System.Windows.Forms.ComboBox();
             this.comboMaps = new System.Windows.Forms.ComboBox();
@@ -233,6 +235,8 @@
             this.tabEditor.Controls.Add(this.groupMapExtraData);
             this.tabEditor.Controls.Add(this.labelRightClickBehavior);
             this.tabEditor.Controls.Add(this.comboRightClickBehavior);
+            this.tabEditor.Controls.Add(this.labelDesignerBackground);
+            this.tabEditor.Controls.Add(this.comboDesignerBackground);
             this.tabEditor.Controls.Add(this.comboTiles);
             this.tabEditor.Controls.Add(this.comboMapProjectMode);
             this.tabEditor.Controls.Add(this.comboMaps);
@@ -429,6 +433,27 @@
             this.comboRightClickBehavior.Name = "comboRightClickBehavior";
             this.comboRightClickBehavior.Size = new System.Drawing.Size(266, 21);
             this.comboRightClickBehavior.TabIndex = 33;
+            // 
+            // labelDesignerBackground
+            // 
+            this.labelDesignerBackground.AutoSize = true;
+            this.labelDesignerBackground.Location = new System.Drawing.Point(1011, 451);
+            this.labelDesignerBackground.Name = "labelDesignerBackground";
+            this.labelDesignerBackground.Size = new System.Drawing.Size(104, 13);
+            this.labelDesignerBackground.TabIndex = 34;
+            this.labelDesignerBackground.Text = "Map back render color (designer only):";
+            // 
+            // comboDesignerBackground
+            // 
+            this.comboDesignerBackground.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this.comboDesignerBackground.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboDesignerBackground.FormattingEnabled = true;
+            this.comboDesignerBackground.Location = new System.Drawing.Point(1011, 467);
+            this.comboDesignerBackground.Name = "comboDesignerBackground";
+            this.comboDesignerBackground.Size = new System.Drawing.Size(266, 21);
+            this.comboDesignerBackground.TabIndex = 35;
+            this.comboDesignerBackground.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.comboColor_DrawItem);
+            this.comboDesignerBackground.SelectedIndexChanged += new System.EventHandler(this.comboDesignerBackground_SelectedIndexChanged);
             // 
             // comboTiles
             // 
@@ -1775,5 +1800,7 @@
     private System.Windows.Forms.Label label2;
     private System.Windows.Forms.Label labelRightClickBehavior;
     private System.Windows.Forms.ComboBox comboRightClickBehavior;
+    private System.Windows.Forms.Label labelDesignerBackground;
+    private System.Windows.Forms.ComboBox comboDesignerBackground;
   }
 }
