@@ -40,14 +40,7 @@ namespace RetroDevStudio.Controls
       }
     }
 
-    private void checkExportSparseMaps_CheckedChanged( object sender, EventArgs e )
-    {
-      checkWrapMapData.Enabled = !checkExportSparseMaps.Checked;
-      if ( !m_ApplyingSettings )
-      {
-        RaiseSettingsChanged();
-      }
-    }
+
 
     private void checkEmptyTile_CheckedChanged(object sender, EventArgs e)
     {
@@ -294,7 +287,7 @@ namespace RetroDevStudio.Controls
       }
       if ( Info.ExportType == MapExportType.SPARSE_TILE_AND_MAP_DATA )
       {
-        Info.Map.ExportSparseTileAndMapData( out mapData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix, checkEmptyTile.Checked, GR.Convert.ToI32( editEmptyTileIndex.Text ), checkAddFilenamespace.Checked, editFilenamespace.Text, checkExportSparseMaps.Checked, checkWrapMapData.Checked );
+        Info.Map.ExportSparseTileAndMapData( out mapData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix, checkEmptyTile.Checked, GR.Convert.ToI32( editEmptyTileIndex.Text ), checkAddFilenamespace.Checked, editFilenamespace.Text, checkWrapMapData.Checked );
       }
       if ( checkExportCharset.Checked )
       {
@@ -504,9 +497,7 @@ namespace RetroDevStudio.Controls
         checkAddFilenamespace.Checked = assemblySettings.AddFilenamespace;
         editFilenamespace.Text = assemblySettings.Filenamespace;
         editFilenamespace.Enabled = checkAddFilenamespace.Checked;
-        checkExportSparseMaps.Checked = assemblySettings.ExportSparseMaps;
         checkWrapMapData.Checked = assemblySettings.WrapMapData;
-        checkWrapMapData.Enabled = !checkExportSparseMaps.Checked;
 
         checkExportCharset.Checked = assemblySettings.ExportCharset;
         editCharsetExportDirectory.Text = assemblySettings.CharsetExportDirectory;
@@ -555,7 +546,6 @@ namespace RetroDevStudio.Controls
       assemblySettings.Filenamespace = editFilenamespace.Text;
       assemblySettings.ExportDirectory = editExportDirectory.Text;
       assemblySettings.ExportFilename = editExportFilename.Text;
-      assemblySettings.ExportSparseMaps = checkExportSparseMaps.Checked;
       assemblySettings.WrapMapData = checkWrapMapData.Checked;
       assemblySettings.ExportCharset = checkExportCharset.Checked;
       assemblySettings.CharsetExportDirectory = editCharsetExportDirectory.Text;

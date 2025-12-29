@@ -30,7 +30,6 @@ namespace RetroDevStudio.Controls
     private void InitializeComponent()
     {
             this.checkExportHex = new System.Windows.Forms.CheckBox();
-            this.checkExportSparseMaps = new System.Windows.Forms.CheckBox();
             this.checkWrapMapData = new System.Windows.Forms.CheckBox();
             this.checkVariableNameLabelPrefix = new System.Windows.Forms.CheckBox();
             this.editVariableNameLabelPrefix = new System.Windows.Forms.TextBox();
@@ -80,17 +79,6 @@ namespace RetroDevStudio.Controls
             this.checkExportHex.Text = "Export with Hex notation";
             this.checkExportHex.UseVisualStyleBackColor = true;
             this.checkExportHex.CheckedChanged += new System.EventHandler(this.HandleSettingsChanged);
-            // 
-            // checkExportSparseMaps
-            // 
-            this.checkExportSparseMaps.AutoSize = true;
-            this.checkExportSparseMaps.Location = new System.Drawing.Point(3, 76);
-            this.checkExportSparseMaps.Name = "checkExportSparseMaps";
-            this.checkExportSparseMaps.Size = new System.Drawing.Size(118, 17);
-            this.checkExportSparseMaps.TabIndex = 6;
-            this.checkExportSparseMaps.Text = "Export sparse maps";
-            this.checkExportSparseMaps.UseVisualStyleBackColor = true;
-            this.checkExportSparseMaps.CheckedChanged += new System.EventHandler(this.checkExportSparseMaps_CheckedChanged);
             // 
             // checkWrapMapData
             // 
@@ -465,7 +453,6 @@ namespace RetroDevStudio.Controls
             this.Controls.Add(this.editWrapByteCount);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.editPrefix);
-            this.Controls.Add(this.checkExportSparseMaps);
             this.Controls.Add(this.checkWrapMapData);
             this.Name = "ExportMapAsAssembly";
             this.Size = new System.Drawing.Size(840, 568);
@@ -492,7 +479,6 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.TextBox editPrefix;
     private System.Windows.Forms.CheckBox checkAddFilenamespace;
     private System.Windows.Forms.TextBox editFilenamespace;
-    private System.Windows.Forms.CheckBox checkExportSparseMaps;
     private System.Windows.Forms.CheckBox checkWrapMapData;
     private System.Windows.Forms.CheckBox checkEmptyTile;
     private System.Windows.Forms.TextBox editEmptyTileIndex;

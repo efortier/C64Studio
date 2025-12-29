@@ -27,7 +27,7 @@ namespace RetroDevStudio.Formats
     TILE_AND_MAP_DATA,
     [Description( "map data from selection (current map)" )]
     MAP_DATA_SELECTION,
-    [Description( "Tileset and sparse/dense map data (all maps)" )]
+    [Description( "Tileset, color and map data (all maps)" )]
     SPARSE_TILE_AND_MAP_DATA
   }
 }

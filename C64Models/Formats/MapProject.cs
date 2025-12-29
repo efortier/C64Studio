@@ -71,15 +71,14 @@ namespace RetroDevStudio.Formats
         public string ExportFilename = "";
         public bool   ExportTilesetColors = true;
         public bool   ExportMapColors = true;
+        public bool   ExportMapAsCharAndColors = false;
         public bool   AddFilenamespace = false;
         public string Filenamespace = "";
-        public bool   ExportSparseMaps = false;
         public bool   WrapMapData = true;
         public bool   ExportCharset = false;
         public string CharsetExportDirectory = "";
         public string CharsetExportFilename = "";
         public bool   AlwaysOverwrite = false;
-        public bool   ExportMapAsCharAndColors = false;
       }
 
       public class BinarySettings
@@ -247,7 +246,7 @@ namespace RetroDevStudio.Formats
       projectFile.Append( chunkProjectData.ToBuffer() );
 
       GR.IO.FileChunk chunkExportSettings = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS );
-      chunkExportSettings.AppendU32( 11 );
+      chunkExportSettings.AppendU32( 12 );
       chunkExportSettings.AppendI32(Settings.ExportDataIndex );
       chunkExportSettings.AppendI32(Settings.ExportOrientationIndex );
       chunkExportSettings.AppendI32( Settings.ExportMethodIndex );
@@ -276,7 +275,6 @@ namespace RetroDevStudio.Formats
       chunkExportSettings.AppendI32( Settings.Assembly.ExportMapColors ? 1 : 0 );
       chunkExportSettings.AppendI32( Settings.Assembly.AddFilenamespace ? 1 : 0 );
       chunkExportSettings.AppendString( Settings.Assembly.Filenamespace ?? "" );
-      chunkExportSettings.AppendI32( Settings.Assembly.ExportSparseMaps ? 1 : 0 );
       chunkExportSettings.AppendI32( Settings.Assembly.WrapMapData ? 1 : 0 );
       chunkExportSettings.AppendI32( Settings.Assembly.ExportCharset ? 1 : 0 );
       chunkExportSettings.AppendString( Settings.Assembly.CharsetExportDirectory ?? "" );
@@ -659,7 +657,7 @@ namespace RetroDevStudio.Formats
                 Settings.Assembly.ExportMapColors = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.AddFilenamespace = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.Filenamespace = chunkReader.ReadString();
-                Settings.Assembly.ExportSparseMaps = ( chunkReader.ReadInt32() != 0 );
+                chunkReader.ReadInt32(); // Settings.Assembly.ExportSparseMaps
                 Settings.Assembly.WrapMapData = ( chunkReader.ReadInt32() != 0 );
               }
               else if ( version == 9 )
@@ -692,7 +690,7 @@ namespace RetroDevStudio.Formats
                 Settings.Assembly.ExportMapColors = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.AddFilenamespace = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.Filenamespace = chunkReader.ReadString();
-                Settings.Assembly.ExportSparseMaps = ( chunkReader.ReadInt32() != 0 );
+                chunkReader.ReadInt32(); // Settings.Assembly.ExportSparseMaps
                 Settings.Assembly.WrapMapData = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.ExportCharset = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.CharsetExportDirectory = chunkReader.ReadString();
@@ -728,7 +726,7 @@ namespace RetroDevStudio.Formats
                 Settings.Assembly.ExportMapColors = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.AddFilenamespace = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.Filenamespace = chunkReader.ReadString();
-                Settings.Assembly.ExportSparseMaps = ( chunkReader.ReadInt32() != 0 );
+                chunkReader.ReadInt32(); // Settings.Assembly.ExportSparseMaps
                 Settings.Assembly.WrapMapData = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.ExportCharset = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.CharsetExportDirectory = chunkReader.ReadString();
@@ -765,7 +763,44 @@ namespace RetroDevStudio.Formats
                 Settings.Assembly.ExportMapColors = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.AddFilenamespace = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.Filenamespace = chunkReader.ReadString();
-                Settings.Assembly.ExportSparseMaps = ( chunkReader.ReadInt32() != 0 );
+                chunkReader.ReadInt32(); // Settings.Assembly.ExportSparseMaps
+                Settings.Assembly.WrapMapData = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportCharset = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.CharsetExportDirectory = chunkReader.ReadString();
+                Settings.Assembly.CharsetExportFilename = chunkReader.ReadString();
+                Settings.Assembly.AlwaysOverwrite = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportMapAsCharAndColors = ( chunkReader.ReadInt32() != 0 );
+              }
+              else if ( version == 12 )
+              {
+                Settings.ExportDataIndex = chunkReader.ReadInt32();
+                Settings.ExportOrientationIndex = chunkReader.ReadInt32();
+                Settings.ExportMethodIndex = chunkReader.ReadInt32();
+                Settings.Assembly.PrefixWith = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.Prefix = chunkReader.ReadString();
+                Settings.Assembly.WrapAt = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.WrapByteCount = chunkReader.ReadInt32();
+                Settings.Assembly.ExportHex = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.VariableNameLabelPrefixEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.VariableNameLabelPrefix = chunkReader.ReadString();
+                Settings.Assembly.IncludeSemicolonAfterSimpleLabels = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.MapSizeCommentEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.CommentChars = chunkReader.ReadString();
+                Settings.Assembly.EmptyTileCompressionEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.EmptyTileIndex = chunkReader.ReadInt32();
+                Settings.Assembly.SaveOnExport = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportDirectory = chunkReader.ReadString();
+                Settings.Assembly.ExportFilename = chunkReader.ReadString();
+                Settings.Binary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.Binary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetBinary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.CharsetBinary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetProject.TargetFilename = chunkReader.ReadString();
+                Settings.Charscreen.TargetFilename = chunkReader.ReadString();
+                Settings.Assembly.ExportTilesetColors = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportMapColors = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.AddFilenamespace = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.Filenamespace = chunkReader.ReadString();
                 Settings.Assembly.WrapMapData = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.ExportCharset = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.CharsetExportDirectory = chunkReader.ReadString();
@@ -1533,7 +1568,7 @@ namespace RetroDevStudio.Formats
 
 
 
-    public bool ExportSparseTileAndMapData( out string ExportData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective, bool EmptyTileCompression, int EmptyTileIndex, bool AddFilenamespace, string Filenamespace, bool ExportSparseMaps, bool WrapMapData )
+    public bool ExportSparseTileAndMapData( out string ExportData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective, bool EmptyTileCompression, int EmptyTileIndex, bool AddFilenamespace, string Filenamespace, bool WrapMapData )
     {
       StringBuilder sb = new StringBuilder();
 
@@ -1830,63 +1865,8 @@ namespace RetroDevStudio.Formats
 
         // Collect tiles
         GR.Memory.ByteBuffer mapTiles = new GR.Memory.ByteBuffer();
-        if ( ExportSparseMaps )
-        {
-          for ( int y = 0; y < map.Tiles.Height; ++y )
-          {
-            for ( int x = 0; x < map.Tiles.Width; ++x )
-            {
-              int tileIndex = map.Tiles[x, y];
-              if ( ( EmptyTileCompression )
-              &&   ( tileIndex == EmptyTileIndex ) )
-              {
-                continue;
-              }
-              mapTiles.AppendU8( (byte)tileIndex );
-              mapTiles.AppendU8( (byte)x );
-              mapTiles.AppendU8( (byte)y );
-            }
-          }
 
-          // Map Tile Data
-          int ptr = 0;
-          while ( ptr < mapTiles.Length )
-          {
-            byte t = mapTiles.ByteAt( ptr );
-            byte tx = mapTiles.ByteAt( ptr + 1 );
-            byte ty = mapTiles.ByteAt( ptr + 2 );
-
-            GR.Memory.ByteBuffer entry = new GR.Memory.ByteBuffer();
-            entry.AppendU8( t );
-            entry.AppendU8( tx );
-            entry.AppendU8( ty );
-
-            string entryHex = Util.ToASMData( entry, false, 0, DataByteDirective );
-
-            sb.Append( entryHex );
-            if ( Settings.Assembly.MapSizeCommentEnabled )
-            {
-              string comment = "";
-              if ( t < Tiles.Count )
-              {
-                var tile = Tiles[t];
-                comment = Settings.Assembly.CommentChars + " tile " + t + ", " + tile.Chars.Width + "x" + tile.Chars.Height;
-              }
-              sb.Append( "\t\t" + comment );
-            }
-            sb.AppendLine();
-            ptr += 3;
-          }
-
-          // Terminator
-          sb.Append( DataByteDirective + " $FF,$FF,$FF" );
-          if ( Settings.Assembly.MapSizeCommentEnabled )
-          {
-            sb.Append( "\t" + Settings.Assembly.CommentChars + " end of map" );
-          }
-          sb.AppendLine();
-        }
-        else if ( Settings.Assembly.ExportMapAsCharAndColors )
+        if ( Settings.Assembly.ExportMapAsCharAndColors )
         {
           GR.Memory.ByteBuffer mapColorBuffer = new GR.Memory.ByteBuffer();
           int     exportWidth = map.Tiles.Width * map.TileSpacingX;
