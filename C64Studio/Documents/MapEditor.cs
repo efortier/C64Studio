@@ -499,21 +499,36 @@ namespace RetroDevStudio.Documents
         int x2 = Math.Min( offsetX + (int)Math.Ceiling( viewCharWidth / (float)m_CurrentMap.TileSpacingX ), offsetX + m_CurrentMap.Tiles.Width );
         int y2 = Math.Min( offsetY + (int)Math.Ceiling( viewCharHeight / (float)m_CurrentMap.TileSpacingY ), offsetY + m_CurrentMap.Tiles.Height );
 
+        // restrict grid to actual map size
+        long    mapPixelWidth = (long)( m_CurrentMap.Tiles.Width - offsetX ) * m_CurrentMap.TileSpacingX * 8;
+        long    mapPixelHeight = (long)( m_CurrentMap.Tiles.Height - offsetY ) * m_CurrentMap.TileSpacingY * 8;
+
+        int     targetMapWidth = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( (int)mapPixelWidth, sourceWidth, targetWidth ) ) );
+        int     targetMapHeight = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( (int)mapPixelHeight, sourceHeight, targetHeight ) ) );
+
         for ( int x = x1; x <= x2; ++x )
         {
           int sourceX = ( x - offsetX ) * m_CurrentMap.TileSpacingX * 8;
           int targetX = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX, sourceWidth, targetWidth ) ) );
-          TargetBuffer.Line( targetX, 0,
-                             targetX, TargetBuffer.Height,
-                             0xffffffff );
+          
+          if ( targetX <= targetMapWidth )
+          {
+            TargetBuffer.Line( targetX, 0,
+                               targetX, targetMapHeight,
+                               0xffffffff );
+          }
         }
         for ( int y = y1; y <= y2; ++y )
         {
           int sourceY = ( y - offsetY ) * m_CurrentMap.TileSpacingY * 8;
           int targetY = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( sourceY, sourceHeight, targetHeight ) ) );
-          TargetBuffer.Line( 0, targetY,
-                             TargetBuffer.Width, targetY,
-                             0xffffffff );
+
+          if ( targetY <= targetMapHeight )
+          {
+            TargetBuffer.Line( 0, targetY,
+                               targetMapWidth, targetY,
+                               0xffffffff );
+          }
         }
         /*
         for ( int y = y1; y <= y2; ++y )
@@ -1424,11 +1439,11 @@ namespace RetroDevStudio.Documents
 
       if ( fillWidth < pictureEditor.DisplayPage.Width )
       {
-        pictureEditor.DisplayPage.Box( fillWidth, 0, pictureEditor.DisplayPage.Width - fillWidth, pictureEditor.DisplayPage.Height, Core.Settings.FGColor( ColorableElement.SELECTION_FRAME ) );
+        pictureEditor.DisplayPage.Box( fillWidth, 0, pictureEditor.DisplayPage.Width - fillWidth, pictureEditor.DisplayPage.Height, m_MapProject.Charset.Colors.Palette.ColorValues[0] );
       }
       if ( fillHeight < pictureEditor.DisplayPage.Height )
       {
-        pictureEditor.DisplayPage.Box( 0, fillHeight, pictureEditor.DisplayPage.Width, pictureEditor.DisplayPage.Height - fillHeight, Core.Settings.FGColor( ColorableElement.SELECTION_FRAME ) );
+        pictureEditor.DisplayPage.Box( 0, fillHeight, fillWidth, pictureEditor.DisplayPage.Height - fillHeight, m_MapProject.Charset.Colors.Palette.ColorValues[0] );
       }
 
       if ( m_CurrentMap == null )
