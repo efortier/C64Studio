@@ -136,17 +136,6 @@ namespace RetroDevStudio.Documents
       DocumentInfo.Type = ProjectElement.ElementType.ASM_SOURCE;
       DocumentInfo.UndoManager.MainForm = Core.MainForm;
 
-      /*
-      m_TextRegExp[(int)Types.ColorableElement.LITERAL_NUMBER] = new System.Text.RegularExpressions.Regex( @"\b\d+[\.]?\d*([eE]\-?\d+)?[lLdDfF]?\b|\B\$[a-fA-F\d]+\b|\b0x[a-fA-F\d]+\b" );
-      m_TextRegExp[(int)Types.ColorableElement.LITERAL_STRING] = new System.Text.RegularExpressions.Regex( @"""""|''|"".*?[^\\]""|'.*?[^\\]'" );
-
-      m_TextRegExp[(int)Types.ColorableElement.LABEL] = new System.Text.RegularExpressions.Regex( @"[.@]{0,1}[+\-a-zA-Z]+[a-zA-Z_\d.]*[:]*" );
-      // only ; outside of double quotes
-      m_TextRegExp[(int)Types.ColorableElement.COMMENT] = new System.Text.RegularExpressions.Regex( @";(?=(?:[^""]*""[^""]*"")*[^""]*$).*" );
-
-      m_TextRegExp[(int)Types.ColorableElement.OPERATOR] = new System.Text.RegularExpressions.Regex( @"[+\-/*(){}=<>,#%]" );
-      m_TextRegExp[(int)Types.ColorableElement.NONE] = new System.Text.RegularExpressions.Regex( @"\S" );
-      */
       m_IsSaveable = true;
 
       InitializeComponent();
@@ -221,7 +210,7 @@ namespace RetroDevStudio.Documents
       editSource.RightBracket = ')';
       editSource.LeftBracket2 = '\x0';
       editSource.RightBracket2 = '\x0';
-      editSource.CommentPrefix = ";";
+      editSource.CommentPrefix = Parser.AssemblerSettings.CommentPrefix;
       editSource.SelectionChangedDelayed += editSource_SelectionChangedDelayed;
       editSource.PreferredLineWidth = Core.Settings.ASMShowMaxLineLengthIndicatorLength;
       editSource.ToolTipDisplayDuration = 30000;
@@ -582,6 +571,7 @@ namespace RetroDevStudio.Documents
 
     void editSource_TextChangedDelayed( object sender, FastColoredTextBoxNS.TextChangedEventArgs e )
     {
+      UpdateBookmarkComments( e.ChangedRange );
       UpdateFoldingBlocks();
       StoreFoldedBlocks();
 
@@ -591,6 +581,23 @@ namespace RetroDevStudio.Documents
 
 
 
+    private void UpdateBookmarkComments( FastColoredTextBoxNS.Range changedRange )
+    {
+      int   firstLine = changedRange.Start.iLine;
+      int   lastLine = changedRange.End.iLine;
+
+      if ( lastLine < firstLine )
+      {
+        int   temp = lastLine;
+        lastLine = firstLine;
+        firstLine = temp;
+      }
+
+      RaiseDocEvent( new DocEvent( DocEvent.Type.BOOKMARKS_UPDATED ) );
+    }
+
+    
+    
     void ResetAllStyles( FastColoredTextBoxNS.Range Range )
     {
       //clear previous highlighting but error highlighting
@@ -2345,6 +2352,8 @@ namespace RetroDevStudio.Documents
 
         editSource.TextSource.ClearIsChanged();
         editSource.Invalidate();
+
+        Core.TaskManager.AddTask( new Tasks.TaskRefreshSourceControlState( DocumentInfo ) );
       }
       catch ( System.Exception ex )
       {
@@ -2913,6 +2922,7 @@ namespace RetroDevStudio.Documents
       if ( element != null )
       {
         DocumentInfo.Project.ShowDocument( element );
+        Core.TaskManager.AddTask( new Tasks.TaskRefreshSourceControlState( DocumentInfo ) );
       }
       else
       {
@@ -3137,8 +3147,8 @@ namespace RetroDevStudio.Documents
       editSource.Font = new System.Drawing.Font( Core.Settings.SourceFontFamily, Core.Settings.SourceFontSize, Core.Settings.SourceFontStyle );
 
       // Colors
-      editSource.Language = FastColoredTextBoxNS.Language.Custom;//.VB;//FastColoredTextBoxNS.Language.Custom;
-      editSource.CommentPrefix = ";";
+      editSource.Language = FastColoredTextBoxNS.Language.Custom;
+      editSource.CommentPrefix = Parser.AssemblerSettings.CommentPrefix;
 
       // adjust caret color (Thanks Tulan!)
       System.Drawing.Color    backColorForCaret = GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.EMPTY_SPACE ) );
@@ -3387,7 +3397,7 @@ namespace RetroDevStudio.Documents
       {
         return;
       }
-      editSource.InsertLinePrefix( ";", false );
+      editSource.InsertLinePrefix( Parser.AssemblerSettings.CommentPrefix, false );
       SetModified();
     }
 
@@ -3406,7 +3416,7 @@ namespace RetroDevStudio.Documents
       {
         return;
       }
-      editSource.RemoveLinePrefix( ";" );
+      editSource.RemoveLinePrefix( Parser.AssemblerSettings.CommentPrefix );
       SetModified();
     }
 
@@ -3443,7 +3453,7 @@ namespace RetroDevStudio.Documents
         {
           continue;
         }
-        if ( line.StartsWith( ";" ) )
+        if ( line.StartsWith( Parser.AssemblerSettings.CommentPrefix ) )
         {
           ++numLinesWithComment;
         }
@@ -4601,6 +4611,47 @@ namespace RetroDevStudio.Documents
         AutoFormatLine( i, out int dummy );
       }
       editSource.EndAutoUndo();
+    }
+
+
+
+    protected override void MarkModifiedLines( List<int> list )
+    {
+      foreach ( var line in list )
+      {
+        if ( ( line >= 0 ) 
+        &&   ( line < editSource.LinesCount ) )
+        {
+          editSource.MarkLineAsChanged( line );
+        }
+      }
+    }
+
+
+
+    public override string DetermineCommentInLine( int lineIndex )
+    {
+      if ( ( lineIndex < 0 )
+      ||   ( lineIndex >= SourceControl.LinesCount ) )
+      {
+        return "";
+      }
+      string currentLine = editSource.ReTabifyLine( editSource.Lines[lineIndex], editSource.TabLength );
+      var lineTokens = Parser.PrepareLineTokens( currentLine, new Map<byte, byte>() );
+      if ( lineTokens == null )
+      {
+        return "";
+      }
+      var comment = lineTokens.FirstOrDefault( lt => lt.Type == TokenInfo.TokenType.COMMENT );
+      if ( comment == null )
+      {
+        return "";
+      }
+      if ( comment.Content.StartsWith( Parser.AssemblerSettings.CommentPrefix ) )
+      {
+        return comment.Content.Substring( Parser.AssemblerSettings.CommentPrefix.Length ).Trim();
+      }
+      return comment.Content;
     }
 
 
