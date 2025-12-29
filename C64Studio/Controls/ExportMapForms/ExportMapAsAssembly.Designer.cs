@@ -62,6 +62,8 @@ namespace RetroDevStudio.Controls
             this.labelCharsetExportDirectory = new System.Windows.Forms.Label();
             this.checkExportCharset = new System.Windows.Forms.CheckBox();
             this.checkAlwaysOverwrite = new System.Windows.Forms.CheckBox();
+            this.checkExportPassableBitfields = new System.Windows.Forms.CheckBox();
+            this.checkExportPassableBitfieldsAsBinary = new System.Windows.Forms.CheckBox();
             this.checkExportMapAsCharAndColors = new System.Windows.Forms.CheckBox();
             this.groupAutoSave.SuspendLayout();
             this.groupCharset.SuspendLayout();
@@ -428,10 +430,34 @@ namespace RetroDevStudio.Controls
             this.checkExportMapAsCharAndColors.UseVisualStyleBackColor = true;
             this.checkExportMapAsCharAndColors.CheckedChanged += new System.EventHandler(this.HandleSettingsChanged);
             // 
+            // checkExportPassableBitfields
+            // 
+            this.checkExportPassableBitfields.AutoSize = true;
+            this.checkExportPassableBitfields.Location = new System.Drawing.Point(420, 124);
+            this.checkExportPassableBitfields.Name = "checkExportPassableBitfields";
+            this.checkExportPassableBitfields.Size = new System.Drawing.Size(155, 17);
+            this.checkExportPassableBitfields.TabIndex = 24;
+            this.checkExportPassableBitfields.Text = "Include \'Passable\' bitfields";
+            this.checkExportPassableBitfields.UseVisualStyleBackColor = true;
+            this.checkExportPassableBitfields.CheckedChanged += new System.EventHandler(this.HandleSettingsChanged);
+            // 
+            // checkExportPassableBitfieldsAsBinary
+            // 
+            this.checkExportPassableBitfieldsAsBinary.AutoSize = true;
+            this.checkExportPassableBitfieldsAsBinary.Location = new System.Drawing.Point(420, 148);
+            this.checkExportPassableBitfieldsAsBinary.Name = "checkExportPassableBitfieldsAsBinary";
+            this.checkExportPassableBitfieldsAsBinary.Size = new System.Drawing.Size(146, 17);
+            this.checkExportPassableBitfieldsAsBinary.TabIndex = 25;
+            this.checkExportPassableBitfieldsAsBinary.Text = "Export bitfields as binary";
+            this.checkExportPassableBitfieldsAsBinary.UseVisualStyleBackColor = true;
+            this.checkExportPassableBitfieldsAsBinary.CheckedChanged += new System.EventHandler(this.HandleSettingsChanged);
+            // 
             // ExportMapAsAssembly
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.Controls.Add(this.checkExportPassableBitfields);
+            this.Controls.Add(this.checkExportPassableBitfieldsAsBinary);
             this.Controls.Add(this.checkExportMapAsCharAndColors);
             this.Controls.Add(this.checkAlwaysOverwrite);
             this.Controls.Add(this.groupCharset);
@@ -500,5 +526,7 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.CheckBox checkExportCharset;
     private System.Windows.Forms.CheckBox checkAlwaysOverwrite;
     private System.Windows.Forms.CheckBox checkExportMapAsCharAndColors;
+    private System.Windows.Forms.CheckBox checkExportPassableBitfields;
+    private System.Windows.Forms.CheckBox checkExportPassableBitfieldsAsBinary;
   }
 }

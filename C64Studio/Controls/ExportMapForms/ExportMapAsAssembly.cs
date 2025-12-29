@@ -509,6 +509,8 @@ namespace RetroDevStudio.Controls
 
         checkAlwaysOverwrite.Checked = assemblySettings.AlwaysOverwrite;
         checkExportMapAsCharAndColors.Checked = assemblySettings.ExportMapAsCharAndColors;
+        checkExportPassableBitfields.Checked = assemblySettings.ExportPassableBitfields;
+        checkExportPassableBitfieldsAsBinary.Checked = assemblySettings.ExportPassableBitfieldsAsBinary;
       }
       finally
       {
@@ -552,7 +554,10 @@ namespace RetroDevStudio.Controls
       assemblySettings.CharsetExportFilename = editCharsetExportFilename.Text;
       assemblySettings.CharsetExportFilename = editCharsetExportFilename.Text;
       assemblySettings.AlwaysOverwrite = checkAlwaysOverwrite.Checked;
+      assemblySettings.AlwaysOverwrite = checkAlwaysOverwrite.Checked;
       assemblySettings.ExportMapAsCharAndColors = checkExportMapAsCharAndColors.Checked;
+      assemblySettings.ExportPassableBitfields = checkExportPassableBitfields.Checked;
+      assemblySettings.ExportPassableBitfieldsAsBinary = checkExportPassableBitfieldsAsBinary.Checked;
     }
 
 

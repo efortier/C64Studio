@@ -80,6 +80,8 @@ namespace RetroDevStudio.Formats
         public string CharsetExportDirectory = "";
         public string CharsetExportFilename = "";
         public bool   AlwaysOverwrite = false;
+        public bool   ExportPassableBitfields = false;
+        public bool   ExportPassableBitfieldsAsBinary = false;
       }
 
       public class BinarySettings
@@ -248,7 +250,7 @@ namespace RetroDevStudio.Formats
       projectFile.Append( chunkProjectData.ToBuffer() );
 
       GR.IO.FileChunk chunkExportSettings = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS );
-      chunkExportSettings.AppendU32( 12 );
+      chunkExportSettings.AppendU32( 13 );
       chunkExportSettings.AppendI32(Settings.ExportDataIndex );
       chunkExportSettings.AppendI32(Settings.ExportOrientationIndex );
       chunkExportSettings.AppendI32( Settings.ExportMethodIndex );
@@ -283,6 +285,8 @@ namespace RetroDevStudio.Formats
       chunkExportSettings.AppendString( Settings.Assembly.CharsetExportFilename ?? "" );
       chunkExportSettings.AppendI32( Settings.Assembly.AlwaysOverwrite ? 1 : 0 );
       chunkExportSettings.AppendI32( Settings.Assembly.ExportMapAsCharAndColors ? 1 : 0 );
+      chunkExportSettings.AppendI32( Settings.Assembly.ExportPassableBitfields ? 1 : 0 );
+      chunkExportSettings.AppendI32( Settings.Assembly.ExportPassableBitfieldsAsBinary ? 1 : 0 );
       projectFile.Append( chunkExportSettings.ToBuffer() );
       return projectFile;
     }
@@ -814,6 +818,45 @@ namespace RetroDevStudio.Formats
                 Settings.Assembly.AlwaysOverwrite = ( chunkReader.ReadInt32() != 0 );
                 Settings.Assembly.ExportMapAsCharAndColors = ( chunkReader.ReadInt32() != 0 );
               }
+              else if ( version == 13 )
+              {
+                Settings.ExportDataIndex = chunkReader.ReadInt32();
+                Settings.ExportOrientationIndex = chunkReader.ReadInt32();
+                Settings.ExportMethodIndex = chunkReader.ReadInt32();
+                Settings.Assembly.PrefixWith = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.Prefix = chunkReader.ReadString();
+                Settings.Assembly.WrapAt = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.WrapByteCount = chunkReader.ReadInt32();
+                Settings.Assembly.ExportHex = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.VariableNameLabelPrefixEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.VariableNameLabelPrefix = chunkReader.ReadString();
+                Settings.Assembly.IncludeSemicolonAfterSimpleLabels = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.MapSizeCommentEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.CommentChars = chunkReader.ReadString();
+                Settings.Assembly.EmptyTileCompressionEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.EmptyTileIndex = chunkReader.ReadInt32();
+                Settings.Assembly.SaveOnExport = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportDirectory = chunkReader.ReadString();
+                Settings.Assembly.ExportFilename = chunkReader.ReadString();
+                Settings.Binary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.Binary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetBinary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.CharsetBinary.PrefixLoadAddressHex = chunkReader.ReadString();
+                Settings.CharsetProject.TargetFilename = chunkReader.ReadString();
+                Settings.Charscreen.TargetFilename = chunkReader.ReadString();
+                Settings.Assembly.ExportTilesetColors = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportMapColors = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.AddFilenamespace = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.Filenamespace = chunkReader.ReadString();
+                Settings.Assembly.WrapMapData = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportCharset = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.CharsetExportDirectory = chunkReader.ReadString();
+                Settings.Assembly.CharsetExportFilename = chunkReader.ReadString();
+                Settings.Assembly.AlwaysOverwrite = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportMapAsCharAndColors = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportPassableBitfields = ( chunkReader.ReadInt32() != 0 );
+                Settings.Assembly.ExportPassableBitfieldsAsBinary = ( chunkReader.ReadInt32() != 0 );
+              }
             }
             break;
         }
@@ -1268,7 +1311,28 @@ namespace RetroDevStudio.Formats
         {
           sbMaps.Append( DataByteDirective );
           sbMaps.Append( ' ' );
-          sbMaps.AppendLine( ">" + LabelPrefix + "MAP_" + NormalizeAsLabel( Maps[i].Name.ToUpper() ) + "_COLOR" );
+        }
+        sbMaps.AppendLine();
+      }
+
+      if ( Settings.Assembly.ExportPassableBitfields )
+      {
+        sbMaps.Append( LabelPrefix );
+        sbMaps.AppendLine( "MAPS_PASSABLE_BITS_TABLE_LOW" );
+        for ( int i = 0; i < Maps.Count; ++i )
+        {
+          sbMaps.Append( DataByteDirective );
+          sbMaps.Append( ' ' );
+          sbMaps.AppendLine( "<" + LabelPrefix + "MAP_" + NormalizeAsLabel( Maps[i].Name.ToUpper() ) + "_PASSABLE_BITS" );
+        }
+        sbMaps.AppendLine();
+        sbMaps.Append( LabelPrefix );
+        sbMaps.AppendLine( "MAPS_PASSABLE_BITS_TABLE_HIGH" );
+        for ( int i = 0; i < Maps.Count; ++i )
+        {
+          sbMaps.Append( DataByteDirective );
+          sbMaps.Append( ' ' );
+          sbMaps.AppendLine( ">" + LabelPrefix + "MAP_" + NormalizeAsLabel( Maps[i].Name.ToUpper() ) + "_PASSABLE_BITS" );
         }
         sbMaps.AppendLine();
       }
@@ -1299,7 +1363,6 @@ namespace RetroDevStudio.Formats
       {
         var map = Maps[i];
 
-        sbMaps.AppendLine();
         sbMaps.Append( LabelPrefix );
         sbMaps.AppendLine( "MAP_" + NormalizeAsLabel( map.Name.ToUpper() ) );
 
@@ -1412,6 +1475,59 @@ namespace RetroDevStudio.Formats
           sbMaps.AppendLine( "MAP_" + NormalizeAsLabel( map.Name.ToUpper() ) + "_COLOR" );
           sbMaps.Append( Util.ToASMData( mapColorBuffer, WrapData, WrapByteCount, DataByteDirective ) );
         }
+        if ( Settings.Assembly.ExportPassableBitfields )
+        {
+          sbMaps.Append( LabelPrefix );
+          sbMaps.AppendLine( "MAP_" + NormalizeAsLabel( map.Name.ToUpper() ) + "_PASSABLE_BITS" );
+          
+           GR.Memory.ByteBuffer bitfieldData = new GR.Memory.ByteBuffer();
+           
+           for ( int y = 0; y < map.Tiles.Height; ++y )
+           {
+             int     currentX = 0;
+             while ( currentX < map.Tiles.Width )
+             {
+                byte   bits = 0;
+ 
+                for ( int j = 0; j < 8; ++j )
+                {
+                  if ( currentX + j < map.Tiles.Width )
+                  {
+                    if ( Tiles[GetExportTileIndex( map.Tiles[currentX + j, y] )].Passable )
+                    {
+                      bits |= (byte)( 1 << ( 7 - j ) );
+                    }
+                  }
+                }
+                bitfieldData.AppendU8( bits );
+                currentX += 8;
+             }
+           }
+ 
+           if ( Settings.Assembly.ExportPassableBitfieldsAsBinary )
+           {
+             int bytesPerLine = WrapData ? WrapByteCount : int.MaxValue;
+             int bytesWritten = 0;
+             while ( bytesWritten < bitfieldData.Length )
+             {
+                int bytesToOutput = Math.Min( bytesPerLine, (int)bitfieldData.Length - bytesWritten );
+                
+                sbMaps.Append( DataByteDirective );
+                for ( int k = 0; k < bytesToOutput; ++k )
+                {
+                  if ( k > 0 ) sbMaps.Append( "," );
+                  sbMaps.Append( " %" + Convert.ToString( bitfieldData.ByteAt( bytesWritten + k ), 2 ).PadLeft( 8, '0' ) );
+                }
+                sbMaps.AppendLine();
+                bytesWritten += bytesToOutput;
+             }
+           }
+           else
+           {
+             sbMaps.Append( Util.ToASMData( bitfieldData, WrapData, WrapByteCount, DataByteDirective ) );
+           }
+        }
+
         if ( hasExtraData )
         //&&   ( map.ExtraDataText.Length > 0 ) )
         {
@@ -1871,6 +1987,31 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( sbTable.ToString() );
       sb.AppendLine();
 
+      if ( Settings.Assembly.ExportPassableBitfields )
+      {
+        sb.AppendLine( LabelPrefix + "MAPS_PASSABLE_BITS_TABLE_LOW" + labelSuffix );
+        sbTable = new StringBuilder();
+        sbTable.Append( DataByteDirective + " " );
+        for ( int i = 0; i < Maps.Count; ++i )
+        {
+          if ( i > 0 ) sbTable.Append( ", " );
+          sbTable.Append( "<" + LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + "_PASSABLE_BITS" );
+        }
+        sb.AppendLine( sbTable.ToString() );
+        sb.AppendLine();
+
+        sb.AppendLine( LabelPrefix + "MAPS_PASSABLE_BITS_TABLE_HIGH" + labelSuffix );
+        sbTable = new StringBuilder();
+        sbTable.Append( DataByteDirective + " " );
+        for ( int i = 0; i < Maps.Count; ++i )
+        {
+          if ( i > 0 ) sbTable.Append( ", " );
+          sbTable.Append( ">" + LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + "_PASSABLE_BITS" );
+        }
+        sb.AppendLine( sbTable.ToString() );
+        sb.AppendLine();
+      }
+
       for ( int i = 0; i < Maps.Count; ++i )
       {
         var map = Maps[i];
@@ -1989,6 +2130,61 @@ namespace RetroDevStudio.Formats
               }
             }
           }
+        }
+
+        if ( Settings.Assembly.ExportPassableBitfields )
+        {
+          sb.Append( LabelPrefix );
+          sb.AppendLine( "MAP_" + ( i + 1 ).ToString( "D2" ) + "_PASSABLE_BITS" + labelSuffix );
+          
+
+           GR.Memory.ByteBuffer bitfieldData = new GR.Memory.ByteBuffer();
+           
+           for ( int y = 0; y < map.Tiles.Height; ++y )
+           {
+             int     currentX = 0;
+             while ( currentX < map.Tiles.Width )
+             {
+                byte   bits = 0;
+ 
+                for ( int bitIndex = 0; bitIndex < 8; ++bitIndex )
+                {
+                  if ( currentX + bitIndex < map.Tiles.Width )
+                  {
+                    if ( Tiles[GetExportTileIndex( map.Tiles[currentX + bitIndex, y] )].Passable )
+                    {
+                      bits |= (byte)( 1 << ( 7 - bitIndex ) );
+                    }
+                  }
+                }
+                bitfieldData.AppendU8( bits );
+                currentX += 8;
+             }
+           }
+ 
+           if ( Settings.Assembly.ExportPassableBitfieldsAsBinary )
+           {
+             int bytesPerLine = WrapData ? WrapByteCount : int.MaxValue;
+             int bytesWritten = 0;
+             while ( bytesWritten < bitfieldData.Length )
+             {
+                int bytesToOutput = Math.Min( bytesPerLine, (int)bitfieldData.Length - bytesWritten );
+                
+                sb.Append( DataByteDirective );
+                for ( int k = 0; k < bytesToOutput; ++k )
+                {
+                  if ( k > 0 ) sb.Append( "," );
+                  sb.Append( " %" + Convert.ToString( bitfieldData.ByteAt( bytesWritten + k ), 2 ).PadLeft( 8, '0' ) );
+                }
+                sb.AppendLine();
+                bytesWritten += bytesToOutput;
+             }
+           }
+           else
+           {
+             sb.AppendLine( Util.ToASMData( bitfieldData, WrapData, WrapByteCount, DataByteDirective ) );
+           }
+          sb.AppendLine();
         }
       }
 
