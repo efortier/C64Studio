@@ -592,10 +592,10 @@ namespace RetroDevStudio.Documents
           
           if ( ( sourceX >= 0 ) && ( sourceY >= 0 ) && ( sourceX < sourceWidth ) && ( sourceY < sourceHeight ) )
           {
-             int shiftW = sourceW * 10 / 100;
-             int shiftH = sourceH * 10 / 100;
              int reducedW = sourceW * 80 / 100;
              int reducedH = sourceH * 80 / 100;
+             int shiftW = ( sourceW - reducedW ) / 2;
+             int shiftH = ( sourceH - reducedH ) / 2;
              
              if ( m_ToolMode == ToolMode.MARKER )
              {
@@ -2751,6 +2751,7 @@ namespace RetroDevStudio.Documents
   {
      comboMarkerTypes.SelectedIndex = 0;
   }
+  UpdateMarkerControlsState();
 
       RecalcTileUsageInCurrentMap();
 
@@ -4840,6 +4841,12 @@ namespace RetroDevStudio.Documents
       tabMapEditor.Controls.Add( tabMarkers );
       
       // The following controls are now initialized by the Designer.
+      
+      for ( int i = 0; i < 16; ++i )
+      {
+        comboMarkerColorOverride.Items.Add( i.ToString( "d2" ) );
+      }
+      comboMarkerColorOverride.SelectedIndex = 0;
     }
 
     private void RefreshMarkerTypes()
@@ -4947,6 +4954,7 @@ namespace RetroDevStudio.Documents
        {
          m_ToolMode = ToolMode.MARKER;
        }
+       UpdateMarkerControlsState();
        pictureEditor.Invalidate();
     }
 
@@ -4957,11 +4965,14 @@ namespace RetroDevStudio.Documents
       if ( comboMarkerTypes.SelectedIndex == 0 )
       {
          m_CurrentMap.SelectedMarkerType = -1;
+         comboMarkerColorOverride.Enabled = false;
       }
       else
       {
          var type = m_MapProject.MarkerTypes[comboMarkerTypes.SelectedIndex - 1];
          m_CurrentMap.SelectedMarkerType = type.ID;
+         comboMarkerColorOverride.SelectedIndex = type.Color;
+         comboMarkerColorOverride.Enabled = btnToolMarker.Checked;
       }
       SetModified();
     }
@@ -4987,6 +4998,31 @@ namespace RetroDevStudio.Documents
        Modified = true;
     }
 
+    private void comboMarkerColorOverride_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      if ( ( m_CurrentMap == null )
+      ||   ( m_CurrentMap.SelectedMarkerType == -1 ) )
+      {
+        return;
+      }
+      var type = m_MapProject.MarkerTypes.FirstOrDefault( t => t.ID == m_CurrentMap.SelectedMarkerType );
+      if ( type != null )
+      {
+        type.Color = comboMarkerColorOverride.SelectedIndex;
+        // Sync with the other list if visible/selected
+        if ( listMarkerTypes.SelectedIndex != -1 )
+        {
+           var listType = m_MapProject.MarkerTypes[listMarkerTypes.SelectedIndex];
+           if ( listType.ID == type.ID )
+           {
+             comboMarkerColor.SelectedIndex = type.Color;
+           }
+        }
+        pictureEditor.Invalidate();
+        SetModified();
+      }
+    }
+
     private void dimSlider_Scroll( object sender, EventArgs e )
     {
       if ( m_CurrentMap != null )
@@ -4995,6 +5031,16 @@ namespace RetroDevStudio.Documents
         SetModified();
         pictureEditor.Invalidate();
       }
+    }
+    
+    private void UpdateMarkerControlsState()
+    {
+       bool enabled = btnToolMarker.Checked;
+       comboMarkerTypes.Enabled = enabled;
+       comboMarkerColorOverride.Enabled = enabled;
+       btnClearMarkers.Enabled = enabled;
+       btnClearMarkerType.Enabled = enabled;
+       dimSlider.Enabled = enabled;
     }
   }
 }

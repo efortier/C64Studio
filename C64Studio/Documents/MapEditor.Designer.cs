@@ -45,6 +45,7 @@
             this.btnClearMarkerType = new DecentForms.Button();
             this.btnClearMarkers = new DecentForms.Button();
             this.comboMarkerTypes = new System.Windows.Forms.ComboBox();
+            this.comboMarkerColorOverride = new System.Windows.Forms.ComboBox();
             this.btnToolMarker = new DecentForms.RadioButton();
             this.btnCopyMapImage = new DecentForms.Button();
             this.labelZoom = new System.Windows.Forms.Label();
@@ -232,6 +233,7 @@
             this.tabEditor.Controls.Add(this.btnClearMarkerType);
             this.tabEditor.Controls.Add(this.btnClearMarkers);
             this.tabEditor.Controls.Add(this.comboMarkerTypes);
+            this.tabEditor.Controls.Add(this.comboMarkerColorOverride);
             this.tabEditor.Controls.Add(this.btnToolMarker);
             this.tabEditor.Controls.Add(this.btnCopyMapImage);
             this.tabEditor.Controls.Add(this.labelZoom);
@@ -267,7 +269,7 @@
             // 
             // dimSlider
             // 
-            this.dimSlider.Location = new System.Drawing.Point(662, 557);
+            this.dimSlider.Location = new System.Drawing.Point(747, 557);
             this.dimSlider.Maximum = 100;
             this.dimSlider.Name = "dimSlider";
             this.dimSlider.Size = new System.Drawing.Size(150, 45);
@@ -283,7 +285,7 @@
             this.btnClearMarkerType.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             this.btnClearMarkerType.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnClearMarkerType.Image = null;
-            this.btnClearMarkerType.Location = new System.Drawing.Point(566, 560);
+            this.btnClearMarkerType.Location = new System.Drawing.Point(634, 560);
             this.btnClearMarkerType.Name = "btnClearMarkerType";
             this.btnClearMarkerType.Size = new System.Drawing.Size(90, 23);
             this.btnClearMarkerType.TabIndex = 1;
@@ -297,7 +299,7 @@
             this.btnClearMarkers.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             this.btnClearMarkers.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnClearMarkers.Image = null;
-            this.btnClearMarkers.Location = new System.Drawing.Point(470, 560);
+            this.btnClearMarkers.Location = new System.Drawing.Point(538, 560);
             this.btnClearMarkers.Name = "btnClearMarkers";
             this.btnClearMarkers.Size = new System.Drawing.Size(90, 23);
             this.btnClearMarkers.TabIndex = 2;
@@ -312,6 +314,17 @@
             this.comboMarkerTypes.Size = new System.Drawing.Size(150, 21);
             this.comboMarkerTypes.TabIndex = 3;
             this.comboMarkerTypes.SelectedIndexChanged += new System.EventHandler(this.comboMarkerTypes_SelectedIndexChanged);
+            // 
+            // comboMarkerColorOverride
+            // 
+            this.comboMarkerColorOverride.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this.comboMarkerColorOverride.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboMarkerColorOverride.Location = new System.Drawing.Point(458, 560);
+            this.comboMarkerColorOverride.Name = "comboMarkerColorOverride";
+            this.comboMarkerColorOverride.Size = new System.Drawing.Size(73, 21);
+            this.comboMarkerColorOverride.TabIndex = 4;
+            this.comboMarkerColorOverride.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.comboColor_DrawItem);
+            this.comboMarkerColorOverride.SelectedIndexChanged += new System.EventHandler(this.comboMarkerColorOverride_SelectedIndexChanged);
             // 
             // btnToolMarker
             // 
@@ -981,7 +994,7 @@
             this.tabTiles.Location = new System.Drawing.Point(4, 22);
             this.tabTiles.Name = "tabTiles";
             this.tabTiles.Padding = new System.Windows.Forms.Padding(3);
-            this.tabTiles.Size = new System.Drawing.Size(1326, 589);
+            this.tabTiles.Size = new System.Drawing.Size(1326, 669);
             this.tabTiles.TabIndex = 2;
             this.tabTiles.Text = "Tiles";
             this.tabTiles.UseVisualStyleBackColor = true;
@@ -1395,7 +1408,7 @@
             this.tabCharset.Controls.Add(this.characterEditor);
             this.tabCharset.Location = new System.Drawing.Point(4, 22);
             this.tabCharset.Name = "tabCharset";
-            this.tabCharset.Size = new System.Drawing.Size(1326, 589);
+            this.tabCharset.Size = new System.Drawing.Size(1326, 669);
             this.tabCharset.TabIndex = 3;
             this.tabCharset.Text = "Character Set";
             this.tabCharset.UseVisualStyleBackColor = true;
@@ -1406,7 +1419,7 @@
             this.characterEditor.Dock = System.Windows.Forms.DockStyle.Fill;
             this.characterEditor.Location = new System.Drawing.Point(0, 0);
             this.characterEditor.Name = "characterEditor";
-            this.characterEditor.Size = new System.Drawing.Size(1326, 589);
+            this.characterEditor.Size = new System.Drawing.Size(1326, 669);
             this.characterEditor.TabIndex = 0;
             this.characterEditor.Modified += new RetroDevStudio.Controls.CharacterEditor.ModifiedHandler(this.characterEditor_Modified);
             this.characterEditor.CharactersShifted += new RetroDevStudio.Controls.CharacterEditor.CharsetShiftedHandler(this.characterEditor_CharactersShifted);
@@ -1426,7 +1439,7 @@
             this.tabExport.Location = new System.Drawing.Point(4, 22);
             this.tabExport.Name = "tabExport";
             this.tabExport.Padding = new System.Windows.Forms.Padding(3);
-            this.tabExport.Size = new System.Drawing.Size(1326, 589);
+            this.tabExport.Size = new System.Drawing.Size(1326, 669);
             this.tabExport.TabIndex = 4;
             this.tabExport.Text = "Export";
             this.tabExport.UseVisualStyleBackColor = true;
@@ -1458,7 +1471,7 @@
             | System.Windows.Forms.AnchorStyles.Left)));
             this.panelExport.Location = new System.Drawing.Point(9, 83);
             this.panelExport.Name = "panelExport";
-            this.panelExport.Size = new System.Drawing.Size(842, 498);
+            this.panelExport.Size = new System.Drawing.Size(842, 578);
             this.panelExport.TabIndex = 41;
             // 
             // editDataExport
@@ -1470,7 +1483,7 @@
             this.editDataExport.Multiline = true;
             this.editDataExport.Name = "editDataExport";
             this.editDataExport.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.editDataExport.Size = new System.Drawing.Size(461, 575);
+            this.editDataExport.Size = new System.Drawing.Size(461, 655);
             this.editDataExport.TabIndex = 40;
             this.editDataExport.WordWrap = false;
             // 
@@ -1534,7 +1547,7 @@
             this.tabImport.Location = new System.Drawing.Point(4, 22);
             this.tabImport.Name = "tabImport";
             this.tabImport.Padding = new System.Windows.Forms.Padding(3);
-            this.tabImport.Size = new System.Drawing.Size(1326, 589);
+            this.tabImport.Size = new System.Drawing.Size(1326, 669);
             this.tabImport.TabIndex = 5;
             this.tabImport.Text = "Import";
             this.tabImport.UseVisualStyleBackColor = true;
@@ -1546,7 +1559,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.panelImport.Location = new System.Drawing.Point(-4, 32);
             this.panelImport.Name = "panelImport";
-            this.panelImport.Size = new System.Drawing.Size(1330, 557);
+            this.panelImport.Size = new System.Drawing.Size(1330, 637);
             this.panelImport.TabIndex = 37;
             // 
             // btnImport
@@ -1853,6 +1866,7 @@
         private System.Windows.Forms.ToolTip toolTip1;
         private DecentForms.RadioButton btnToolMarker;
         private System.Windows.Forms.ComboBox comboMarkerTypes;
+        private System.Windows.Forms.ComboBox comboMarkerColorOverride;
         private DecentForms.Button btnClearMarkers;
         private DecentForms.Button btnClearMarkerType;
         private System.Windows.Forms.TrackBar dimSlider;
