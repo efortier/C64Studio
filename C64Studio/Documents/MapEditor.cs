@@ -4962,19 +4962,36 @@ namespace RetroDevStudio.Documents
     {
       if ( m_CurrentMap == null ) return;
       
-      if ( comboMarkerTypes.SelectedIndex == 0 )
+      int newSelectedMarkerType = -1;
+      
+      if ( comboMarkerTypes.SelectedIndex != 0 )
       {
-         m_CurrentMap.SelectedMarkerType = -1;
-         comboMarkerColorOverride.Enabled = false;
+         var type = m_MapProject.MarkerTypes[comboMarkerTypes.SelectedIndex - 1];
+         newSelectedMarkerType = type.ID;
+         
+         if ( m_CurrentMap.SelectedMarkerType != newSelectedMarkerType )
+         {
+           m_CurrentMap.SelectedMarkerType = newSelectedMarkerType;
+           comboMarkerColorOverride.SelectedIndex = type.Color;
+           comboMarkerColorOverride.Enabled = btnToolMarker.Checked;
+           SetModified();
+         }
+         else
+         {
+           // Just sync UI
+           comboMarkerColorOverride.SelectedIndex = type.Color;
+           comboMarkerColorOverride.Enabled = btnToolMarker.Checked;
+         }
       }
       else
       {
-         var type = m_MapProject.MarkerTypes[comboMarkerTypes.SelectedIndex - 1];
-         m_CurrentMap.SelectedMarkerType = type.ID;
-         comboMarkerColorOverride.SelectedIndex = type.Color;
-         comboMarkerColorOverride.Enabled = btnToolMarker.Checked;
+         if ( m_CurrentMap.SelectedMarkerType != -1 )
+         {
+           m_CurrentMap.SelectedMarkerType = -1;
+           comboMarkerColorOverride.Enabled = false;
+           SetModified();
+         }
       }
-      SetModified();
     }
 
     private void btnClearMarkers_Click( DecentForms.ControlBase Sender )
@@ -5008,18 +5025,21 @@ namespace RetroDevStudio.Documents
       var type = m_MapProject.MarkerTypes.FirstOrDefault( t => t.ID == m_CurrentMap.SelectedMarkerType );
       if ( type != null )
       {
-        type.Color = comboMarkerColorOverride.SelectedIndex;
-        // Sync with the other list if visible/selected
-        if ( listMarkerTypes.SelectedIndex != -1 )
+        if ( type.Color != comboMarkerColorOverride.SelectedIndex )
         {
-           var listType = m_MapProject.MarkerTypes[listMarkerTypes.SelectedIndex];
-           if ( listType.ID == type.ID )
-           {
-             comboMarkerColor.SelectedIndex = type.Color;
-           }
+          type.Color = comboMarkerColorOverride.SelectedIndex;
+          // Sync with the other list if visible/selected
+          if ( listMarkerTypes.SelectedIndex != -1 )
+          {
+             var listType = m_MapProject.MarkerTypes[listMarkerTypes.SelectedIndex];
+             if ( listType.ID == type.ID )
+             {
+               comboMarkerColor.SelectedIndex = type.Color;
+             }
+          }
+          pictureEditor.Invalidate();
+          SetModified();
         }
-        pictureEditor.Invalidate();
-        SetModified();
       }
     }
 
