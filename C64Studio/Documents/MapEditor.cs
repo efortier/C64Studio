@@ -89,14 +89,11 @@ namespace RetroDevStudio.Documents
     private DecentForms.Button                 btnAddMarkerType;
     private DecentForms.Button                 btnDeleteMarkerType;
     private DecentForms.Button                 btnUpdateMarkerType;
-    private DecentForms.RadioButton            btnToolMarker;
     private System.Windows.Forms.CheckBox      checkShowMarkers;
     private System.Windows.Forms.Label         labelMarkerColor;
     private System.Windows.Forms.ComboBox      comboMarkerColor;
     
-    private System.Windows.Forms.ComboBox      comboMarkerTypes;
-    private DecentForms.Button                 btnClearMarkers;
-    private DecentForms.Button                 btnClearMarkerType;
+
 
 
 
@@ -565,28 +562,75 @@ namespace RetroDevStudio.Documents
       if ( ( checkShowMarkers.Checked )
       &&   ( m_CurrentMap != null ) )
       {
+        if ( m_ToolMode == ToolMode.MARKER )
+        {
+           // Dim map
+           if ( m_CurrentMap.MarkerDimOpacity < 100 )
+           {
+              // Manual dimming because Box doesn't blend
+              int opacity = m_CurrentMap.MarkerDimOpacity;
+              for ( int y = 0; y < targetHeight; ++y )
+              {
+                for ( int x = 0; x < targetWidth; ++x )
+                {
+                   uint pixel = TargetBuffer.GetPixel( x, y );
+                   uint r = ( pixel & 0xff ) * (uint)opacity / 100;
+                   uint g = ( ( pixel >> 8 ) & 0xff ) * (uint)opacity / 100;
+                   uint b = ( ( pixel >> 16 ) & 0xff ) * (uint)opacity / 100;
+                   TargetBuffer.SetPixel( x, y, ( 0xff000000 | ( b << 16 ) | ( g << 8 ) | r ) );
+                }
+              }
+           }
+        }
+      
         foreach ( var marker in m_CurrentMap.Markers )
         {
           int sourceX = ( marker.X - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
           int sourceY = ( marker.Y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
+          int sourceW = m_CurrentMap.TileSpacingX * 8;
+          int sourceH = m_CurrentMap.TileSpacingY * 8;
           
           if ( ( sourceX >= 0 ) && ( sourceY >= 0 ) && ( sourceX < sourceWidth ) && ( sourceY < sourceHeight ) )
           {
+             int shiftW = sourceW * 10 / 100;
+             int shiftH = sourceH * 10 / 100;
+             int reducedW = sourceW * 80 / 100;
+             int reducedH = sourceH * 80 / 100;
+             
+             if ( m_ToolMode == ToolMode.MARKER )
+             {
+               sourceX += shiftW;
+               sourceY += shiftH;
+               sourceW = reducedW;
+               sourceH = reducedH;
+             }
+             
              int targetX = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX, sourceWidth, targetWidth ) ) );
              int targetY = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( sourceY, sourceHeight, targetHeight ) ) );
+             int targetW = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX + sourceW, sourceWidth, targetWidth ) ) ) - targetX;
+             int targetH = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( sourceY + sourceH, sourceHeight, targetHeight ) ) ) - targetY;
              
              uint color = 0xffffffff;
              var  type = m_MapProject.MarkerTypes.FirstOrDefault( t => t.ID == marker.Type );
              if ( type != null )
              {
-               color = m_MapProject.Charset.Colors.Palette.ColorValues[type.Color];
+                           color = m_MapProject.Charset.Colors.Palette.ColorValues[type.Color];
              }
              
-             TargetBuffer.Box( targetX, targetY, 4, 4, color );
-             TargetBuffer.Rectangle( targetX, targetY, 5, 5, 0xff000000 );
+             // Inset box
+             if ( m_ToolMode == ToolMode.MARKER )
+             {
+               TargetBuffer.Box( targetX, targetY, targetW, targetH, color );
+             }
+             else
+             {
+               TargetBuffer.Rectangle( targetX, targetY, targetW, targetH, 0xff000000 | color );
+               TargetBuffer.Rectangle( targetX + 1, targetY + 1, targetW - 2, targetH - 2, 0xff000000 );
+             }
           }
         }
       }
+
 
       if ( ( m_CurrentMap == null )
       ||   ( m_ToolMode != ToolMode.SELECT ) )
@@ -2687,7 +2731,26 @@ namespace RetroDevStudio.Documents
       comboMapMultiColor1.SelectedIndex = m_CurrentMap.AlternativeMultiColor1 + 1;
       comboMapMultiColor2.SelectedIndex = m_CurrentMap.AlternativeMultiColor2 + 1;
       comboMapBGColor.SelectedIndex = m_CurrentMap.AlternativeBackgroundColor + 1;
-      comboMapAlternativeMode.SelectedIndex = (int)m_CurrentMap.AlternativeMode + 1;
+  comboMapAlternativeBGColor4.SelectedIndex = m_CurrentMap.AlternativeBGColor4 + 1;
+  comboMapAlternativeMode.SelectedIndex = (int)m_CurrentMap.AlternativeMode + 1;
+  
+  dimSlider.Value = m_CurrentMap.MarkerDimOpacity;
+  if ( m_MapProject.MarkerTypes.Count > 0 )
+  {
+     int index = m_MapProject.MarkerTypes.FindIndex( t => t.ID == m_CurrentMap.SelectedMarkerType );
+     if ( index != -1 )
+     {
+       comboMarkerTypes.SelectedIndex = index + 1;
+     }
+     else
+     {
+       comboMarkerTypes.SelectedIndex = 0;
+     }
+  }
+  else
+  {
+     comboMarkerTypes.SelectedIndex = 0;
+  }
 
       RecalcTileUsageInCurrentMap();
 
@@ -4769,43 +4832,14 @@ namespace RetroDevStudio.Documents
       
       checkShowMarkers = new System.Windows.Forms.CheckBox();
       checkShowMarkers.Text = "Show Markers";
-      checkShowMarkers.Location = new System.Drawing.Point( 174, 110 );
+      checkShowMarkers.Location = new System.Drawing.Point( 242, 99 );
       checkShowMarkers.Checked = true;
       checkShowMarkers.CheckedChanged += checkShowMarkers_CheckedChanged;
-      tabMarkers.Controls.Add( checkShowMarkers );
+      groupSize.Controls.Add( checkShowMarkers );
 
       tabMapEditor.Controls.Add( tabMarkers );
-
-      // Toolbar Button
-      btnToolMarker = new DecentForms.RadioButton();
-      btnToolMarker.Appearance = System.Windows.Forms.Appearance.Button;
-      btnToolMarker.Text = "M"; 
-      //btnToolMarker.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-      btnToolMarker.Location = new System.Drawing.Point( 294, 527 );
-      btnToolMarker.Size = new System.Drawing.Size( 24, 24 );
-      btnToolMarker.CheckedChanged += btnToolMarker_CheckedChanged;
-      tabEditor.Controls.Add( btnToolMarker );
-  
-      comboMarkerTypes = new System.Windows.Forms.ComboBox();
-      comboMarkerTypes.Location = new System.Drawing.Point( 330, 529 );
-      comboMarkerTypes.Size = new System.Drawing.Size( 150, 21 );
-      comboMarkerTypes.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-      comboMarkerTypes.SelectedIndexChanged += comboMarkerTypes_SelectedIndexChanged;
-      tabEditor.Controls.Add( comboMarkerTypes );
-  
-      btnClearMarkers = new DecentForms.Button();
-      btnClearMarkers.Text = "Clear Markers";
-      btnClearMarkers.Location = new System.Drawing.Point( 490, 528 );
-      btnClearMarkers.Size = new System.Drawing.Size( 90, 23 );
-      btnClearMarkers.Click += btnClearMarkers_Click;
-      tabEditor.Controls.Add( btnClearMarkers );
-  
-      btnClearMarkerType = new DecentForms.Button();
-      btnClearMarkerType.Text = "Clear Type";
-      btnClearMarkerType.Location = new System.Drawing.Point( 590, 528 );
-      btnClearMarkerType.Size = new System.Drawing.Size( 90, 23 );
-      btnClearMarkerType.Click += btnClearMarkerType_Click;
-      tabEditor.Controls.Add( btnClearMarkerType );
+      
+      // The following controls are now initialized by the Designer.
     }
 
     private void RefreshMarkerTypes()
@@ -4913,6 +4947,7 @@ namespace RetroDevStudio.Documents
        {
          m_ToolMode = ToolMode.MARKER;
        }
+       pictureEditor.Invalidate();
     }
 
     private void comboMarkerTypes_SelectedIndexChanged( object sender, EventArgs e )
@@ -4950,6 +4985,16 @@ namespace RetroDevStudio.Documents
        pictureEditor.Invalidate();
        RedrawMap();
        Modified = true;
+    }
+
+    private void dimSlider_Scroll( object sender, EventArgs e )
+    {
+      if ( m_CurrentMap != null )
+      {
+        m_CurrentMap.MarkerDimOpacity = dimSlider.Value;
+        SetModified();
+        pictureEditor.Invalidate();
+      }
     }
   }
 }

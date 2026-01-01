@@ -60,6 +60,7 @@ namespace RetroDevStudio.Formats
       public int                AlternativeBackgroundColor = -1;
       public int                AlternativeBGColor4 = -1;
       public int                SelectedMarkerType = 0;
+      public int                MarkerDimOpacity = 100;
 
       /// <summary>
       /// overrides Project.Mode when set (e.g. display MC instead of hires)
@@ -241,6 +242,7 @@ namespace RetroDevStudio.Formats
         chunkMapInfo.AppendI32( map.AlternativeBGColor4 + 1 );
         chunkMapInfo.AppendI32( (int)map.AlternativeMode + 1 );
         chunkMapInfo.AppendI32( map.SelectedMarkerType );
+        chunkMapInfo.AppendI32( map.MarkerDimOpacity );
         chunkMap.Append( chunkMapInfo.ToBuffer() );
 
         GR.IO.FileChunk chunkMapData = new GR.IO.FileChunk( FileChunkConstants.MAP_DATA );
@@ -451,6 +453,10 @@ namespace RetroDevStudio.Formats
                             if ( mapChunkReader.Size - mapChunkReader.Position >= 4 )
                             {
                               map.SelectedMarkerType = mapChunkReader.ReadInt32();
+                            }
+                            if ( mapChunkReader.Size - mapChunkReader.Position >= 4 )
+                            {
+                              map.MarkerDimOpacity = mapChunkReader.ReadInt32();
                             }
                             break;
                           case FileChunkConstants.MAP_DATA:
