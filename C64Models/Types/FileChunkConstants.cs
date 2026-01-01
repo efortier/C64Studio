@@ -37,6 +37,8 @@
     public const ushort    MAP_CHARSET                    = 0x1328;
     public const ushort    MAP_EXTRA_DATA_TEXT            = 0x1329;   // replaces MAP_EXTRA_DATA
     public const ushort    MAP_PROJECT_EXPORT_SETTINGS    = 0x132A;
+    public const ushort    MAP_MARKER_TYPES               = 0x132B;
+    public const ushort    MAP_MARKERS                    = 0x132C;
 
     public const ushort    SOURCE_ASM                     = 0x1330;
     public const ushort    SOURCE_BASIC                   = 0x1331;

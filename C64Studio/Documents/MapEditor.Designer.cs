@@ -114,8 +114,8 @@
             this.editTileName = new System.Windows.Forms.TextBox();
             this.editTileHeight = new System.Windows.Forms.TextBox();
             this.editTileWidth = new System.Windows.Forms.TextBox();
-            this.checkTilePassable = new System.Windows.Forms.CheckBox();
             this.checkNotExportedOnMap = new System.Windows.Forms.CheckBox();
+            this.checkTilePassable = new System.Windows.Forms.CheckBox();
             this.label17 = new System.Windows.Forms.Label();
             this.labelTilesBGColor4 = new System.Windows.Forms.Label();
             this.labelTilesMulticolor2 = new System.Windows.Forms.Label();
@@ -261,7 +261,7 @@
             this.btnCopyMapImage.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             this.btnCopyMapImage.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnCopyMapImage.Image = ((System.Drawing.Image)(resources.GetObject("btnCopyMapImage.Image")));
-            this.btnCopyMapImage.Location = new System.Drawing.Point(430, 527);
+            this.btnCopyMapImage.Location = new System.Drawing.Point(624, 527);
             this.btnCopyMapImage.Name = "btnCopyMapImage";
             this.btnCopyMapImage.Size = new System.Drawing.Size(39, 24);
             this.btnCopyMapImage.TabIndex = 8;
@@ -271,7 +271,7 @@
             // labelZoom
             // 
             this.labelZoom.AutoSize = true;
-            this.labelZoom.Location = new System.Drawing.Point(333, 532);
+            this.labelZoom.Location = new System.Drawing.Point(527, 532);
             this.labelZoom.Name = "labelZoom";
             this.labelZoom.Size = new System.Drawing.Size(33, 13);
             this.labelZoom.TabIndex = 9;
@@ -284,7 +284,7 @@
             this.btnZoomOut.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             this.btnZoomOut.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnZoomOut.Image = null;
-            this.btnZoomOut.Location = new System.Drawing.Point(382, 527);
+            this.btnZoomOut.Location = new System.Drawing.Point(576, 527);
             this.btnZoomOut.Name = "btnZoomOut";
             this.btnZoomOut.Size = new System.Drawing.Size(24, 24);
             this.btnZoomOut.TabIndex = 10;
@@ -299,7 +299,7 @@
             this.btnZoomIn.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             this.btnZoomIn.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnZoomIn.Image = null;
-            this.btnZoomIn.Location = new System.Drawing.Point(406, 527);
+            this.btnZoomIn.Location = new System.Drawing.Point(600, 527);
             this.btnZoomIn.Name = "btnZoomIn";
             this.btnZoomIn.Size = new System.Drawing.Size(24, 24);
             this.btnZoomIn.TabIndex = 11;
@@ -379,7 +379,7 @@
             // 
             // labelEditInfo
             // 
-            this.labelEditInfo.Location = new System.Drawing.Point(479, 528);
+            this.labelEditInfo.Location = new System.Drawing.Point(673, 528);
             this.labelEditInfo.Name = "labelEditInfo";
             this.labelEditInfo.Size = new System.Drawing.Size(265, 23);
             this.labelEditInfo.TabIndex = 9;
@@ -439,7 +439,7 @@
             this.labelDesignerBackground.AutoSize = true;
             this.labelDesignerBackground.Location = new System.Drawing.Point(1011, 451);
             this.labelDesignerBackground.Name = "labelDesignerBackground";
-            this.labelDesignerBackground.Size = new System.Drawing.Size(104, 13);
+            this.labelDesignerBackground.Size = new System.Drawing.Size(188, 13);
             this.labelDesignerBackground.TabIndex = 34;
             this.labelDesignerBackground.Text = "Map back render color (designer only):";
             // 
@@ -1126,6 +1126,17 @@
             this.editTileWidth.Size = new System.Drawing.Size(100, 20);
             this.editTileWidth.TabIndex = 23;
             // 
+            // checkNotExportedOnMap
+            // 
+            this.checkNotExportedOnMap.AutoSize = true;
+            this.checkNotExportedOnMap.Location = new System.Drawing.Point(540, 32);
+            this.checkNotExportedOnMap.Name = "checkNotExportedOnMap";
+            this.checkNotExportedOnMap.Size = new System.Drawing.Size(125, 17);
+            this.checkNotExportedOnMap.TabIndex = 23;
+            this.checkNotExportedOnMap.Text = "Not exported on map";
+            this.checkNotExportedOnMap.UseVisualStyleBackColor = true;
+            this.checkNotExportedOnMap.CheckedChanged += new System.EventHandler(this.checkNotExportedOnMap_CheckedChanged);
+            // 
             // checkTilePassable
             // 
             this.checkTilePassable.AutoSize = true;
@@ -1138,17 +1149,6 @@
             this.checkTilePassable.Text = "Passable";
             this.checkTilePassable.UseVisualStyleBackColor = true;
             this.checkTilePassable.CheckedChanged += new System.EventHandler(this.checkTilePassable_CheckedChanged);
-            // 
-            // checkNotExportedOnMap
-            // 
-            this.checkNotExportedOnMap.AutoSize = true;
-            this.checkNotExportedOnMap.Location = new System.Drawing.Point(540, 32);
-            this.checkNotExportedOnMap.Name = "checkNotExportedOnMap";
-            this.checkNotExportedOnMap.Size = new System.Drawing.Size(69, 17);
-            this.checkNotExportedOnMap.TabIndex = 23;
-            this.checkNotExportedOnMap.Text = "Not exported on map";
-            this.checkNotExportedOnMap.UseVisualStyleBackColor = true;
-            this.checkNotExportedOnMap.CheckedChanged += new System.EventHandler(this.checkNotExportedOnMap_CheckedChanged);
             // 
             // label17
             // 

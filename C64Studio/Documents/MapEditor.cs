@@ -26,7 +26,8 @@ namespace RetroDevStudio.Documents
       RECTANGLE,
       FILLED_RECTANGLE,
       FILL,
-      SELECT
+      SELECT,
+      MARKER
     };
 
 
@@ -80,6 +81,22 @@ namespace RetroDevStudio.Documents
     private bool                        m_ApplyingTileSettings = false;
 
     private List<int>                   _TileUsage = new List<int>();
+
+    private System.Windows.Forms.TabPage       tabMarkers;
+    private System.Windows.Forms.TextBox       editMarkerName;
+    private System.Windows.Forms.Label         labelMarkerName;
+    private System.Windows.Forms.ListBox       listMarkerTypes;
+    private DecentForms.Button                 btnAddMarkerType;
+    private DecentForms.Button                 btnDeleteMarkerType;
+    private DecentForms.Button                 btnUpdateMarkerType;
+    private DecentForms.RadioButton            btnToolMarker;
+    private System.Windows.Forms.CheckBox      checkShowMarkers;
+    private System.Windows.Forms.Label         labelMarkerColor;
+    private System.Windows.Forms.ComboBox      comboMarkerColor;
+    
+    private System.Windows.Forms.ComboBox      comboMarkerTypes;
+    private DecentForms.Button                 btnClearMarkers;
+    private DecentForms.Button                 btnClearMarkerType;
 
 
 
@@ -226,6 +243,7 @@ namespace RetroDevStudio.Documents
       Modified = false;
 
       ResumeLayout();
+      InitializeMarkerUI();
     }
 
 
@@ -544,6 +562,32 @@ namespace RetroDevStudio.Documents
         }*/
       }
 
+      if ( ( checkShowMarkers.Checked )
+      &&   ( m_CurrentMap != null ) )
+      {
+        foreach ( var marker in m_CurrentMap.Markers )
+        {
+          int sourceX = ( marker.X - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
+          int sourceY = ( marker.Y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
+          
+          if ( ( sourceX >= 0 ) && ( sourceY >= 0 ) && ( sourceX < sourceWidth ) && ( sourceY < sourceHeight ) )
+          {
+             int targetX = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX, sourceWidth, targetWidth ) ) );
+             int targetY = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( sourceY, sourceHeight, targetHeight ) ) );
+             
+             uint color = 0xffffffff;
+             var  type = m_MapProject.MarkerTypes.FirstOrDefault( t => t.ID == marker.Type );
+             if ( type != null )
+             {
+               color = m_MapProject.Charset.Colors.Palette.ColorValues[type.Color];
+             }
+             
+             TargetBuffer.Box( targetX, targetY, 4, 4, color );
+             TargetBuffer.Rectangle( targetX, targetY, 5, 5, 0xff000000 );
+          }
+        }
+      }
+
       if ( ( m_CurrentMap == null )
       ||   ( m_ToolMode != ToolMode.SELECT ) )
       {
@@ -642,6 +686,7 @@ namespace RetroDevStudio.Documents
                                 targetH,
                                 selectionColor );
       }
+
 
     }
 
@@ -1322,11 +1367,61 @@ namespace RetroDevStudio.Documents
               }
             }
             break;
+
+          case ToolMode.MARKER:
+             if ( m_MouseButtonReleased )
+             {
+               m_MouseButtonReleased = false;
+
+
+               if ( m_CurrentMap.SelectedMarkerType != -1 )
+               {
+                 var type = m_MapProject.MarkerTypes.FirstOrDefault( t => t.ID == m_CurrentMap.SelectedMarkerType );
+                 if ( type != null )
+                 {
+                   // Remove existing marker at same spot? Or allow multiples?
+                   // For now allow overlapping, but users can keep clean.
+                   // Actually unique loc is better for simplicity.
+                   var existingMarker = m_CurrentMap.Markers.FirstOrDefault( m => m.X == trueX + offsetX && m.Y == trueY + offsetY );
+                   if ( existingMarker != null )
+                   {
+                     // Replace type? Or do nothing?
+                     existingMarker.Type = type.ID;
+                     existingMarker.Name = type.Name + " " + ( m_CurrentMap.Markers.Count + 1 );
+                   }
+                   else
+                   {
+                     var marker = new MapProject.Marker();
+                     marker.X = trueX + offsetX;
+                     marker.Y = trueY + offsetY;
+                     marker.Type = type.ID;
+                     marker.Name = type.Name + " " + ( m_CurrentMap.Markers.Count + 1 );
+                     m_CurrentMap.Markers.Add( marker );
+                   }
+                   RedrawMap();
+                   pictureEditor.Invalidate();
+                   Modified = true;
+                 }
+               }
+             }
+             break;
         }
       }
+
       if ( ( Buttons & MouseButtons.Right ) != 0 )
       {
-        if ( string.IsNullOrEmpty( m_MapProject.RightClickAction ) )
+        if ( m_ToolMode == ToolMode.MARKER )
+        {
+           var markerToRemove = m_CurrentMap.Markers.FirstOrDefault( m => m.X == trueX + offsetX && m.Y == trueY + offsetY );
+           if ( markerToRemove != null )
+           {
+             m_CurrentMap.Markers.Remove( markerToRemove );
+             RedrawMap();
+             pictureEditor.Invalidate();
+             Modified = true;
+           }
+        }
+        else if ( string.IsNullOrEmpty( m_MapProject.RightClickAction ) )
         {
           int tileIndex = m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY];
           if ( tileIndex < m_MapProject.Tiles.Count )
@@ -1794,6 +1889,7 @@ namespace RetroDevStudio.Documents
         }
       }
       comboTiles.Invalidate();
+      RefreshMarkerTypes();
     }
 
 
@@ -4605,6 +4701,256 @@ namespace RetroDevStudio.Documents
     {
     }
 
+    private void InitializeMarkerUI()
+    {
+      tabMarkers = new System.Windows.Forms.TabPage();
+      tabMarkers.Text = "Markers";
+      tabMarkers.UseVisualStyleBackColor = true;
+
+      listMarkerTypes = new System.Windows.Forms.ListBox();
+      listMarkerTypes.Location = new System.Drawing.Point( 8, 8 );
+      listMarkerTypes.Size = new System.Drawing.Size( 160, 400 );
+      listMarkerTypes.SelectedIndexChanged += listMarkerTypes_SelectedIndexChanged;
+      tabMarkers.Controls.Add( listMarkerTypes );
+
+      labelMarkerName = new System.Windows.Forms.Label();
+      labelMarkerName.Text = "Name:";
+      labelMarkerName.Location = new System.Drawing.Point( 174, 10 );
+      labelMarkerName.AutoSize = true;
+      tabMarkers.Controls.Add( labelMarkerName );
+
+      editMarkerName = new System.Windows.Forms.TextBox();
+      editMarkerName.Location = new System.Drawing.Point( 220, 8 );
+      editMarkerName.Size = new System.Drawing.Size( 160, 20 );
+      tabMarkers.Controls.Add( editMarkerName );
+
+      labelMarkerColor = new System.Windows.Forms.Label();
+      labelMarkerColor.Text = "Color:";
+      labelMarkerColor.Location = new System.Drawing.Point( 174, 40 );
+      labelMarkerColor.AutoSize = true;
+      tabMarkers.Controls.Add( labelMarkerColor );
+
+      comboMarkerColor = new System.Windows.Forms.ComboBox();
+      comboMarkerColor.Location = new System.Drawing.Point( 220, 38 );
+      comboMarkerColor.Size = new System.Drawing.Size( 160, 20 );
+      comboMarkerColor.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+      comboMarkerColor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+      
+      for ( int i = 0; i < 16; ++i )
+      {
+        comboMarkerColor.Items.Add( i.ToString( "d2" ) );
+      }
+      comboMarkerColor.SelectedIndex = 0;
+      comboMarkerColor.DrawItem += comboColor_DrawItem;
+      tabMarkers.Controls.Add( comboMarkerColor );
+
+      btnAddMarkerType = new DecentForms.Button();
+      btnAddMarkerType.Text = "Add Type";
+      btnAddMarkerType.Location = new System.Drawing.Point( 174, 70 );
+      btnAddMarkerType.Size = new System.Drawing.Size( 75, 23 );
+      btnAddMarkerType.Click += btnAddMarkerType_Click;
+      tabMarkers.Controls.Add( btnAddMarkerType );
+
+      btnUpdateMarkerType = new DecentForms.Button();
+      btnUpdateMarkerType.Text = "Update";
+      btnUpdateMarkerType.Location = new System.Drawing.Point( 260, 70 );
+      btnUpdateMarkerType.Size = new System.Drawing.Size( 75, 23 );
+      btnUpdateMarkerType.Enabled = false;
+      btnUpdateMarkerType.Click += btnUpdateMarkerType_Click;
+      tabMarkers.Controls.Add( btnUpdateMarkerType );
+
+      btnDeleteMarkerType = new DecentForms.Button();
+      btnDeleteMarkerType.Text = "Delete Type";
+      btnDeleteMarkerType.Location = new System.Drawing.Point( 346, 70 );
+      btnDeleteMarkerType.Size = new System.Drawing.Size( 80, 23 );
+      btnDeleteMarkerType.Enabled = false;
+      btnDeleteMarkerType.Click += btnDeleteMarkerType_Click;
+      tabMarkers.Controls.Add( btnDeleteMarkerType );
+      
+      checkShowMarkers = new System.Windows.Forms.CheckBox();
+      checkShowMarkers.Text = "Show Markers";
+      checkShowMarkers.Location = new System.Drawing.Point( 174, 110 );
+      checkShowMarkers.Checked = true;
+      checkShowMarkers.CheckedChanged += checkShowMarkers_CheckedChanged;
+      tabMarkers.Controls.Add( checkShowMarkers );
+
+      tabMapEditor.Controls.Add( tabMarkers );
+
+      // Toolbar Button
+      btnToolMarker = new DecentForms.RadioButton();
+      btnToolMarker.Appearance = System.Windows.Forms.Appearance.Button;
+      btnToolMarker.Text = "M"; 
+      //btnToolMarker.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+      btnToolMarker.Location = new System.Drawing.Point( 294, 527 );
+      btnToolMarker.Size = new System.Drawing.Size( 24, 24 );
+      btnToolMarker.CheckedChanged += btnToolMarker_CheckedChanged;
+      tabEditor.Controls.Add( btnToolMarker );
+  
+      comboMarkerTypes = new System.Windows.Forms.ComboBox();
+      comboMarkerTypes.Location = new System.Drawing.Point( 330, 529 );
+      comboMarkerTypes.Size = new System.Drawing.Size( 150, 21 );
+      comboMarkerTypes.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+      comboMarkerTypes.SelectedIndexChanged += comboMarkerTypes_SelectedIndexChanged;
+      tabEditor.Controls.Add( comboMarkerTypes );
+  
+      btnClearMarkers = new DecentForms.Button();
+      btnClearMarkers.Text = "Clear Markers";
+      btnClearMarkers.Location = new System.Drawing.Point( 490, 528 );
+      btnClearMarkers.Size = new System.Drawing.Size( 90, 23 );
+      btnClearMarkers.Click += btnClearMarkers_Click;
+      tabEditor.Controls.Add( btnClearMarkers );
+  
+      btnClearMarkerType = new DecentForms.Button();
+      btnClearMarkerType.Text = "Clear Type";
+      btnClearMarkerType.Location = new System.Drawing.Point( 590, 528 );
+      btnClearMarkerType.Size = new System.Drawing.Size( 90, 23 );
+      btnClearMarkerType.Click += btnClearMarkerType_Click;
+      tabEditor.Controls.Add( btnClearMarkerType );
+    }
+
+    private void RefreshMarkerTypes()
+    {
+      if ( listMarkerTypes == null ) return;
+      
+      listMarkerTypes.Items.Clear();
+      comboMarkerTypes.Items.Clear();
+      comboMarkerTypes.Items.Add( "None" );
+      foreach ( var type in m_MapProject.MarkerTypes )
+      {
+         listMarkerTypes.Items.Add( type.Name );
+         comboMarkerTypes.Items.Add( type.Name );
+      }
+      if ( m_CurrentMap != null )
+      {
+         // Find corresponding index for selected type
+         int index = m_MapProject.MarkerTypes.FindIndex( t => t.ID == m_CurrentMap.SelectedMarkerType );
+         if ( index != -1 )
+         {
+           comboMarkerTypes.SelectedIndex = index + 1;
+         }
+         else
+         {
+           comboMarkerTypes.SelectedIndex = 0;
+         }
+      }
+      else
+      {
+         comboMarkerTypes.SelectedIndex = 0;
+      }
+    }
+
+    private void btnAddMarkerType_Click( DecentForms.ControlBase Sender )
+    {
+      string name = editMarkerName.Text;
+      if ( string.IsNullOrEmpty( name ) )
+      {
+         name = "Marker " + ( m_MapProject.MarkerTypes.Count + 1 );
+      }
+      
+      var newType = new MapProject.MarkerType();
+      newType.Name = name;
+      newType.Color = comboMarkerColor.SelectedIndex;
+      newType.ID = 0;
+      if ( m_MapProject.MarkerTypes.Count > 0 )
+      {
+        newType.ID = m_MapProject.MarkerTypes.Max( t => t.ID ) + 1;
+      }
+      m_MapProject.MarkerTypes.Add( newType );
+      RefreshMarkerTypes();
+      
+      listMarkerTypes.SelectedIndex = listMarkerTypes.Items.Count - 1;
+      SetModified();
+    }
+
+    private void btnUpdateMarkerType_Click( DecentForms.ControlBase Sender )
+    {
+       if ( listMarkerTypes.SelectedIndex == -1 ) return;
+       
+       var type = m_MapProject.MarkerTypes[listMarkerTypes.SelectedIndex];
+       type.Name = editMarkerName.Text;
+       type.Color = comboMarkerColor.SelectedIndex;
+       
+       RefreshMarkerTypes();
+       listMarkerTypes.SelectedIndex = listMarkerTypes.SelectedIndex; // Restore selection
+       SetModified();
+    }
+
+    private void btnDeleteMarkerType_Click( DecentForms.ControlBase Sender )
+    {
+       if ( listMarkerTypes.SelectedIndex == -1 ) return;
+       
+       // TODO: Check if used?
+       m_MapProject.MarkerTypes.RemoveAt( listMarkerTypes.SelectedIndex );
+       RefreshMarkerTypes();
+       SetModified();
+    }
+
+    private void listMarkerTypes_SelectedIndexChanged( object sender, EventArgs e )
+    {
+       if ( listMarkerTypes.SelectedIndex == -1 )
+       {
+         btnUpdateMarkerType.Enabled = false;
+         btnDeleteMarkerType.Enabled = false;
+         return;
+       }
+       btnUpdateMarkerType.Enabled = true;
+       btnDeleteMarkerType.Enabled = true;
+       
+       var type = m_MapProject.MarkerTypes[listMarkerTypes.SelectedIndex];
+       editMarkerName.Text = type.Name;
+       comboMarkerColor.SelectedIndex = type.Color;
+    }
+
+    private void checkShowMarkers_CheckedChanged( object sender, EventArgs e )
+    {
+      RedrawMap();
+      pictureEditor.Invalidate();
+    }
+
+    private void btnToolMarker_CheckedChanged( DecentForms.ControlBase Sender )
+    {
+       if ( btnToolMarker.Checked )
+       {
+         m_ToolMode = ToolMode.MARKER;
+       }
+    }
+
+    private void comboMarkerTypes_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      if ( m_CurrentMap == null ) return;
+      
+      if ( comboMarkerTypes.SelectedIndex == 0 )
+      {
+         m_CurrentMap.SelectedMarkerType = -1;
+      }
+      else
+      {
+         var type = m_MapProject.MarkerTypes[comboMarkerTypes.SelectedIndex - 1];
+         m_CurrentMap.SelectedMarkerType = type.ID;
+      }
+      SetModified();
+    }
+
+    private void btnClearMarkers_Click( DecentForms.ControlBase Sender )
+    {
+       if ( m_CurrentMap == null ) return;
+       
+       m_CurrentMap.Markers.Clear();
+       pictureEditor.Invalidate();
+       RedrawMap();
+       Modified = true;
+    }
+
+    private void btnClearMarkerType_Click( DecentForms.ControlBase Sender )
+    {
+       if ( m_CurrentMap == null ) return;
+       if ( m_CurrentMap.SelectedMarkerType == -1 ) return;
+       
+       m_CurrentMap.Markers.RemoveAll( m => m.Type == m_CurrentMap.SelectedMarkerType );
+       pictureEditor.Invalidate();
+       RedrawMap();
+       Modified = true;
+    }
   }
 }
 

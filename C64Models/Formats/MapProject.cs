@@ -17,6 +17,21 @@ namespace RetroDevStudio.Formats
       public byte       Color = 1;
     };
 
+    public class Marker
+    {
+      public int        X = 0;
+      public int        Y = 0;
+      public int        Type = 0;
+      public string     Name = "";
+    };
+
+    public class MarkerType
+    {
+      public int        ID = 0;
+      public string     Name = "";
+      public int        Color = 1; 
+    };
+
     public class Tile
     {
       public GR.Game.Layer<TileChar> Chars = new GR.Game.Layer<TileChar>();
@@ -37,12 +52,14 @@ namespace RetroDevStudio.Formats
       public string             Name = "";
       public int                TileSpacingX = 2;
       public int                TileSpacingY = 2;
+      public List<Marker>       Markers = new List<Marker>();
       public GR.Memory.ByteBuffer   ExtraDataOld = new GR.Memory.ByteBuffer();
       public string             ExtraDataText = "";
       public int                AlternativeMultiColor1 = -1;
       public int                AlternativeMultiColor2 = -1;
       public int                AlternativeBackgroundColor = -1;
       public int                AlternativeBGColor4 = -1;
+      public int                SelectedMarkerType = 0;
 
       /// <summary>
       /// overrides Project.Mode when set (e.g. display MC instead of hires)
@@ -108,7 +125,7 @@ namespace RetroDevStudio.Formats
 
 
     public List<Tile>                   Tiles = new List<Tile>();
-
+    public List<MarkerType>             MarkerTypes = new List<MarkerType>();
     public List<Map>                    Maps = new List<Map>();
 
     public string                       ExternalCharset = "";
@@ -180,6 +197,15 @@ namespace RetroDevStudio.Formats
       chunkMCData.AppendU8( (byte)BGColor4 );
       chunkProjectData.Append( chunkMCData.ToBuffer() );
 
+      foreach ( var markerType in MarkerTypes )
+      {
+        GR.IO.FileChunk chunkMarkerType = new GR.IO.FileChunk( FileChunkConstants.MAP_MARKER_TYPES );
+        chunkMarkerType.AppendI32( markerType.ID );
+        chunkMarkerType.AppendString( markerType.Name );
+        chunkMarkerType.AppendI32( markerType.Color );
+        chunkProjectData.Append( chunkMarkerType.ToBuffer() );
+      }
+
       foreach ( Tile tile in Tiles )
       {
         GR.IO.FileChunk chunkTile = new GR.IO.FileChunk( FileChunkConstants.MAP_TILE );
@@ -214,6 +240,7 @@ namespace RetroDevStudio.Formats
         chunkMapInfo.AppendI32( map.AlternativeBackgroundColor + 1 );
         chunkMapInfo.AppendI32( map.AlternativeBGColor4 + 1 );
         chunkMapInfo.AppendI32( (int)map.AlternativeMode + 1 );
+        chunkMapInfo.AppendI32( map.SelectedMarkerType );
         chunkMap.Append( chunkMapInfo.ToBuffer() );
 
         GR.IO.FileChunk chunkMapData = new GR.IO.FileChunk( FileChunkConstants.MAP_DATA );
@@ -236,6 +263,17 @@ namespace RetroDevStudio.Formats
 
           chunkMap.Append( chunkMapExtraData.ToBuffer() );
         }
+        
+        foreach ( var marker in map.Markers )
+        {
+          GR.IO.FileChunk chunkMarker = new GR.IO.FileChunk( FileChunkConstants.MAP_MARKERS );
+          chunkMarker.AppendI32( marker.X );
+          chunkMarker.AppendI32( marker.Y );
+          chunkMarker.AppendI32( marker.Type );
+          chunkMarker.AppendString( marker.Name );
+          chunkMap.Append( chunkMarker.ToBuffer() );
+        }
+
         if ( map.ExtraDataOld.Length > 0 )
         {
           GR.IO.FileChunk chunkMapExtraData = new GR.IO.FileChunk( FileChunkConstants.MAP_EXTRA_DATA );
@@ -352,6 +390,15 @@ namespace RetroDevStudio.Formats
                     MultiColor2 = subChunkReader.ReadUInt8();
                     BGColor4 = subChunkReader.ReadUInt8();
                     break;
+                  case FileChunkConstants.MAP_MARKER_TYPES:
+                    {
+                      MarkerType  mType = new MarkerType();
+                      mType.ID = subChunkReader.ReadInt32();
+                      mType.Name = subChunkReader.ReadString();
+                      mType.Color = subChunkReader.ReadInt32();
+                      MarkerTypes.Add( mType );
+                    }
+                    break;
                   case FileChunkConstants.MAP_TILE:
                     {
                       Tile tile = new Tile();
@@ -401,6 +448,10 @@ namespace RetroDevStudio.Formats
                             map.AlternativeBackgroundColor = mapChunkReader.ReadInt32() - 1;
                             map.AlternativeBGColor4 = mapChunkReader.ReadInt32() - 1;
                             map.AlternativeMode = (TextCharMode)( mapChunkReader.ReadInt32() - 1 );
+                            if ( mapChunkReader.Size - mapChunkReader.Position >= 4 )
+                            {
+                              map.SelectedMarkerType = mapChunkReader.ReadInt32();
+                            }
                             break;
                           case FileChunkConstants.MAP_DATA:
                             {
@@ -430,6 +481,16 @@ namespace RetroDevStudio.Formats
                           case FileChunkConstants.MAP_EXTRA_DATA_TEXT:
                             {
                               map.ExtraDataText = mapChunkReader.ReadString();
+                            }
+                            break;
+                          case FileChunkConstants.MAP_MARKERS:
+                            {
+                              Marker  marker = new Marker();
+                              marker.X = mapChunkReader.ReadInt32();
+                              marker.Y = mapChunkReader.ReadInt32();
+                              marker.Type = mapChunkReader.ReadInt32();
+                              marker.Name = mapChunkReader.ReadString();
+                              map.Markers.Add( marker );
                             }
                             break;
                         }
