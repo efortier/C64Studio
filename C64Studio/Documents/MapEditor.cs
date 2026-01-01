@@ -5042,6 +5042,30 @@ namespace RetroDevStudio.Documents
        btnClearMarkerType.Enabled = enabled;
        dimSlider.Enabled = enabled;
     }
+    private void comboMarkerColorOverride_DrawItem( object sender, DrawItemEventArgs e )
+    {
+       ComboBox combo = (ComboBox)sender;
+       
+       if ( e.Index < 0 ) return;
+
+       e.DrawBackground();
+
+       int colorIndex = e.Index;
+       
+       // Assuming items are just index 0..15 or equivalent strings
+       // Or grab from item? The list was populated with "00", "01"...
+       // But we just want the color.
+       
+       uint color = m_MapProject.Charset.Colors.Palette.ColorValues[colorIndex];
+       
+       using ( var brush = new System.Drawing.SolidBrush( System.Drawing.Color.FromArgb( (int)color ) ) )
+       {
+         e.Graphics.FillRectangle( brush, e.Bounds.X + 2, e.Bounds.Y + 2, e.Bounds.Width - 4, e.Bounds.Height - 4 );
+       }
+       e.Graphics.DrawRectangle( System.Drawing.Pens.Black, e.Bounds.X + 2, e.Bounds.Y + 2, e.Bounds.Width - 5, e.Bounds.Height - 5 );
+       
+       e.DrawFocusRectangle();
+    }
   }
 }
 

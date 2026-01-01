@@ -269,7 +269,7 @@
             // 
             // dimSlider
             // 
-            this.dimSlider.Location = new System.Drawing.Point(747, 557);
+            this.dimSlider.Location = new System.Drawing.Point(727, 557);
             this.dimSlider.Maximum = 100;
             this.dimSlider.Name = "dimSlider";
             this.dimSlider.Size = new System.Drawing.Size(150, 45);
@@ -285,7 +285,7 @@
             this.btnClearMarkerType.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             this.btnClearMarkerType.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnClearMarkerType.Image = null;
-            this.btnClearMarkerType.Location = new System.Drawing.Point(634, 560);
+            this.btnClearMarkerType.Location = new System.Drawing.Point(614, 560);
             this.btnClearMarkerType.Name = "btnClearMarkerType";
             this.btnClearMarkerType.Size = new System.Drawing.Size(90, 23);
             this.btnClearMarkerType.TabIndex = 1;
@@ -299,7 +299,7 @@
             this.btnClearMarkers.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             this.btnClearMarkers.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnClearMarkers.Image = null;
-            this.btnClearMarkers.Location = new System.Drawing.Point(538, 560);
+            this.btnClearMarkers.Location = new System.Drawing.Point(518, 560);
             this.btnClearMarkers.Name = "btnClearMarkers";
             this.btnClearMarkers.Size = new System.Drawing.Size(90, 23);
             this.btnClearMarkers.TabIndex = 2;
@@ -321,9 +321,9 @@
             this.comboMarkerColorOverride.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboMarkerColorOverride.Location = new System.Drawing.Point(458, 560);
             this.comboMarkerColorOverride.Name = "comboMarkerColorOverride";
-            this.comboMarkerColorOverride.Size = new System.Drawing.Size(73, 21);
+            this.comboMarkerColorOverride.Size = new System.Drawing.Size(48, 21);
             this.comboMarkerColorOverride.TabIndex = 4;
-            this.comboMarkerColorOverride.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.comboColor_DrawItem);
+            this.comboMarkerColorOverride.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.comboMarkerColorOverride_DrawItem);
             this.comboMarkerColorOverride.SelectedIndexChanged += new System.EventHandler(this.comboMarkerColorOverride_SelectedIndexChanged);
             // 
             // btnToolMarker
