@@ -24,8 +24,6 @@ namespace RetroDevStudio.Controls
     { 
     }
 
-
-
     public ExportMapAsAssembly( StudioCore Core ) :
       base( Core )
     {
@@ -511,6 +509,7 @@ namespace RetroDevStudio.Controls
         checkExportMapAsCharAndColors.Checked = assemblySettings.ExportMapAsCharAndColors;
         checkExportPassableBitfields.Checked = assemblySettings.ExportPassableBitfields;
         checkExportPassableBitfieldsAsBinary.Checked = assemblySettings.ExportPassableBitfieldsAsBinary;
+        checkExportMarkers.Checked = assemblySettings.ExportMarkers;
       }
       finally
       {
@@ -558,6 +557,7 @@ namespace RetroDevStudio.Controls
       assemblySettings.ExportMapAsCharAndColors = checkExportMapAsCharAndColors.Checked;
       assemblySettings.ExportPassableBitfields = checkExportPassableBitfields.Checked;
       assemblySettings.ExportPassableBitfieldsAsBinary = checkExportPassableBitfieldsAsBinary.Checked;
+      assemblySettings.ExportMarkers = checkExportMarkers.Checked;
     }
 
 

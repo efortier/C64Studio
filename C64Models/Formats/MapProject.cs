@@ -100,7 +100,9 @@ namespace RetroDevStudio.Formats
         public string CharsetExportFilename = "";
         public bool   AlwaysOverwrite = false;
         public bool   ExportPassableBitfields = false;
+
         public bool   ExportPassableBitfieldsAsBinary = false;
+        public bool   ExportMarkers = true;
       }
 
       public class BinarySettings
@@ -293,7 +295,7 @@ namespace RetroDevStudio.Formats
       projectFile.Append( chunkProjectData.ToBuffer() );
 
       GR.IO.FileChunk chunkExportSettings = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS );
-      chunkExportSettings.AppendU32( 13 );
+      chunkExportSettings.AppendU32( 14 );
       chunkExportSettings.AppendI32(Settings.ExportDataIndex );
       chunkExportSettings.AppendI32(Settings.ExportOrientationIndex );
       chunkExportSettings.AppendI32( Settings.ExportMethodIndex );
@@ -331,6 +333,7 @@ namespace RetroDevStudio.Formats
       chunkExportSettings.AppendI32( Settings.Assembly.ExportPassableBitfields ? 1 : 0 );
       chunkExportSettings.AppendI32( Settings.Assembly.ExportPassableBitfieldsAsBinary ? 1 : 0 );
       chunkExportSettings.AppendI32( DesignerBackgroundColor );
+      chunkExportSettings.AppendI32( Settings.Assembly.ExportMarkers ? 1 : 0 );
       projectFile.Append( chunkExportSettings.ToBuffer() );
       return projectFile;
     }
@@ -518,7 +521,7 @@ namespace RetroDevStudio.Formats
           case FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS:
             {
               uint version = chunkReader.ReadUInt32();
-              if ( version == 13 )
+              if ( version >= 13 )
               {
                 Settings.ExportDataIndex = chunkReader.ReadInt32();
                 Settings.ExportOrientationIndex = chunkReader.ReadInt32();
@@ -559,6 +562,10 @@ namespace RetroDevStudio.Formats
                 if ( chunkReader.Position < chunkReader.Size )
                 {
                   DesignerBackgroundColor = chunkReader.ReadInt32();
+                }
+                if ( version >= 14 )
+                {
+                  Settings.Assembly.ExportMarkers = ( chunkReader.ReadInt32() != 0 );
                 }
               }
             }
@@ -1988,6 +1995,8 @@ namespace RetroDevStudio.Formats
 
     private void AppendMarkerGlobalTables( StringBuilder sb, string LabelPrefix, string DataByteDirective, bool HexFormat )
     {
+      if ( !Settings.Assembly.ExportMarkers ) return;
+
       foreach ( var markerType in MarkerTypes )
       {
         if ( string.IsNullOrEmpty( markerType.ExportSymbol ) )
@@ -2103,6 +2112,8 @@ namespace RetroDevStudio.Formats
 
     private void AppendMarkerMapData( StringBuilder sb, Map map, int mapIndex, string LabelPrefix, string DataByteDirective, bool HexFormat )
     {
+        if ( !Settings.Assembly.ExportMarkers ) return;
+
         foreach ( var markerType in MarkerTypes )
         {
           if ( string.IsNullOrEmpty( markerType.ExportSymbol ) ) continue;

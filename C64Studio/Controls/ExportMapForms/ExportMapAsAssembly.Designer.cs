@@ -64,6 +64,7 @@ namespace RetroDevStudio.Controls
             this.checkAlwaysOverwrite = new System.Windows.Forms.CheckBox();
             this.checkExportPassableBitfields = new System.Windows.Forms.CheckBox();
             this.checkExportPassableBitfieldsAsBinary = new System.Windows.Forms.CheckBox();
+            this.checkExportMarkers = new System.Windows.Forms.CheckBox();
             this.checkExportMapAsCharAndColors = new System.Windows.Forms.CheckBox();
             this.groupAutoSave.SuspendLayout();
             this.groupCharset.SuspendLayout();
@@ -452,12 +453,24 @@ namespace RetroDevStudio.Controls
             this.checkExportPassableBitfieldsAsBinary.UseVisualStyleBackColor = true;
             this.checkExportPassableBitfieldsAsBinary.CheckedChanged += new System.EventHandler(this.HandleSettingsChanged);
             // 
+            // checkExportMarkers
+            // 
+            this.checkExportMarkers.AutoSize = true;
+            this.checkExportMarkers.Location = new System.Drawing.Point(420, 172);
+            this.checkExportMarkers.Name = "checkExportMarkers";
+            this.checkExportMarkers.Size = new System.Drawing.Size(146, 17);
+            this.checkExportMarkers.TabIndex = 26;
+            this.checkExportMarkers.Text = "Export markers";
+            this.checkExportMarkers.UseVisualStyleBackColor = true;
+            this.checkExportMarkers.CheckedChanged += new System.EventHandler(this.HandleSettingsChanged);
+            // 
             // ExportMapAsAssembly
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.Controls.Add(this.checkExportPassableBitfields);
             this.Controls.Add(this.checkExportPassableBitfieldsAsBinary);
+            this.Controls.Add(this.checkExportMarkers);
             this.Controls.Add(this.checkExportMapAsCharAndColors);
             this.Controls.Add(this.checkAlwaysOverwrite);
             this.Controls.Add(this.groupCharset);
@@ -528,5 +541,6 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.CheckBox checkExportMapAsCharAndColors;
     private System.Windows.Forms.CheckBox checkExportPassableBitfields;
     private System.Windows.Forms.CheckBox checkExportPassableBitfieldsAsBinary;
+    private System.Windows.Forms.CheckBox checkExportMarkers;
   }
 }
