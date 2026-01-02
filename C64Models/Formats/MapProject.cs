@@ -1062,6 +1062,8 @@ namespace RetroDevStudio.Formats
         sbMaps.AppendLine();
       }
 
+      // Marker Tables
+      AppendMarkerGlobalTables( sbMaps, LabelPrefix, DataByteDirective, Settings.Assembly.ExportHex );
 
       for ( int i = 0; i < Maps.Count; ++i )
       {
@@ -1387,9 +1389,14 @@ namespace RetroDevStudio.Formats
             }
           }
 
+
+
           sbMaps.Append( Util.ToASMData( extraData, WrapData, WrapByteCount, DataByteDirective ) );
           sbMaps.AppendLine();
         }
+
+        // Markers
+        AppendMarkerMapData( sbMaps, map, i, LabelPrefix, DataByteDirective, Settings.Assembly.ExportHex );
       }
 
       MapData = sbMaps.ToString();
@@ -1486,14 +1493,15 @@ namespace RetroDevStudio.Formats
 
       sb.AppendLine( LabelPrefix + "TILE_COUNT=" + Tiles.Count );
       sb.AppendLine();
+
       if ( ( Settings.Assembly.MapSizeCommentEnabled ) && ( !string.IsNullOrEmpty( Settings.Assembly.CommentChars ) ) )
       {
         for ( int i = 0; i < Tiles.Count; ++i )
         {
           sb.AppendLine( Settings.Assembly.CommentChars + " " + i.ToString( "D2" ) + ": " + Tiles[i].Name );
         }
+        sb.AppendLine();
       }
-      sb.AppendLine();
 
       GR.Memory.ByteBuffer tileWidths = new GR.Memory.ByteBuffer();
       GR.Memory.ByteBuffer tileHeights = new GR.Memory.ByteBuffer();
@@ -1506,9 +1514,11 @@ namespace RetroDevStudio.Formats
 
       sb.AppendLine( LabelPrefix + "TILES_WIDTH" + labelSuffix );
       sb.AppendLine( Util.ToASMData( tileWidths, WrapData, WrapByteCount, DataByteDirective ) );
+      sb.AppendLine();
 
       sb.AppendLine( LabelPrefix + "TILES_HEIGHT" + labelSuffix );
       sb.AppendLine( Util.ToASMData( tileHeights, WrapData, WrapByteCount, DataByteDirective ) );
+      sb.AppendLine();
 
       sb.AppendLine( LabelPrefix + "TILES_FLAGS" + labelSuffix );
       GR.Memory.ByteBuffer tileFlags = new GR.Memory.ByteBuffer();
@@ -1517,6 +1527,7 @@ namespace RetroDevStudio.Formats
         tileFlags.AppendU8( (byte)( tile.Passable ? 1 : 0 ) );
       }
       sb.AppendLine( Util.ToASMData( tileFlags, WrapData, WrapByteCount, DataByteDirective ) );
+      sb.AppendLine();
 
       sb.AppendLine( LabelPrefix + "TILES_CHAR_DATA" + labelSuffix );
       for ( int i = 0; i < Tiles.Count; ++i )
@@ -1745,6 +1756,9 @@ namespace RetroDevStudio.Formats
         sb.AppendLine();
       }
 
+      // Marker Tables
+      AppendMarkerGlobalTables( sb, LabelPrefix, DataByteDirective, Settings.Assembly.ExportHex );
+
       for ( int i = 0; i < Maps.Count; ++i )
       {
         var map = Maps[i];
@@ -1948,6 +1962,9 @@ namespace RetroDevStudio.Formats
            }
           sb.AppendLine();
         }
+
+        // Markers
+        AppendMarkerMapData( sb, map, i, LabelPrefix, DataByteDirective, Settings.Assembly.ExportHex );
       }
 
       ExportData = sb.ToString();
@@ -1967,6 +1984,179 @@ namespace RetroDevStudio.Formats
         return Settings.Assembly.EmptyTileIndex;
       }
       return TileIndex;
+    }
+
+    private void AppendMarkerGlobalTables( StringBuilder sb, string LabelPrefix, string DataByteDirective, bool HexFormat )
+    {
+      foreach ( var markerType in MarkerTypes )
+      {
+        if ( string.IsNullOrEmpty( markerType.ExportSymbol ) )
+        {
+          continue;
+        }
+        
+        bool isUsed = false;
+        foreach ( var map in Maps )
+        {
+          foreach ( var marker in map.Markers )
+          {
+            if ( marker.Type == markerType.ID )
+            {
+              isUsed = true;
+              break;
+            }
+          }
+          if ( isUsed ) break;
+        }
+        if ( !isUsed ) continue;
+
+        sb.Append( LabelPrefix );
+        sb.AppendLine( "MAPS_MARKERS_COUNT_" + markerType.ExportSymbol );
+        
+        // Count Table
+        StringBuilder sbData = new StringBuilder();
+        sbData.Append( DataByteDirective + " " );
+        for ( int i = 0; i < Maps.Count; ++i )
+        {
+          int count = 0;
+          foreach ( var marker in Maps[i].Markers )
+          {
+            if ( marker.Type == markerType.ID )
+            {
+              ++count;
+            }
+          }
+          if ( i > 0 ) sbData.Append( "," );
+          if ( HexFormat )
+          {
+            sbData.Append( "$" + count.ToString( "X2" ) );
+          }
+          else
+          {
+            sbData.Append( count.ToString() );
+          }
+        }
+        sb.AppendLine( sbData.ToString() );
+
+        // Table Low
+        sb.AppendLine();
+        sb.Append( LabelPrefix );
+        sb.AppendLine( "MAPS_MARKERS_TABLE_LOW_" + markerType.ExportSymbol );
+        sbData = new StringBuilder();
+        sbData.Append( DataByteDirective + " " );
+        for ( int i = 0; i < Maps.Count; ++i )
+        {
+          int count = 0;
+          foreach ( var marker in Maps[i].Markers )
+          {
+            if ( marker.Type == markerType.ID )
+            {
+              ++count;
+            }
+          }
+
+          if ( i > 0 ) sbData.Append( "," );
+          if ( count == 0 )
+          {
+             if ( HexFormat ) sbData.Append( "$00" );
+             else sbData.Append( "0" );
+          }
+          else
+          {
+            sbData.Append( "<" + LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + "_MARKERS_" + markerType.ExportSymbol );
+          }
+        }
+        sb.AppendLine( sbData.ToString() );
+
+        // Table High
+        sb.AppendLine();
+        sb.Append( LabelPrefix );
+        sb.AppendLine( "MAPS_MARKERS_TABLE_HIGH_" + markerType.ExportSymbol );
+        sbData = new StringBuilder();
+        sbData.Append( DataByteDirective + " " );
+        for ( int i = 0; i < Maps.Count; ++i )
+        {
+          int count = 0;
+          foreach ( var marker in Maps[i].Markers )
+          {
+            if ( marker.Type == markerType.ID )
+            {
+              ++count;
+            }
+          }
+
+          if ( i > 0 ) sbData.Append( "," );
+          if ( count == 0 )
+          {
+             if ( HexFormat ) sbData.Append( "$00" );
+             else sbData.Append( "0" );
+          }
+          else
+          {
+            sbData.Append( ">" + LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + "_MARKERS_" + markerType.ExportSymbol );
+          }
+        }
+        sb.AppendLine( sbData.ToString() );
+        sb.AppendLine();
+      }
+    }
+
+    private void AppendMarkerMapData( StringBuilder sb, Map map, int mapIndex, string LabelPrefix, string DataByteDirective, bool HexFormat )
+    {
+        foreach ( var markerType in MarkerTypes )
+        {
+          if ( string.IsNullOrEmpty( markerType.ExportSymbol ) ) continue;
+
+          bool isUsedGlobally = false;
+          foreach ( var m in Maps )
+          {
+            foreach ( var marker in m.Markers )
+            {
+              if ( marker.Type == markerType.ID )
+              {
+                isUsedGlobally = true;
+                break;
+              }
+            }
+            if ( isUsedGlobally ) break;
+          }
+          if ( !isUsedGlobally ) continue;
+
+          int     countInMap = 0;
+          foreach ( var marker in map.Markers )
+          {
+             if ( marker.Type == markerType.ID )
+             {
+               ++countInMap;
+             }
+          }
+
+          if ( countInMap > 0 )
+          {
+             sb.Append( LabelPrefix );
+             sb.AppendLine( "MAP_" + ( mapIndex + 1 ).ToString( "D2" ) + "_MARKERS_" + markerType.ExportSymbol );
+             
+             foreach ( var marker in map.Markers )
+             {
+               if ( marker.Type == markerType.ID )
+               {
+                 sb.Append( DataByteDirective + " " );
+                 if ( HexFormat )
+                 {
+                   sb.Append( "$" + marker.X.ToString( "X2" ) );
+                   sb.Append( ",$" + marker.Y.ToString( "X2" ) );
+                 }
+                 else
+                 {
+                   sb.Append( marker.X.ToString() );
+                   sb.Append( "," + marker.Y.ToString() );
+                 }
+                 sb.AppendLine();
+               }
+             }
+             sb.AppendLine();
+          }
+        }
     }
 
   }
