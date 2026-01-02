@@ -92,6 +92,8 @@ namespace RetroDevStudio.Documents
     private System.Windows.Forms.CheckBox      checkShowMarkers;
     private System.Windows.Forms.Label         labelMarkerColor;
     private System.Windows.Forms.ComboBox      comboMarkerColor;
+    private System.Windows.Forms.Label         labelMarkerExportSymbol;
+    private System.Windows.Forms.TextBox       editMarkerExportSymbol;
     
 
 
@@ -4808,16 +4810,36 @@ namespace RetroDevStudio.Documents
       comboMarkerColor.DrawItem += comboColor_DrawItem;
       tabMarkers.Controls.Add( comboMarkerColor );
 
+      labelMarkerExportSymbol = new System.Windows.Forms.Label();
+      labelMarkerExportSymbol.Text = "Export Symbol:";
+      labelMarkerExportSymbol.Location = new System.Drawing.Point( 174, 70 );
+      labelMarkerExportSymbol.AutoSize = true;
+      tabMarkers.Controls.Add( labelMarkerExportSymbol );
+
+      editMarkerExportSymbol = new System.Windows.Forms.TextBox();
+      editMarkerExportSymbol.Location = new System.Drawing.Point( 260, 68 ); // Aligned with label text baseline approx? 
+                                                                           // Actually Name text is at 8, label at 10.
+                                                                           // Color text at 38, label at 40.
+                                                                           // So Edit should be at 68, Label at 70.
+                                                                           // X pos: Label is at 174. Name edit at 220.
+                                                                           // "Export Symbol:" is longer than "Color:".
+                                                                           // "Export Symbol:" approx 80-90 pixels?
+                                                                           // 174 + 80 = 254. 
+                                                                           // Let's move Edit X to 260.
+      editMarkerExportSymbol.Size = new System.Drawing.Size( 120, 20 );
+      editMarkerExportSymbol.KeyPress += editMarkerExportSymbol_KeyPress;
+      tabMarkers.Controls.Add( editMarkerExportSymbol );
+
       btnAddMarkerType = new DecentForms.Button();
       btnAddMarkerType.Text = "Add Type";
-      btnAddMarkerType.Location = new System.Drawing.Point( 174, 70 );
+      btnAddMarkerType.Location = new System.Drawing.Point( 174, 100 );
       btnAddMarkerType.Size = new System.Drawing.Size( 75, 23 );
       btnAddMarkerType.Click += btnAddMarkerType_Click;
       tabMarkers.Controls.Add( btnAddMarkerType );
 
       btnUpdateMarkerType = new DecentForms.Button();
       btnUpdateMarkerType.Text = "Update";
-      btnUpdateMarkerType.Location = new System.Drawing.Point( 260, 70 );
+      btnUpdateMarkerType.Location = new System.Drawing.Point( 260, 100 );
       btnUpdateMarkerType.Size = new System.Drawing.Size( 75, 23 );
       btnUpdateMarkerType.Enabled = false;
       btnUpdateMarkerType.Click += btnUpdateMarkerType_Click;
@@ -4825,7 +4847,7 @@ namespace RetroDevStudio.Documents
 
       btnDeleteMarkerType = new DecentForms.Button();
       btnDeleteMarkerType.Text = "Delete Type";
-      btnDeleteMarkerType.Location = new System.Drawing.Point( 346, 70 );
+      btnDeleteMarkerType.Location = new System.Drawing.Point( 346, 100 );
       btnDeleteMarkerType.Size = new System.Drawing.Size( 80, 23 );
       btnDeleteMarkerType.Enabled = false;
       btnDeleteMarkerType.Click += btnDeleteMarkerType_Click;
@@ -4833,7 +4855,7 @@ namespace RetroDevStudio.Documents
       
       checkShowMarkers = new System.Windows.Forms.CheckBox();
       checkShowMarkers.Text = "Show Markers";
-      checkShowMarkers.Location = new System.Drawing.Point( 242, 99 );
+      checkShowMarkers.Location = new System.Drawing.Point( 242, 129 );
       checkShowMarkers.Checked = true;
       checkShowMarkers.CheckedChanged += checkShowMarkers_CheckedChanged;
       groupSize.Controls.Add( checkShowMarkers );
@@ -4910,6 +4932,7 @@ namespace RetroDevStudio.Documents
        var type = m_MapProject.MarkerTypes[listMarkerTypes.SelectedIndex];
        type.Name = editMarkerName.Text;
        type.Color = comboMarkerColor.SelectedIndex;
+       type.ExportSymbol = editMarkerExportSymbol.Text;
        
        RefreshMarkerTypes();
        listMarkerTypes.SelectedIndex = listMarkerTypes.SelectedIndex; // Restore selection
@@ -4940,6 +4963,17 @@ namespace RetroDevStudio.Documents
        var type = m_MapProject.MarkerTypes[listMarkerTypes.SelectedIndex];
        editMarkerName.Text = type.Name;
        comboMarkerColor.SelectedIndex = type.Color;
+       editMarkerExportSymbol.Text = type.ExportSymbol;
+    }
+
+    private void editMarkerExportSymbol_KeyPress( object sender, KeyPressEventArgs e )
+    {
+       if ( ( !char.IsLetterOrDigit( e.KeyChar ) )
+       &&   ( e.KeyChar != '_' )
+       &&   ( !char.IsControl( e.KeyChar ) ) )
+       {
+         e.Handled = true;
+       }
     }
 
     private void checkShowMarkers_CheckedChanged( object sender, EventArgs e )

@@ -27,9 +27,10 @@ namespace RetroDevStudio.Formats
 
     public class MarkerType
     {
-      public int        ID = 0;
       public string     Name = "";
+      public string     ExportSymbol = "";
       public int        Color = 1; 
+      public int        ID = 0;
     };
 
     public class Tile
@@ -204,6 +205,7 @@ namespace RetroDevStudio.Formats
         chunkMarkerType.AppendI32( markerType.ID );
         chunkMarkerType.AppendString( markerType.Name );
         chunkMarkerType.AppendI32( markerType.Color );
+        chunkMarkerType.AppendString( markerType.ExportSymbol );
         chunkProjectData.Append( chunkMarkerType.ToBuffer() );
       }
 
@@ -398,6 +400,10 @@ namespace RetroDevStudio.Formats
                       mType.ID = subChunkReader.ReadInt32();
                       mType.Name = subChunkReader.ReadString();
                       mType.Color = subChunkReader.ReadInt32();
+                      if ( subChunkReader.Position < subChunkReader.Size )
+                      {
+                        mType.ExportSymbol = subChunkReader.ReadString();
+                      }
                       MarkerTypes.Add( mType );
                     }
                     break;
@@ -405,10 +411,10 @@ namespace RetroDevStudio.Formats
                     {
                       Tile tile = new Tile();
                       tile.Name = subChunkReader.ReadString();
-
+ 
                       int w = subChunkReader.ReadInt32();
                       int h = subChunkReader.ReadInt32();
-
+ 
                       tile.Chars.Resize( w, h );
                       for ( int j = 0; j < tile.Chars.Height; ++j )
                       {
@@ -433,9 +439,9 @@ namespace RetroDevStudio.Formats
                   case FileChunkConstants.MAP:
                     {
                       GR.IO.FileChunk mapChunk = new GR.IO.FileChunk();
-
+ 
                       Map map = new Map();
-
+ 
                       while ( mapChunk.ReadFromStream( subChunkReader ) )
                       {
                         GR.IO.MemoryReader mapChunkReader = mapChunk.MemoryReader();
@@ -463,7 +469,7 @@ namespace RetroDevStudio.Formats
                             {
                               int w = mapChunkReader.ReadInt32();
                               int h = mapChunkReader.ReadInt32();
-
+ 
                               map.Tiles.Resize( w, h );
                               for ( int j = 0; j < map.Tiles.Height; ++j )
                               {
@@ -477,9 +483,9 @@ namespace RetroDevStudio.Formats
                           case FileChunkConstants.MAP_EXTRA_DATA:
                             {
                               uint len = mapChunkReader.ReadUInt32();
-
+ 
                               mapChunkReader.ReadBlock( map.ExtraDataOld, len );
-
+ 
                               map.ExtraDataText = map.ExtraDataOld.ToString();
                               map.ExtraDataOld.Clear();
                             }
