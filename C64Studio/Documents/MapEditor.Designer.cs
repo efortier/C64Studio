@@ -167,6 +167,8 @@
             this.fastPictureBox1 = new GR.Forms.FastPictureBox();
             this.fastPictureBox2 = new GR.Forms.FastPictureBox();
             this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
+            this.viewToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.keepMapCharacterAspectRatioToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.m_FileWatcher)).BeginInit();
             this.menuStrip1.SuspendLayout();
             this.tabEditor.SuspendLayout();
@@ -191,7 +193,8 @@
             // menuStrip1
             // 
             this.menuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.fileToolStripMenuItem});
+            this.fileToolStripMenuItem,
+            this.viewToolStripMenuItem});
             this.menuStrip1.Location = new System.Drawing.Point(0, 0);
             this.menuStrip1.Name = "menuStrip1";
             this.menuStrip1.Size = new System.Drawing.Size(1393, 24);
@@ -1030,7 +1033,7 @@
             this.tabTiles.Location = new System.Drawing.Point(4, 22);
             this.tabTiles.Name = "tabTiles";
             this.tabTiles.Padding = new System.Windows.Forms.Padding(3);
-            this.tabTiles.Size = new System.Drawing.Size(1389, 669);
+            this.tabTiles.Size = new System.Drawing.Size(1385, 628);
             this.tabTiles.TabIndex = 2;
             this.tabTiles.Text = "Tiles";
             this.tabTiles.UseVisualStyleBackColor = true;
@@ -1444,7 +1447,7 @@
             this.tabCharset.Controls.Add(this.characterEditor);
             this.tabCharset.Location = new System.Drawing.Point(4, 22);
             this.tabCharset.Name = "tabCharset";
-            this.tabCharset.Size = new System.Drawing.Size(1389, 669);
+            this.tabCharset.Size = new System.Drawing.Size(1385, 628);
             this.tabCharset.TabIndex = 3;
             this.tabCharset.Text = "Character Set";
             this.tabCharset.UseVisualStyleBackColor = true;
@@ -1455,7 +1458,7 @@
             this.characterEditor.Dock = System.Windows.Forms.DockStyle.Fill;
             this.characterEditor.Location = new System.Drawing.Point(0, 0);
             this.characterEditor.Name = "characterEditor";
-            this.characterEditor.Size = new System.Drawing.Size(1389, 669);
+            this.characterEditor.Size = new System.Drawing.Size(1385, 628);
             this.characterEditor.TabIndex = 0;
             this.characterEditor.Modified += new RetroDevStudio.Controls.CharacterEditor.ModifiedHandler(this.characterEditor_Modified);
             this.characterEditor.CharactersShifted += new RetroDevStudio.Controls.CharacterEditor.CharsetShiftedHandler(this.characterEditor_CharactersShifted);
@@ -1475,7 +1478,7 @@
             this.tabExport.Location = new System.Drawing.Point(4, 22);
             this.tabExport.Name = "tabExport";
             this.tabExport.Padding = new System.Windows.Forms.Padding(3);
-            this.tabExport.Size = new System.Drawing.Size(1389, 669);
+            this.tabExport.Size = new System.Drawing.Size(1385, 628);
             this.tabExport.TabIndex = 4;
             this.tabExport.Text = "Export";
             this.tabExport.UseVisualStyleBackColor = true;
@@ -1507,7 +1510,7 @@
             | System.Windows.Forms.AnchorStyles.Left)));
             this.panelExport.Location = new System.Drawing.Point(9, 83);
             this.panelExport.Name = "panelExport";
-            this.panelExport.Size = new System.Drawing.Size(842, 578);
+            this.panelExport.Size = new System.Drawing.Size(842, 537);
             this.panelExport.TabIndex = 41;
             // 
             // editDataExport
@@ -1519,7 +1522,7 @@
             this.editDataExport.Multiline = true;
             this.editDataExport.Name = "editDataExport";
             this.editDataExport.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.editDataExport.Size = new System.Drawing.Size(524, 655);
+            this.editDataExport.Size = new System.Drawing.Size(520, 614);
             this.editDataExport.TabIndex = 40;
             this.editDataExport.WordWrap = false;
             // 
@@ -1583,7 +1586,7 @@
             this.tabImport.Location = new System.Drawing.Point(4, 22);
             this.tabImport.Name = "tabImport";
             this.tabImport.Padding = new System.Windows.Forms.Padding(3);
-            this.tabImport.Size = new System.Drawing.Size(1389, 669);
+            this.tabImport.Size = new System.Drawing.Size(1385, 628);
             this.tabImport.TabIndex = 5;
             this.tabImport.Text = "Import";
             this.tabImport.UseVisualStyleBackColor = true;
@@ -1595,7 +1598,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.panelImport.Location = new System.Drawing.Point(-4, 32);
             this.panelImport.Name = "panelImport";
-            this.panelImport.Size = new System.Drawing.Size(1393, 637);
+            this.panelImport.Size = new System.Drawing.Size(1389, 596);
             this.panelImport.TabIndex = 37;
             // 
             // btnImport
@@ -1767,6 +1770,21 @@
             this.fastPictureBox2.Size = new System.Drawing.Size(644, 404);
             this.fastPictureBox2.TabIndex = 0;
             this.fastPictureBox2.TabStop = false;
+            // 
+            // viewToolStripMenuItem
+            // 
+            this.viewToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.keepMapCharacterAspectRatioToolStripMenuItem});
+            this.viewToolStripMenuItem.Name = "viewToolStripMenuItem";
+            this.viewToolStripMenuItem.Size = new System.Drawing.Size(44, 20);
+            this.viewToolStripMenuItem.Text = "View";
+            // 
+            // keepMapCharacterAspectRatioToolStripMenuItem
+            // 
+            this.keepMapCharacterAspectRatioToolStripMenuItem.CheckOnClick = true;
+            this.keepMapCharacterAspectRatioToolStripMenuItem.Name = "keepMapCharacterAspectRatioToolStripMenuItem";
+            this.keepMapCharacterAspectRatioToolStripMenuItem.Size = new System.Drawing.Size(243, 22);
+            this.keepMapCharacterAspectRatioToolStripMenuItem.Text = "Keep map character aspect ratio";
             // 
             // MapEditor
             // 
@@ -1943,5 +1961,7 @@
         private System.Windows.Forms.Label labelRightClickBehavior;
         private System.Windows.Forms.Label labelDesignerBackground;
         private System.Windows.Forms.ComboBox comboRightClickBehavior;
+        private System.Windows.Forms.ToolStripMenuItem viewToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem keepMapCharacterAspectRatioToolStripMenuItem;
     }
 }
