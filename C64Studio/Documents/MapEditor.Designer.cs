@@ -29,17 +29,20 @@
     private void InitializeComponent()
     {
             this.components = new System.ComponentModel.Container();
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MapEditor));
             GR.Image.FastImage fastImage1 = new GR.Image.FastImage();
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MapEditor));
             GR.Image.FastImage fastImage2 = new GR.Image.FastImage();
             GR.Image.FastImage fastImage3 = new GR.Image.FastImage();
             GR.Image.FastImage fastImage4 = new GR.Image.FastImage();
-            GR.Image.FastImage fastImage5 = new GR.Image.FastImage();
+            this.panelMapContainer = new System.Windows.Forms.Panel();
+            this.pictureEditor = new GR.Forms.FastPictureBox();
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.importCharsetToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.saveCharsetProjectToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.closeCharsetProjectToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.viewToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.keepMapCharacterAspectRatioToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.tabEditor = new System.Windows.Forms.TabPage();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.label19 = new System.Windows.Forms.Label();
@@ -99,7 +102,6 @@
             this.comboTiles = new System.Windows.Forms.ListBox();
             this.mapHScroll = new DecentForms.HScrollBar();
             this.mapVScroll = new DecentForms.VScrollBar();
-            this.pictureEditor = new GR.Forms.FastPictureBox();
             this.tabMapEditor = new System.Windows.Forms.TabControl();
             this.tabTiles = new System.Windows.Forms.TabPage();
             this.btnTileApply = new DecentForms.Button();
@@ -167,9 +169,9 @@
             this.fastPictureBox1 = new GR.Forms.FastPictureBox();
             this.fastPictureBox2 = new GR.Forms.FastPictureBox();
             this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
-            this.viewToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.keepMapCharacterAspectRatioToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.m_FileWatcher)).BeginInit();
+            this.panelMapContainer.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureEditor)).BeginInit();
             this.menuStrip1.SuspendLayout();
             this.tabEditor.SuspendLayout();
             this.groupBox1.SuspendLayout();
@@ -177,7 +179,6 @@
             this.groupSize.SuspendLayout();
             this.groupMapExtraData.SuspendLayout();
             this.flowLayoutPanel1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.pictureEditor)).BeginInit();
             this.tabMapEditor.SuspendLayout();
             this.tabTiles.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.panelCharColors)).BeginInit();
@@ -189,6 +190,36 @@
             ((System.ComponentModel.ISupportInitialize)(this.fastPictureBox1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.fastPictureBox2)).BeginInit();
             this.SuspendLayout();
+            // 
+            // panelMapContainer
+            // 
+            this.panelMapContainer.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.panelMapContainer.BackColor = System.Drawing.SystemColors.ControlDark;
+            this.panelMapContainer.Controls.Add(this.pictureEditor);
+            this.panelMapContainer.Location = new System.Drawing.Point(177, 42);
+            this.panelMapContainer.Name = "panelMapContainer";
+            this.panelMapContainer.Size = new System.Drawing.Size(814, 551);
+            this.panelMapContainer.TabIndex = 0;
+            // 
+            // pictureEditor
+            // 
+            this.pictureEditor.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.pictureEditor.AutoResize = false;
+            this.pictureEditor.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.pictureEditor.DisplayPage = fastImage1;
+            this.pictureEditor.Image = null;
+            this.pictureEditor.Location = new System.Drawing.Point(0, 0);
+            this.pictureEditor.Name = "pictureEditor";
+            this.pictureEditor.Size = new System.Drawing.Size(1258, 855);
+            this.pictureEditor.TabIndex = 0;
+            this.pictureEditor.TabStop = false;
+            this.pictureEditor.Paint += new System.Windows.Forms.PaintEventHandler(this.pictureEditor_Paint);
+            this.pictureEditor.MouseDown += new System.Windows.Forms.MouseEventHandler(this.pictureEditor_MouseDown);
+            this.pictureEditor.MouseMove += new System.Windows.Forms.MouseEventHandler(this.pictureEditor_MouseMove);
             // 
             // menuStrip1
             // 
@@ -234,6 +265,21 @@
             this.closeCharsetProjectToolStripMenuItem.Text = "&Close Charset Project";
             this.closeCharsetProjectToolStripMenuItem.Click += new System.EventHandler(this.closeCharsetProjectToolStripMenuItem_Click);
             // 
+            // viewToolStripMenuItem
+            // 
+            this.viewToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.keepMapCharacterAspectRatioToolStripMenuItem});
+            this.viewToolStripMenuItem.Name = "viewToolStripMenuItem";
+            this.viewToolStripMenuItem.Size = new System.Drawing.Size(44, 20);
+            this.viewToolStripMenuItem.Text = "View";
+            // 
+            // keepMapCharacterAspectRatioToolStripMenuItem
+            // 
+            this.keepMapCharacterAspectRatioToolStripMenuItem.CheckOnClick = true;
+            this.keepMapCharacterAspectRatioToolStripMenuItem.Name = "keepMapCharacterAspectRatioToolStripMenuItem";
+            this.keepMapCharacterAspectRatioToolStripMenuItem.Size = new System.Drawing.Size(243, 22);
+            this.keepMapCharacterAspectRatioToolStripMenuItem.Text = "Keep map character aspect ratio";
+            // 
             // tabEditor
             // 
             this.tabEditor.Controls.Add(this.groupBox1);
@@ -241,7 +287,7 @@
             this.tabEditor.Controls.Add(this.comboTiles);
             this.tabEditor.Controls.Add(this.mapHScroll);
             this.tabEditor.Controls.Add(this.mapVScroll);
-            this.tabEditor.Controls.Add(this.pictureEditor);
+            this.tabEditor.Controls.Add(this.panelMapContainer);
             this.tabEditor.Location = new System.Drawing.Point(4, 22);
             this.tabEditor.Name = "tabEditor";
             this.tabEditor.Padding = new System.Windows.Forms.Padding(3);
@@ -965,24 +1011,6 @@
             this.mapVScroll.TabIndex = 23;
             this.mapVScroll.Value = 0;
             this.mapVScroll.Scroll += new DecentForms.EventHandler(this.mapVScroll_Scroll);
-            // 
-            // pictureEditor
-            // 
-            this.pictureEditor.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.pictureEditor.AutoResize = false;
-            this.pictureEditor.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.pictureEditor.DisplayPage = fastImage1;
-            this.pictureEditor.Image = null;
-            this.pictureEditor.Location = new System.Drawing.Point(174, 39);
-            this.pictureEditor.Name = "pictureEditor";
-            this.pictureEditor.Size = new System.Drawing.Size(819, 554);
-            this.pictureEditor.TabIndex = 0;
-            this.pictureEditor.TabStop = false;
-            this.pictureEditor.Paint += new System.Windows.Forms.PaintEventHandler(this.pictureEditor_Paint);
-            this.pictureEditor.MouseDown += new System.Windows.Forms.MouseEventHandler(this.pictureEditor_MouseDown);
-            this.pictureEditor.MouseMove += new System.Windows.Forms.MouseEventHandler(this.pictureEditor_MouseMove);
             // 
             // tabMapEditor
             // 
@@ -1763,28 +1791,13 @@
             // 
             this.fastPictureBox2.AutoResize = false;
             this.fastPictureBox2.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.fastPictureBox2.DisplayPage = fastImage5;
+            this.fastPictureBox2.DisplayPage = fastImage1;
             this.fastPictureBox2.Image = null;
             this.fastPictureBox2.Location = new System.Drawing.Point(8, 6);
             this.fastPictureBox2.Name = "fastPictureBox2";
             this.fastPictureBox2.Size = new System.Drawing.Size(644, 404);
             this.fastPictureBox2.TabIndex = 0;
             this.fastPictureBox2.TabStop = false;
-            // 
-            // viewToolStripMenuItem
-            // 
-            this.viewToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.keepMapCharacterAspectRatioToolStripMenuItem});
-            this.viewToolStripMenuItem.Name = "viewToolStripMenuItem";
-            this.viewToolStripMenuItem.Size = new System.Drawing.Size(44, 20);
-            this.viewToolStripMenuItem.Text = "View";
-            // 
-            // keepMapCharacterAspectRatioToolStripMenuItem
-            // 
-            this.keepMapCharacterAspectRatioToolStripMenuItem.CheckOnClick = true;
-            this.keepMapCharacterAspectRatioToolStripMenuItem.Name = "keepMapCharacterAspectRatioToolStripMenuItem";
-            this.keepMapCharacterAspectRatioToolStripMenuItem.Size = new System.Drawing.Size(243, 22);
-            this.keepMapCharacterAspectRatioToolStripMenuItem.Text = "Keep map character aspect ratio";
             // 
             // MapEditor
             // 
@@ -1795,6 +1808,8 @@
             this.Name = "MapEditor";
             this.Text = "Map Editor";
             ((System.ComponentModel.ISupportInitialize)(this.m_FileWatcher)).EndInit();
+            this.panelMapContainer.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.pictureEditor)).EndInit();
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
             this.tabEditor.ResumeLayout(false);
@@ -1807,7 +1822,6 @@
             this.groupMapExtraData.PerformLayout();
             this.flowLayoutPanel1.ResumeLayout(false);
             this.flowLayoutPanel1.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.pictureEditor)).EndInit();
             this.tabMapEditor.ResumeLayout(false);
             this.tabTiles.ResumeLayout(false);
             this.tabTiles.PerformLayout();
@@ -1835,6 +1849,7 @@
     private System.Windows.Forms.ToolStripMenuItem closeCharsetProjectToolStripMenuItem;
     private System.Windows.Forms.ToolStripMenuItem saveCharsetProjectToolStripMenuItem;
     private System.Windows.Forms.TabPage tabEditor;
+    private System.Windows.Forms.Panel panelMapContainer;
     private GR.Forms.FastPictureBox pictureEditor;
     private System.Windows.Forms.TabControl tabMapEditor;
     private System.Windows.Forms.TabPage tabTiles;

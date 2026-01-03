@@ -17,4 +17,5 @@
 - **Export Logic**: 
   - Ensure new export features are implemented for both "Data" and "Assembly" export paths where applicable.
   - Respect existing formatting settings (Label Prefix, Hex/Dec format, etc.).
-  
+## Interaction
+- Everytime the user asks you for changes, evaluate the changes and rank them according to ambiguity. In case of medium or high ambiguity, ask the user about the two most ambiguous changes for clarification before proceeding.

@@ -151,6 +151,8 @@ namespace RetroDevStudio.Documents
       }
 
       pictureEditor.MouseWheel += pictureEditor_MouseWheel;
+      keepMapCharacterAspectRatioToolStripMenuItem.Click += keepMapCharacterAspectRatioToolStripMenuItem_Click;
+      tabEditor.Resize += tabEditor_Resize;
       pictureEditor.DisplayPage.Create( MapDisplayBaseWidth, MapDisplayBaseHeight, GR.Drawing.PixelFormat.Format32bppRgb );
       pictureEditor.PostPaint += PictureEditor_PostPaint;
       pictureTileDisplay.ClientSize = new System.Drawing.Size( 256, 256 );
@@ -562,7 +564,8 @@ namespace RetroDevStudio.Documents
       }
 
       if ( ( checkShowMarkers.Checked )
-      &&   ( m_CurrentMap != null ) )
+      &&   ( m_CurrentMap != null )
+      &&   ( m_ToolMode == ToolMode.MARKER ) )
       {
         if ( m_ToolMode == ToolMode.MARKER )
         {
@@ -1790,6 +1793,8 @@ namespace RetroDevStudio.Documents
       comboTileBGColor4.SelectedIndex = m_MapProject.BGColor4;
       comboMapProjectMode.SelectedIndex = (int)m_MapProject.Mode;
       checkShowGrid.Checked = m_MapProject.ShowGrid;
+      keepMapCharacterAspectRatioToolStripMenuItem.Checked = m_MapProject.KeepCharacterAspectRatio;
+      UpdateMapAspectRatio();
       ApplyExportSettingsToUI();
 
       for ( int i = 0; i < m_MapProject.Charset.TotalNumberOfCharacters; ++i )
@@ -5119,6 +5124,60 @@ namespace RetroDevStudio.Documents
        e.Graphics.DrawRectangle( System.Drawing.Pens.Black, e.Bounds.X + 2, e.Bounds.Y + 2, e.Bounds.Width - 5, e.Bounds.Height - 5 );
        
        e.DrawFocusRectangle();
+    }
+
+    private void keepMapCharacterAspectRatioToolStripMenuItem_Click( object sender, EventArgs e )
+    {
+      m_MapProject.KeepCharacterAspectRatio = keepMapCharacterAspectRatioToolStripMenuItem.Checked;
+      Modified = true;
+      UpdateMapAspectRatio();
+    }
+
+    private void UpdateMapAspectRatio()
+    {
+      if ( ( m_MapProject == null )
+      ||   ( pictureEditor == null ) )
+      {
+        return;
+      }
+      if ( m_MapProject.KeepCharacterAspectRatio )
+      {
+        int     availableWidth = pictureEditor.Parent.ClientSize.Width;
+        int     availableHeight = pictureEditor.Parent.ClientSize.Height;
+
+        double    aspectRatio = 1.0;
+        if ( pictureEditor.DisplayPage.Height > 0 )
+        {
+          aspectRatio = (double)pictureEditor.DisplayPage.Width / pictureEditor.DisplayPage.Height;
+        }
+
+        int     pixelWidth = availableWidth;
+        int     pixelHeight = availableHeight;
+
+        if ( pixelWidth > pixelHeight * aspectRatio )
+        {
+          pixelWidth = (int)( pixelHeight * aspectRatio );
+        }
+        else
+        {
+          pixelHeight = (int)( pixelWidth / aspectRatio );
+        }
+
+        pictureEditor.Anchor = System.Windows.Forms.AnchorStyles.None;
+        pictureEditor.Size = new System.Drawing.Size( pixelWidth, pixelHeight );
+        pictureEditor.Location = new System.Drawing.Point( ( availableWidth - pixelWidth ) / 2, ( availableHeight - pixelHeight ) / 2 );
+      }
+      else
+      {
+        pictureEditor.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
+        pictureEditor.Size = pictureEditor.Parent.ClientSize;
+        pictureEditor.Location = new System.Drawing.Point( 0, 0 );
+      }
+    }
+
+    private void tabEditor_Resize( object sender, EventArgs e )
+    {
+       UpdateMapAspectRatio();
     }
   }
 }
