@@ -54,6 +54,11 @@ namespace RetroDevStudio.Controls
     private int                         m_CharacterEditorOrigWidth = -1;
     private int                         m_CharacterEditorOrigHeight = -1;
 
+    private int                         m_EditorWidthInChars = 1;
+    private int                         m_EditorHeightInChars = 1;
+    private int                         m_CharactersPerRow = 40;
+    private int                         m_ZoomLevel = 1;
+
 
     public bool AllowModeChange
     {
@@ -137,6 +142,26 @@ namespace RetroDevStudio.Controls
       listCategories.Items.Add( itemUn );
       comboCategories.Items.Add( itemUn.Name );
       RefreshCategoryCounts();
+
+      comboCharactersPerRow.SelectedIndex = 5; // 40 isn't in the list? default to 40 logic if possible, otherwise index 5 is 64? Wait, let's check items.
+      // Items: 2, 4, 8, 16, 32, 64, 128
+      // Index 5 is 64. 40 isn't there. The user provided screenshot shows "Characters per row:" and a combo. 
+      // The user wants a combo to define how many characters per row. 
+      // Adding 40 to the list might be good, or just work with what we have. 
+      // Let's assume for now we use what's there, but I should probably add 40.
+      if ( !comboCharactersPerRow.Items.Contains( "40" ) )
+      {
+         comboCharactersPerRow.Items.Add( "40" );
+      }
+      comboCharactersPerRow.SelectedItem = "40";
+      m_CharactersPerRow = 40;
+      
+      this.ButtonCanvas1z1.Click += new DecentForms.EventHandler(this.ButtonCanvas1z1_Click);
+      this.ButtonCanvas2x2.Click += new DecentForms.EventHandler(this.ButtonCanvas2x2_Click);
+      this.ButtonCanvas4x4.Click += new DecentForms.EventHandler(this.ButtonCanvas4x4_Click);
+      this.btnZoomIn.Click += new DecentForms.EventHandler(this.btnZoomIn_Click);
+      this.btnZoomOut.Click += new DecentForms.EventHandler(this.btnZoomOut_Click);
+      this.comboCharactersPerRow.SelectedIndexChanged += new System.EventHandler(this.comboCharactersPerRow_SelectedIndexChanged);
 
       DoNotUpdateFromControls = false;
     }
@@ -1172,12 +1197,33 @@ namespace RetroDevStudio.Controls
 
     private void HandleMouseOnEditor( int X, int Y, MouseButtons Buttons )
     {
-      int     charX = ( m_CharacterWidth * X ) / canvasEditor.ClientRectangle.Width;
-      int     charY = ( m_CharacterHeight * Y ) / canvasEditor.ClientRectangle.Height;
+      int     charX = ( m_CharacterWidth * m_EditorWidthInChars * X ) / canvasEditor.ClientRectangle.Width;
+      int     charY = ( m_CharacterHeight * m_EditorHeightInChars * Y ) / canvasEditor.ClientRectangle.Height;
 
-      int     affectedCharIndex = m_CurrentChar;
-      var     origAffectedChar = m_Project.Characters[m_CurrentChar];
-      var     affectedChar = m_Project.Characters[m_CurrentChar];
+      if ( charX >= m_CharacterWidth * m_EditorWidthInChars )
+      {
+        charX = m_CharacterWidth * m_EditorWidthInChars - 1;
+      }
+      if ( charY >= m_CharacterHeight * m_EditorHeightInChars )
+      {
+        charY = m_CharacterHeight * m_EditorHeightInChars - 1;
+      }
+      
+      int     charIndexX = charX / m_CharacterWidth;
+      int     charIndexY = charY / m_CharacterHeight;
+      
+      charX %= m_CharacterWidth;
+      charY %= m_CharacterHeight;
+      
+      int     affectedCharIndex = m_CurrentChar + charIndexX + charIndexY * m_CharactersPerRow;
+
+      if ( affectedCharIndex >= m_Project.Characters.Count )
+      {
+        // outside
+        return;
+      }
+      var     origAffectedChar = m_Project.Characters[affectedCharIndex];
+      var     affectedChar = m_Project.Characters[affectedCharIndex];
       if ( m_Project.Mode == TextCharMode.COMMODORE_ECM )
       {
         affectedCharIndex %= 64;
@@ -2678,53 +2724,82 @@ namespace RetroDevStudio.Controls
     private void canvasEditor_Paint( object sender, PaintEventArgs e )
     {
       e.Graphics.FillRectangle( System.Drawing.Brushes.Black, 0, 0, canvasEditor.ClientSize.Width, canvasEditor.ClientSize.Height );
+      e.Graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+      e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
 
-      Displayer.CharacterDisplayer.DisplayChar( m_Project, m_CurrentChar, new CustomDrawControlContext( e.Graphics, canvasEditor.ClientSize.Width, canvasEditor.ClientSize.Height )
+      for ( int y = 0; y < m_EditorHeightInChars; ++y )
       {
-        Palette = m_Project.Colors.Palette
-      } );
-
-      if ( m_CurrentChar >= m_Project.Characters.Count )
-      {
-        Debug.Log( $"canvasEditor_Paint, trying to paint character {m_CurrentChar} of {m_Project.Characters.Count}" );
-        return;
-      }
-
-      int numPixelWidth = Lookup.CharacterWidthInPixel( Lookup.GraphicTileModeFromTextCharMode( m_Project.Mode, m_Project.Characters[m_CurrentChar].Tile.CustomColor ) );
-      int numPixelHeight = Lookup.CharacterHeightInPixel( Lookup.GraphicTileModeFromTextCharMode( m_Project.Mode, m_Project.Characters[m_CurrentChar].Tile.CustomColor ) );
-
-      if ( m_Project.ShowGrid )
-      {
-        if ( ( ( m_Project.Mode == TextCharMode.COMMODORE_MULTICOLOR )
-        ||     ( m_Project.Mode == TextCharMode.MEGA65_NCM )
-        ||     ( m_Project.Mode == TextCharMode.VIC20 ) )
-        &&   ( m_Project.Characters[m_CurrentChar].Tile.CustomColor >= 8 ) )
+        for ( int x = 0; x < m_EditorWidthInChars; ++x )
         {
-          for ( int i = 0; i < numPixelWidth / 2; ++i )
-          {
-            e.Graphics.DrawLine( System.Drawing.Pens.White,
-                                  ( i * canvasEditor.ClientSize.Width ) / ( numPixelWidth / 2 ), 0,
-                                  ( i * canvasEditor.ClientSize.Width ) / ( numPixelWidth / 2 ), canvasEditor.ClientSize.Height - 1 );
-          }
-          for ( int i = 0; i < numPixelHeight; ++i )
-          {
-            e.Graphics.DrawLine( System.Drawing.Pens.White,
-                                  0, ( i * canvasEditor.ClientSize.Height ) / numPixelHeight,
-                                  canvasEditor.ClientSize.Width - 1, ( i * canvasEditor.ClientSize.Height ) / numPixelHeight );
-          }
-        }
-        else
-        {
-          for ( int i = 0; i < numPixelWidth; ++i )
-          {
-            e.Graphics.DrawLine( System.Drawing.Pens.White,
-                                  ( i * canvasEditor.ClientSize.Width ) / numPixelWidth, 0,
-                                  ( i * canvasEditor.ClientSize.Width ) / numPixelWidth, canvasEditor.ClientSize.Height - 1 );
+          int     charIndex = m_CurrentChar + x + y * m_CharactersPerRow;
 
-            e.Graphics.DrawLine( System.Drawing.Pens.White,
-                                  0, ( i * canvasEditor.ClientSize.Height ) / numPixelHeight,
-                                  canvasEditor.ClientSize.Width - 1, ( i * canvasEditor.ClientSize.Height ) / numPixelHeight );
+          if ( charIndex >= m_Project.Characters.Count )
+          {
+            continue;
           }
+
+          int numPixelWidth = Lookup.CharacterWidthInPixel( Lookup.GraphicTileModeFromTextCharMode( m_Project.Mode, m_Project.Characters[charIndex].Tile.CustomColor ) );
+          int numPixelHeight = Lookup.CharacterHeightInPixel( Lookup.GraphicTileModeFromTextCharMode( m_Project.Mode, m_Project.Characters[charIndex].Tile.CustomColor ) );
+
+          // scale up
+          int     destWidth = ( canvasEditor.ClientSize.Width * numPixelWidth ) / ( m_CharacterWidth * m_EditorWidthInChars );
+          int     destHeight = ( canvasEditor.ClientSize.Height * numPixelHeight ) / ( m_CharacterHeight * m_EditorHeightInChars );
+
+          var state = e.Graphics.Save();
+          e.Graphics.TranslateTransform( x * destWidth, y * destHeight );
+
+          int     localWidth = destWidth;
+          int     localHeight = destHeight;
+
+          // clip local rect
+          e.Graphics.SetClip( new Rectangle( 0, 0, localWidth, localHeight ) );
+
+          Displayer.CharacterDisplayer.DisplayChar( m_Project, charIndex, new CustomDrawControlContext( e.Graphics, localWidth, localHeight )
+          {
+            Palette = m_Project.Colors.Palette
+          } );
+
+          if ( m_Project.ShowGrid )
+          {
+            if ( ( ( m_Project.Mode == TextCharMode.COMMODORE_MULTICOLOR )
+            ||     ( m_Project.Mode == TextCharMode.MEGA65_NCM )
+            ||     ( m_Project.Mode == TextCharMode.VIC20 ) )
+            &&   ( m_Project.Characters[charIndex].Tile.CustomColor >= 8 ) )
+            {
+              for ( int i = 0; i < numPixelWidth / 2; ++i )
+              {
+                e.Graphics.DrawLine( System.Drawing.Pens.White,
+                                      ( i * localWidth ) / ( numPixelWidth / 2 ), 0,
+                                      ( i * localWidth ) / ( numPixelWidth / 2 ), localHeight - 1 );
+              }
+              for ( int i = 0; i < numPixelHeight; ++i )
+              {
+                e.Graphics.DrawLine( System.Drawing.Pens.White,
+                                      0, ( i * localHeight ) / numPixelHeight,
+                                      localWidth - 1, ( i * localHeight ) / numPixelHeight );
+              }
+            }
+            else
+            {
+              for ( int i = 0; i < numPixelWidth; ++i )
+              {
+                e.Graphics.DrawLine( System.Drawing.Pens.White,
+                                      ( i * localWidth ) / numPixelWidth, 0,
+                                      ( i * localWidth ) / numPixelWidth, localHeight - 1 );
+
+                e.Graphics.DrawLine( System.Drawing.Pens.White,
+                                      0, ( i * localHeight ) / numPixelHeight,
+                                      localWidth - 1, ( i * localHeight ) / numPixelHeight );
+              }
+            }
+          }
+          if ( ( m_EditorWidthInChars > 1 )
+          ||   ( m_EditorHeightInChars > 1 ) )
+          {
+            e.Graphics.DrawRectangle( System.Drawing.Pens.Yellow, 0, 0, localWidth - 1, localHeight - 1 );
+          }
+          e.Graphics.Restore( state );
+
         }
       }
     }
@@ -2759,8 +2834,8 @@ namespace RetroDevStudio.Controls
       // adjust aspect ratio of the editor
       int   biggerSize = Math.Max( m_CharacterWidth, m_CharacterHeight );
 
-      canvasEditor.Size = new System.Drawing.Size( m_CharacterWidth * m_CharacterEditorOrigWidth / biggerSize,
-                                                    m_CharacterHeight * m_CharacterEditorOrigHeight / biggerSize );
+      canvasEditor.Size = new System.Drawing.Size( m_CharacterWidth * m_ZoomLevel * m_EditorWidthInChars * m_CharacterEditorOrigWidth / biggerSize,
+                                                    m_CharacterHeight * m_ZoomLevel * m_EditorHeightInChars * m_CharacterEditorOrigHeight / biggerSize );
 
       panelCharacters.ItemWidth = m_CharacterWidth;
       panelCharacters.ItemHeight = m_CharacterHeight;
@@ -3385,6 +3460,58 @@ namespace RetroDevStudio.Controls
     }
 
 
+
+    private void ButtonCanvas1z1_Click( DecentForms.ControlBase Sender )
+    {
+      m_EditorWidthInChars = 1;
+      m_EditorHeightInChars = 1;
+      AdjustCharacterSizes();
+      canvasEditor.Invalidate();
+    }
+
+    private void ButtonCanvas2x2_Click( DecentForms.ControlBase Sender )
+    {
+      m_EditorWidthInChars = 2;
+      m_EditorHeightInChars = 2;
+      AdjustCharacterSizes();
+      canvasEditor.Invalidate();
+    }
+
+    private void ButtonCanvas4x4_Click( DecentForms.ControlBase Sender )
+    {
+      m_EditorWidthInChars = 4;
+      m_EditorHeightInChars = 4;
+      AdjustCharacterSizes();
+      canvasEditor.Invalidate();
+    }
+
+    private void btnZoomIn_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_ZoomLevel < 8 )
+      {
+        m_ZoomLevel *= 2;
+        labelZoom.Text = ( m_ZoomLevel * 100 ).ToString() + "%";
+        AdjustCharacterSizes();
+        canvasEditor.Invalidate();
+      }
+    }
+
+    private void btnZoomOut_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_ZoomLevel > 1 )
+      {
+        m_ZoomLevel /= 2;
+        labelZoom.Text = ( m_ZoomLevel * 100 ).ToString() + "%";
+        AdjustCharacterSizes();
+        canvasEditor.Invalidate();
+      }
+    }
+
+    private void comboCharactersPerRow_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      int.TryParse( comboCharactersPerRow.SelectedItem.ToString(), out m_CharactersPerRow );
+      canvasEditor.Invalidate();
+    }
 
   }
 }

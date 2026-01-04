@@ -57,7 +57,7 @@
             this.label3 = new System.Windows.Forms.Label();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.labelZoom = new System.Windows.Forms.Label();
-            this.comboBox1 = new System.Windows.Forms.ComboBox();
+            this.comboCharactersPerRow = new System.Windows.Forms.ComboBox();
             this.btnZoomOut = new DecentForms.Button();
             this.btnZoomIn = new DecentForms.Button();
             this.ButtonCanvas4x4 = new DecentForms.Button();
@@ -175,7 +175,7 @@
             // tabEditor
             // 
             this.tabEditor.Controls.Add(this.label1);
-            this.tabEditor.Controls.Add(this.comboBox1);
+            this.tabEditor.Controls.Add(this.comboCharactersPerRow);
             this.tabEditor.Controls.Add(this.btnZoomOut);
             this.tabEditor.Controls.Add(this.btnZoomIn);
             this.tabEditor.Controls.Add(this.labelZoom);
@@ -386,11 +386,11 @@
             this.labelZoom.TabIndex = 57;
             this.labelZoom.Text = "100%";
             // 
-            // comboBox1
+            // comboCharactersPerRow
             // 
-            this.comboBox1.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboBox1.FormattingEnabled = true;
-            this.comboBox1.Items.AddRange(new object[] {
+            this.comboCharactersPerRow.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboCharactersPerRow.FormattingEnabled = true;
+            this.comboCharactersPerRow.Items.AddRange(new object[] {
             "2",
             "4",
             "8",
@@ -398,10 +398,10 @@
             "32",
             "64",
             "128"});
-            this.comboBox1.Location = new System.Drawing.Point(111, 374);
-            this.comboBox1.Name = "comboBox1";
-            this.comboBox1.Size = new System.Drawing.Size(71, 21);
-            this.comboBox1.TabIndex = 60;
+            this.comboCharactersPerRow.Location = new System.Drawing.Point(111, 374);
+            this.comboCharactersPerRow.Name = "comboCharactersPerRow";
+            this.comboCharactersPerRow.Size = new System.Drawing.Size(71, 21);
+            this.comboCharactersPerRow.TabIndex = 60;
             // 
             // btnZoomOut
             // 
@@ -1022,7 +1022,7 @@
         private DecentForms.Button btnZoomOut;
         private DecentForms.Button btnZoomIn;
         private System.Windows.Forms.Label labelZoom;
-        private System.Windows.Forms.ComboBox comboBox1;
+        private System.Windows.Forms.ComboBox comboCharactersPerRow;
         private System.Windows.Forms.Label label1;
     }
 }
