@@ -56,8 +56,27 @@ namespace RetroDevStudio.Controls
 
     private int                         m_EditorWidthInChars = 1;
     private int                         m_EditorHeightInChars = 1;
-    private int                         m_CharactersPerRow = 40;
     private int                         m_ZoomLevel = 1;
+
+A    
+    public int CharactersPerRow
+    {
+      get
+      {
+        return int.Parse( comboCharactersPerRow.SelectedItem.ToString() );
+      }
+      set
+      {
+        for ( int i = 0; i < comboCharactersPerRow.Items.Count; ++i )
+        {
+          if ( comboCharactersPerRow.Items[i].ToString() == value.ToString() )
+          {
+            comboCharactersPerRow.SelectedIndex = i;
+            return;
+          }
+        }
+      }
+    }
 
 
     public bool AllowModeChange
@@ -143,18 +162,7 @@ namespace RetroDevStudio.Controls
       comboCategories.Items.Add( itemUn.Name );
       RefreshCategoryCounts();
 
-      comboCharactersPerRow.SelectedIndex = 5; // 40 isn't in the list? default to 40 logic if possible, otherwise index 5 is 64? Wait, let's check items.
-      // Items: 2, 4, 8, 16, 32, 64, 128
-      // Index 5 is 64. 40 isn't there. The user provided screenshot shows "Characters per row:" and a combo. 
-      // The user wants a combo to define how many characters per row. 
-      // Adding 40 to the list might be good, or just work with what we have. 
-      // Let's assume for now we use what's there, but I should probably add 40.
-      if ( !comboCharactersPerRow.Items.Contains( "40" ) )
-      {
-         comboCharactersPerRow.Items.Add( "40" );
-      }
-      comboCharactersPerRow.SelectedItem = "40";
-      m_CharactersPerRow = 40;
+      comboCharactersPerRow.SelectedIndex = 5; 
       
       this.ButtonCanvas1z1.Click += new DecentForms.EventHandler(this.ButtonCanvas1z1_Click);
       this.ButtonCanvas2x2.Click += new DecentForms.EventHandler(this.ButtonCanvas2x2_Click);
@@ -1215,7 +1223,7 @@ namespace RetroDevStudio.Controls
       charX %= m_CharacterWidth;
       charY %= m_CharacterHeight;
       
-      int     affectedCharIndex = m_CurrentChar + charIndexX + charIndexY * m_CharactersPerRow;
+      int     affectedCharIndex = m_CurrentChar + charIndexX + charIndexY * CharactersPerRow;
 
       if ( affectedCharIndex >= m_Project.Characters.Count )
       {
@@ -2731,7 +2739,7 @@ namespace RetroDevStudio.Controls
       {
         for ( int x = 0; x < m_EditorWidthInChars; ++x )
         {
-          int     charIndex = m_CurrentChar + x + y * m_CharactersPerRow;
+          int     charIndex = m_CurrentChar + x + y * CharactersPerRow;
 
           if ( charIndex >= m_Project.Characters.Count )
           {
@@ -2834,8 +2842,8 @@ namespace RetroDevStudio.Controls
       // adjust aspect ratio of the editor
       int   biggerSize = Math.Max( m_CharacterWidth, m_CharacterHeight );
 
-      canvasEditor.Size = new System.Drawing.Size( m_CharacterWidth * m_ZoomLevel * m_EditorWidthInChars * m_CharacterEditorOrigWidth / biggerSize,
-                                                    m_CharacterHeight * m_ZoomLevel * m_EditorHeightInChars * m_CharacterEditorOrigHeight / biggerSize );
+      canvasEditor.Size = new System.Drawing.Size( m_CharacterWidth * m_ZoomLevel * m_CharacterEditorOrigWidth / biggerSize,
+                                                    m_CharacterHeight * m_ZoomLevel * m_CharacterEditorOrigHeight / biggerSize );
 
       panelCharacters.ItemWidth = m_CharacterWidth;
       panelCharacters.ItemHeight = m_CharacterHeight;
@@ -3509,7 +3517,6 @@ namespace RetroDevStudio.Controls
 
     private void comboCharactersPerRow_SelectedIndexChanged( object sender, EventArgs e )
     {
-      int.TryParse( comboCharactersPerRow.SelectedItem.ToString(), out m_CharactersPerRow );
       canvasEditor.Invalidate();
     }
 

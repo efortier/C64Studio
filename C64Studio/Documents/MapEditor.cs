@@ -1803,7 +1803,9 @@ namespace RetroDevStudio.Documents
       }
       RedrawMap();
       RedrawColorChooser();
+      RedrawColorChooser();
       characterEditor.CharsetUpdated( m_MapProject.Charset );
+      characterEditor.CharactersPerRow = m_MapProject.CharactersPerRow;
       Modified = false;
       if ( string.IsNullOrEmpty( DocumentInfo.DocumentFilename ) )
       {
@@ -1998,6 +2000,7 @@ namespace RetroDevStudio.Documents
     public override GR.Memory.ByteBuffer SaveToBuffer()
     {
       UpdateExportSettingsFromUI( false );
+      m_MapProject.CharactersPerRow = characterEditor.CharactersPerRow;
       return m_MapProject.SaveToBuffer();
     }
 

@@ -148,6 +148,7 @@ namespace RetroDevStudio.Formats
     public CharsetProject               Charset = new Formats.CharsetProject();
     public bool                         ShowGrid = false;
     public bool                         KeepCharacterAspectRatio = false;
+    public int                          CharactersPerRow = 16;
     public ExportSettings               Settings = new ExportSettings();
 
 
@@ -172,6 +173,7 @@ namespace RetroDevStudio.Formats
       Maps.Clear();
       ExternalCharset = "";
       RightClickAction = "";
+      CharactersPerRow = 16;
       Settings = new ExportSettings();
     }
 
@@ -183,11 +185,12 @@ namespace RetroDevStudio.Formats
 
       GR.IO.FileChunk chunkProjectInfo = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_INFO );
       // version
-      chunkProjectInfo.AppendU32( 2 );
+      chunkProjectInfo.AppendU32( 3 );
       chunkProjectInfo.AppendString( ExternalCharset );
       chunkProjectInfo.AppendI32( ShowGrid ? 1 : 0 );
       chunkProjectInfo.AppendString( RightClickAction );
       chunkProjectInfo.AppendI32( KeepCharacterAspectRatio ? 1 : 0 );
+      chunkProjectInfo.AppendI32( CharactersPerRow );
       projectFile.Append( chunkProjectInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkCharset = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET );
@@ -374,6 +377,10 @@ namespace RetroDevStudio.Formats
               if ( version >= 2 )
               {
                 KeepCharacterAspectRatio = ( chunkReader.ReadInt32() == 1 );
+              }
+              if ( version >= 3 )
+              {
+                CharactersPerRow = chunkReader.ReadInt32();
               }
               else
               {

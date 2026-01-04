@@ -22,3 +22,7 @@ trigger: always_on
   - Respect existing formatting settings (Label Prefix, Hex/Dec format, etc.).
 ## Interaction
 - Everytime the user asks you for changes, evaluate the changes and rank them according to ambiguity. In case of medium or high ambiguity, ask the user about the two most ambiguous changes for clarification before proceeding.
+## Coding
+- **Comments**:
+  - Never add "chain of thoughts" comments in the code.
+  - When adding comments, it must describe WHAT the code intends to do, not now it does it.
