@@ -66,8 +66,11 @@ namespace RetroDevStudio.Controls
             this.checkExportPassableBitfieldsAsBinary = new System.Windows.Forms.CheckBox();
             this.checkExportMarkers = new System.Windows.Forms.CheckBox();
             this.checkExportMapAsCharAndColors = new System.Windows.Forms.CheckBox();
+            this.groupPrefixCode = new System.Windows.Forms.GroupBox();
+            this.editPrefixCode = new System.Windows.Forms.TextBox();
             this.groupAutoSave.SuspendLayout();
             this.groupCharset.SuspendLayout();
+            this.groupPrefixCode.SuspendLayout();
             this.SuspendLayout();
             // 
             // checkExportHex
@@ -347,9 +350,9 @@ namespace RetroDevStudio.Controls
             this.groupCharset.Location = new System.Drawing.Point(3, 325);
             this.groupCharset.Name = "groupCharset";
             this.groupCharset.Size = new System.Drawing.Size(397, 100);
-            this.groupCharset.TabIndex = 24;
+            this.groupCharset.TabIndex = 23;
             this.groupCharset.TabStop = false;
-            this.groupCharset.Text = "Character set";
+            this.groupCharset.Text = "Character Set";
             // 
             // editCharsetExportFilename
             // 
@@ -420,23 +423,12 @@ namespace RetroDevStudio.Controls
             this.checkAlwaysOverwrite.UseVisualStyleBackColor = true;
             this.checkAlwaysOverwrite.CheckedChanged += new System.EventHandler(this.HandleSettingsChanged);
             // 
-            // checkExportMapAsCharAndColors
-            // 
-            this.checkExportMapAsCharAndColors.AutoSize = true;
-            this.checkExportMapAsCharAndColors.Location = new System.Drawing.Point(420, 100);
-            this.checkExportMapAsCharAndColors.Name = "checkExportMapAsCharAndColors";
-            this.checkExportMapAsCharAndColors.Size = new System.Drawing.Size(152, 17);
-            this.checkExportMapAsCharAndColors.TabIndex = 23;
-            this.checkExportMapAsCharAndColors.Text = "Export map as character and colors";
-            this.checkExportMapAsCharAndColors.UseVisualStyleBackColor = true;
-            this.checkExportMapAsCharAndColors.CheckedChanged += new System.EventHandler(this.HandleSettingsChanged);
-            // 
             // checkExportPassableBitfields
             // 
             this.checkExportPassableBitfields.AutoSize = true;
             this.checkExportPassableBitfields.Location = new System.Drawing.Point(420, 124);
             this.checkExportPassableBitfields.Name = "checkExportPassableBitfields";
-            this.checkExportPassableBitfields.Size = new System.Drawing.Size(155, 17);
+            this.checkExportPassableBitfields.Size = new System.Drawing.Size(149, 17);
             this.checkExportPassableBitfields.TabIndex = 24;
             this.checkExportPassableBitfields.Text = "Include \'Passable\' bitfields";
             this.checkExportPassableBitfields.UseVisualStyleBackColor = true;
@@ -447,7 +439,7 @@ namespace RetroDevStudio.Controls
             this.checkExportPassableBitfieldsAsBinary.AutoSize = true;
             this.checkExportPassableBitfieldsAsBinary.Location = new System.Drawing.Point(420, 148);
             this.checkExportPassableBitfieldsAsBinary.Name = "checkExportPassableBitfieldsAsBinary";
-            this.checkExportPassableBitfieldsAsBinary.Size = new System.Drawing.Size(146, 17);
+            this.checkExportPassableBitfieldsAsBinary.Size = new System.Drawing.Size(139, 17);
             this.checkExportPassableBitfieldsAsBinary.TabIndex = 25;
             this.checkExportPassableBitfieldsAsBinary.Text = "Export bitfields as binary";
             this.checkExportPassableBitfieldsAsBinary.UseVisualStyleBackColor = true;
@@ -458,11 +450,45 @@ namespace RetroDevStudio.Controls
             this.checkExportMarkers.AutoSize = true;
             this.checkExportMarkers.Location = new System.Drawing.Point(420, 172);
             this.checkExportMarkers.Name = "checkExportMarkers";
-            this.checkExportMarkers.Size = new System.Drawing.Size(146, 17);
+            this.checkExportMarkers.Size = new System.Drawing.Size(96, 17);
             this.checkExportMarkers.TabIndex = 26;
             this.checkExportMarkers.Text = "Export markers";
             this.checkExportMarkers.UseVisualStyleBackColor = true;
             this.checkExportMarkers.CheckedChanged += new System.EventHandler(this.HandleSettingsChanged);
+            // 
+            // checkExportMapAsCharAndColors
+            // 
+            this.checkExportMapAsCharAndColors.AutoSize = true;
+            this.checkExportMapAsCharAndColors.Location = new System.Drawing.Point(420, 100);
+            this.checkExportMapAsCharAndColors.Name = "checkExportMapAsCharAndColors";
+            this.checkExportMapAsCharAndColors.Size = new System.Drawing.Size(193, 17);
+            this.checkExportMapAsCharAndColors.TabIndex = 23;
+            this.checkExportMapAsCharAndColors.Text = "Export map as character and colors";
+            this.checkExportMapAsCharAndColors.UseVisualStyleBackColor = true;
+            this.checkExportMapAsCharAndColors.CheckedChanged += new System.EventHandler(this.HandleSettingsChanged);
+            // 
+            // groupPrefixCode
+            // 
+            this.groupPrefixCode.Controls.Add(this.editPrefixCode);
+            this.groupPrefixCode.Location = new System.Drawing.Point(9, 431);
+            this.groupPrefixCode.Name = "groupPrefixCode";
+            this.groupPrefixCode.Size = new System.Drawing.Size(391, 100);
+            this.groupPrefixCode.TabIndex = 24;
+            this.groupPrefixCode.TabStop = false;
+            this.groupPrefixCode.Text = "Prefix Code";
+            // 
+            // editPrefixCode
+            // 
+            this.editPrefixCode.AcceptsReturn = true;
+            this.editPrefixCode.AcceptsTab = true;
+            this.editPrefixCode.Location = new System.Drawing.Point(6, 19);
+            this.editPrefixCode.Multiline = true;
+            this.editPrefixCode.Name = "editPrefixCode";
+            this.editPrefixCode.ScrollBars = System.Windows.Forms.ScrollBars.Both;
+            this.editPrefixCode.Size = new System.Drawing.Size(377, 75);
+            this.editPrefixCode.TabIndex = 0;
+            this.editPrefixCode.WordWrap = false;
+            this.editPrefixCode.TextChanged += new System.EventHandler(this.HandleSettingsChanged);
             // 
             // ExportMapAsAssembly
             // 
@@ -474,6 +500,7 @@ namespace RetroDevStudio.Controls
             this.Controls.Add(this.checkExportMapAsCharAndColors);
             this.Controls.Add(this.checkAlwaysOverwrite);
             this.Controls.Add(this.groupCharset);
+            this.Controls.Add(this.groupPrefixCode);
             this.Controls.Add(this.groupAutoSave);
             this.Controls.Add(this.checkExportMapColors);
             this.Controls.Add(this.checkExportTilesetColors);
@@ -499,6 +526,8 @@ namespace RetroDevStudio.Controls
             this.groupAutoSave.PerformLayout();
             this.groupCharset.ResumeLayout(false);
             this.groupCharset.PerformLayout();
+            this.groupPrefixCode.ResumeLayout(false);
+            this.groupPrefixCode.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -531,6 +560,8 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.Label labelExportDirectory;
     private System.Windows.Forms.CheckBox checkSaveOnExport;
     private System.Windows.Forms.GroupBox groupCharset;
+    private System.Windows.Forms.GroupBox groupPrefixCode;
+    private System.Windows.Forms.TextBox editPrefixCode;
     private System.Windows.Forms.TextBox editCharsetExportFilename;
     private System.Windows.Forms.Label labelCharsetExportFilename;
     private System.Windows.Forms.Button btnBrowseCharsetExportDirectory;

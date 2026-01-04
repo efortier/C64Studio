@@ -30,7 +30,7 @@
     {
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(CharacterEditor));
-            GR.Image.FastImage fastImage1 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage2 = new GR.Image.FastImage();
             this.comboCategories = new System.Windows.Forms.ComboBox();
             this.label4 = new System.Windows.Forms.Label();
             this.labelCharNo = new System.Windows.Forms.Label();
@@ -55,19 +55,28 @@
             this.columnHeader2 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.editCategoryName = new System.Windows.Forms.TextBox();
             this.label3 = new System.Windows.Forms.Label();
+            this.groupBox1 = new System.Windows.Forms.GroupBox();
+            this.labelZoom = new System.Windows.Forms.Label();
+            this.comboBox1 = new System.Windows.Forms.ComboBox();
+            this.btnZoomOut = new DecentForms.Button();
+            this.btnZoomIn = new DecentForms.Button();
+            this.ButtonCanvas4x4 = new DecentForms.Button();
+            this.ButtonCanvas2x2 = new DecentForms.Button();
+            this.ButtonCanvas1z1 = new DecentForms.Button();
+            this.btnCopy = new DecentForms.Button();
             this.btnMoveSelectionToTarget = new DecentForms.Button();
-            this.btnRestoreDefault = new DecentForms.Button();
-            this.btnClearChars = new DecentForms.Button();
-            this.btnRemoveDuplicates = new DecentForms.Button();
+            this.btnPasteFromClipboard = new DecentForms.Button();
+            this.btnPaste = new DecentForms.Button();
             this.btnHighlightDuplicates = new DecentForms.Button();
+            this.btnRestoreDefault = new DecentForms.Button();
+            this.btnRemoveDuplicates = new DecentForms.Button();
+            this.btnClearChars = new DecentForms.Button();
             this.btnCharMoveDown = new DecentForms.Button();
             this.btnCharMoveRight = new DecentForms.Button();
             this.btnCharMoveUp = new DecentForms.Button();
             this.btnCharMoveLeft = new DecentForms.Button();
             this.canvasEditor = new RetroDevStudio.Controls.CustomDrawControl();
             this.picturePlayground = new GR.Forms.FastPictureBox();
-            this.btnPaste = new DecentForms.Button();
-            this.btnCopy = new DecentForms.Button();
             this.btnInvert = new DecentForms.Button();
             this.btnMirrorY = new DecentForms.Button();
             this.btnMirrorX = new DecentForms.Button();
@@ -76,7 +85,6 @@
             this.btnShiftUp = new DecentForms.Button();
             this.btnShiftRight = new DecentForms.Button();
             this.button3 = new DecentForms.Button();
-            this.btnPasteFromClipboard = new DecentForms.Button();
             this.btnRotateLeft = new DecentForms.Button();
             this.btnShiftLeft = new DecentForms.Button();
             this.btnMoveCategoryDown = new DecentForms.Button();
@@ -86,11 +94,13 @@
             this.btnDelete = new DecentForms.Button();
             this.btnAddCategory = new DecentForms.Button();
             this.btnSortCategories = new DecentForms.Button();
+            this.label1 = new System.Windows.Forms.Label();
             this.tabCharacterEditor.SuspendLayout();
             this.tabEditor.SuspendLayout();
             this.groupMoveChar.SuspendLayout();
             this.tabCategories.SuspendLayout();
             this.groupCategorySpecific.SuspendLayout();
+            this.groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.canvasEditor)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.picturePlayground)).BeginInit();
             this.SuspendLayout();
@@ -145,7 +155,7 @@
             // 
             // editMoveTargetIndex
             // 
-            this.editMoveTargetIndex.Location = new System.Drawing.Point(617, 329);
+            this.editMoveTargetIndex.Location = new System.Drawing.Point(113, 83);
             this.editMoveTargetIndex.Name = "editMoveTargetIndex";
             this.editMoveTargetIndex.Size = new System.Drawing.Size(122, 20);
             this.editMoveTargetIndex.TabIndex = 21;
@@ -159,26 +169,27 @@
             this.tabCharacterEditor.Location = new System.Drawing.Point(0, 0);
             this.tabCharacterEditor.Name = "tabCharacterEditor";
             this.tabCharacterEditor.SelectedIndex = 0;
-            this.tabCharacterEditor.Size = new System.Drawing.Size(1070, 597);
+            this.tabCharacterEditor.Size = new System.Drawing.Size(1275, 597);
             this.tabCharacterEditor.TabIndex = 0;
             // 
             // tabEditor
             // 
-            this.tabEditor.Controls.Add(this.btnMoveSelectionToTarget);
+            this.tabEditor.Controls.Add(this.label1);
+            this.tabEditor.Controls.Add(this.comboBox1);
+            this.tabEditor.Controls.Add(this.btnZoomOut);
+            this.tabEditor.Controls.Add(this.btnZoomIn);
+            this.tabEditor.Controls.Add(this.labelZoom);
+            this.tabEditor.Controls.Add(this.ButtonCanvas4x4);
+            this.tabEditor.Controls.Add(this.ButtonCanvas2x2);
+            this.tabEditor.Controls.Add(this.ButtonCanvas1z1);
+            this.tabEditor.Controls.Add(this.groupBox1);
             this.tabEditor.Controls.Add(this.panelColorChooser);
-            this.tabEditor.Controls.Add(this.editMoveTargetIndex);
-            this.tabEditor.Controls.Add(this.btnRestoreDefault);
-            this.tabEditor.Controls.Add(this.btnClearChars);
-            this.tabEditor.Controls.Add(this.btnRemoveDuplicates);
-            this.tabEditor.Controls.Add(this.btnHighlightDuplicates);
             this.tabEditor.Controls.Add(this.groupMoveChar);
             this.tabEditor.Controls.Add(this.panelColorSettings);
             this.tabEditor.Controls.Add(this.canvasEditor);
             this.tabEditor.Controls.Add(this.comboCharsetMode);
             this.tabEditor.Controls.Add(this.labelCharsetMode);
             this.tabEditor.Controls.Add(this.picturePlayground);
-            this.tabEditor.Controls.Add(this.btnPaste);
-            this.tabEditor.Controls.Add(this.btnCopy);
             this.tabEditor.Controls.Add(this.btnInvert);
             this.tabEditor.Controls.Add(this.btnMirrorY);
             this.tabEditor.Controls.Add(this.checkPasteMultiColor);
@@ -191,14 +202,13 @@
             this.tabEditor.Controls.Add(this.btnShiftRight);
             this.tabEditor.Controls.Add(this.label4);
             this.tabEditor.Controls.Add(this.button3);
-            this.tabEditor.Controls.Add(this.btnPasteFromClipboard);
             this.tabEditor.Controls.Add(this.btnRotateLeft);
             this.tabEditor.Controls.Add(this.comboCategories);
             this.tabEditor.Controls.Add(this.btnShiftLeft);
             this.tabEditor.Location = new System.Drawing.Point(4, 22);
             this.tabEditor.Name = "tabEditor";
             this.tabEditor.Padding = new System.Windows.Forms.Padding(3);
-            this.tabEditor.Size = new System.Drawing.Size(1062, 571);
+            this.tabEditor.Size = new System.Drawing.Size(1267, 571);
             this.tabEditor.TabIndex = 0;
             this.tabEditor.Text = "Editor";
             this.tabEditor.UseVisualStyleBackColor = true;
@@ -216,9 +226,9 @@
             this.groupMoveChar.Controls.Add(this.btnCharMoveRight);
             this.groupMoveChar.Controls.Add(this.btnCharMoveUp);
             this.groupMoveChar.Controls.Add(this.btnCharMoveLeft);
-            this.groupMoveChar.Location = new System.Drawing.Point(514, 385);
+            this.groupMoveChar.Location = new System.Drawing.Point(514, 414);
             this.groupMoveChar.Name = "groupMoveChar";
-            this.groupMoveChar.Size = new System.Drawing.Size(140, 90);
+            this.groupMoveChar.Size = new System.Drawing.Size(137, 54);
             this.groupMoveChar.TabIndex = 25;
             this.groupMoveChar.TabStop = false;
             this.groupMoveChar.Text = "Move character";
@@ -263,7 +273,7 @@
             this.tabCategories.Location = new System.Drawing.Point(4, 22);
             this.tabCategories.Name = "tabCategories";
             this.tabCategories.Padding = new System.Windows.Forms.Padding(3);
-            this.tabCategories.Size = new System.Drawing.Size(1062, 571);
+            this.tabCategories.Size = new System.Drawing.Size(1267, 571);
             this.tabCategories.TabIndex = 1;
             this.tabCategories.Text = "Categories";
             this.tabCategories.UseVisualStyleBackColor = true;
@@ -349,6 +359,132 @@
             this.label3.TabIndex = 5;
             this.label3.Text = "Category:";
             // 
+            // groupBox1
+            // 
+            this.groupBox1.Controls.Add(this.btnCopy);
+            this.groupBox1.Controls.Add(this.btnMoveSelectionToTarget);
+            this.groupBox1.Controls.Add(this.btnPasteFromClipboard);
+            this.groupBox1.Controls.Add(this.btnPaste);
+            this.groupBox1.Controls.Add(this.editMoveTargetIndex);
+            this.groupBox1.Controls.Add(this.btnHighlightDuplicates);
+            this.groupBox1.Controls.Add(this.btnRestoreDefault);
+            this.groupBox1.Controls.Add(this.btnRemoveDuplicates);
+            this.groupBox1.Controls.Add(this.btnClearChars);
+            this.groupBox1.Location = new System.Drawing.Point(514, 275);
+            this.groupBox1.Name = "groupBox1";
+            this.groupBox1.Size = new System.Drawing.Size(259, 154);
+            this.groupBox1.TabIndex = 55;
+            this.groupBox1.TabStop = false;
+            this.groupBox1.Text = "groupBox1";
+            // 
+            // labelZoom
+            // 
+            this.labelZoom.AutoSize = true;
+            this.labelZoom.Location = new System.Drawing.Point(161, 349);
+            this.labelZoom.Name = "labelZoom";
+            this.labelZoom.Size = new System.Drawing.Size(33, 13);
+            this.labelZoom.TabIndex = 57;
+            this.labelZoom.Text = "100%";
+            // 
+            // comboBox1
+            // 
+            this.comboBox1.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboBox1.FormattingEnabled = true;
+            this.comboBox1.Items.AddRange(new object[] {
+            "2",
+            "4",
+            "8",
+            "16",
+            "32",
+            "64",
+            "128"});
+            this.comboBox1.Location = new System.Drawing.Point(111, 374);
+            this.comboBox1.Name = "comboBox1";
+            this.comboBox1.Size = new System.Drawing.Size(71, 21);
+            this.comboBox1.TabIndex = 60;
+            // 
+            // btnZoomOut
+            // 
+            this.btnZoomOut.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnZoomOut.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnZoomOut.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnZoomOut.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnZoomOut.Image = null;
+            this.btnZoomOut.Location = new System.Drawing.Point(102, 342);
+            this.btnZoomOut.Name = "btnZoomOut";
+            this.btnZoomOut.Size = new System.Drawing.Size(24, 24);
+            this.btnZoomOut.TabIndex = 58;
+            this.btnZoomOut.Text = "-";
+            this.toolTip1.SetToolTip(this.btnZoomOut, "Zoom out");
+            // 
+            // btnZoomIn
+            // 
+            this.btnZoomIn.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnZoomIn.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnZoomIn.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnZoomIn.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnZoomIn.Image = null;
+            this.btnZoomIn.Location = new System.Drawing.Point(132, 342);
+            this.btnZoomIn.Name = "btnZoomIn";
+            this.btnZoomIn.Size = new System.Drawing.Size(24, 24);
+            this.btnZoomIn.TabIndex = 59;
+            this.btnZoomIn.Text = "+";
+            this.toolTip1.SetToolTip(this.btnZoomIn, "Zoom in");
+            // 
+            // ButtonCanvas4x4
+            // 
+            this.ButtonCanvas4x4.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.ButtonCanvas4x4.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.ButtonCanvas4x4.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.ButtonCanvas4x4.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.ButtonCanvas4x4.Image = null;
+            this.ButtonCanvas4x4.Location = new System.Drawing.Point(70, 342);
+            this.ButtonCanvas4x4.Name = "ButtonCanvas4x4";
+            this.ButtonCanvas4x4.Size = new System.Drawing.Size(26, 26);
+            this.ButtonCanvas4x4.TabIndex = 56;
+            this.ButtonCanvas4x4.Text = "4x4";
+            // 
+            // ButtonCanvas2x2
+            // 
+            this.ButtonCanvas2x2.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.ButtonCanvas2x2.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.ButtonCanvas2x2.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.ButtonCanvas2x2.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.ButtonCanvas2x2.Image = null;
+            this.ButtonCanvas2x2.Location = new System.Drawing.Point(38, 342);
+            this.ButtonCanvas2x2.Name = "ButtonCanvas2x2";
+            this.ButtonCanvas2x2.Size = new System.Drawing.Size(26, 26);
+            this.ButtonCanvas2x2.TabIndex = 56;
+            this.ButtonCanvas2x2.Text = "2x2";
+            // 
+            // ButtonCanvas1z1
+            // 
+            this.ButtonCanvas1z1.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.ButtonCanvas1z1.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.ButtonCanvas1z1.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.ButtonCanvas1z1.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.ButtonCanvas1z1.Image = null;
+            this.ButtonCanvas1z1.Location = new System.Drawing.Point(6, 342);
+            this.ButtonCanvas1z1.Name = "ButtonCanvas1z1";
+            this.ButtonCanvas1z1.Size = new System.Drawing.Size(26, 26);
+            this.ButtonCanvas1z1.TabIndex = 56;
+            this.ButtonCanvas1z1.Text = "1x1";
+            this.toolTip1.SetToolTip(this.ButtonCanvas1z1, "Rotate Left");
+            // 
+            // btnCopy
+            // 
+            this.btnCopy.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnCopy.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnCopy.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnCopy.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnCopy.Image = ((System.Drawing.Image)(resources.GetObject("btnCopy.Image")));
+            this.btnCopy.Location = new System.Drawing.Point(10, 23);
+            this.btnCopy.Name = "btnCopy";
+            this.btnCopy.Size = new System.Drawing.Size(26, 23);
+            this.btnCopy.TabIndex = 15;
+            this.toolTip1.SetToolTip(this.btnCopy, "Copy Characters to Clipboard");
+            this.btnCopy.Click += new DecentForms.EventHandler(this.btnCopy_Click);
+            // 
             // btnMoveSelectionToTarget
             // 
             this.btnMoveSelectionToTarget.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
@@ -356,54 +492,41 @@
             this.btnMoveSelectionToTarget.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             this.btnMoveSelectionToTarget.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnMoveSelectionToTarget.Image = null;
-            this.btnMoveSelectionToTarget.Location = new System.Drawing.Point(514, 327);
+            this.btnMoveSelectionToTarget.Location = new System.Drawing.Point(10, 81);
             this.btnMoveSelectionToTarget.Name = "btnMoveSelectionToTarget";
             this.btnMoveSelectionToTarget.Size = new System.Drawing.Size(97, 23);
             this.btnMoveSelectionToTarget.TabIndex = 20;
             this.btnMoveSelectionToTarget.Text = "Move to Index";
             this.btnMoveSelectionToTarget.Click += new DecentForms.EventHandler(this.btnMoveSelectionToTarget_Click);
             // 
-            // btnRestoreDefault
+            // btnPasteFromClipboard
             // 
-            this.btnRestoreDefault.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            this.btnRestoreDefault.BorderStyle = DecentForms.BorderStyle.FLAT;
-            this.btnRestoreDefault.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            this.btnRestoreDefault.DialogResult = System.Windows.Forms.DialogResult.OK;
-            this.btnRestoreDefault.Image = null;
-            this.btnRestoreDefault.Location = new System.Drawing.Point(617, 298);
-            this.btnRestoreDefault.Name = "btnRestoreDefault";
-            this.btnRestoreDefault.Size = new System.Drawing.Size(122, 23);
-            this.btnRestoreDefault.TabIndex = 19;
-            this.btnRestoreDefault.Text = "Restore Default";
-            this.btnRestoreDefault.Click += new DecentForms.EventHandler(this.btnRestoreDefault_Click);
+            this.btnPasteFromClipboard.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnPasteFromClipboard.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnPasteFromClipboard.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnPasteFromClipboard.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnPasteFromClipboard.Image = null;
+            this.btnPasteFromClipboard.Location = new System.Drawing.Point(113, 23);
+            this.btnPasteFromClipboard.Name = "btnPasteFromClipboard";
+            this.btnPasteFromClipboard.Size = new System.Drawing.Size(122, 23);
+            this.btnPasteFromClipboard.TabIndex = 17;
+            this.btnPasteFromClipboard.Text = "Paste Image";
+            this.toolTip1.SetToolTip(this.btnPasteFromClipboard, "Paste Image");
+            this.btnPasteFromClipboard.Click += new DecentForms.EventHandler(this.btnPasteFromClipboard_Click);
             // 
-            // btnClearChars
+            // btnPaste
             // 
-            this.btnClearChars.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            this.btnClearChars.BorderStyle = DecentForms.BorderStyle.FLAT;
-            this.btnClearChars.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            this.btnClearChars.DialogResult = System.Windows.Forms.DialogResult.OK;
-            this.btnClearChars.Image = null;
-            this.btnClearChars.Location = new System.Drawing.Point(514, 298);
-            this.btnClearChars.Name = "btnClearChars";
-            this.btnClearChars.Size = new System.Drawing.Size(97, 23);
-            this.btnClearChars.TabIndex = 18;
-            this.btnClearChars.Text = "Clear";
-            this.btnClearChars.Click += new DecentForms.EventHandler(this.btnClear_Click);
-            // 
-            // btnRemoveDuplicates
-            // 
-            this.btnRemoveDuplicates.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            this.btnRemoveDuplicates.BorderStyle = DecentForms.BorderStyle.FLAT;
-            this.btnRemoveDuplicates.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            this.btnRemoveDuplicates.DialogResult = System.Windows.Forms.DialogResult.OK;
-            this.btnRemoveDuplicates.Image = null;
-            this.btnRemoveDuplicates.Location = new System.Drawing.Point(617, 356);
-            this.btnRemoveDuplicates.Name = "btnRemoveDuplicates";
-            this.btnRemoveDuplicates.Size = new System.Drawing.Size(122, 23);
-            this.btnRemoveDuplicates.TabIndex = 23;
-            this.btnRemoveDuplicates.Text = "Remove Duplicates";
-            this.btnRemoveDuplicates.Click += new DecentForms.EventHandler(this.btnRemoveDuplicates_Click);
+            this.btnPaste.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnPaste.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnPaste.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnPaste.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnPaste.Image = ((System.Drawing.Image)(resources.GetObject("btnPaste.Image")));
+            this.btnPaste.Location = new System.Drawing.Point(42, 23);
+            this.btnPaste.Name = "btnPaste";
+            this.btnPaste.Size = new System.Drawing.Size(26, 23);
+            this.btnPaste.TabIndex = 16;
+            this.toolTip1.SetToolTip(this.btnPaste, "Paste Characters");
+            this.btnPaste.Click += new DecentForms.EventHandler(this.btnPaste_Click);
             // 
             // btnHighlightDuplicates
             // 
@@ -412,13 +535,55 @@
             this.btnHighlightDuplicates.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             this.btnHighlightDuplicates.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnHighlightDuplicates.Image = null;
-            this.btnHighlightDuplicates.Location = new System.Drawing.Point(514, 356);
+            this.btnHighlightDuplicates.Location = new System.Drawing.Point(10, 110);
             this.btnHighlightDuplicates.Name = "btnHighlightDuplicates";
             this.btnHighlightDuplicates.Size = new System.Drawing.Size(97, 23);
             this.btnHighlightDuplicates.TabIndex = 22;
             this.btnHighlightDuplicates.Text = "Duplicates";
             this.toolTip1.SetToolTip(this.btnHighlightDuplicates, "Highlight duplicates");
             this.btnHighlightDuplicates.Click += new DecentForms.EventHandler(this.btnHighlightDuplicates_Click);
+            // 
+            // btnRestoreDefault
+            // 
+            this.btnRestoreDefault.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnRestoreDefault.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnRestoreDefault.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnRestoreDefault.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnRestoreDefault.Image = null;
+            this.btnRestoreDefault.Location = new System.Drawing.Point(113, 52);
+            this.btnRestoreDefault.Name = "btnRestoreDefault";
+            this.btnRestoreDefault.Size = new System.Drawing.Size(122, 23);
+            this.btnRestoreDefault.TabIndex = 19;
+            this.btnRestoreDefault.Text = "Restore Default";
+            this.btnRestoreDefault.Click += new DecentForms.EventHandler(this.btnRestoreDefault_Click);
+            // 
+            // btnRemoveDuplicates
+            // 
+            this.btnRemoveDuplicates.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnRemoveDuplicates.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnRemoveDuplicates.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnRemoveDuplicates.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnRemoveDuplicates.Image = null;
+            this.btnRemoveDuplicates.Location = new System.Drawing.Point(113, 110);
+            this.btnRemoveDuplicates.Name = "btnRemoveDuplicates";
+            this.btnRemoveDuplicates.Size = new System.Drawing.Size(122, 23);
+            this.btnRemoveDuplicates.TabIndex = 23;
+            this.btnRemoveDuplicates.Text = "Remove Duplicates";
+            this.btnRemoveDuplicates.Click += new DecentForms.EventHandler(this.btnRemoveDuplicates_Click);
+            // 
+            // btnClearChars
+            // 
+            this.btnClearChars.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnClearChars.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnClearChars.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnClearChars.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnClearChars.Image = null;
+            this.btnClearChars.Location = new System.Drawing.Point(10, 52);
+            this.btnClearChars.Name = "btnClearChars";
+            this.btnClearChars.Size = new System.Drawing.Size(97, 23);
+            this.btnClearChars.TabIndex = 18;
+            this.btnClearChars.Text = "Clear";
+            this.btnClearChars.Click += new DecentForms.EventHandler(this.btnClear_Click);
             // 
             // btnCharMoveDown
             // 
@@ -428,7 +593,7 @@
             this.btnCharMoveDown.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnCharMoveDown.Enabled = false;
             this.btnCharMoveDown.Image = ((System.Drawing.Image)(resources.GetObject("btnCharMoveDown.Image")));
-            this.btnCharMoveDown.Location = new System.Drawing.Point(56, 51);
+            this.btnCharMoveDown.Location = new System.Drawing.Point(102, 19);
             this.btnCharMoveDown.Name = "btnCharMoveDown";
             this.btnCharMoveDown.Size = new System.Drawing.Size(26, 26);
             this.btnCharMoveDown.TabIndex = 3;
@@ -443,7 +608,7 @@
             this.btnCharMoveRight.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnCharMoveRight.Enabled = false;
             this.btnCharMoveRight.Image = ((System.Drawing.Image)(resources.GetObject("btnCharMoveRight.Image")));
-            this.btnCharMoveRight.Location = new System.Drawing.Point(90, 36);
+            this.btnCharMoveRight.Location = new System.Drawing.Point(38, 19);
             this.btnCharMoveRight.Name = "btnCharMoveRight";
             this.btnCharMoveRight.Size = new System.Drawing.Size(26, 26);
             this.btnCharMoveRight.TabIndex = 2;
@@ -458,7 +623,7 @@
             this.btnCharMoveUp.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnCharMoveUp.Enabled = false;
             this.btnCharMoveUp.Image = ((System.Drawing.Image)(resources.GetObject("btnCharMoveUp.Image")));
-            this.btnCharMoveUp.Location = new System.Drawing.Point(57, 19);
+            this.btnCharMoveUp.Location = new System.Drawing.Point(70, 19);
             this.btnCharMoveUp.Name = "btnCharMoveUp";
             this.btnCharMoveUp.Size = new System.Drawing.Size(26, 26);
             this.btnCharMoveUp.TabIndex = 1;
@@ -473,7 +638,7 @@
             this.btnCharMoveLeft.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnCharMoveLeft.Enabled = false;
             this.btnCharMoveLeft.Image = ((System.Drawing.Image)(resources.GetObject("btnCharMoveLeft.Image")));
-            this.btnCharMoveLeft.Location = new System.Drawing.Point(24, 36);
+            this.btnCharMoveLeft.Location = new System.Drawing.Point(6, 19);
             this.btnCharMoveLeft.Name = "btnCharMoveLeft";
             this.btnCharMoveLeft.Size = new System.Drawing.Size(26, 26);
             this.btnCharMoveLeft.TabIndex = 0;
@@ -496,7 +661,7 @@
             // 
             this.picturePlayground.AutoResize = false;
             this.picturePlayground.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.picturePlayground.DisplayPage = fastImage1;
+            this.picturePlayground.DisplayPage = fastImage2;
             this.picturePlayground.Image = null;
             this.picturePlayground.Location = new System.Drawing.Point(780, 3);
             this.picturePlayground.Name = "picturePlayground";
@@ -505,34 +670,6 @@
             this.picturePlayground.TabStop = false;
             this.picturePlayground.MouseDown += new System.Windows.Forms.MouseEventHandler(this.picturePlayground_MouseDown);
             this.picturePlayground.MouseMove += new System.Windows.Forms.MouseEventHandler(this.picturePlayground_MouseMove);
-            // 
-            // btnPaste
-            // 
-            this.btnPaste.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            this.btnPaste.BorderStyle = DecentForms.BorderStyle.FLAT;
-            this.btnPaste.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            this.btnPaste.DialogResult = System.Windows.Forms.DialogResult.OK;
-            this.btnPaste.Image = ((System.Drawing.Image)(resources.GetObject("btnPaste.Image")));
-            this.btnPaste.Location = new System.Drawing.Point(546, 269);
-            this.btnPaste.Name = "btnPaste";
-            this.btnPaste.Size = new System.Drawing.Size(26, 23);
-            this.btnPaste.TabIndex = 16;
-            this.toolTip1.SetToolTip(this.btnPaste, "Paste Characters");
-            this.btnPaste.Click += new DecentForms.EventHandler(this.btnPaste_Click);
-            // 
-            // btnCopy
-            // 
-            this.btnCopy.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            this.btnCopy.BorderStyle = DecentForms.BorderStyle.FLAT;
-            this.btnCopy.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            this.btnCopy.DialogResult = System.Windows.Forms.DialogResult.OK;
-            this.btnCopy.Image = ((System.Drawing.Image)(resources.GetObject("btnCopy.Image")));
-            this.btnCopy.Location = new System.Drawing.Point(514, 269);
-            this.btnCopy.Name = "btnCopy";
-            this.btnCopy.Size = new System.Drawing.Size(26, 23);
-            this.btnCopy.TabIndex = 15;
-            this.toolTip1.SetToolTip(this.btnCopy, "Copy Characters to Clipboard");
-            this.btnCopy.Click += new DecentForms.EventHandler(this.btnCopy_Click);
             // 
             // btnInvert
             // 
@@ -658,21 +795,6 @@
             this.button3.TabIndex = 8;
             this.toolTip1.SetToolTip(this.button3, "Rotate Right");
             this.button3.Click += new DecentForms.EventHandler(this.btnRotateRight_Click);
-            // 
-            // btnPasteFromClipboard
-            // 
-            this.btnPasteFromClipboard.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            this.btnPasteFromClipboard.BorderStyle = DecentForms.BorderStyle.FLAT;
-            this.btnPasteFromClipboard.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            this.btnPasteFromClipboard.DialogResult = System.Windows.Forms.DialogResult.OK;
-            this.btnPasteFromClipboard.Image = null;
-            this.btnPasteFromClipboard.Location = new System.Drawing.Point(617, 269);
-            this.btnPasteFromClipboard.Name = "btnPasteFromClipboard";
-            this.btnPasteFromClipboard.Size = new System.Drawing.Size(122, 23);
-            this.btnPasteFromClipboard.TabIndex = 17;
-            this.btnPasteFromClipboard.Text = "Paste Image";
-            this.toolTip1.SetToolTip(this.btnPasteFromClipboard, "Paste Image");
-            this.btnPasteFromClipboard.Click += new DecentForms.EventHandler(this.btnPasteFromClipboard_Click);
             // 
             // btnRotateLeft
             // 
@@ -806,12 +928,21 @@
             this.btnSortCategories.Text = "Sort by Categories";
             this.btnSortCategories.Click += new DecentForms.EventHandler(this.btnSortCategories_Click);
             // 
+            // label1
+            // 
+            this.label1.AutoSize = true;
+            this.label1.Location = new System.Drawing.Point(6, 377);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(99, 13);
+            this.label1.TabIndex = 61;
+            this.label1.Text = "Characters per row:";
+            // 
             // CharacterEditor
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.Controls.Add(this.tabCharacterEditor);
             this.Name = "CharacterEditor";
-            this.Size = new System.Drawing.Size(1070, 597);
+            this.Size = new System.Drawing.Size(1275, 597);
             this.tabCharacterEditor.ResumeLayout(false);
             this.tabEditor.ResumeLayout(false);
             this.tabEditor.PerformLayout();
@@ -820,6 +951,8 @@
             this.tabCategories.PerformLayout();
             this.groupCategorySpecific.ResumeLayout(false);
             this.groupCategorySpecific.PerformLayout();
+            this.groupBox1.ResumeLayout(false);
+            this.groupBox1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.canvasEditor)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.picturePlayground)).EndInit();
             this.ResumeLayout(false);
@@ -882,5 +1015,14 @@
     private DecentForms.Button btnCharMoveUp;
     private DecentForms.Button btnCharMoveLeft;
     private DecentForms.Button btnRestoreDefault;
-  }
+        private System.Windows.Forms.GroupBox groupBox1;
+        private DecentForms.Button ButtonCanvas4x4;
+        private DecentForms.Button ButtonCanvas2x2;
+        private DecentForms.Button ButtonCanvas1z1;
+        private DecentForms.Button btnZoomOut;
+        private DecentForms.Button btnZoomIn;
+        private System.Windows.Forms.Label labelZoom;
+        private System.Windows.Forms.ComboBox comboBox1;
+        private System.Windows.Forms.Label label1;
+    }
 }

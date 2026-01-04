@@ -103,6 +103,7 @@ namespace RetroDevStudio.Formats
 
         public bool   ExportPassableBitfieldsAsBinary = false;
         public bool   ExportMarkers = true;
+        public string PrefixCode = "";
       }
 
       public class BinarySettings
@@ -297,7 +298,7 @@ namespace RetroDevStudio.Formats
       projectFile.Append( chunkProjectData.ToBuffer() );
 
       GR.IO.FileChunk chunkExportSettings = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS );
-      chunkExportSettings.AppendU32( 14 );
+      chunkExportSettings.AppendU32( 15 );
       chunkExportSettings.AppendI32(Settings.ExportDataIndex );
       chunkExportSettings.AppendI32(Settings.ExportOrientationIndex );
       chunkExportSettings.AppendI32( Settings.ExportMethodIndex );
@@ -336,6 +337,7 @@ namespace RetroDevStudio.Formats
       chunkExportSettings.AppendI32( Settings.Assembly.ExportPassableBitfieldsAsBinary ? 1 : 0 );
       chunkExportSettings.AppendI32( DesignerBackgroundColor );
       chunkExportSettings.AppendI32( Settings.Assembly.ExportMarkers ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.Assembly.PrefixCode ?? "" ); // Added new field
       projectFile.Append( chunkExportSettings.ToBuffer() );
       return projectFile;
     }
@@ -572,6 +574,10 @@ namespace RetroDevStudio.Formats
                 if ( version >= 14 )
                 {
                   Settings.Assembly.ExportMarkers = ( chunkReader.ReadInt32() != 0 );
+                }
+                if ( version >= 15 )
+                {
+                  Settings.Assembly.PrefixCode = chunkReader.ReadString();
                 }
               }
             }
@@ -1455,11 +1461,20 @@ namespace RetroDevStudio.Formats
     {
       StringBuilder sb = new StringBuilder();
 
-      if ( AddFilenamespace )
+      if ( Settings.Assembly.AddFilenamespace )
       {
-         sb.Append( ".filenamespace " );
-         sb.AppendLine( Filenamespace );
-         sb.AppendLine();
+        sb.Append( ".filenamespace " );
+        sb.AppendLine( Settings.Assembly.Filenamespace );
+        if ( !string.IsNullOrEmpty( Settings.Assembly.PrefixCode ) )
+        {
+          sb.AppendLine( Settings.Assembly.PrefixCode );
+        }
+        sb.AppendLine();
+      }
+      else if ( !string.IsNullOrEmpty( Settings.Assembly.PrefixCode ) )
+      {
+        sb.AppendLine( Settings.Assembly.PrefixCode );
+        sb.AppendLine();
       }
 
       string labelSuffix = "";

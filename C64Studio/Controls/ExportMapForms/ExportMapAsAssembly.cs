@@ -510,6 +510,7 @@ namespace RetroDevStudio.Controls
         checkExportPassableBitfields.Checked = assemblySettings.ExportPassableBitfields;
         checkExportPassableBitfieldsAsBinary.Checked = assemblySettings.ExportPassableBitfieldsAsBinary;
         checkExportMarkers.Checked = assemblySettings.ExportMarkers;
+        editPrefixCode.Text = assemblySettings.PrefixCode;
       }
       finally
       {
@@ -558,6 +559,7 @@ namespace RetroDevStudio.Controls
       assemblySettings.ExportPassableBitfields = checkExportPassableBitfields.Checked;
       assemblySettings.ExportPassableBitfieldsAsBinary = checkExportPassableBitfieldsAsBinary.Checked;
       assemblySettings.ExportMarkers = checkExportMarkers.Checked;
+      assemblySettings.PrefixCode = editPrefixCode.Text;
     }
 
 
