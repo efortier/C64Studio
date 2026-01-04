@@ -58,7 +58,7 @@ namespace RetroDevStudio.Controls
     private int                         m_EditorHeightInChars = 1;
     private int                         m_ZoomLevel = 1;
 
-A    
+    
     public int CharactersPerRow
     {
       get
