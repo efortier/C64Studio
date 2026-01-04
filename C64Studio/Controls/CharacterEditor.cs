@@ -97,6 +97,31 @@ namespace RetroDevStudio.Controls
     }
 
 
+    public int EditorMode
+    {
+      get
+      {
+        return m_EditorWidthInChars;
+      }
+      set
+      {
+        if ( m_EditorWidthInChars != value )
+        {
+          if ( value == 1 )
+          {
+             ButtonCanvas1x1.Checked = true;
+          }
+          else if ( value == 2 )
+          {
+             ButtonCanvas2x2.Checked = true;
+          }
+          else if ( value == 4 )
+          {
+             ButtonCanvas4x4.Checked = true;
+          }
+        }
+      }
+    }
 
     public CharacterEditor()
     {
@@ -162,11 +187,11 @@ namespace RetroDevStudio.Controls
       comboCategories.Items.Add( itemUn.Name );
       RefreshCategoryCounts();
 
-      comboCharactersPerRow.SelectedIndex = 5; 
-      
-      this.ButtonCanvas1z1.Click += new DecentForms.EventHandler(this.ButtonCanvas1z1_Click);
-      this.ButtonCanvas2x2.Click += new DecentForms.EventHandler(this.ButtonCanvas2x2_Click);
-      this.ButtonCanvas4x4.Click += new DecentForms.EventHandler(this.ButtonCanvas4x4_Click);
+      comboCharactersPerRow.SelectedIndex = 5;
+
+      //this.ButtonCanvas1z1.Click += new DecentForms.EventHandler(this.ButtonCanvas1z1_Click);
+      //this.ButtonCanvas2x2.Click += new DecentForms.EventHandler(this.ButtonCanvas2x2_Click);
+      //this.ButtonCanvas4x4.Click += new DecentForms.EventHandler(this.ButtonCanvas4x4_Click);
       this.btnZoomIn.Click += new DecentForms.EventHandler(this.btnZoomIn_Click);
       this.btnZoomOut.Click += new DecentForms.EventHandler(this.btnZoomOut_Click);
       this.comboCharactersPerRow.SelectedIndexChanged += new System.EventHandler(this.comboCharactersPerRow_SelectedIndexChanged);
@@ -179,6 +204,11 @@ namespace RetroDevStudio.Controls
     public void RaiseModifiedEvent( List<int> ModifiedCharacters )
     {
       Modified?.Invoke( ModifiedCharacters );
+    }
+
+    public void RaiseModifiedEvent()
+    {
+      Modified?.Invoke( null );
     }
 
 
@@ -3469,28 +3499,8 @@ namespace RetroDevStudio.Controls
 
 
 
-    private void ButtonCanvas1z1_Click( DecentForms.ControlBase Sender )
+    private void ButtonCanvas1z1_CheckedChanged( object sender, EventArgs e )
     {
-      m_EditorWidthInChars = 1;
-      m_EditorHeightInChars = 1;
-      AdjustCharacterSizes();
-      canvasEditor.Invalidate();
-    }
-
-    private void ButtonCanvas2x2_Click( DecentForms.ControlBase Sender )
-    {
-      m_EditorWidthInChars = 2;
-      m_EditorHeightInChars = 2;
-      AdjustCharacterSizes();
-      canvasEditor.Invalidate();
-    }
-
-    private void ButtonCanvas4x4_Click( DecentForms.ControlBase Sender )
-    {
-      m_EditorWidthInChars = 4;
-      m_EditorHeightInChars = 4;
-      AdjustCharacterSizes();
-      canvasEditor.Invalidate();
     }
 
     private void btnZoomIn_Click( DecentForms.ControlBase Sender )
@@ -3518,7 +3528,57 @@ namespace RetroDevStudio.Controls
     private void comboCharactersPerRow_SelectedIndexChanged( object sender, EventArgs e )
     {
       canvasEditor.Invalidate();
+      if ( !DoNotUpdateFromControls )
+      {
+        RaiseModifiedEvent();
+      }
     }
 
-  }
+        private void btnToolEdit_CheckedChanged(DecentForms.ControlBase Sender)
+        {
+            if (ButtonCanvas1x1.Checked)
+            {
+                m_EditorWidthInChars = 1;
+                m_EditorHeightInChars = 1;
+                AdjustCharacterSizes();
+                canvasEditor.Invalidate();
+                if (!DoNotUpdateFromControls)
+                {
+                    RaiseModifiedEvent();
+                }
+            }
+
+        }
+
+        private void radioButton1_CheckedChanged(DecentForms.ControlBase Sender)
+        {
+            if (ButtonCanvas2x2.Checked)
+            {
+                m_EditorWidthInChars = 2;
+                m_EditorHeightInChars = 2;
+                AdjustCharacterSizes();
+                canvasEditor.Invalidate();
+                if (!DoNotUpdateFromControls)
+                {
+                    RaiseModifiedEvent();
+                }
+            }
+
+        }
+
+        private void ButtonCanvas4x4_CheckedChanged(DecentForms.ControlBase Sender)
+        {
+            if (ButtonCanvas4x4.Checked)
+            {
+                m_EditorWidthInChars = 4;
+                m_EditorHeightInChars = 4;
+                AdjustCharacterSizes();
+                canvasEditor.Invalidate();
+                if (!DoNotUpdateFromControls)
+                {
+                    RaiseModifiedEvent();
+                }
+            }
+        }
+    }
 }

@@ -133,6 +133,7 @@ namespace RetroDevStudio.Documents
 
       characterEditor.UndoManager = DocumentInfo.UndoManager;
       characterEditor.Core = Core;
+      characterEditor.Modified += CharacterEditor_Modified;
 
       comboExportMethod.Items.Add( new GR.Generic.Tupel<string, Type>( "as assembly", typeof( ExportMapAsAssembly ) ) );
       comboExportMethod.Items.Add( new GR.Generic.Tupel<string, Type>( "to binary file", typeof( ExportMapAsBinaryFile ) ) );
@@ -1806,6 +1807,7 @@ namespace RetroDevStudio.Documents
       RedrawColorChooser();
       characterEditor.CharsetUpdated( m_MapProject.Charset );
       characterEditor.CharactersPerRow = m_MapProject.CharactersPerRow;
+      characterEditor.EditorMode = m_MapProject.CharacterEditorMode;
       Modified = false;
       if ( string.IsNullOrEmpty( DocumentInfo.DocumentFilename ) )
       {
@@ -2001,6 +2003,7 @@ namespace RetroDevStudio.Documents
     {
       UpdateExportSettingsFromUI( false );
       m_MapProject.CharactersPerRow = characterEditor.CharactersPerRow;
+      m_MapProject.CharacterEditorMode = characterEditor.EditorMode;
       return m_MapProject.SaveToBuffer();
     }
 
@@ -2631,6 +2634,11 @@ namespace RetroDevStudio.Documents
     }
 
 
+
+    private void CharacterEditor_Modified( List<int> ModifiedChars )
+    {
+      Modified = true;
+    }
 
     private void AdjustScrollbars()
     {
