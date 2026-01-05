@@ -30,7 +30,7 @@
     {
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(CharacterEditor));
-            GR.Image.FastImage fastImage1 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage2 = new GR.Image.FastImage();
             this.comboCategories = new System.Windows.Forms.ComboBox();
             this.label4 = new System.Windows.Forms.Label();
             this.labelCharNo = new System.Windows.Forms.Label();
@@ -40,6 +40,7 @@
             this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
             this.tabCharacterEditor = new System.Windows.Forms.TabControl();
             this.tabEditor = new System.Windows.Forms.TabPage();
+            this.flowLayoutPanel2 = new System.Windows.Forms.FlowLayoutPanel();
             this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
             this.labelZoom = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
@@ -60,7 +61,6 @@
             this.columnHeader2 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.editCategoryName = new System.Windows.Forms.TextBox();
             this.label3 = new System.Windows.Forms.Label();
-            this.flowLayoutPanel2 = new System.Windows.Forms.FlowLayoutPanel();
             this.btnShiftLeft = new DecentForms.Button();
             this.btnShiftRight = new DecentForms.Button();
             this.btnShiftUp = new DecentForms.Button();
@@ -99,12 +99,12 @@
             this.btnSortCategories = new DecentForms.Button();
             this.tabCharacterEditor.SuspendLayout();
             this.tabEditor.SuspendLayout();
+            this.flowLayoutPanel2.SuspendLayout();
             this.flowLayoutPanel1.SuspendLayout();
             this.groupBox1.SuspendLayout();
             this.groupMoveChar.SuspendLayout();
             this.tabCategories.SuspendLayout();
             this.groupCategorySpecific.SuspendLayout();
-            this.flowLayoutPanel2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.canvasEditor)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.picturePlayground)).BeginInit();
             this.SuspendLayout();
@@ -173,7 +173,7 @@
             this.tabCharacterEditor.Location = new System.Drawing.Point(0, 0);
             this.tabCharacterEditor.Name = "tabCharacterEditor";
             this.tabCharacterEditor.SelectedIndex = 0;
-            this.tabCharacterEditor.Size = new System.Drawing.Size(1275, 597);
+            this.tabCharacterEditor.Size = new System.Drawing.Size(1438, 597);
             this.tabCharacterEditor.TabIndex = 0;
             // 
             // tabEditor
@@ -199,10 +199,26 @@
             this.tabEditor.Location = new System.Drawing.Point(4, 22);
             this.tabEditor.Name = "tabEditor";
             this.tabEditor.Padding = new System.Windows.Forms.Padding(3);
-            this.tabEditor.Size = new System.Drawing.Size(1267, 571);
+            this.tabEditor.Size = new System.Drawing.Size(1430, 571);
             this.tabEditor.TabIndex = 0;
             this.tabEditor.Text = "Editor";
             this.tabEditor.UseVisualStyleBackColor = true;
+            // 
+            // flowLayoutPanel2
+            // 
+            this.flowLayoutPanel2.Controls.Add(this.btnShiftLeft);
+            this.flowLayoutPanel2.Controls.Add(this.btnShiftRight);
+            this.flowLayoutPanel2.Controls.Add(this.btnShiftUp);
+            this.flowLayoutPanel2.Controls.Add(this.btnShiftDown);
+            this.flowLayoutPanel2.Controls.Add(this.btnMirrorX);
+            this.flowLayoutPanel2.Controls.Add(this.btnMirrorY);
+            this.flowLayoutPanel2.Controls.Add(this.btnInvert);
+            this.flowLayoutPanel2.Controls.Add(this.btnRotateLeft);
+            this.flowLayoutPanel2.Controls.Add(this.button3);
+            this.flowLayoutPanel2.Location = new System.Drawing.Point(6, 374);
+            this.flowLayoutPanel2.Name = "flowLayoutPanel2";
+            this.flowLayoutPanel2.Size = new System.Drawing.Size(316, 34);
+            this.flowLayoutPanel2.TabIndex = 64;
             // 
             // flowLayoutPanel1
             // 
@@ -275,7 +291,7 @@
             // 
             // panelColorChooser
             // 
-            this.panelColorChooser.Location = new System.Drawing.Point(886, 275);
+            this.panelColorChooser.Location = new System.Drawing.Point(885, 335);
             this.panelColorChooser.Name = "panelColorChooser";
             this.panelColorChooser.Size = new System.Drawing.Size(280, 120);
             this.panelColorChooser.TabIndex = 24;
@@ -333,7 +349,7 @@
             this.tabCategories.Location = new System.Drawing.Point(4, 22);
             this.tabCategories.Name = "tabCategories";
             this.tabCategories.Padding = new System.Windows.Forms.Padding(3);
-            this.tabCategories.Size = new System.Drawing.Size(1267, 571);
+            this.tabCategories.Size = new System.Drawing.Size(1430, 571);
             this.tabCategories.TabIndex = 1;
             this.tabCategories.Text = "Categories";
             this.tabCategories.UseVisualStyleBackColor = true;
@@ -418,22 +434,6 @@
             this.label3.Size = new System.Drawing.Size(52, 13);
             this.label3.TabIndex = 5;
             this.label3.Text = "Category:";
-            // 
-            // flowLayoutPanel2
-            // 
-            this.flowLayoutPanel2.Controls.Add(this.btnShiftLeft);
-            this.flowLayoutPanel2.Controls.Add(this.btnShiftRight);
-            this.flowLayoutPanel2.Controls.Add(this.btnShiftUp);
-            this.flowLayoutPanel2.Controls.Add(this.btnShiftDown);
-            this.flowLayoutPanel2.Controls.Add(this.btnMirrorX);
-            this.flowLayoutPanel2.Controls.Add(this.btnMirrorY);
-            this.flowLayoutPanel2.Controls.Add(this.btnInvert);
-            this.flowLayoutPanel2.Controls.Add(this.btnRotateLeft);
-            this.flowLayoutPanel2.Controls.Add(this.button3);
-            this.flowLayoutPanel2.Location = new System.Drawing.Point(6, 374);
-            this.flowLayoutPanel2.Name = "flowLayoutPanel2";
-            this.flowLayoutPanel2.Size = new System.Drawing.Size(316, 34);
-            this.flowLayoutPanel2.TabIndex = 64;
             // 
             // btnShiftLeft
             // 
@@ -822,7 +822,7 @@
             // 
             this.picturePlayground.AutoResize = false;
             this.picturePlayground.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.picturePlayground.DisplayPage = fastImage1;
+            this.picturePlayground.DisplayPage = fastImage2;
             this.picturePlayground.Image = null;
             this.picturePlayground.Location = new System.Drawing.Point(886, 3);
             this.picturePlayground.Name = "picturePlayground";
@@ -968,10 +968,11 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.Controls.Add(this.tabCharacterEditor);
             this.Name = "CharacterEditor";
-            this.Size = new System.Drawing.Size(1275, 597);
+            this.Size = new System.Drawing.Size(1438, 597);
             this.tabCharacterEditor.ResumeLayout(false);
             this.tabEditor.ResumeLayout(false);
             this.tabEditor.PerformLayout();
+            this.flowLayoutPanel2.ResumeLayout(false);
             this.flowLayoutPanel1.ResumeLayout(false);
             this.flowLayoutPanel1.PerformLayout();
             this.groupBox1.ResumeLayout(false);
@@ -981,7 +982,6 @@
             this.tabCategories.PerformLayout();
             this.groupCategorySpecific.ResumeLayout(false);
             this.groupCategorySpecific.PerformLayout();
-            this.flowLayoutPanel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.canvasEditor)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.picturePlayground)).EndInit();
             this.ResumeLayout(false);
