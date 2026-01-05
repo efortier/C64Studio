@@ -2325,11 +2325,27 @@ namespace RetroDevStudio.Controls
             break;
           case ColorType.CUSTOM_COLOR:
             {
-              // TODO
               List<int>   selectedChars = panelCharacters.SelectedIndices;
               if ( selectedChars.Count == 0 )
               {
                 selectedChars.Add( m_CurrentChar );
+              }
+
+              // In 2x2 or 4x4 mode, apply to all characters displayed in the canvas editor
+              if ( m_EditorWidthInChars > 1 )
+              {
+                selectedChars = new List<int>();
+                for ( int y = 0; y < m_EditorHeightInChars; ++y )
+                {
+                  for ( int x = 0; x < m_EditorWidthInChars; ++x )
+                  {
+                    int charIndex = m_CurrentChar + x + y * CharactersPerRow;
+                    if ( charIndex < m_Project.Characters.Count )
+                    {
+                      selectedChars.Add( charIndex );
+                    }
+                  }
+                }
               }
 
               bool    modified = false;
