@@ -237,10 +237,7 @@ namespace RetroDevStudio.Controls
 
     private void RedrawPlayground()
     {
-      picturePlayground.DisplayPage.Box( 0, 0, picturePlayground.DisplayPage.Width, picturePlayground.DisplayPage.Height, 
-        (uint)m_Project.Colors.Palette.ColorValues[m_Project.Colors.BackgroundColor] );
-      picturePlayground.DisplayPage.DrawImage( m_ImagePlayground, 0, 0 );
-      picturePlayground.Invalidate();
+      RebuildPlaygroundImage();
     }
 
 
@@ -1355,6 +1352,8 @@ namespace RetroDevStudio.Controls
       // Apply saved playground scale
       ApplyPlaygroundScale( m_Project.PlaygroundScale, false );
 
+      ApplyRightClickDrawing( m_Project.RightClickDrawing );
+
       DoNotAddUndo = false;
       DoNotUpdateFromControls = false;
     }
@@ -1498,12 +1497,48 @@ namespace RetroDevStudio.Controls
       }
       if ( ( Buttons & MouseButtons.Right ) != 0 )
       {
-        var   pickedColor = affectedChar.Tile.GetPixel( charX, charY );
+        if ( m_Project.RightClickDrawing == RightClickDrawing.PICK_COLOR )
+        {
+          var pickedColor = affectedChar.Tile.GetPixel( charX, charY );
 
-        _ColorSettingsDlg.SelectedColor       = pickedColor.first;
-        _ColorSettingsDlg.SelectedCustomColor = pickedColor.second;
+          _ColorSettingsDlg.SelectedColor = pickedColor.first;
+          _ColorSettingsDlg.SelectedCustomColor = pickedColor.second;
 
-        RedrawColorPicker();
+          RedrawColorPicker();
+        }
+        else
+        {
+          // Draw with selected right-click color
+          var rightClickColor = new Tupel<ColorType, byte>( ColorType.BACKGROUND, 0 );
+          switch ( m_Project.RightClickDrawing )
+          {
+            case RightClickDrawing.BACKGROUND:
+              rightClickColor.first = ColorType.BACKGROUND;
+              break;
+            case RightClickDrawing.MULTICOLOR_1:
+              rightClickColor.first = ColorType.MULTICOLOR_1;
+              break;
+            case RightClickDrawing.MULTICOLOR_2:
+              rightClickColor.first = ColorType.MULTICOLOR_2;
+              break;
+            case RightClickDrawing.CHAR_COLOR:
+              rightClickColor.first = ColorType.CUSTOM_COLOR;
+              break;
+          }
+
+          var potentialUndo = new Undo.UndoCharacterEditorCharChange( this, m_Project, affectedCharIndex, 1 );
+          if ( affectedChar.Tile.SetPixel( charX, charY, rightClickColor ) )
+          {
+            if ( m_ButtonReleased )
+            {
+              UndoManager.AddUndoTask( potentialUndo );
+              m_ButtonReleased = false;
+            }
+            RaiseModifiedEvent( new List<int>() { affectedCharIndex } );
+            RebuildAffectedChar( affectedCharIndex );
+            canvasEditor.Invalidate();
+          }
+        }
       }
     }
 
@@ -2179,8 +2214,20 @@ namespace RetroDevStudio.Controls
 
     public void PlaygroundCharacterChanged( int X, int Y )
     {
-      Displayer.CharacterDisplayer.DisplayChar( m_Project, (int)( m_Project.PlaygroundChars[X + Y * m_Project.PlaygroundWidth] & 0xffff ), m_ImagePlayground, X * m_CharacterWidth, Y * m_CharacterHeight, (int)( m_Project.PlaygroundChars[X + Y * m_Project.PlaygroundWidth] >> 16 ) );
-      RedrawPlayground();
+      int scale = m_Project.PlaygroundScale;
+      if ( scale <= 0 )
+      {
+        scale = 2;
+      }
+      int scaledCharWidth = m_CharacterWidth * scale;
+      int scaledCharHeight = m_CharacterHeight * scale;
+
+      uint charInfo = m_Project.PlaygroundChars[X + Y * m_Project.PlaygroundWidth];
+      int charIndex = (int)( charInfo & 0xffff );
+      int color = (int)( charInfo >> 16 );
+
+      DrawScaledChar( charIndex, color, X * scaledCharWidth, Y * scaledCharHeight, scale );
+      picturePlayground.Invalidate();
     }
 
 
@@ -3135,6 +3182,59 @@ namespace RetroDevStudio.Controls
       AddCategory( m_Project.Categories.Count, newCategory );
 
       RaiseModifiedEvent( new List<int>() );
+    }
+
+
+
+    private void radioRightClick_CheckedChanged( DecentForms.ControlBase Sender )
+    {
+      if ( DoNotUpdateFromControls )
+      {
+        return;
+      }
+
+      var radio = Sender as DecentForms.RadioButton;
+      if ( radio == null || !radio.Checked )
+      {
+        return;
+      }
+
+      RightClickDrawing newDrawing = RightClickDrawing.PICK_COLOR;
+      if ( radio == radioRightClickBackground )
+      {
+        newDrawing = RightClickDrawing.BACKGROUND;
+      }
+      else if ( radio == radioRightClickMulticolor1 )
+      {
+        newDrawing = RightClickDrawing.MULTICOLOR_1;
+      }
+      else if ( radio == radioRightClickMulticolor2 )
+      {
+        newDrawing = RightClickDrawing.MULTICOLOR_2;
+      }
+      else if ( radio == radioRightClickCharColor )
+      {
+        newDrawing = RightClickDrawing.CHAR_COLOR;
+      }
+
+      if ( m_Project.RightClickDrawing != newDrawing )
+      {
+        m_Project.RightClickDrawing = newDrawing;
+        RaiseModifiedEvent( new List<int>() );
+      }
+    }
+
+
+
+    private void ApplyRightClickDrawing( RightClickDrawing Drawing )
+    {
+      DoNotUpdateFromControls = true;
+      radioRightClickDefault.Checked = ( Drawing == RightClickDrawing.PICK_COLOR );
+      radioRightClickBackground.Checked = ( Drawing == RightClickDrawing.BACKGROUND );
+      radioRightClickMulticolor1.Checked = ( Drawing == RightClickDrawing.MULTICOLOR_1 );
+      radioRightClickMulticolor2.Checked = ( Drawing == RightClickDrawing.MULTICOLOR_2 );
+      radioRightClickCharColor.Checked = ( Drawing == RightClickDrawing.CHAR_COLOR );
+      DoNotUpdateFromControls = false;
     }
 
 

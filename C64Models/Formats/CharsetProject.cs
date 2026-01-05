@@ -38,6 +38,17 @@ namespace RetroDevStudio.Formats
 
 
 
+  public enum RightClickDrawing
+  {
+    PICK_COLOR = 0,
+    BACKGROUND,
+    MULTICOLOR_1,
+    MULTICOLOR_2,
+    CHAR_COLOR
+  }
+
+
+
   public class CharsetProject
   {
     public List<CharData> Characters = new List<CharData>( 256 );
@@ -48,6 +59,8 @@ namespace RetroDevStudio.Formats
     public string         ExportFilename = "";
 
     public uint           UsedTiles = 0;
+
+    public RightClickDrawing RightClickDrawing = RightClickDrawing.PICK_COLOR;
     public int            ExportStartCharacter = 0;
     public int            ExportNumCharacters = 256;
     public bool           ShowGrid = false;
@@ -198,6 +211,7 @@ namespace RetroDevStudio.Formats
       chunkCharsetInfo.AppendI32( (int)Mode );
       chunkCharsetInfo.AppendI32( TotalNumberOfCharacters );
       chunkCharsetInfo.AppendI32( ShowGrid ? 1 : 0 );
+      chunkCharsetInfo.AppendI32( (int)RightClickDrawing );
       chunkCharsetProject.Append( chunkCharsetInfo.ToBuffer() );
 
 
@@ -513,6 +527,14 @@ namespace RetroDevStudio.Formats
                   Mode = (TextCharMode)subMemIn.ReadInt32();
                   TotalNumberOfCharacters = subMemIn.ReadInt32();
                   ShowGrid = ( ( subMemIn.ReadInt32() & 1 ) == 1 );
+                  if ( subMemIn.Position < subChunk.Length )
+                  {
+                    RightClickDrawing = (RightClickDrawing)subMemIn.ReadInt32();
+                  }
+                  else
+                  {
+                    RightClickDrawing = RightClickDrawing.PICK_COLOR;
+                  }
                   break;
                 case FileChunkConstants.CHARSET_COLOR_SETTINGS:
                   {
