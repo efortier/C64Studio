@@ -2353,7 +2353,6 @@ namespace RetroDevStudio.Documents
 
       if ( ( m_CurrentTileChar != null )
       &&   ( m_CurrentTileChar.Character != m_CurrentChar ) 
-      &&   ( m_CurrentTileChar.Color != m_CurrentColor )
       &&   ( listTileInfo.SelectedIndices.Count > 0 )
       &&   ( listTileChars.SelectedItems.Count > 0 ) )
       {
