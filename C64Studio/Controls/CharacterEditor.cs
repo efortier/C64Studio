@@ -107,6 +107,8 @@ namespace RetroDevStudio.Controls
       {
         if ( m_EditorWidthInChars != value )
         {
+          SetEditorMode( value );
+          
           if ( value == 1 )
           {
              ButtonCanvas1x1.Checked = true;
@@ -121,6 +123,14 @@ namespace RetroDevStudio.Controls
           }
         }
       }
+    }
+    
+    private void SetEditorMode( int Mode )
+    {
+      m_EditorWidthInChars = Mode;
+      m_EditorHeightInChars = Mode;
+      AdjustCharacterSizes();
+      canvasEditor.Invalidate();
     }
 
     public CharacterEditor()
@@ -3538,47 +3548,37 @@ namespace RetroDevStudio.Controls
         {
             if (ButtonCanvas1x1.Checked)
             {
-                m_EditorWidthInChars = 1;
-                m_EditorHeightInChars = 1;
-                AdjustCharacterSizes();
-                canvasEditor.Invalidate();
+                SetEditorMode( 1 );
                 if (!DoNotUpdateFromControls)
                 {
                     RaiseModifiedEvent();
                 }
             }
-
         }
 
         private void radioButton1_CheckedChanged(DecentForms.ControlBase Sender)
         {
             if (ButtonCanvas2x2.Checked)
             {
-                m_EditorWidthInChars = 2;
-                m_EditorHeightInChars = 2;
-                AdjustCharacterSizes();
-                canvasEditor.Invalidate();
+                SetEditorMode( 2 );
                 if (!DoNotUpdateFromControls)
                 {
                     RaiseModifiedEvent();
                 }
             }
-
         }
 
         private void ButtonCanvas4x4_CheckedChanged(DecentForms.ControlBase Sender)
         {
             if (ButtonCanvas4x4.Checked)
             {
-                m_EditorWidthInChars = 4;
-                m_EditorHeightInChars = 4;
-                AdjustCharacterSizes();
-                canvasEditor.Invalidate();
+                SetEditorMode( 4 );
                 if (!DoNotUpdateFromControls)
                 {
                     RaiseModifiedEvent();
                 }
             }
         }
+
     }
 }

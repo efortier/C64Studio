@@ -363,3 +363,4 @@
 build_final.log
 .gitignore
 .gitignore
+/build.log
