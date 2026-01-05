@@ -1796,16 +1796,50 @@ namespace RetroDevStudio.Controls
 
       if ( ( Buttons & MouseButtons.Left ) != 0 )
       {
-        if ( m_Project.PlaygroundChars[charX + charY * m_Project.PlaygroundWidth] != (uint)( m_CurrentChar | ( m_CurrentColor << 16 ) ) )
+        bool modified = false;
+
+        // Place characters based on editor mode (1x1, 2x2, or 4x4)
+        for ( int ey = 0; ey < m_EditorHeightInChars; ++ey )
         {
-          UndoManager.AddUndoTask( new Undo.UndoCharacterEditorPlaygroundCharChange( this, m_Project, charX, charY ) );
+          for ( int ex = 0; ex < m_EditorWidthInChars; ++ex )
+          {
+            int destX = charX + ex;
+            int destY = charY + ey;
 
-          m_Project.PlaygroundChars[charX + charY * m_Project.PlaygroundWidth] = (uint)( m_CurrentChar | ( m_CurrentColor << 16 ) );
+            // Check bounds
+            if ( destX >= m_Project.PlaygroundWidth || destY >= m_Project.PlaygroundHeight )
+            {
+              continue;
+            }
 
-          // Redraw just this character
-          DrawScaledChar( m_CurrentChar, m_CurrentColor, charX * scaledCharWidth, charY * scaledCharHeight, scale );
+            // Calculate source character index based on current char and CharactersPerRow
+            int sourceCharIndex = m_CurrentChar + ex + ey * CharactersPerRow;
+            if ( sourceCharIndex >= m_Project.Characters.Count )
+            {
+              continue;
+            }
+
+            int destIndex = destX + destY * m_Project.PlaygroundWidth;
+            uint newValue = (uint)( sourceCharIndex | ( m_CurrentColor << 16 ) );
+
+            if ( m_Project.PlaygroundChars[destIndex] != newValue )
+            {
+              if ( !modified )
+              {
+                // Add undo task for the first character only (could be extended for all)
+                UndoManager.AddUndoTask( new Undo.UndoCharacterEditorPlaygroundCharChange( this, m_Project, charX, charY ) );
+              }
+
+              m_Project.PlaygroundChars[destIndex] = newValue;
+              DrawScaledChar( sourceCharIndex, m_CurrentColor, destX * scaledCharWidth, destY * scaledCharHeight, scale );
+              modified = true;
+            }
+          }
+        }
+
+        if ( modified )
+        {
           picturePlayground.Invalidate();
-
           RaiseModifiedEvent( new List<int>() );
         }
       }
