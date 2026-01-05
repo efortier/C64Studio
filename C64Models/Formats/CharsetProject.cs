@@ -60,6 +60,7 @@ namespace RetroDevStudio.Formats
     public List<uint>     PlaygroundChars = new List<uint>( 16 * 16 );
     public int            PlaygroundWidth = 16;
     public int            PlaygroundHeight = 16;
+    public int            PlaygroundScale = 2;  // 1x, 2x, 4x, or 8x scale (default 2x = 16 pixels per char)
 
 
 
@@ -90,6 +91,38 @@ namespace RetroDevStudio.Formats
       {
         _Mode = value;
       }
+    }
+
+
+
+    public void ResizePlayground( int newWidth, int newHeight )
+    {
+      if ( newWidth == PlaygroundWidth && newHeight == PlaygroundHeight )
+      {
+        return;
+      }
+
+      var newChars = new List<uint>( newWidth * newHeight );
+      for ( int i = 0; i < newWidth * newHeight; ++i )
+      {
+        // Initialize with white spaces
+        newChars.Add( 0x10000 | 0x20 );
+      }
+
+      // Copy existing data
+      int copyWidth = Math.Min( PlaygroundWidth, newWidth );
+      int copyHeight = Math.Min( PlaygroundHeight, newHeight );
+      for ( int y = 0; y < copyHeight; ++y )
+      {
+        for ( int x = 0; x < copyWidth; ++x )
+        {
+          newChars[x + y * newWidth] = PlaygroundChars[x + y * PlaygroundWidth];
+        }
+      }
+
+      PlaygroundChars = newChars;
+      PlaygroundWidth = newWidth;
+      PlaygroundHeight = newHeight;
     }
 
 
@@ -227,6 +260,7 @@ namespace RetroDevStudio.Formats
 
       chunkPlayground.AppendI32( PlaygroundWidth );
       chunkPlayground.AppendI32( PlaygroundHeight );
+      chunkPlayground.AppendI32( PlaygroundScale );
       for ( int i = 0; i < PlaygroundChars.Count; ++i )
       {
         // 16 bit index, 16 bit color
@@ -537,6 +571,18 @@ namespace RetroDevStudio.Formats
                 case FileChunkConstants.CHARSET_PLAYGROUND:
                   PlaygroundWidth = subMemIn.ReadInt32();
                   PlaygroundHeight = subMemIn.ReadInt32();
+
+                  // Read PlaygroundScale if available, otherwise default to 2
+                  int expectedDataSize = PlaygroundWidth * PlaygroundHeight * 4;  // 4 bytes per char
+                  int remainingBytes = (int)( subChunk.Length - 8 );  // subtract 2 ints already read
+                  if ( remainingBytes > expectedDataSize )
+                  {
+                    PlaygroundScale = subMemIn.ReadInt32();
+                  }
+                  else
+                  {
+                    PlaygroundScale = 2;  // default for backward compatibility
+                  }
 
                   PlaygroundChars = new List<uint>( PlaygroundWidth * PlaygroundHeight );
 

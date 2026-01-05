@@ -30,7 +30,7 @@
     {
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(CharacterEditor));
-            GR.Image.FastImage fastImage2 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage1 = new GR.Image.FastImage();
             this.comboCategories = new System.Windows.Forms.ComboBox();
             this.label4 = new System.Windows.Forms.Label();
             this.labelCharNo = new System.Windows.Forms.Label();
@@ -51,6 +51,7 @@
             this.panelColorSettings = new System.Windows.Forms.Panel();
             this.comboCharsetMode = new System.Windows.Forms.ComboBox();
             this.labelCharsetMode = new System.Windows.Forms.Label();
+            this.flowPlaygroundScale = new System.Windows.Forms.FlowLayoutPanel();
             this.tabCategories = new System.Windows.Forms.TabPage();
             this.groupAllCategories = new System.Windows.Forms.GroupBox();
             this.groupCategorySpecific = new System.Windows.Forms.GroupBox();
@@ -88,6 +89,10 @@
             this.btnCharMoveUp = new DecentForms.Button();
             this.btnCharMoveLeft = new DecentForms.Button();
             this.canvasEditor = new RetroDevStudio.Controls.CustomDrawControl();
+            this.radioPlaygroundScale1x = new DecentForms.RadioButton();
+            this.radioPlaygroundScale2x = new DecentForms.RadioButton();
+            this.radioPlaygroundScale4x = new DecentForms.RadioButton();
+            this.radioPlaygroundScale8x = new DecentForms.RadioButton();
             this.picturePlayground = new GR.Forms.FastPictureBox();
             this.panelCharacters = new GR.Forms.ImageListbox();
             this.btnMoveCategoryDown = new DecentForms.Button();
@@ -103,6 +108,7 @@
             this.flowLayoutPanel1.SuspendLayout();
             this.groupBox1.SuspendLayout();
             this.groupMoveChar.SuspendLayout();
+            this.flowPlaygroundScale.SuspendLayout();
             this.tabCategories.SuspendLayout();
             this.groupCategorySpecific.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.canvasEditor)).BeginInit();
@@ -189,6 +195,7 @@
             this.tabEditor.Controls.Add(this.canvasEditor);
             this.tabEditor.Controls.Add(this.comboCharsetMode);
             this.tabEditor.Controls.Add(this.labelCharsetMode);
+            this.tabEditor.Controls.Add(this.flowPlaygroundScale);
             this.tabEditor.Controls.Add(this.picturePlayground);
             this.tabEditor.Controls.Add(this.checkPasteMultiColor);
             this.tabEditor.Controls.Add(this.checkShowGrid);
@@ -291,7 +298,7 @@
             // 
             // panelColorChooser
             // 
-            this.panelColorChooser.Location = new System.Drawing.Point(885, 335);
+            this.panelColorChooser.Location = new System.Drawing.Point(886, 399);
             this.panelColorChooser.Name = "panelColorChooser";
             this.panelColorChooser.Size = new System.Drawing.Size(280, 120);
             this.panelColorChooser.TabIndex = 24;
@@ -334,6 +341,17 @@
             this.labelCharsetMode.Size = new System.Drawing.Size(37, 13);
             this.labelCharsetMode.TabIndex = 17;
             this.labelCharsetMode.Text = "Mode:";
+            // 
+            // flowPlaygroundScale
+            // 
+            this.flowPlaygroundScale.Controls.Add(this.radioPlaygroundScale1x);
+            this.flowPlaygroundScale.Controls.Add(this.radioPlaygroundScale2x);
+            this.flowPlaygroundScale.Controls.Add(this.radioPlaygroundScale4x);
+            this.flowPlaygroundScale.Controls.Add(this.radioPlaygroundScale8x);
+            this.flowPlaygroundScale.Location = new System.Drawing.Point(1228, 399);
+            this.flowPlaygroundScale.Name = "flowPlaygroundScale";
+            this.flowPlaygroundScale.Size = new System.Drawing.Size(150, 32);
+            this.flowPlaygroundScale.TabIndex = 65;
             // 
             // tabCategories
             // 
@@ -818,15 +836,71 @@
             this.canvasEditor.MouseDown += new System.Windows.Forms.MouseEventHandler(this.canvasEditor_MouseDown);
             this.canvasEditor.MouseMove += new System.Windows.Forms.MouseEventHandler(this.canvasEditor_MouseMove);
             // 
+            // radioPlaygroundScale1x
+            // 
+            this.radioPlaygroundScale1x.Appearance = System.Windows.Forms.Appearance.Button;
+            this.radioPlaygroundScale1x.BorderStyle = DecentForms.BorderStyle.NONE;
+            this.radioPlaygroundScale1x.CheckAlign = DecentForms.ContentAlignment.MiddleCenter;
+            this.radioPlaygroundScale1x.Checked = false;
+            this.radioPlaygroundScale1x.Image = null;
+            this.radioPlaygroundScale1x.Location = new System.Drawing.Point(3, 3);
+            this.radioPlaygroundScale1x.Name = "radioPlaygroundScale1x";
+            this.radioPlaygroundScale1x.Size = new System.Drawing.Size(30, 24);
+            this.radioPlaygroundScale1x.TabIndex = 0;
+            this.radioPlaygroundScale1x.Text = "1x";
+            this.radioPlaygroundScale1x.CheckedChanged += new DecentForms.EventHandler(this.radioPlaygroundScale_CheckedChanged);
+            // 
+            // radioPlaygroundScale2x
+            // 
+            this.radioPlaygroundScale2x.Appearance = System.Windows.Forms.Appearance.Button;
+            this.radioPlaygroundScale2x.BorderStyle = DecentForms.BorderStyle.NONE;
+            this.radioPlaygroundScale2x.CheckAlign = DecentForms.ContentAlignment.MiddleCenter;
+            this.radioPlaygroundScale2x.Checked = true;
+            this.radioPlaygroundScale2x.Image = null;
+            this.radioPlaygroundScale2x.Location = new System.Drawing.Point(39, 3);
+            this.radioPlaygroundScale2x.Name = "radioPlaygroundScale2x";
+            this.radioPlaygroundScale2x.Size = new System.Drawing.Size(30, 24);
+            this.radioPlaygroundScale2x.TabIndex = 1;
+            this.radioPlaygroundScale2x.Text = "2x";
+            this.radioPlaygroundScale2x.CheckedChanged += new DecentForms.EventHandler(this.radioPlaygroundScale_CheckedChanged);
+            // 
+            // radioPlaygroundScale4x
+            // 
+            this.radioPlaygroundScale4x.Appearance = System.Windows.Forms.Appearance.Button;
+            this.radioPlaygroundScale4x.BorderStyle = DecentForms.BorderStyle.NONE;
+            this.radioPlaygroundScale4x.CheckAlign = DecentForms.ContentAlignment.MiddleCenter;
+            this.radioPlaygroundScale4x.Checked = false;
+            this.radioPlaygroundScale4x.Image = null;
+            this.radioPlaygroundScale4x.Location = new System.Drawing.Point(75, 3);
+            this.radioPlaygroundScale4x.Name = "radioPlaygroundScale4x";
+            this.radioPlaygroundScale4x.Size = new System.Drawing.Size(30, 24);
+            this.radioPlaygroundScale4x.TabIndex = 2;
+            this.radioPlaygroundScale4x.Text = "4x";
+            this.radioPlaygroundScale4x.CheckedChanged += new DecentForms.EventHandler(this.radioPlaygroundScale_CheckedChanged);
+            // 
+            // radioPlaygroundScale8x
+            // 
+            this.radioPlaygroundScale8x.Appearance = System.Windows.Forms.Appearance.Button;
+            this.radioPlaygroundScale8x.BorderStyle = DecentForms.BorderStyle.NONE;
+            this.radioPlaygroundScale8x.CheckAlign = DecentForms.ContentAlignment.MiddleCenter;
+            this.radioPlaygroundScale8x.Checked = false;
+            this.radioPlaygroundScale8x.Image = null;
+            this.radioPlaygroundScale8x.Location = new System.Drawing.Point(111, 3);
+            this.radioPlaygroundScale8x.Name = "radioPlaygroundScale8x";
+            this.radioPlaygroundScale8x.Size = new System.Drawing.Size(30, 24);
+            this.radioPlaygroundScale8x.TabIndex = 3;
+            this.radioPlaygroundScale8x.Text = "8x";
+            this.radioPlaygroundScale8x.CheckedChanged += new DecentForms.EventHandler(this.radioPlaygroundScale_CheckedChanged);
+            // 
             // picturePlayground
             // 
             this.picturePlayground.AutoResize = false;
             this.picturePlayground.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.picturePlayground.DisplayPage = fastImage2;
+            this.picturePlayground.DisplayPage = fastImage1;
             this.picturePlayground.Image = null;
             this.picturePlayground.Location = new System.Drawing.Point(886, 3);
             this.picturePlayground.Name = "picturePlayground";
-            this.picturePlayground.Size = new System.Drawing.Size(260, 260);
+            this.picturePlayground.Size = new System.Drawing.Size(538, 390);
             this.picturePlayground.TabIndex = 51;
             this.picturePlayground.TabStop = false;
             this.picturePlayground.MouseDown += new System.Windows.Forms.MouseEventHandler(this.picturePlayground_MouseDown);
@@ -978,6 +1052,7 @@
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
             this.groupMoveChar.ResumeLayout(false);
+            this.flowPlaygroundScale.ResumeLayout(false);
             this.tabCategories.ResumeLayout(false);
             this.tabCategories.PerformLayout();
             this.groupCategorySpecific.ResumeLayout(false);
@@ -1055,5 +1130,10 @@
         private DecentForms.RadioButton ButtonCanvas1x1;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel1;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel2;
+        private DecentForms.RadioButton radioPlaygroundScale1x;
+        private DecentForms.RadioButton radioPlaygroundScale2x;
+        private DecentForms.RadioButton radioPlaygroundScale4x;
+        private DecentForms.RadioButton radioPlaygroundScale8x;
+        private System.Windows.Forms.FlowLayoutPanel flowPlaygroundScale;
     }
 }

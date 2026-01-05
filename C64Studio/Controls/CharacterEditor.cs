@@ -162,10 +162,15 @@ namespace RetroDevStudio.Controls
 
       DoNotUpdateFromControls = true;
 
-      picturePlayground.DisplayPage.Create( 128, 128, GR.Drawing.PixelFormat.Format32bppRgb );
       panelCharacters.PixelFormat = GR.Drawing.PixelFormat.Format32bppRgb;
       panelCharacters.SetDisplaySize( 128, 128 );
-      m_ImagePlayground.Create( 256, 256, GR.Drawing.PixelFormat.Format32bppRgb );
+
+      // Initialize playground with dynamic size based on control dimensions
+      UpdatePlaygroundSize();
+      picturePlayground.SizeChanged += picturePlayground_SizeChanged;
+
+      // Apply default scale (2x)
+      ApplyPlaygroundScale( m_Project.PlaygroundScale, false );
 
       if ( Core != null )
       {
@@ -232,8 +237,174 @@ namespace RetroDevStudio.Controls
 
     private void RedrawPlayground()
     {
+      picturePlayground.DisplayPage.Box( 0, 0, picturePlayground.DisplayPage.Width, picturePlayground.DisplayPage.Height, 
+        (uint)m_Project.Colors.Palette.ColorValues[m_Project.Colors.BackgroundColor] );
       picturePlayground.DisplayPage.DrawImage( m_ImagePlayground, 0, 0 );
       picturePlayground.Invalidate();
+    }
+
+
+
+    private void UpdatePlaygroundSize()
+    {
+      int scale = m_Project.PlaygroundScale;
+      if ( scale <= 0 )
+      {
+        scale = 2;  // default to 2x if not initialized
+      }
+      int scaledCharWidth = m_CharacterWidth * scale;
+      int scaledCharHeight = m_CharacterHeight * scale;
+
+      int newWidthInChars = Math.Max( 1, picturePlayground.ClientSize.Width / scaledCharWidth );
+      int newHeightInChars = Math.Max( 1, picturePlayground.ClientSize.Height / scaledCharHeight );
+
+      // Resize project data if needed
+      m_Project.ResizePlayground( newWidthInChars, newHeightInChars );
+
+      // Resize display page to match control size
+      picturePlayground.DisplayPage.Create( picturePlayground.ClientSize.Width, picturePlayground.ClientSize.Height, GR.Drawing.PixelFormat.Format32bppRgb );
+
+      // Apply palette and rebuild
+      PaletteManager.ApplyPalette( picturePlayground.DisplayPage, m_Project.Colors.Palette );
+      RebuildPlaygroundImage();
+    }
+
+
+
+    private void RebuildPlaygroundImage()
+    {
+      int scale = m_Project.PlaygroundScale;
+      if ( scale <= 0 )
+      {
+        scale = 2;  // default to 2x if not initialized
+      }
+      int scaledCharWidth = m_CharacterWidth * scale;
+      int scaledCharHeight = m_CharacterHeight * scale;
+
+      // Clear with background color
+      picturePlayground.DisplayPage.Box( 0, 0, picturePlayground.DisplayPage.Width, picturePlayground.DisplayPage.Height, 
+        (uint)m_Project.Colors.Palette.ColorValues[m_Project.Colors.BackgroundColor] );
+
+      for ( int y = 0; y < m_Project.PlaygroundHeight; ++y )
+      {
+        for ( int x = 0; x < m_Project.PlaygroundWidth; ++x )
+        {
+          uint charInfo = m_Project.PlaygroundChars[x + y * m_Project.PlaygroundWidth];
+          int charIndex = (int)( charInfo & 0xffff );
+          int color = (int)( charInfo >> 16 );
+          DrawScaledChar( charIndex, color, x * scaledCharWidth, y * scaledCharHeight, scale );
+        }
+      }
+      picturePlayground.Invalidate();
+    }
+
+
+
+    private void DrawScaledChar( int charIndex, int color, int destX, int destY, int scale )
+    {
+      if ( charIndex >= m_Project.Characters.Count )
+      {
+        return;
+      }
+
+      // Create a temporary buffer to hold the unscaled character
+      var tempImage = new GR.Image.MemoryImage( m_CharacterWidth, m_CharacterHeight, GR.Drawing.PixelFormat.Format32bppRgb );
+      PaletteManager.ApplyPalette( tempImage, m_Project.Colors.Palette );
+
+      // Draw character to temporary buffer using existing DisplayChar
+      Displayer.CharacterDisplayer.DisplayChar( m_Project, charIndex, tempImage, 0, 0, color );
+
+      // Scale from temporary buffer to destination
+      for ( int py = 0; py < m_CharacterHeight; ++py )
+      {
+        for ( int px = 0; px < m_CharacterWidth; ++px )
+        {
+          uint colorValue = tempImage.GetPixel( px, py );
+
+          // Draw scaled pixel
+          for ( int sy = 0; sy < scale; ++sy )
+          {
+            for ( int sx = 0; sx < scale; ++sx )
+            {
+              int dx = destX + px * scale + sx;
+              int dy = destY + py * scale + sy;
+              if ( dx < picturePlayground.DisplayPage.Width && dy < picturePlayground.DisplayPage.Height )
+              {
+                picturePlayground.DisplayPage.SetPixel( dx, dy, colorValue );
+              }
+            }
+          }
+        }
+      }
+    }
+
+
+
+    private void picturePlayground_SizeChanged( object sender, EventArgs e )
+    {
+      if ( m_Project == null )
+      {
+        return;
+      }
+      UpdatePlaygroundSize();
+    }
+
+
+
+    private void ApplyPlaygroundScale( int scale, bool markModified )
+    {
+      m_Project.PlaygroundScale = scale;
+
+      // Update radio button UI without triggering events
+      DoNotUpdateFromControls = true;
+      radioPlaygroundScale1x.Checked = ( scale == 1 );
+      radioPlaygroundScale2x.Checked = ( scale == 2 );
+      radioPlaygroundScale4x.Checked = ( scale == 4 );
+      radioPlaygroundScale8x.Checked = ( scale == 8 );
+      DoNotUpdateFromControls = false;
+
+      UpdatePlaygroundSize();
+
+      if ( markModified )
+      {
+        RaiseModifiedEvent( new List<int>() );
+      }
+    }
+
+
+
+    private void radioPlaygroundScale_CheckedChanged( DecentForms.ControlBase Sender )
+    {
+      if ( DoNotUpdateFromControls )
+      {
+        return;
+      }
+
+      var radio = Sender as DecentForms.RadioButton;
+      if ( radio == null || !radio.Checked )
+      {
+        return;
+      }
+
+      int newScale = 2;  // default
+      if ( radio == radioPlaygroundScale1x )
+      {
+        newScale = 1;
+      }
+      else if ( radio == radioPlaygroundScale2x )
+      {
+        newScale = 2;
+      }
+      else if ( radio == radioPlaygroundScale4x )
+      {
+        newScale = 4;
+      }
+      else if ( radio == radioPlaygroundScale8x )
+      {
+        newScale = 8;
+      }
+
+      ApplyPlaygroundScale( newScale, true );
     }
 
 
@@ -606,14 +777,14 @@ namespace RetroDevStudio.Controls
         panelCharacters.InvalidateItemRect( CharIndex );
       }
       bool playgroundChanged = false;
-      for ( int i = 0; i < 16; ++i )
+      for ( int i = 0; i < m_Project.PlaygroundWidth; ++i )
       {
-        for ( int j = 0; j < 16; ++j )
+        for ( int j = 0; j < m_Project.PlaygroundHeight; ++j )
         {
-          if ( ( m_Project.PlaygroundChars[i + j * 16] & 0xffff ) == CharIndex )
+          if ( ( m_Project.PlaygroundChars[i + j * m_Project.PlaygroundWidth] & 0xffff ) == CharIndex )
           {
             playgroundChanged = true;
-            Displayer.CharacterDisplayer.DisplayChar( m_Project, CharIndex, m_ImagePlayground, i * m_CharacterWidth, j * m_CharacterHeight, (int)m_Project.PlaygroundChars[i + j * 16] >> 16 );
+            Displayer.CharacterDisplayer.DisplayChar( m_Project, CharIndex, m_ImagePlayground, i * m_CharacterWidth, j * m_CharacterHeight, (int)m_Project.PlaygroundChars[i + j * m_Project.PlaygroundWidth] >> 16 );
           }
         }
       }
@@ -1181,6 +1352,9 @@ namespace RetroDevStudio.Controls
       RedrawColorPicker();
       //Debug.Log( "CharsetUpdated o" );
 
+      // Apply saved playground scale
+      ApplyPlaygroundScale( m_Project.PlaygroundScale, false );
+
       DoNotAddUndo = false;
       DoNotUpdateFromControls = false;
     }
@@ -1596,8 +1770,16 @@ namespace RetroDevStudio.Controls
 
     private void HandleMouseOnPlayground( int X, int Y, MouseButtons Buttons )
     {
-      int     charX = (int)( ( 64 / m_CharacterWidth * 2 * X ) / picturePlayground.ClientRectangle.Width );
-      int     charY = (int)( ( 64 / m_CharacterHeight * 2 * Y ) / picturePlayground.ClientRectangle.Height );
+      int scale = m_Project.PlaygroundScale;
+      if ( scale <= 0 )
+      {
+        scale = 2;  // default to 2x if not initialized
+      }
+      int scaledCharWidth = m_CharacterWidth * scale;
+      int scaledCharHeight = m_CharacterHeight * scale;
+
+      int     charX = X / scaledCharWidth;
+      int     charY = Y / scaledCharHeight;
 
       if ( ( Buttons & MouseButtons.Left ) == 0 )
       {
@@ -1605,30 +1787,32 @@ namespace RetroDevStudio.Controls
       }
 
       if ( ( charX < 0 )
-      ||   ( charX >= 16 )
+      ||   ( charX >= m_Project.PlaygroundWidth )
       ||   ( charY < 0 )
-      ||   ( charY >= 16 ) )
+      ||   ( charY >= m_Project.PlaygroundHeight ) )
       {
         return;
       }
 
       if ( ( Buttons & MouseButtons.Left ) != 0 )
       {
-        if ( m_Project.PlaygroundChars[charX + charY * 16] != (uint)( m_CurrentChar | ( m_CurrentColor << 16 ) ) )
+        if ( m_Project.PlaygroundChars[charX + charY * m_Project.PlaygroundWidth] != (uint)( m_CurrentChar | ( m_CurrentColor << 16 ) ) )
         {
           UndoManager.AddUndoTask( new Undo.UndoCharacterEditorPlaygroundCharChange( this, m_Project, charX, charY ) );
 
-          Displayer.CharacterDisplayer.DisplayChar( m_Project, m_CurrentChar, m_ImagePlayground, charX * m_CharacterWidth, charY * m_CharacterHeight, m_CurrentColor );
-          RedrawPlayground();
+          m_Project.PlaygroundChars[charX + charY * m_Project.PlaygroundWidth] = (uint)( m_CurrentChar | ( m_CurrentColor << 16 ) );
 
-          m_Project.PlaygroundChars[charX + charY * 16] = (uint)( m_CurrentChar | ( m_CurrentColor << 16 ) );
+          // Redraw just this character
+          DrawScaledChar( m_CurrentChar, m_CurrentColor, charX * scaledCharWidth, charY * scaledCharHeight, scale );
+          picturePlayground.Invalidate();
+
           RaiseModifiedEvent( new List<int>() );
         }
       }
       if ( ( Buttons & MouseButtons.Right ) != 0 )
       {
-        m_CurrentChar = (ushort)( m_Project.PlaygroundChars[charX + charY * 16] & 0xffff );
-        m_CurrentColor = (ushort)( m_Project.PlaygroundChars[charX + charY * 16] >> 16 );
+        m_CurrentChar = (ushort)( m_Project.PlaygroundChars[charX + charY * m_Project.PlaygroundWidth] & 0xffff );
+        m_CurrentColor = (ushort)( m_Project.PlaygroundChars[charX + charY * m_Project.PlaygroundWidth] >> 16 );
         panelCharacters.SelectedIndex = m_CurrentChar;
         RedrawColorPicker();
       }
