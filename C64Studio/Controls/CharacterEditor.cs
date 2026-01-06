@@ -287,6 +287,7 @@ namespace RetroDevStudio.Controls
 
       m_Project.ResizePlayground( newWidthInChars, newHeightInChars );
       RebuildPlaygroundImage();
+      RaiseModifiedEvent( new List<int>() );
     }
 
 
@@ -301,6 +302,7 @@ namespace RetroDevStudio.Controls
         m_Project.PlaygroundChars[i] = 0x10000 | 0x20;
       }
       RebuildPlaygroundImage();
+      RaiseModifiedEvent( new List<int>() );
     }
 
 
