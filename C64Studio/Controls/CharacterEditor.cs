@@ -256,13 +256,50 @@ namespace RetroDevStudio.Controls
       int newHeightInChars = Math.Max( 1, picturePlayground.ClientSize.Height / scaledCharHeight );
 
       // Resize project data if needed
-      m_Project.ResizePlayground( newWidthInChars, newHeightInChars );
+      // Ensure we don't shrink the playground to avoid losing data
+      int targetWidth = Math.Max( m_Project.PlaygroundWidth, newWidthInChars );
+      int targetHeight = Math.Max( m_Project.PlaygroundHeight, newHeightInChars );
+
+      m_Project.ResizePlayground( targetWidth, targetHeight );
 
       // Resize display page to match control size
       picturePlayground.DisplayPage.Create( picturePlayground.ClientSize.Width, picturePlayground.ClientSize.Height, GR.Drawing.PixelFormat.Format32bppRgb );
 
       // Apply palette and rebuild
       PaletteManager.ApplyPalette( picturePlayground.DisplayPage, m_Project.Colors.Palette );
+      RebuildPlaygroundImage();
+    }
+
+
+
+    private void btnCropPlayground_Click( DecentForms.ControlBase Sender )
+    {
+      int scale = m_Project.PlaygroundScale;
+      if ( scale <= 0 )
+      {
+        scale = 2;
+      }
+      int scaledCharWidth = m_CharacterWidth * scale;
+      int scaledCharHeight = m_CharacterHeight * scale;
+
+      int newWidthInChars = Math.Max( 1, picturePlayground.ClientSize.Width / scaledCharWidth );
+      int newHeightInChars = Math.Max( 1, picturePlayground.ClientSize.Height / scaledCharHeight );
+
+      m_Project.ResizePlayground( newWidthInChars, newHeightInChars );
+      RebuildPlaygroundImage();
+    }
+
+
+
+    private void btnClearPlayground_Click( DecentForms.ControlBase Sender )
+    {
+      for ( int i = 0; i < m_Project.PlaygroundChars.Count; ++i )
+      {
+        // Default to char 0 (usually space/empty) and color 1 (default fg?) or just keep color?
+        // Usually space is 0x20. Reverting to 0x20 and color m_CurrentColor or 1?
+        // Constructor uses: 0x10000 | 0x20 => Color 1, Char 0x20 (32) which is space in C64
+        m_Project.PlaygroundChars[i] = 0x10000 | 0x20;
+      }
       RebuildPlaygroundImage();
     }
 
