@@ -1859,15 +1859,19 @@ namespace RetroDevStudio.Controls
 
             if ( m_Project.PlaygroundChars[destIndex] != newValue )
             {
+              var undoTask = new Undo.UndoCharacterEditorPlaygroundCharChange( this, m_Project, destX, destY );
               if ( !modified )
               {
-                // Add undo task for the first character only (could be extended for all)
-                UndoManager.AddUndoTask( new Undo.UndoCharacterEditorPlaygroundCharChange( this, m_Project, charX, charY ) );
+                UndoManager.AddUndoTask( undoTask );
+                modified = true;
+              }
+              else
+              {
+                UndoManager.AddGroupedUndoTask( undoTask );
               }
 
               m_Project.PlaygroundChars[destIndex] = newValue;
               DrawScaledChar( sourceCharIndex, m_CurrentColor, destX * scaledCharWidth, destY * scaledCharHeight, scale );
-              modified = true;
             }
           }
         }
