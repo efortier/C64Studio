@@ -503,6 +503,8 @@ namespace RetroDevStudio.Documents
       int   targetMaxX = targetWidth - 1;
       int   targetMaxY = targetHeight - 1;
 
+      GetMapRenderOffsets( out int renderOffsetX, out int renderOffsetY );
+
       if ( m_MapProject.ShowGrid )
       {
         if ( m_CurrentMap == null )
@@ -524,29 +526,29 @@ namespace RetroDevStudio.Documents
         long    mapPixelWidth = (long)( m_CurrentMap.Tiles.Width - offsetX ) * m_CurrentMap.TileSpacingX * 8;
         long    mapPixelHeight = (long)( m_CurrentMap.Tiles.Height - offsetY ) * m_CurrentMap.TileSpacingY * 8;
 
-        int     targetMapWidth = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( (int)mapPixelWidth, sourceWidth, targetWidth ) ) );
-        int     targetMapHeight = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( (int)mapPixelHeight, sourceHeight, targetHeight ) ) );
+        int     targetMapWidth = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( renderOffsetX + (int)mapPixelWidth, sourceWidth, targetWidth ) ) );
+        int     targetMapHeight = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( renderOffsetY + (int)mapPixelHeight, sourceHeight, targetHeight ) ) );
 
         for ( int x = x1; x <= x2; ++x )
         {
-          int sourceX = ( x - offsetX ) * m_CurrentMap.TileSpacingX * 8;
+          int sourceX = renderOffsetX + ( x - offsetX ) * m_CurrentMap.TileSpacingX * 8;
           int targetX = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX, sourceWidth, targetWidth ) ) );
           
           if ( targetX <= targetMapWidth )
           {
-            TargetBuffer.Line( targetX, 0,
+            TargetBuffer.Line( targetX, ScaleCoordCeil( renderOffsetY, sourceHeight, targetHeight ),
                                targetX, targetMapHeight,
                                0xffffffff );
           }
         }
         for ( int y = y1; y <= y2; ++y )
         {
-          int sourceY = ( y - offsetY ) * m_CurrentMap.TileSpacingY * 8;
+          int sourceY = renderOffsetY + ( y - offsetY ) * m_CurrentMap.TileSpacingY * 8;
           int targetY = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( sourceY, sourceHeight, targetHeight ) ) );
 
           if ( targetY <= targetMapHeight )
           {
-            TargetBuffer.Line( 0, targetY,
+            TargetBuffer.Line( ScaleCoordCeil( renderOffsetX, sourceWidth, targetWidth ), targetY,
                                targetMapWidth, targetY,
                                0xffffffff );
           }
@@ -587,8 +589,8 @@ namespace RetroDevStudio.Documents
       
         foreach ( var marker in m_CurrentMap.Markers )
         {
-          int sourceX = ( marker.X - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
-          int sourceY = ( marker.Y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
+          int sourceX = renderOffsetX + ( marker.X - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
+          int sourceY = renderOffsetY + ( marker.Y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
           int sourceW = m_CurrentMap.TileSpacingX * 8;
           int sourceH = m_CurrentMap.TileSpacingY * 8;
           
@@ -616,7 +618,7 @@ namespace RetroDevStudio.Documents
              var  type = m_MapProject.MarkerTypes.FirstOrDefault( t => t.ID == marker.Type );
              if ( type != null )
              {
-                           color = m_MapProject.Charset.Colors.Palette.ColorValues[type.Color];
+               color = (uint)m_MapProject.Charset.Colors.Palette.ColorValues[type.Color];
              }
              
              // Inset box
@@ -648,10 +650,10 @@ namespace RetroDevStudio.Documents
         {
           if ( m_SelectedTiles[x, y] )
           {
-            int  sourceX1 = ( x - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
-            int  sourceX2 = ( x + 1 - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
-            int  sourceY1 = ( y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
-            int  sourceY2 = ( y + 1 - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
+            int  sourceX1 = renderOffsetX + ( x - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
+            int  sourceX2 = renderOffsetX + ( x + 1 - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
+            int  sourceY1 = renderOffsetY + ( y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
+            int  sourceY2 = renderOffsetY + ( y + 1 - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
 
             int  sx1 = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX1, sourceWidth, targetWidth ) ) );
             int  sx2 = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX2, sourceWidth, targetWidth ) - 1 ) );
@@ -711,8 +713,8 @@ namespace RetroDevStudio.Documents
 
         CalcRect( m_DragStartPos, m_LastDragEndPos, out o1, out o2 );
 
-        int sourceX = ( o1.X - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
-        int sourceY = ( o1.Y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
+        int sourceX = renderOffsetX + ( o1.X - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
+        int sourceY = renderOffsetY + ( o1.Y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
         int sourceW = ( o2.X - o1.X + 1 ) * m_CurrentMap.TileSpacingX * 8;
         int sourceH = ( o2.Y - o1.Y + 1 ) * m_CurrentMap.TileSpacingY * 8;
 
@@ -1047,8 +1049,14 @@ namespace RetroDevStudio.Documents
       int     sourceX = (int)Math.Floor( X * scaleX );
       int     sourceY = (int)Math.Floor( Y * scaleY );
 
-      sourceX = Math.Max( 0, Math.Min( pictureEditor.DisplayPage.Width - 1, sourceX ) );
-      sourceY = Math.Max( 0, Math.Min( pictureEditor.DisplayPage.Height - 1, sourceY ) );
+      GetMapRenderOffsets( out int renderOffsetX, out int renderOffsetY );
+
+      // apply centering offset
+      sourceX -= renderOffsetX;
+      sourceY -= renderOffsetY;
+
+      //sourceX = Math.Max( 0, Math.Min( pictureEditor.DisplayPage.Width - 1, sourceX ) );
+      //sourceY = Math.Max( 0, Math.Min( pictureEditor.DisplayPage.Height - 1, sourceY ) );
 
       int     charX = sourceX / 8;
       int     charY = sourceY / 8;
@@ -1087,6 +1095,17 @@ namespace RetroDevStudio.Documents
         return;
       }
 
+      if ( sourceX < 0 )
+      {
+        // outside!
+        return;
+      }
+      if ( sourceY < 0 )
+      {
+        // outside!
+        return;
+      }
+
       int mapPos = trueX + offsetX + ( trueY + offsetY ) * m_CurrentMap.Tiles.Width;
       labelEditInfo.Text = "X: " + ( trueX + offsetX ).ToString() + " Y:" + ( trueY + offsetY ).ToString() + " Abs:" + mapPos.ToString() + "/$" + mapPos.ToString( "X2" );
 
@@ -1119,16 +1138,16 @@ namespace RetroDevStudio.Documents
                   m_CurrentMap.Tiles[x, p2.Y] = m_CurrentEditorTile.Index;
 
                   pictureEditor.DisplayPage.DrawTo( m_Image,
-                                  ( x - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
-                                  ( p1.Y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
-                                  ( x - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
-                                  ( p1.Y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
+                                  renderOffsetX + ( x - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
+                                  renderOffsetY + ( p1.Y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
+                                  renderOffsetX + ( x - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
+                                  renderOffsetY + ( p1.Y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
                                   8 * m_CurrentMap.TileSpacingX, 8 * m_CurrentMap.TileSpacingY );
                   pictureEditor.DisplayPage.DrawTo( m_Image,
-                                  ( x - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
-                                  ( p2.Y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
-                                  ( x - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
-                                  ( p2.Y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
+                                  renderOffsetX + ( x - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
+                                  renderOffsetY + ( p2.Y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
+                                  renderOffsetX + ( x - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
+                                  renderOffsetY + ( p2.Y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
                                   8 * m_CurrentMap.TileSpacingX, 8 * m_CurrentMap.TileSpacingY );
                 }
                 for ( int y = p1.Y + 1; y <= p2.Y - 1; ++y )
@@ -1139,42 +1158,37 @@ namespace RetroDevStudio.Documents
                   m_CurrentMap.Tiles[p2.X, y] = m_CurrentEditorTile.Index;
 
                   pictureEditor.DisplayPage.DrawTo( m_Image,
-                                  ( p1.X - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
-                                  ( y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
-                                  ( p1.X - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
-                                  ( y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
+                                  renderOffsetX + ( p1.X - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
+                                  renderOffsetY + ( y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
+                                  renderOffsetX + ( p1.X - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
+                                  renderOffsetY + ( y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
                                   8 * m_CurrentMap.TileSpacingX, 8 * m_CurrentMap.TileSpacingY );
                   pictureEditor.DisplayPage.DrawTo( m_Image,
-                                  ( p2.X - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
-                                  ( y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
-                                  ( p2.X - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
-                                  ( y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
+                                  renderOffsetX + ( p2.X - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
+                                  renderOffsetY + ( y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
+                                  renderOffsetX + ( p2.X - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
+                                  renderOffsetY + ( y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
                                   8 * m_CurrentMap.TileSpacingX, 8 * m_CurrentMap.TileSpacingY );
                 }
               }
               else
               {
-                for ( int x = p1.X; x <= p2.X; ++x )
+                for ( int y = p1.Y; y <= p2.Y; ++y )
                 {
-                  for ( int y = p1.Y; y <= p2.Y; ++y )
+                  for ( int x = p1.X; x <= p2.X; ++x )
                   {
                     DrawTile( x - m_CurEditorOffsetX, y - m_CurEditorOffsetY, m_CurrentEditorTile.Index );
                     m_CurrentMap.Tiles[x, y] = m_CurrentEditorTile.Index;
-
                     pictureEditor.DisplayPage.DrawTo( m_Image,
-                                    ( x - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
-                                    ( y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
-                                    ( x - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
-                                    ( y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
+                                    renderOffsetX + ( x - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
+                                    renderOffsetY + ( y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
+                                    renderOffsetX + ( x - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
+                                    renderOffsetY + ( y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
                                     8 * m_CurrentMap.TileSpacingX, 8 * m_CurrentMap.TileSpacingY );
                   }
                 }
               }
-              pictureEditor.DisplayPage.DrawTo( m_Image,
-                                                ( p1.X - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX, ( p1.Y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY,
-                                                ( p1.X - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX, ( p1.Y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY,
-                                                ( p2.X - p1.X + 1 ) * m_CurrentMap.TileSpacingX, ( p2.Y - p1.Y + 1 ) * m_CurrentMap.TileSpacingY );
-              pictureEditor.Invalidate( new System.Drawing.Rectangle( p1.X * m_CurrentMap.TileSpacingX, p1.Y * m_CurrentMap.TileSpacingY, ( p2.X - p1.X + 1 ) * m_CurrentMap.TileSpacingX, ( p2.Y - p1.Y + 1 ) * m_CurrentMap.TileSpacingY ) );
+              pictureEditor.Invalidate();
               RecalcTileUsageInCurrentMap();
               Modified = true;
             }
@@ -1514,6 +1528,27 @@ namespace RetroDevStudio.Documents
 
 
 
+    private void GetMapRenderOffsets( out int RenderOffsetX, out int RenderOffsetY )
+    {
+       RenderOffsetX = 0;
+       RenderOffsetY = 0;
+       if ( m_CurrentMap == null )
+       {
+         return;
+       }
+       long    mapPixelWidth = (long)m_CurrentMap.Tiles.Width * m_CurrentMap.TileSpacingX * 8;
+       long    mapPixelHeight = (long)m_CurrentMap.Tiles.Height * m_CurrentMap.TileSpacingY * 8;
+
+       if ( mapPixelWidth < pictureEditor.DisplayPage.Width )
+       {
+         RenderOffsetX = (int)( pictureEditor.DisplayPage.Width - mapPixelWidth ) / 2;
+       }
+       if ( mapPixelHeight < pictureEditor.DisplayPage.Height )
+       {
+         RenderOffsetY = (int)( pictureEditor.DisplayPage.Height - mapPixelHeight ) / 2;
+       }
+    }
+
     private void DrawTile( int trueX, int trueY, int TileIndex )
     {
       if ( ( TileIndex < 0 )
@@ -1521,13 +1556,15 @@ namespace RetroDevStudio.Documents
       {
         return;
       }
+      GetMapRenderOffsets( out int renderOffsetX, out int renderOffsetY );
+
       for ( int j = 0; j < m_MapProject.Tiles[TileIndex].Chars.Height; ++j )
       {
         for ( int i = 0; i < m_MapProject.Tiles[TileIndex].Chars.Width; ++i )
         {
           DrawCharImage( pictureEditor.DisplayPage,
-                         ( trueX * m_CurrentMap.TileSpacingX + i ) * 8,
-                         ( trueY * m_CurrentMap.TileSpacingY + j ) * 8,
+                         renderOffsetX + ( trueX * m_CurrentMap.TileSpacingX + i ) * 8,
+                         renderOffsetY + ( trueY * m_CurrentMap.TileSpacingY + j ) * 8,
                          m_MapProject.Tiles[TileIndex].Chars[i, j].Character,
                          m_MapProject.Tiles[TileIndex].Chars[i, j].Color );
         }
@@ -1580,16 +1617,13 @@ namespace RetroDevStudio.Documents
         }
       }
 
-      pictureEditor.DisplayPage.Box( 0, 0, fillWidth, fillHeight, m_MapProject.Charset.Colors.Palette.ColorValues[bgColor] );
+      GetMapRenderOffsets( out int renderOffsetX, out int renderOffsetY );
 
-      if ( fillWidth < pictureEditor.DisplayPage.Width )
-      {
-        pictureEditor.DisplayPage.Box( fillWidth, 0, pictureEditor.DisplayPage.Width - fillWidth, pictureEditor.DisplayPage.Height, m_MapProject.Charset.Colors.Palette.ColorValues[m_MapProject.DesignerBackgroundColor] );
-      }
-      if ( fillHeight < pictureEditor.DisplayPage.Height )
-      {
-        pictureEditor.DisplayPage.Box( 0, fillHeight, fillWidth, pictureEditor.DisplayPage.Height - fillHeight, m_MapProject.Charset.Colors.Palette.ColorValues[m_MapProject.DesignerBackgroundColor] );
-      }
+      // clean background
+      pictureEditor.DisplayPage.Box( 0, 0, pictureEditor.DisplayPage.Width, pictureEditor.DisplayPage.Height, m_MapProject.Charset.Colors.Palette.ColorValues[m_MapProject.DesignerBackgroundColor] );
+
+      // draw map background
+      pictureEditor.DisplayPage.Box( renderOffsetX, renderOffsetY, fillWidth, fillHeight, m_MapProject.Charset.Colors.Palette.ColorValues[bgColor] );
 
       if ( m_CurrentMap == null )
       {
@@ -1657,8 +1691,8 @@ namespace RetroDevStudio.Documents
                 Displayer.CharacterDisplayer.DisplayChar( m_MapProject.Charset,
                                                           tile.Chars[i, j].Character,
                                                           pictureEditor.DisplayPage,
-                                                          ( ( x - offsetX ) * m_CurrentMap.TileSpacingX + i ) * 8,
-                                                          ( ( y - offsetY ) * m_CurrentMap.TileSpacingY + j ) * 8,
+                                                          renderOffsetX + ( ( x - offsetX ) * m_CurrentMap.TileSpacingX + i ) * 8,
+                                                          renderOffsetY + ( ( y - offsetY ) * m_CurrentMap.TileSpacingY + j ) * 8,
                                                           alternativeSettings );
               }
             }
@@ -1666,21 +1700,16 @@ namespace RetroDevStudio.Documents
             {
               int coverTilesX = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Width / (float)spacingX ) );
               int coverTilesY = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Height / (float)spacingY ) );
-              for ( int coverY = 0; coverY < coverTilesY; ++coverY )
+
+              for ( int cy = 0; cy < coverTilesY; ++cy )
               {
-                int targetY = y + coverY;
-                if ( targetY >= m_CurrentMap.Tiles.Height )
+                for ( int cx = 0; cx < coverTilesX; ++cx )
                 {
-                  break;
-                }
-                for ( int coverX = 0; coverX < coverTilesX; ++coverX )
-                {
-                  int targetX = x + coverX;
-                  if ( targetX >= m_CurrentMap.Tiles.Width )
+                  if ( ( x + cx < m_CurrentMap.Tiles.Width )
+                  &&   ( y + cy < m_CurrentMap.Tiles.Height ) )
                   {
-                    break;
+                    coveredTiles[x + cx, y + cy] = true;
                   }
-                  coveredTiles[targetX, targetY] = true;
                 }
               }
             }
