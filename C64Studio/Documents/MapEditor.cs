@@ -2144,8 +2144,14 @@ namespace RetroDevStudio.Documents
 
     private void CharacterEditor_CreateTileFromCharacter( object sender, EventArgs e )
     {
+      var dlg = new Dialogs.FormInputText( Core, "Create Tile", "Tile Name:", "Tile" );
+      if ( dlg.ShowDialog() != DialogResult.OK )
+      {
+        return;
+      }
+
       var tile = new MapProject.Tile();
-      tile.Name = "Tile";
+      tile.Name = MakeTileNameUnique( dlg.InputText );
 
       int tileSize = characterEditor.EditorMode;
 
