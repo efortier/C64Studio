@@ -51,6 +51,7 @@ namespace RetroDevStudio.Controls
     private int                         m_CharacterWidth = 8;
     private int                         m_CharacterHeight = 8;
     private GR.Image.MemoryImage        m_TempCharImage = null;
+    private Dictionary<uint, GR.Image.FastImage> m_RenderCache = new Dictionary<uint, GR.Image.FastImage>();
 
     private int                         m_CharacterEditorOrigWidth = -1;
     private int                         m_CharacterEditorOrigHeight = -1;
@@ -357,6 +358,16 @@ namespace RetroDevStudio.Controls
 
 
 
+
+    private void ClearRenderCache()
+    {
+      foreach ( var entry in m_RenderCache.Values )
+      {
+        entry.Dispose();
+      }
+      m_RenderCache.Clear();
+    }
+
     private void RebuildPlaygroundImage()
     {
       int scale = m_Project.PlaygroundScale;
@@ -392,42 +403,52 @@ namespace RetroDevStudio.Controls
       {
         return;
       }
-
-      // Create a temporary buffer to hold the unscaled character
-      if ( ( m_TempCharImage == null )
-      ||   ( m_TempCharImage.Width != m_CharacterWidth )
-      ||   ( m_TempCharImage.Height != m_CharacterHeight ) )
+      if ( scale <= 0 )
       {
-        m_TempCharImage = new GR.Image.MemoryImage( m_CharacterWidth, m_CharacterHeight, GR.Drawing.PixelFormat.Format32bppRgb );
+         return;
       }
-      // Optimization: Reuse existing buffer
-      PaletteManager.ApplyPalette( m_TempCharImage, m_Project.Colors.Palette );
 
-      // Draw character to temporary buffer using existing DisplayChar
-      Displayer.CharacterDisplayer.DisplayChar( m_Project, charIndex, m_TempCharImage, 0, 0, color );
+      uint key = (uint)charIndex | ( (uint)color << 16 ) | ( (uint)scale << 24 );
+      
+      GR.Image.FastImage  cachedImage = null;
 
-      // Scale from temporary buffer to destination
-      for ( int py = 0; py < m_CharacterHeight; ++py )
+      if ( !m_RenderCache.TryGetValue( key, out cachedImage ) )
       {
-        for ( int px = 0; px < m_CharacterWidth; ++px )
+        // Create a temporary buffer to hold the unscaled character
+        if ( ( m_TempCharImage == null )
+        ||   ( m_TempCharImage.Width != m_CharacterWidth )
+        ||   ( m_TempCharImage.Height != m_CharacterHeight ) )
         {
-          uint colorValue = m_TempCharImage.GetPixel( px, py );
+          m_TempCharImage = new GR.Image.MemoryImage( m_CharacterWidth, m_CharacterHeight, GR.Drawing.PixelFormat.Format32bppRgb );
+        }
+        // Optimization: Reuse existing buffer
+        PaletteManager.ApplyPalette( m_TempCharImage, m_Project.Colors.Palette );
 
-          // Draw scaled pixel
-          for ( int sy = 0; sy < scale; ++sy )
+        // Draw character to temporary buffer using existing DisplayChar
+        Displayer.CharacterDisplayer.DisplayChar( m_Project, charIndex, m_TempCharImage, 0, 0, color );
+
+        cachedImage = new GR.Image.FastImage( m_CharacterWidth * scale, m_CharacterHeight * scale, GR.Drawing.PixelFormat.Format32bppRgb );
+
+        // Scale from temporary buffer to cached image
+        for ( int py = 0; py < m_CharacterHeight; ++py )
+        {
+          for ( int px = 0; px < m_CharacterWidth; ++px )
           {
-            for ( int sx = 0; sx < scale; ++sx )
+            uint colorValue = m_TempCharImage.GetPixel( px, py );
+
+            // Draw scaled pixel
+            for ( int sy = 0; sy < scale; ++sy )
             {
-              int dx = destX + px * scale + sx;
-              int dy = destY + py * scale + sy;
-              if ( dx < picturePlayground.DisplayPage.Width && dy < picturePlayground.DisplayPage.Height )
+              for ( int sx = 0; sx < scale; ++sx )
               {
-                picturePlayground.DisplayPage.SetPixel( dx, dy, colorValue );
+                cachedImage.SetPixel( px * scale + sx, py * scale + sy, colorValue );
               }
             }
           }
         }
+        m_RenderCache[key] = cachedImage;
       }
+      picturePlayground.DisplayPage.DrawImage( cachedImage, destX, destY );
     }
 
 
@@ -1371,6 +1392,7 @@ namespace RetroDevStudio.Controls
 
       _SkipRebuildCharImage = true;
       m_Project = Project;
+      ClearRenderCache();
 
       //Debug.Log( "CharsetUpdated a " );
       var origPalette = m_Project.Colors.Palette;
@@ -1398,7 +1420,9 @@ namespace RetroDevStudio.Controls
         m_Project.Colors.Palette = origPalette;
         OnPaletteChanged();
       }
-      //Debug.Log( "CharsetUpdated h" );
+
+    ClearRenderCache();
+    //Debug.Log( "OnPaletteChanged B" );
       _SkipRebuildCharImage = false;
       RebuildAllCharImages();
       //Debug.Log( "CharsetUpdated i" );
