@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -395,6 +395,26 @@ namespace RetroDevStudio.Controls
         entry.Dispose();
       }
       m_RenderCache.Clear();
+    }
+
+
+    private void ClearRenderCacheForCharacter( int charIndex )
+    {
+      // Cache key format: charIndex (lower 16 bits) | color (bits 16-23) | scale (bits 24-31)
+      // We need to remove all entries where the lower 16 bits match charIndex
+      var keysToRemove = new List<uint>();
+      foreach ( var key in m_RenderCache.Keys )
+      {
+        if ( ( key & 0xffff ) == charIndex )
+        {
+          keysToRemove.Add( key );
+        }
+      }
+      foreach ( var key in keysToRemove )
+      {
+        m_RenderCache[key].Dispose();
+        m_RenderCache.Remove( key );
+      }
     }
 
     private void RebuildPlaygroundImage()
@@ -909,6 +929,9 @@ namespace RetroDevStudio.Controls
       {
         //Debug.Log( "Chareditor RebuildCharImage" );
       }
+
+      // Clear the render cache for this character so playground updates show the edited character
+      ClearRenderCacheForCharacter( CharIndex );
 
       m_Project.Characters[CharIndex].Tile.Data.Resize( (uint)Lookup.NumBytesOfSingleCharacterBitmap( m_Project.Mode ) );
 
@@ -2406,6 +2429,8 @@ namespace RetroDevStudio.Controls
       _ColorSettingsDlg.ActivePalette = m_Project.Colors.ActivePalette;
 
       ApplyPalette();
+      // Clear render cache when palette changes since all cached images use the old palette
+      ClearRenderCache();
       RebuildAllCharImages();
       canvasEditor.Invalidate();
       panelCharacters.Invalidate();
