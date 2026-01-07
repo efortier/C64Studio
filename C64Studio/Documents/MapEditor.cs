@@ -1753,6 +1753,7 @@ namespace RetroDevStudio.Documents
 
     public bool OpenProject( string File )
     {
+      SuspendLayout();
       Clear();
       comboMaps.Items.Clear();
       comboMaps.Enabled = false;
@@ -1771,12 +1772,14 @@ namespace RetroDevStudio.Documents
       RefreshMapTileList();
 
       int index = 0;
+      comboMaps.BeginUpdate();
       foreach ( var map in m_MapProject.Maps )
       {
         comboMaps.Items.Add( new GR.Generic.Tupel<string, Formats.MapProject.Map>( index.ToString() + ": " + map.Name, map ) );
         comboMaps.Enabled = true;
         ++index;
       }
+      comboMaps.EndUpdate();
 
 
       comboTileBackground.SelectedIndex   = m_MapProject.BackgroundColor;
@@ -1831,6 +1834,7 @@ namespace RetroDevStudio.Documents
       }
 
       EnableFileWatcher();
+      ResumeLayout();
       return true;
     }
 
@@ -1860,6 +1864,7 @@ namespace RetroDevStudio.Documents
       }
 
       comboTiles.BeginUpdate();
+      listTileInfo.BeginUpdate();
       try
       {
         comboTiles.Items.Clear();
@@ -1883,6 +1888,7 @@ namespace RetroDevStudio.Documents
       finally
       {
         comboTiles.EndUpdate();
+        listTileInfo.EndUpdate();
       }
 
       int selectedRightClickIndex = comboRightClickBehavior.SelectedIndex;
