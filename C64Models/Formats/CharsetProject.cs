@@ -64,6 +64,8 @@ namespace RetroDevStudio.Formats
     public int            ExportStartCharacter = 0;
     public int            ExportNumCharacters = 256;
     public bool           ShowGrid = false;
+    public bool           ShowPlaygroundGrid = false;
+    public int            PlaygroundGridOpacity = 128; // 0-255
     public int            TotalNumberOfCharacters = 256;
 
     private TextCharMode  _Mode = TextCharMode.COMMODORE_HIRES;
@@ -275,6 +277,15 @@ namespace RetroDevStudio.Formats
       chunkPlayground.AppendI32( PlaygroundWidth );
       chunkPlayground.AppendI32( PlaygroundHeight );
       chunkPlayground.AppendI32( PlaygroundScale );
+      if ( ShowPlaygroundGrid )
+      {
+        chunkPlayground.AppendI32( 1 );
+      }
+      else
+      {
+        chunkPlayground.AppendI32( 0 );
+      }
+      chunkPlayground.AppendI32( PlaygroundGridOpacity );
       for ( int i = 0; i < PlaygroundChars.Count; ++i )
       {
         // 16 bit index, 16 bit color
@@ -595,15 +606,44 @@ namespace RetroDevStudio.Formats
                   PlaygroundHeight = subMemIn.ReadInt32();
 
                   // Read PlaygroundScale if available, otherwise default to 2
+                  PlaygroundScale = 2;
                   int expectedDataSize = PlaygroundWidth * PlaygroundHeight * 4;  // 4 bytes per char
-                  int remainingBytes = (int)( subChunk.Length - 8 );  // subtract 2 ints already read
-                  if ( remainingBytes > expectedDataSize )
+
+                  // Check if we have grid settings
+                  // PlaygroundWidth * PlaygroundHeight * 4 (chars)
+                  int dataStartOffset = 0;
+                  // if we read scale, we are at offset 12 (width, height, scale)
+                  // grid settings take 8 bytes (bool as int, int as opacity)
+                  // if remainingBytes > expectedDataSize + 8, we have grid settings?
+                  // Wait, remainingBytes was calculated before reading Scale? No, subChunk.Length is total.
+                  // We read W, H. Remaining is Length - 8.
+                  // If we read Scale, we consumed 4.
+                  // Let's refine check.
+
+                  int currentReadBytes = 8; // W, H
+                  if ( subMemIn.Position < subChunk.Length )
                   {
-                    PlaygroundScale = subMemIn.ReadInt32();
-                  }
-                  else
-                  {
-                    PlaygroundScale = 2;  // default for backward compatibility
+                    // Attempt to read Scale
+                    // Check if we have enough bytes for Scale + Chars
+                    if ( subChunk.Length - subMemIn.Position >= 4 + expectedDataSize )
+                    {
+                      PlaygroundScale = subMemIn.ReadInt32();
+                      
+                      // Check for Grid settings
+                      if ( subChunk.Length - subMemIn.Position >= 8 + expectedDataSize )
+                      {
+                        ShowPlaygroundGrid = ( subMemIn.ReadInt32() != 0 );
+                        PlaygroundGridOpacity = subMemIn.ReadInt32();
+                      }
+                    }
+                    else
+                    {
+                      // Not enough for scale? Should determine implicit logic or just default
+                      // If we are here, we likely have just data (old version might not have saved properly or different format?)
+                      // Actually previous code: if ( remainingBytes > expectedDataSize ) read Scale.
+                      // So if just 4 bytes extra, it's scale.
+                      // If 12 bytes extra, it's Scale + Grid + Opacity.
+                    }
                   }
 
                   PlaygroundChars = new List<uint>( PlaygroundWidth * PlaygroundHeight );

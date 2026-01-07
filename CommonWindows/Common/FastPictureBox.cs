@@ -179,6 +179,11 @@ namespace GR.Forms
 
           m_DisplayPageBuffer.Draw( Handle, ClientRectangle );
 
+          using ( System.Drawing.Graphics g = CreateGraphics() )
+          {
+            OnPaint( new PaintEventArgs( g, ClientRectangle ) );
+          }
+
           if ( m_DisplayPageBuffer.Width < ClientSize.Width )
           {
             System.Drawing.Graphics g = CreateGraphics();

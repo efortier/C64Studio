@@ -168,6 +168,7 @@ namespace RetroDevStudio.Controls
       // Initialize playground with dynamic size based on control dimensions
       UpdatePlaygroundSize();
       picturePlayground.SizeChanged += picturePlayground_SizeChanged;
+      picturePlayground.Paint += picturePlayground_Paint;
 
       // Apply default scale (2x)
       ApplyPlaygroundScale( m_Project.PlaygroundScale, false );
@@ -303,6 +304,54 @@ namespace RetroDevStudio.Controls
       }
       RebuildPlaygroundImage();
       RaiseModifiedEvent( new List<int>() );
+    }
+
+    private void checkShowPlaygroundGrid_CheckedChanged( object sender, EventArgs e )
+    {
+      if ( DoNotUpdateFromControls )
+      {
+        return;
+      }
+      m_Project.ShowPlaygroundGrid = checkShowPlaygroundGrid.Checked;
+      picturePlayground.Invalidate();
+      RaiseModifiedEvent( new List<int>() );
+    }
+
+    private void trackGridOpacity_Scroll( object sender, EventArgs e )
+    {
+      if ( DoNotUpdateFromControls )
+      {
+        return;
+      }
+      m_Project.PlaygroundGridOpacity = trackGridOpacity.Value;
+      picturePlayground.Invalidate();
+      RaiseModifiedEvent( new List<int>() );
+    }
+
+    private void picturePlayground_Paint( object sender, System.Windows.Forms.PaintEventArgs e )
+    {
+      if ( m_Project.ShowPlaygroundGrid )
+      {
+        using ( System.Drawing.Pen pen = new System.Drawing.Pen( System.Drawing.Color.FromArgb( m_Project.PlaygroundGridOpacity, 255, 255, 255 ) ) )
+        {
+          int scale = m_Project.PlaygroundScale;
+          if ( scale <= 0 )
+          {
+            scale = 2;
+          }
+          int scaledCharWidth = m_CharacterWidth * scale;
+          int scaledCharHeight = m_CharacterHeight * scale;
+
+          for ( int x = 0; x < picturePlayground.Width; x += scaledCharWidth )
+          {
+            e.Graphics.DrawLine( pen, x, 0, x, picturePlayground.Height );
+          }
+          for ( int y = 0; y < picturePlayground.Height; y += scaledCharHeight )
+          {
+            e.Graphics.DrawLine( pen, 0, y, picturePlayground.Width, y );
+          }
+        }
+      }
     }
 
 
@@ -1390,6 +1439,9 @@ namespace RetroDevStudio.Controls
 
       // Apply saved playground scale
       ApplyPlaygroundScale( m_Project.PlaygroundScale, false );
+
+      checkShowPlaygroundGrid.Checked = m_Project.ShowPlaygroundGrid;
+      trackGridOpacity.Value = m_Project.PlaygroundGridOpacity;
 
       ApplyRightClickDrawing( m_Project.RightClickDrawing );
 
