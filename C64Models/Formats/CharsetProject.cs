@@ -498,10 +498,26 @@ namespace RetroDevStudio.Formats
           h = 16;
         }
         PlaygroundChars = new List<uint>( w * h );
+        // Optimization: Read entire block at once
+        GR.Memory.ByteBuffer  inputBuffer = new GR.Memory.ByteBuffer();
+        memIn.ReadBlock( inputBuffer, (uint)( w * h * 2 ) );
+
         for ( int i = 0; i < w * h; ++i )
         {
-          ushort  charInfo = memIn.ReadUInt16();
-          PlaygroundChars.Add( (uint)( ( charInfo & 0xff ) | ( ( charInfo & 0xff00 ) << 8 ) ) );
+          // Reconstruct (uint)( ( charInfo & 0xff ) | ( ( charInfo & 0xff00 ) << 8 ) )
+          // charInfo is read as UInt16 (little endian?)
+          // Byte 0: Low byte of charInfo -> Low byte of result
+          // Byte 1: High byte of charInfo -> shifted to bit 16 of result
+          // Wait, original logic:
+          // charInfo = ReadUInt16()
+          // ( charInfo & 0xff ) -> Byte 0
+          // ( charInfo & 0xff00 ) << 8 -> Byte 1 moved to Byte 2 position (bits 16-23)
+          // So pattern is: [Byte 0] [00] [Byte 1] [00] (considering uint little endian in memory)
+          // Value: Byte 0 | (Byte 1 << 16)
+          
+          byte low = inputBuffer.ByteAt( i * 2 );
+          byte high = inputBuffer.ByteAt( i * 2 + 1 );
+          PlaygroundChars.Add( (uint)( low | ( high << 16 ) ) );
         }
 
         Mode = (TextCharMode)memIn.ReadInt32();

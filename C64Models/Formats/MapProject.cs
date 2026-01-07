@@ -494,13 +494,22 @@ namespace RetroDevStudio.Formats
                             {
                               int w = mapChunkReader.ReadInt32();
                               int h = mapChunkReader.ReadInt32();
- 
+
                               map.Tiles.Resize( w, h );
-                              for ( int j = 0; j < map.Tiles.Height; ++j )
+
+                              // Optimization: Read entire block at once
+                              GR.Memory.ByteBuffer  inputBuffer = new GR.Memory.ByteBuffer();
+                              mapChunkReader.ReadBlock( inputBuffer, (uint)( w * h * 4 ) );
+                              
+                              for ( int j = 0; j < h; ++j )
                               {
-                                for ( int i = 0; i < map.Tiles.Width; ++i )
+                                for ( int i = 0; i < w; ++i )
                                 {
-                                  map.Tiles[i, j] = mapChunkReader.ReadInt32();
+                                  int offset = ( i + j * w ) * 4;
+                                  map.Tiles[i, j] = (int)( inputBuffer.ByteAt( offset )
+                                                       | ( inputBuffer.ByteAt( offset + 1 ) << 8 )
+                                                       | ( inputBuffer.ByteAt( offset + 2 ) << 16 )
+                                                       | ( inputBuffer.ByteAt( offset + 3 ) << 24 ) );
                                 }
                               }
                             }

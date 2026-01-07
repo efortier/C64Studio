@@ -1801,10 +1801,6 @@ namespace RetroDevStudio.Documents
       UpdateMapAspectRatio();
       ApplyExportSettingsToUI();
 
-      for ( int i = 0; i < m_MapProject.Charset.TotalNumberOfCharacters; ++i )
-      {
-        RebuildCharImage( i );
-      }
       RedrawMap();
       RedrawColorChooser();
       RedrawColorChooser();

@@ -50,6 +50,7 @@ namespace RetroDevStudio.Controls
 
     private int                         m_CharacterWidth = 8;
     private int                         m_CharacterHeight = 8;
+    private GR.Image.MemoryImage        m_TempCharImage = null;
 
     private int                         m_CharacterEditorOrigWidth = -1;
     private int                         m_CharacterEditorOrigHeight = -1;
@@ -393,18 +394,24 @@ namespace RetroDevStudio.Controls
       }
 
       // Create a temporary buffer to hold the unscaled character
-      var tempImage = new GR.Image.MemoryImage( m_CharacterWidth, m_CharacterHeight, GR.Drawing.PixelFormat.Format32bppRgb );
-      PaletteManager.ApplyPalette( tempImage, m_Project.Colors.Palette );
+      if ( ( m_TempCharImage == null )
+      ||   ( m_TempCharImage.Width != m_CharacterWidth )
+      ||   ( m_TempCharImage.Height != m_CharacterHeight ) )
+      {
+        m_TempCharImage = new GR.Image.MemoryImage( m_CharacterWidth, m_CharacterHeight, GR.Drawing.PixelFormat.Format32bppRgb );
+      }
+      // Optimization: Reuse existing buffer
+      PaletteManager.ApplyPalette( m_TempCharImage, m_Project.Colors.Palette );
 
       // Draw character to temporary buffer using existing DisplayChar
-      Displayer.CharacterDisplayer.DisplayChar( m_Project, charIndex, tempImage, 0, 0, color );
+      Displayer.CharacterDisplayer.DisplayChar( m_Project, charIndex, m_TempCharImage, 0, 0, color );
 
       // Scale from temporary buffer to destination
       for ( int py = 0; py < m_CharacterHeight; ++py )
       {
         for ( int px = 0; px < m_CharacterWidth; ++px )
         {
-          uint colorValue = tempImage.GetPixel( px, py );
+          uint colorValue = m_TempCharImage.GetPixel( px, py );
 
           // Draw scaled pixel
           for ( int sy = 0; sy < scale; ++sy )
