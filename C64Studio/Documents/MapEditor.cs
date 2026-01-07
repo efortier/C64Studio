@@ -82,18 +82,7 @@ namespace RetroDevStudio.Documents
 
     private List<int>                   _TileUsage = new List<int>();
 
-    private System.Windows.Forms.TabPage       tabMarkers;
-    private System.Windows.Forms.TextBox       editMarkerName;
-    private System.Windows.Forms.Label         labelMarkerName;
-    private System.Windows.Forms.ListBox       listMarkerTypes;
-    private DecentForms.Button                 btnAddMarkerType;
-    private DecentForms.Button                 btnDeleteMarkerType;
-    private DecentForms.Button                 btnUpdateMarkerType;
-    private System.Windows.Forms.CheckBox      checkShowMarkers;
-    private System.Windows.Forms.Label         labelMarkerColor;
-    private System.Windows.Forms.ComboBox      comboMarkerColor;
-    private System.Windows.Forms.Label         labelMarkerExportSymbol;
-    private System.Windows.Forms.TextBox       editMarkerExportSymbol;
+
     
 
 
@@ -195,6 +184,8 @@ namespace RetroDevStudio.Documents
         comboMapMultiColor2.Items.Add( i.ToString( "d2" ) );
         comboMapBGColor.Items.Add( i.ToString( "d2" ) );
         comboMapAlternativeBGColor4.Items.Add( i.ToString( "d2" ) );
+        comboMarkerColor.Items.Add( i.ToString( "d2" ) );
+        comboMarkerColorOverride.Items.Add( i.ToString( "d2" ) );
       }
       comboTileBackground.SelectedIndex = 0;
       comboTileMulticolor1.SelectedIndex = 0;
@@ -206,6 +197,9 @@ namespace RetroDevStudio.Documents
       comboMapBGColor.SelectedIndex = 0;
       comboDesignerBackground.SelectedIndex = 0;
       comboMapAlternativeBGColor4.SelectedIndex = 0;
+      comboMarkerColor.SelectedIndex = 0;
+      comboMarkerColorOverride.SelectedIndex = 0;
+
 
       comboExportOrientation.SelectedIndex = 0;
       comboExportData.SelectedIndex = 0;
@@ -247,8 +241,9 @@ namespace RetroDevStudio.Documents
       Modified = false;
 
       ResumeLayout();
-      InitializeMarkerUI();
+      ResumeLayout();
     }
+
 
 
 
@@ -566,8 +561,7 @@ namespace RetroDevStudio.Documents
         }*/
       }
 
-      if ( ( checkShowMarkers.Checked )
-      &&   ( m_CurrentMap != null )
+      if ( ( m_CurrentMap != null )
       &&   ( m_ToolMode == ToolMode.MARKER ) )
       {
         if ( m_ToolMode == ToolMode.MARKER )
@@ -4833,109 +4827,7 @@ namespace RetroDevStudio.Documents
     {
     }
 
-    private void InitializeMarkerUI()
-    {
-      tabMarkers = new System.Windows.Forms.TabPage();
-      tabMarkers.Text = "Markers";
-      tabMarkers.UseVisualStyleBackColor = true;
 
-      listMarkerTypes = new System.Windows.Forms.ListBox();
-      listMarkerTypes.Location = new System.Drawing.Point( 8, 8 );
-      listMarkerTypes.Size = new System.Drawing.Size( 160, 400 );
-      listMarkerTypes.SelectedIndexChanged += listMarkerTypes_SelectedIndexChanged;
-      tabMarkers.Controls.Add( listMarkerTypes );
-
-      labelMarkerName = new System.Windows.Forms.Label();
-      labelMarkerName.Text = "Name:";
-      labelMarkerName.Location = new System.Drawing.Point( 174, 10 );
-      labelMarkerName.AutoSize = true;
-      tabMarkers.Controls.Add( labelMarkerName );
-
-      editMarkerName = new System.Windows.Forms.TextBox();
-      editMarkerName.Location = new System.Drawing.Point( 220, 8 );
-      editMarkerName.Size = new System.Drawing.Size( 160, 20 );
-      tabMarkers.Controls.Add( editMarkerName );
-
-      labelMarkerColor = new System.Windows.Forms.Label();
-      labelMarkerColor.Text = "Color:";
-      labelMarkerColor.Location = new System.Drawing.Point( 174, 40 );
-      labelMarkerColor.AutoSize = true;
-      tabMarkers.Controls.Add( labelMarkerColor );
-
-      comboMarkerColor = new System.Windows.Forms.ComboBox();
-      comboMarkerColor.Location = new System.Drawing.Point( 220, 38 );
-      comboMarkerColor.Size = new System.Drawing.Size( 160, 20 );
-      comboMarkerColor.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
-      comboMarkerColor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-      
-      for ( int i = 0; i < 16; ++i )
-      {
-        comboMarkerColor.Items.Add( i.ToString( "d2" ) );
-      }
-      comboMarkerColor.SelectedIndex = 0;
-      comboMarkerColor.DrawItem += comboColor_DrawItem;
-      tabMarkers.Controls.Add( comboMarkerColor );
-
-      labelMarkerExportSymbol = new System.Windows.Forms.Label();
-      labelMarkerExportSymbol.Text = "Export Symbol:";
-      labelMarkerExportSymbol.Location = new System.Drawing.Point( 174, 70 );
-      labelMarkerExportSymbol.AutoSize = true;
-      tabMarkers.Controls.Add( labelMarkerExportSymbol );
-
-      editMarkerExportSymbol = new System.Windows.Forms.TextBox();
-      editMarkerExportSymbol.Location = new System.Drawing.Point( 260, 68 ); // Aligned with label text baseline approx? 
-                                                                           // Actually Name text is at 8, label at 10.
-                                                                           // Color text at 38, label at 40.
-                                                                           // So Edit should be at 68, Label at 70.
-                                                                           // X pos: Label is at 174. Name edit at 220.
-                                                                           // "Export Symbol:" is longer than "Color:".
-                                                                           // "Export Symbol:" approx 80-90 pixels?
-                                                                           // 174 + 80 = 254. 
-                                                                           // Let's move Edit X to 260.
-      editMarkerExportSymbol.Size = new System.Drawing.Size( 120, 20 );
-      editMarkerExportSymbol.KeyPress += editMarkerExportSymbol_KeyPress;
-      tabMarkers.Controls.Add( editMarkerExportSymbol );
-
-      btnAddMarkerType = new DecentForms.Button();
-      btnAddMarkerType.Text = "Add Type";
-      btnAddMarkerType.Location = new System.Drawing.Point( 174, 100 );
-      btnAddMarkerType.Size = new System.Drawing.Size( 75, 23 );
-      btnAddMarkerType.Click += btnAddMarkerType_Click;
-      tabMarkers.Controls.Add( btnAddMarkerType );
-
-      btnUpdateMarkerType = new DecentForms.Button();
-      btnUpdateMarkerType.Text = "Update";
-      btnUpdateMarkerType.Location = new System.Drawing.Point( 260, 100 );
-      btnUpdateMarkerType.Size = new System.Drawing.Size( 75, 23 );
-      btnUpdateMarkerType.Enabled = false;
-      btnUpdateMarkerType.Click += btnUpdateMarkerType_Click;
-      tabMarkers.Controls.Add( btnUpdateMarkerType );
-
-      btnDeleteMarkerType = new DecentForms.Button();
-      btnDeleteMarkerType.Text = "Delete Type";
-      btnDeleteMarkerType.Location = new System.Drawing.Point( 346, 100 );
-      btnDeleteMarkerType.Size = new System.Drawing.Size( 80, 23 );
-      btnDeleteMarkerType.Enabled = false;
-      btnDeleteMarkerType.Click += btnDeleteMarkerType_Click;
-      tabMarkers.Controls.Add( btnDeleteMarkerType );
-      
-      checkShowMarkers = new System.Windows.Forms.CheckBox();
-      checkShowMarkers.Text = "Show Markers";
-      checkShowMarkers.Location = new System.Drawing.Point( 242, 129 );
-      checkShowMarkers.Checked = true;
-      checkShowMarkers.CheckedChanged += checkShowMarkers_CheckedChanged;
-      groupSize.Controls.Add( checkShowMarkers );
-
-      tabMapEditor.Controls.Add( tabMarkers );
-      
-      // The following controls are now initialized by the Designer.
-      
-      for ( int i = 0; i < 16; ++i )
-      {
-        comboMarkerColorOverride.Items.Add( i.ToString( "d2" ) );
-      }
-      comboMarkerColorOverride.SelectedIndex = 0;
-    }
 
     private void RefreshMarkerTypes()
     {
@@ -5042,11 +4934,6 @@ namespace RetroDevStudio.Documents
        }
     }
 
-    private void checkShowMarkers_CheckedChanged( object sender, EventArgs e )
-    {
-      RedrawMap();
-      pictureEditor.Invalidate();
-    }
 
     private void btnToolMarker_CheckedChanged( DecentForms.ControlBase Sender )
     {

@@ -504,7 +504,7 @@
             this.tabCharacterEditor.Location = new System.Drawing.Point(0, 0);
             this.tabCharacterEditor.Name = "tabCharacterEditor";
             this.tabCharacterEditor.SelectedIndex = 0;
-            this.tabCharacterEditor.Size = new System.Drawing.Size(1438, 597);
+            this.tabCharacterEditor.Size = new System.Drawing.Size(1438, 567);
             this.tabCharacterEditor.TabIndex = 0;
             // 
             // tabEditor
@@ -533,7 +533,7 @@
             this.tabEditor.Location = new System.Drawing.Point(4, 22);
             this.tabEditor.Name = "tabEditor";
             this.tabEditor.Padding = new System.Windows.Forms.Padding(3);
-            this.tabEditor.Size = new System.Drawing.Size(1430, 571);
+            this.tabEditor.Size = new System.Drawing.Size(1430, 541);
             this.tabEditor.TabIndex = 0;
             this.tabEditor.Text = "Editor";
             this.tabEditor.UseVisualStyleBackColor = true;
@@ -725,6 +725,7 @@
             // 
             // panelColorChooser
             // 
+            this.panelColorChooser.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.panelColorChooser.Location = new System.Drawing.Point(886, 399);
             this.panelColorChooser.Name = "panelColorChooser";
             this.panelColorChooser.Size = new System.Drawing.Size(336, 137);
@@ -867,6 +868,7 @@
             // 
             // flowPlaygroundScale
             // 
+            this.flowPlaygroundScale.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.flowPlaygroundScale.Controls.Add(this.radioPlaygroundScale1x);
             this.flowPlaygroundScale.Controls.Add(this.radioPlaygroundScale2x);
             this.flowPlaygroundScale.Controls.Add(this.radioPlaygroundScale4x);
@@ -934,6 +936,7 @@
             // 
             // flowPlaygroundActions
             // 
+            this.flowPlaygroundActions.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.flowPlaygroundActions.Controls.Add(this.btnCropPlayground);
             this.flowPlaygroundActions.Controls.Add(this.btnClearPlayground);
             this.flowPlaygroundActions.Controls.Add(this.checkShowPlaygroundGrid);
@@ -973,7 +976,8 @@
             // 
             // picturePlayground
             // 
-            this.picturePlayground.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            this.picturePlayground.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.picturePlayground.AutoResize = false;
             this.picturePlayground.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
@@ -1223,7 +1227,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.Controls.Add(this.tabCharacterEditor);
             this.Name = "CharacterEditor";
-            this.Size = new System.Drawing.Size(1438, 597);
+            this.Size = new System.Drawing.Size(1438, 567);
             ((System.ComponentModel.ISupportInitialize)(this.trackGridOpacity)).EndInit();
             this.tabCharacterEditor.ResumeLayout(false);
             this.tabEditor.ResumeLayout(false);

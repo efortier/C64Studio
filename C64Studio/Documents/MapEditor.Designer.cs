@@ -36,6 +36,17 @@
             GR.Image.FastImage fastImage4 = new GR.Image.FastImage();
             this.panelMapContainer = new System.Windows.Forms.Panel();
             this.pictureEditor = new GR.Forms.FastPictureBox();
+            this.tabMarkers = new System.Windows.Forms.TabPage();
+            this.btnDeleteMarkerType = new DecentForms.Button();
+            this.btnUpdateMarkerType = new DecentForms.Button();
+            this.btnAddMarkerType = new DecentForms.Button();
+            this.editMarkerExportSymbol = new System.Windows.Forms.TextBox();
+            this.labelMarkerExportSymbol = new System.Windows.Forms.Label();
+            this.comboMarkerColor = new System.Windows.Forms.ComboBox();
+            this.labelMarkerColor = new System.Windows.Forms.Label();
+            this.editMarkerName = new System.Windows.Forms.TextBox();
+            this.labelMarkerName = new System.Windows.Forms.Label();
+            this.listMarkerTypes = new System.Windows.Forms.ListBox();
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.importCharsetToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -172,6 +183,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.m_FileWatcher)).BeginInit();
             this.panelMapContainer.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureEditor)).BeginInit();
+            this.tabMarkers.SuspendLayout();
             this.menuStrip1.SuspendLayout();
             this.tabEditor.SuspendLayout();
             this.groupBox1.SuspendLayout();
@@ -214,12 +226,138 @@
             this.pictureEditor.Image = null;
             this.pictureEditor.Location = new System.Drawing.Point(0, 0);
             this.pictureEditor.Name = "pictureEditor";
-            this.pictureEditor.Size = new System.Drawing.Size(1258, 855);
+            this.pictureEditor.Size = new System.Drawing.Size(1251, 855);
             this.pictureEditor.TabIndex = 0;
             this.pictureEditor.TabStop = false;
             this.pictureEditor.Paint += new System.Windows.Forms.PaintEventHandler(this.pictureEditor_Paint);
             this.pictureEditor.MouseDown += new System.Windows.Forms.MouseEventHandler(this.pictureEditor_MouseDown);
             this.pictureEditor.MouseMove += new System.Windows.Forms.MouseEventHandler(this.pictureEditor_MouseMove);
+            // 
+            // tabMarkers
+            // 
+            this.tabMarkers.Controls.Add(this.btnDeleteMarkerType);
+            this.tabMarkers.Controls.Add(this.btnUpdateMarkerType);
+            this.tabMarkers.Controls.Add(this.btnAddMarkerType);
+            this.tabMarkers.Controls.Add(this.editMarkerExportSymbol);
+            this.tabMarkers.Controls.Add(this.labelMarkerExportSymbol);
+            this.tabMarkers.Controls.Add(this.comboMarkerColor);
+            this.tabMarkers.Controls.Add(this.labelMarkerColor);
+            this.tabMarkers.Controls.Add(this.editMarkerName);
+            this.tabMarkers.Controls.Add(this.labelMarkerName);
+            this.tabMarkers.Controls.Add(this.listMarkerTypes);
+            this.tabMarkers.Location = new System.Drawing.Point(4, 22);
+            this.tabMarkers.Name = "tabMarkers";
+            this.tabMarkers.Padding = new System.Windows.Forms.Padding(3);
+            this.tabMarkers.Size = new System.Drawing.Size(1385, 628);
+            this.tabMarkers.TabIndex = 4;
+            this.tabMarkers.Text = "Markers";
+            this.tabMarkers.UseVisualStyleBackColor = true;
+            // 
+            // btnDeleteMarkerType
+            // 
+            this.btnDeleteMarkerType.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnDeleteMarkerType.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnDeleteMarkerType.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnDeleteMarkerType.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnDeleteMarkerType.Enabled = false;
+            this.btnDeleteMarkerType.Image = null;
+            this.btnDeleteMarkerType.Location = new System.Drawing.Point(346, 100);
+            this.btnDeleteMarkerType.Name = "btnDeleteMarkerType";
+            this.btnDeleteMarkerType.Size = new System.Drawing.Size(80, 23);
+            this.btnDeleteMarkerType.TabIndex = 9;
+            this.btnDeleteMarkerType.Text = "Delete Type";
+            this.btnDeleteMarkerType.Click += new DecentForms.EventHandler(this.btnDeleteMarkerType_Click);
+            // 
+            // btnUpdateMarkerType
+            // 
+            this.btnUpdateMarkerType.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnUpdateMarkerType.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnUpdateMarkerType.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnUpdateMarkerType.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnUpdateMarkerType.Enabled = false;
+            this.btnUpdateMarkerType.Image = null;
+            this.btnUpdateMarkerType.Location = new System.Drawing.Point(260, 100);
+            this.btnUpdateMarkerType.Name = "btnUpdateMarkerType";
+            this.btnUpdateMarkerType.Size = new System.Drawing.Size(75, 23);
+            this.btnUpdateMarkerType.TabIndex = 8;
+            this.btnUpdateMarkerType.Text = "Update";
+            this.btnUpdateMarkerType.Click += new DecentForms.EventHandler(this.btnUpdateMarkerType_Click);
+            // 
+            // btnAddMarkerType
+            // 
+            this.btnAddMarkerType.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnAddMarkerType.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnAddMarkerType.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnAddMarkerType.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnAddMarkerType.Image = null;
+            this.btnAddMarkerType.Location = new System.Drawing.Point(174, 100);
+            this.btnAddMarkerType.Name = "btnAddMarkerType";
+            this.btnAddMarkerType.Size = new System.Drawing.Size(75, 23);
+            this.btnAddMarkerType.TabIndex = 7;
+            this.btnAddMarkerType.Text = "Add Type";
+            this.btnAddMarkerType.Click += new DecentForms.EventHandler(this.btnAddMarkerType_Click);
+            // 
+            // editMarkerExportSymbol
+            // 
+            this.editMarkerExportSymbol.Location = new System.Drawing.Point(260, 68);
+            this.editMarkerExportSymbol.Name = "editMarkerExportSymbol";
+            this.editMarkerExportSymbol.Size = new System.Drawing.Size(120, 20);
+            this.editMarkerExportSymbol.TabIndex = 6;
+            this.editMarkerExportSymbol.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.editMarkerExportSymbol_KeyPress);
+            // 
+            // labelMarkerExportSymbol
+            // 
+            this.labelMarkerExportSymbol.AutoSize = true;
+            this.labelMarkerExportSymbol.Location = new System.Drawing.Point(174, 70);
+            this.labelMarkerExportSymbol.Name = "labelMarkerExportSymbol";
+            this.labelMarkerExportSymbol.Size = new System.Drawing.Size(77, 13);
+            this.labelMarkerExportSymbol.TabIndex = 5;
+            this.labelMarkerExportSymbol.Text = "Export Symbol:";
+            // 
+            // comboMarkerColor
+            // 
+            this.comboMarkerColor.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this.comboMarkerColor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboMarkerColor.FormattingEnabled = true;
+            this.comboMarkerColor.Location = new System.Drawing.Point(220, 38);
+            this.comboMarkerColor.Name = "comboMarkerColor";
+            this.comboMarkerColor.Size = new System.Drawing.Size(160, 21);
+            this.comboMarkerColor.TabIndex = 4;
+            this.comboMarkerColor.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.comboColor_DrawItem);
+            // 
+            // labelMarkerColor
+            // 
+            this.labelMarkerColor.AutoSize = true;
+            this.labelMarkerColor.Location = new System.Drawing.Point(174, 40);
+            this.labelMarkerColor.Name = "labelMarkerColor";
+            this.labelMarkerColor.Size = new System.Drawing.Size(34, 13);
+            this.labelMarkerColor.TabIndex = 3;
+            this.labelMarkerColor.Text = "Color:";
+            // 
+            // editMarkerName
+            // 
+            this.editMarkerName.Location = new System.Drawing.Point(220, 8);
+            this.editMarkerName.Name = "editMarkerName";
+            this.editMarkerName.Size = new System.Drawing.Size(160, 20);
+            this.editMarkerName.TabIndex = 2;
+            // 
+            // labelMarkerName
+            // 
+            this.labelMarkerName.AutoSize = true;
+            this.labelMarkerName.Location = new System.Drawing.Point(174, 10);
+            this.labelMarkerName.Name = "labelMarkerName";
+            this.labelMarkerName.Size = new System.Drawing.Size(38, 13);
+            this.labelMarkerName.TabIndex = 1;
+            this.labelMarkerName.Text = "Name:";
+            // 
+            // listMarkerTypes
+            // 
+            this.listMarkerTypes.FormattingEnabled = true;
+            this.listMarkerTypes.Location = new System.Drawing.Point(8, 8);
+            this.listMarkerTypes.Name = "listMarkerTypes";
+            this.listMarkerTypes.Size = new System.Drawing.Size(160, 394);
+            this.listMarkerTypes.TabIndex = 0;
+            this.listMarkerTypes.SelectedIndexChanged += new System.EventHandler(this.listMarkerTypes_SelectedIndexChanged);
             // 
             // menuStrip1
             // 
@@ -314,9 +452,9 @@
             this.groupBox1.Controls.Add(this.labelRightClickBehavior);
             this.groupBox1.Controls.Add(this.labelDesignerBackground);
             this.groupBox1.Controls.Add(this.comboRightClickBehavior);
-            this.groupBox1.Location = new System.Drawing.Point(1024, 6);
+            this.groupBox1.Location = new System.Drawing.Point(1016, 6);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(353, 614);
+            this.groupBox1.Size = new System.Drawing.Size(361, 614);
             this.groupBox1.TabIndex = 37;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Map Controls";
@@ -379,7 +517,7 @@
             this.groupSize.Controls.Add(this.editMapWidth);
             this.groupSize.Location = new System.Drawing.Point(18, 74);
             this.groupSize.Name = "groupSize";
-            this.groupSize.Size = new System.Drawing.Size(317, 183);
+            this.groupSize.Size = new System.Drawing.Size(337, 183);
             this.groupSize.TabIndex = 28;
             this.groupSize.TabStop = false;
             this.groupSize.Text = "Map Details";
@@ -1002,7 +1140,7 @@
             this.mapVScroll.DisplayType = DecentForms.ScrollBar.SBDisplayType.RAISED;
             this.mapVScroll.Enabled = false;
             this.mapVScroll.LargeChange = 10;
-            this.mapVScroll.Location = new System.Drawing.Point(997, 39);
+            this.mapVScroll.Location = new System.Drawing.Point(989, 39);
             this.mapVScroll.Maximum = 100;
             this.mapVScroll.Minimum = 0;
             this.mapVScroll.Name = "mapVScroll";
@@ -1019,6 +1157,7 @@
             this.tabMapEditor.Controls.Add(this.tabCharset);
             this.tabMapEditor.Controls.Add(this.tabExport);
             this.tabMapEditor.Controls.Add(this.tabImport);
+            this.tabMapEditor.Controls.Add(this.tabMarkers);
             this.tabMapEditor.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tabMapEditor.Location = new System.Drawing.Point(0, 24);
             this.tabMapEditor.Name = "tabMapEditor";
@@ -1475,7 +1614,7 @@
             this.tabCharset.Controls.Add(this.characterEditor);
             this.tabCharset.Location = new System.Drawing.Point(4, 22);
             this.tabCharset.Name = "tabCharset";
-            this.tabCharset.Size = new System.Drawing.Size(192, 74);
+            this.tabCharset.Size = new System.Drawing.Size(1385, 628);
             this.tabCharset.TabIndex = 3;
             this.tabCharset.Text = "Character Set";
             this.tabCharset.UseVisualStyleBackColor = true;
@@ -1488,7 +1627,8 @@
             this.characterEditor.EditorMode = 1;
             this.characterEditor.Location = new System.Drawing.Point(0, 0);
             this.characterEditor.Name = "characterEditor";
-            this.characterEditor.Size = new System.Drawing.Size(192, 74);
+            this.characterEditor.ShowCreateTileButton = false;
+            this.characterEditor.Size = new System.Drawing.Size(1385, 628);
             this.characterEditor.TabIndex = 0;
             this.characterEditor.Modified += new RetroDevStudio.Controls.CharacterEditor.ModifiedHandler(this.characterEditor_Modified);
             this.characterEditor.CharactersShifted += new RetroDevStudio.Controls.CharacterEditor.CharsetShiftedHandler(this.characterEditor_CharactersShifted);
@@ -1508,7 +1648,7 @@
             this.tabExport.Location = new System.Drawing.Point(4, 22);
             this.tabExport.Name = "tabExport";
             this.tabExport.Padding = new System.Windows.Forms.Padding(3);
-            this.tabExport.Size = new System.Drawing.Size(192, 74);
+            this.tabExport.Size = new System.Drawing.Size(1385, 628);
             this.tabExport.TabIndex = 4;
             this.tabExport.Text = "Export";
             this.tabExport.UseVisualStyleBackColor = true;
@@ -1540,7 +1680,7 @@
             | System.Windows.Forms.AnchorStyles.Left)));
             this.panelExport.Location = new System.Drawing.Point(9, 83);
             this.panelExport.Name = "panelExport";
-            this.panelExport.Size = new System.Drawing.Size(842, 0);
+            this.panelExport.Size = new System.Drawing.Size(842, 554);
             this.panelExport.TabIndex = 41;
             // 
             // editDataExport
@@ -1552,7 +1692,7 @@
             this.editDataExport.Multiline = true;
             this.editDataExport.Name = "editDataExport";
             this.editDataExport.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.editDataExport.Size = new System.Drawing.Size(0, 60);
+            this.editDataExport.Size = new System.Drawing.Size(1193, 614);
             this.editDataExport.TabIndex = 40;
             this.editDataExport.WordWrap = false;
             // 
@@ -1616,7 +1756,7 @@
             this.tabImport.Location = new System.Drawing.Point(4, 22);
             this.tabImport.Name = "tabImport";
             this.tabImport.Padding = new System.Windows.Forms.Padding(3);
-            this.tabImport.Size = new System.Drawing.Size(192, 74);
+            this.tabImport.Size = new System.Drawing.Size(1385, 628);
             this.tabImport.TabIndex = 5;
             this.tabImport.Text = "Import";
             this.tabImport.UseVisualStyleBackColor = true;
@@ -1628,7 +1768,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.panelImport.Location = new System.Drawing.Point(-4, 32);
             this.panelImport.Name = "panelImport";
-            this.panelImport.Size = new System.Drawing.Size(196, 42);
+            this.panelImport.Size = new System.Drawing.Size(1389, 596);
             this.panelImport.TabIndex = 37;
             // 
             // btnImport
@@ -1812,6 +1952,8 @@
             ((System.ComponentModel.ISupportInitialize)(this.m_FileWatcher)).EndInit();
             this.panelMapContainer.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.pictureEditor)).EndInit();
+            this.tabMarkers.ResumeLayout(false);
+            this.tabMarkers.PerformLayout();
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
             this.tabEditor.ResumeLayout(false);
@@ -1980,5 +2122,17 @@
         private System.Windows.Forms.ComboBox comboRightClickBehavior;
         private System.Windows.Forms.ToolStripMenuItem viewToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem keepMapCharacterAspectRatioToolStripMenuItem;
+        private System.Windows.Forms.TabPage tabMarkers;
+        private System.Windows.Forms.ListBox listMarkerTypes;
+        private System.Windows.Forms.Label labelMarkerName;
+        private System.Windows.Forms.TextBox editMarkerName;
+        private System.Windows.Forms.Label labelMarkerColor;
+        private System.Windows.Forms.ComboBox comboMarkerColor;
+        private System.Windows.Forms.Label labelMarkerExportSymbol;
+        private System.Windows.Forms.TextBox editMarkerExportSymbol;
+        private DecentForms.Button btnAddMarkerType;
+        private DecentForms.Button btnUpdateMarkerType;
+        private DecentForms.Button btnDeleteMarkerType;
+
     }
 }
