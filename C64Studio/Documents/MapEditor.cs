@@ -1803,6 +1803,7 @@ namespace RetroDevStudio.Documents
       characterEditor.CharsetUpdated( m_MapProject.Charset );
       characterEditor.CharactersPerRow = m_MapProject.CharactersPerRow;
       characterEditor.EditorMode = m_MapProject.CharacterEditorMode;
+      characterEditor.SwatchSize = m_MapProject.ColorSwatchSize;
       Modified = false;
       if ( string.IsNullOrEmpty( DocumentInfo.DocumentFilename ) )
       {
@@ -2002,6 +2003,7 @@ namespace RetroDevStudio.Documents
       UpdateExportSettingsFromUI( false );
       m_MapProject.CharactersPerRow = characterEditor.CharactersPerRow;
       m_MapProject.CharacterEditorMode = characterEditor.EditorMode;
+      m_MapProject.ColorSwatchSize = characterEditor.SwatchSize;
       return m_MapProject.SaveToBuffer();
     }
 

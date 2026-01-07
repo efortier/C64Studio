@@ -158,6 +158,27 @@ namespace RetroDevStudio.Controls
       canvasEditor.Invalidate();
     }
 
+    private int m_ColorSwatchSize = 8;
+    public int SwatchSize
+    {
+      get { return m_ColorSwatchSize; }
+      set
+      {
+        if ( m_ColorSwatchSize != value )
+        {
+          m_ColorSwatchSize = value;
+          editSwatchSize.Text = value.ToString();
+          if ( _ColorPickerDlg != null )
+          {
+            _ColorPickerDlg.SwatchSize = value;
+            _ColorPickerDlg.Redraw();
+            DPIHandler.ResizeControlsForDPI( _ColorPickerDlg );
+          }
+        }
+      }
+    }
+
+
     public CharacterEditor()
     {
       this.Core = StudioCore.StaticCore;
@@ -236,6 +257,10 @@ namespace RetroDevStudio.Controls
       this.btnZoomIn.Click += new DecentForms.EventHandler(this.btnZoomIn_Click);
       this.btnZoomOut.Click += new DecentForms.EventHandler(this.btnZoomOut_Click);
       this.comboCharactersPerRow.SelectedIndexChanged += new System.EventHandler(this.comboCharactersPerRow_SelectedIndexChanged);
+      this.btnZoomOut.Click += new DecentForms.EventHandler(this.btnZoomOut_Click);
+      this.comboCharactersPerRow.SelectedIndexChanged += new System.EventHandler(this.comboCharactersPerRow_SelectedIndexChanged);
+      this.editSwatchSize.KeyDown += new System.Windows.Forms.KeyEventHandler(this.editSwatchSize_KeyDown);
+      this.editSwatchSize.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.editSwatchSize_KeyPress);
 
       DoNotUpdateFromControls = false;
     }
@@ -1749,11 +1774,44 @@ namespace RetroDevStudio.Controls
           _ColorPickerDlg = new ColorPickerCharsCommodore( Core, m_Project, (ushort)m_CurrentChar, (byte)m_CurrentColor );
           break;
       }
+      _ColorPickerDlg.SwatchSize = SwatchSize;
       _ColorPickerDlg.SelectedColorChanged += _ColorChooserDlg_SelectedColorChanged;
       _ColorPickerDlg.PaletteMappingSelected += _ColorChooserDlg_PaletteMappingSelected;
       _ColorPickerDlg.Redraw();
       panelColorChooser.Controls.Add( _ColorPickerDlg );
       DPIHandler.ResizeControlsForDPI( _ColorPickerDlg );
+    }
+
+    private void editSwatchSize_KeyPress( object sender, KeyPressEventArgs e )
+    {
+      if ( char.IsControl( e.KeyChar ) )
+      {
+        return;
+      }
+      if ( !char.IsDigit( e.KeyChar ) )
+      {
+        e.Handled = true;
+      }
+    }
+
+    private void editSwatchSize_KeyDown( object sender, KeyEventArgs e )
+    {
+      if ( e.KeyCode == Keys.Enter )
+      {
+        if ( DoNotUpdateFromControls )
+        {
+          return;
+        }
+        int size = 8;
+        if ( ( int.TryParse( editSwatchSize.Text, out size ) )
+        &&   ( size > 0 )
+        &&   ( size <= 64 ) )
+        {
+          SwatchSize = size;
+        }
+        e.Handled = true;
+        e.SuppressKeyPress = true;
+      }
     }
 
 

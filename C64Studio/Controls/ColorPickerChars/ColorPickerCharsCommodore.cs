@@ -39,10 +39,52 @@ namespace RetroDevStudio.Controls
       {
         return;
       }
+      
+      int     itemsPerRow = 16;
+      if ( Parent != null )
+      {
+        itemsPerRow = Math.Max( 1, Parent.ClientSize.Width / SwatchSize );
+      }
+      int     numRows = ( 16 + itemsPerRow - 1 ) / itemsPerRow;
+
+      if ( ( panelCharColors.DisplayPage.Width != itemsPerRow * SwatchSize )
+      ||   ( panelCharColors.DisplayPage.Height != numRows * SwatchSize ) )
+      {
+        panelCharColors.DisplayPage.Create( itemsPerRow * SwatchSize, numRows * SwatchSize, GR.Drawing.PixelFormat.Format32bppRgb );
+        panelCharColors.Size = new System.Drawing.Size( itemsPerRow * SwatchSize, numRows * SwatchSize );
+        this.Size = new System.Drawing.Size( panelCharColors.Width, panelCharColors.Height );
+      }
+
+      GR.Image.MemoryImage tempImage = new GR.Image.MemoryImage( 8, 8, GR.Drawing.PixelFormat.Format32bppRgb );
 
       for ( byte i = 0; i < 16; ++i )
       {
-        Displayer.CharacterDisplayer.DisplayChar( _Charset, SelectedChar, panelCharColors.DisplayPage, i * 8, 0, i );
+        Displayer.CharacterDisplayer.DisplayChar( _Charset, SelectedChar, tempImage, 0, 0, i );
+
+        // Scale to DisplayPage
+        for ( int y = 0; y < 8; ++y )
+        {
+          for ( int x = 0; x < 8; ++x )
+          {
+             uint pixel = tempImage.GetPixel( x, y );
+             
+             int    destX = ( i % itemsPerRow ) * SwatchSize;
+             int    destY = ( i / itemsPerRow ) * SwatchSize;
+             
+             int destStartX = destX + ( x * SwatchSize ) / 8;
+             int destXEnd = destX + ( ( x + 1 ) * SwatchSize ) / 8;
+             int destStartY = destY + ( y * SwatchSize ) / 8;
+             int destYEnd = destY + ( ( y + 1 ) * SwatchSize ) / 8;
+  
+             for ( int dy = destStartY; dy < destYEnd; ++dy )
+             {
+               for ( int dx = destStartX; dx < destXEnd; ++dx )
+               {
+                 panelCharColors.DisplayPage.SetPixel( dx, dy, pixel );
+               }
+             }
+          }
+        }
       }
       panelCharColors.Invalidate();
     }
@@ -51,14 +93,22 @@ namespace RetroDevStudio.Controls
 
     private void panelCharColors_PostPaint( GR.Image.FastImage TargetBuffer )
     {
-      int     x1 = SelectedColor * TargetBuffer.Width / 16;
-      int     x2 = ( SelectedColor + 1 ) * TargetBuffer.Width / 16;
+      int     itemsPerRow = 16;
+      if ( Parent != null )
+      {
+        itemsPerRow = Math.Max( 1, Parent.ClientSize.Width / SwatchSize );
+      }
+      
+      int     x1 = ( SelectedColor % itemsPerRow ) * SwatchSize;
+      int     y1 = ( SelectedColor / itemsPerRow ) * SwatchSize;
+      int     x2 = x1 + SwatchSize;
+      int     y2 = y1 + SwatchSize;
 
       if ( Core != null )
       {
         uint  selColor = Core.Settings.FGColor( ColorableElement.SELECTION_FRAME );
 
-        TargetBuffer.Rectangle( x1, 0, x2 - x1, TargetBuffer.Height, selColor );
+        TargetBuffer.Rectangle( x1, y1, x2 - x1, y2 - y1, selColor );
       }
     }
 
@@ -81,17 +131,28 @@ namespace RetroDevStudio.Controls
     private void HandleMouseOnColorChooser( int X, int Y, MouseButtons Buttons )
     {
       if ( ( X < 0 )
-      ||   ( X >= panelCharColors.ClientSize.Width ) )
+      ||   ( X >= panelCharColors.ClientSize.Width ) 
+      ||   ( Y < 0 )
+      ||   ( Y >= panelCharColors.ClientSize.Height ) )
       {
         return;
+      }
+      
+      int     itemsPerRow = 16;
+      if ( Parent != null )
+      {
+        itemsPerRow = Math.Max( 1, Parent.ClientSize.Width / SwatchSize );
       }
 
       if ( ( Buttons & MouseButtons.Left ) == MouseButtons.Left )
       {
-        int colorIndex = (int)( ( 16 * X ) / panelCharColors.ClientSize.Width );
-        SelectedColor = (byte)colorIndex;
-        Redraw();
-        RaiseColorSelectedEvent();
+        int colorIndex = ( X / SwatchSize ) + ( Y / SwatchSize ) * itemsPerRow;
+        if ( colorIndex < 16 )
+        {
+          SelectedColor = (byte)colorIndex;
+          Redraw();
+          RaiseColorSelectedEvent();
+        }
       }
     }
 

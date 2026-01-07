@@ -38,6 +38,8 @@ namespace RetroDevStudio.Controls
     {
       get; set;
     }
+    
+    public int SwatchSize { get; set; } = 8;
 
 
 

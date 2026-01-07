@@ -150,6 +150,7 @@ namespace RetroDevStudio.Formats
     public bool                         KeepCharacterAspectRatio = false;
     public int                          CharactersPerRow = 16;
     public int                          CharacterEditorMode = 1;
+    public int                          ColorSwatchSize = 8;
     public ExportSettings               Settings = new ExportSettings();
 
 
@@ -187,13 +188,14 @@ namespace RetroDevStudio.Formats
 
       GR.IO.FileChunk chunkProjectInfo = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_INFO );
       // version
-      chunkProjectInfo.AppendU32( 4 );
+      chunkProjectInfo.AppendU32( 5 );
       chunkProjectInfo.AppendString( ExternalCharset );
       chunkProjectInfo.AppendI32( ShowGrid ? 1 : 0 );
       chunkProjectInfo.AppendString( RightClickAction );
       chunkProjectInfo.AppendI32( KeepCharacterAspectRatio ? 1 : 0 );
       chunkProjectInfo.AppendI32( CharactersPerRow );
       chunkProjectInfo.AppendI32( CharacterEditorMode );
+      chunkProjectInfo.AppendI32( ColorSwatchSize );
       projectFile.Append( chunkProjectInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkCharset = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET );
@@ -392,6 +394,10 @@ namespace RetroDevStudio.Formats
               else
               {
                 CharacterEditorMode = 1;
+              }
+              if ( version >= 5 )
+              {
+                ColorSwatchSize = chunkReader.ReadInt32();
               }
             }
             break;
