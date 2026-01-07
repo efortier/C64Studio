@@ -30,7 +30,7 @@
     {
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(CharacterEditor));
-            GR.Image.FastImage fastImage2 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage1 = new GR.Image.FastImage();
             this.comboCategories = new System.Windows.Forms.ComboBox();
             this.checkShowPlaygroundGrid = new System.Windows.Forms.CheckBox();
             this.trackGridOpacity = new System.Windows.Forms.TrackBar();
@@ -71,6 +71,7 @@
             this.comboCharactersPerRow = new System.Windows.Forms.ComboBox();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.btnMoveSelectionToTarget = new DecentForms.Button();
+            this.btnCreateTile = new DecentForms.Button();
             this.btnRestoreDefault = new DecentForms.Button();
             this.btnRemoveDuplicates = new DecentForms.Button();
             this.btnClearChars = new DecentForms.Button();
@@ -638,6 +639,7 @@
             this.groupBox1.Controls.Add(this.btnMoveSelectionToTarget);
             this.groupBox1.Controls.Add(this.btnPasteFromClipboard);
             this.groupBox1.Controls.Add(this.btnPaste);
+            this.groupBox1.Controls.Add(this.btnCreateTile);
             this.groupBox1.Controls.Add(this.editMoveTargetIndex);
             this.groupBox1.Controls.Add(this.btnHighlightDuplicates);
             this.groupBox1.Controls.Add(this.btnRestoreDefault);
@@ -645,7 +647,7 @@
             this.groupBox1.Controls.Add(this.btnClearChars);
             this.groupBox1.Location = new System.Drawing.Point(382, 350);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(259, 154);
+            this.groupBox1.Size = new System.Drawing.Size(259, 176);
             this.groupBox1.TabIndex = 55;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "groupBox1";
@@ -663,6 +665,21 @@
             this.btnMoveSelectionToTarget.TabIndex = 20;
             this.btnMoveSelectionToTarget.Text = "Move to Index";
             this.btnMoveSelectionToTarget.Click += new DecentForms.EventHandler(this.btnMoveSelectionToTarget_Click);
+            // 
+            // btnCreateTile
+            // 
+            this.btnCreateTile.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnCreateTile.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnCreateTile.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnCreateTile.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnCreateTile.Image = null;
+            this.btnCreateTile.Location = new System.Drawing.Point(10, 139);
+            this.btnCreateTile.Name = "btnCreateTile";
+            this.btnCreateTile.Size = new System.Drawing.Size(97, 23);
+            this.btnCreateTile.TabIndex = 24;
+            this.btnCreateTile.Text = "Create Tile";
+            this.btnCreateTile.Visible = false;
+            this.btnCreateTile.Click += new DecentForms.EventHandler(this.btnCreateTile_Click);
             // 
             // btnRestoreDefault
             // 
@@ -960,7 +977,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.picturePlayground.AutoResize = false;
             this.picturePlayground.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.picturePlayground.DisplayPage = fastImage2;
+            this.picturePlayground.DisplayPage = fastImage1;
             this.picturePlayground.Image = null;
             this.picturePlayground.Location = new System.Drawing.Point(886, 3);
             this.picturePlayground.Name = "picturePlayground";
@@ -1255,6 +1272,7 @@
         private System.Windows.Forms.TrackBar trackGridOpacity;
         private System.Windows.Forms.CheckBox checkPasteMultiColor;
         private DecentForms.Button btnMoveSelectionToTarget;
+        private DecentForms.Button btnCreateTile;
         private System.Windows.Forms.TextBox editMoveTargetIndex;
     private CustomDrawControl canvasEditor;
     private System.Windows.Forms.ToolTip toolTip1;

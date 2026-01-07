@@ -99,6 +99,29 @@ namespace RetroDevStudio.Controls
     }
 
 
+    public bool ShowCreateTileButton
+    {
+      get
+      {
+        return btnCreateTile.Visible;
+      }
+      set
+      {
+        btnCreateTile.Visible = value;
+      }
+    }
+
+    public int CurrentCharIndex
+    {
+       get
+       {
+         return m_CurrentChar;
+       }
+    }
+
+    public event EventHandler CreateTileFromCharacter;
+
+
     public int EditorMode
     {
       get
@@ -293,7 +316,13 @@ namespace RetroDevStudio.Controls
       RaiseModifiedEvent( new List<int>() );
     }
 
-
+    private void btnCreateTile_Click( DecentForms.ControlBase Sender )
+    {
+      if ( CreateTileFromCharacter != null )
+      {
+        CreateTileFromCharacter( this, new EventArgs() );
+      }
+    }
 
     private void btnClearPlayground_Click( DecentForms.ControlBase Sender )
     {

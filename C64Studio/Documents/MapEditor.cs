@@ -134,6 +134,8 @@ namespace RetroDevStudio.Documents
       characterEditor.UndoManager = DocumentInfo.UndoManager;
       characterEditor.Core = Core;
       characterEditor.Modified += CharacterEditor_Modified;
+      characterEditor.ShowCreateTileButton = true;
+      characterEditor.CreateTileFromCharacter += CharacterEditor_CreateTileFromCharacter;
 
       comboExportMethod.Items.Add( new GR.Generic.Tupel<string, Type>( "as assembly", typeof( ExportMapAsAssembly ) ) );
       comboExportMethod.Items.Add( new GR.Generic.Tupel<string, Type>( "to binary file", typeof( ExportMapAsBinaryFile ) ) );
@@ -2137,8 +2139,43 @@ namespace RetroDevStudio.Documents
           }
         }
       }
-
       pictureEditor.Invalidate();
+    }
+
+    private void CharacterEditor_CreateTileFromCharacter( object sender, EventArgs e )
+    {
+      var tile = new MapProject.Tile();
+      tile.Name = "Tile";
+
+      int tileSize = characterEditor.EditorMode;
+
+      // Resize tile layer
+      tile.Chars.Resize( tileSize, tileSize );
+
+      int startChar = characterEditor.CurrentCharIndex;
+      int charsPerRow = characterEditor.CharactersPerRow;
+
+      for ( int y = 0; y < tileSize; ++y )
+      {
+        for ( int x = 0; x < tileSize; ++x )
+        {
+          int charIndex = startChar + x + y * charsPerRow;
+          if ( charIndex < m_MapProject.Charset.Characters.Count )
+          {
+            tile.Chars[x, y].Character = (byte)charIndex;
+            tile.Chars[x, y].Color     = (byte)m_MapProject.Charset.Characters[charIndex].Tile.CustomColor;
+          }
+          else
+          {
+            tile.Chars[x, y].Character = 0;
+            tile.Chars[x, y].Color     = 1;
+          }
+        }
+      }
+
+      m_MapProject.Tiles.Add( tile );
+      RefreshMapTileList();
+      Modified = true;
     }
 
 
