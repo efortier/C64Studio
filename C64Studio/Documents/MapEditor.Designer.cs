@@ -109,6 +109,10 @@
             this.btnZoomIn = new DecentForms.Button();
             this.labelZoom = new System.Windows.Forms.Label();
             this.btnCopyMapImage = new DecentForms.Button();
+            this.btnShiftLeft = new DecentForms.Button();
+            this.btnShiftUp = new DecentForms.Button();
+            this.btnShiftDown = new DecentForms.Button();
+            this.btnShiftRight = new DecentForms.Button();
             this.labelEditInfo = new System.Windows.Forms.Label();
             this.comboTiles = new System.Windows.Forms.ListBox();
             this.mapHScroll = new DecentForms.HScrollBar();
@@ -925,6 +929,10 @@
             this.flowLayoutPanel1.Controls.Add(this.btnZoomIn);
             this.flowLayoutPanel1.Controls.Add(this.labelZoom);
             this.flowLayoutPanel1.Controls.Add(this.btnCopyMapImage);
+            this.flowLayoutPanel1.Controls.Add(this.btnShiftLeft);
+            this.flowLayoutPanel1.Controls.Add(this.btnShiftUp);
+            this.flowLayoutPanel1.Controls.Add(this.btnShiftDown);
+            this.flowLayoutPanel1.Controls.Add(this.btnShiftRight);
             this.flowLayoutPanel1.Controls.Add(this.labelEditInfo);
             this.flowLayoutPanel1.Location = new System.Drawing.Point(174, 6);
             this.flowLayoutPanel1.Name = "flowLayoutPanel1";
@@ -1089,6 +1097,66 @@
             this.btnCopyMapImage.TabIndex = 8;
             this.toolTip1.SetToolTip(this.btnCopyMapImage, "Copy map to clipboard as image");
             this.btnCopyMapImage.Click += new DecentForms.EventHandler(this.btnCopyImage_Click);
+            // 
+            // btnShiftLeft
+            // 
+            this.btnShiftLeft.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnShiftLeft.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnShiftLeft.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnShiftLeft.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnShiftLeft.Image = null;
+            this.btnShiftLeft.Location = new System.Drawing.Point(537, 3);
+            this.btnShiftLeft.Name = "btnShiftLeft";
+            this.btnShiftLeft.Size = new System.Drawing.Size(24, 24);
+            this.btnShiftLeft.TabIndex = 12;
+            this.btnShiftLeft.Text = "◄";
+            this.toolTip1.SetToolTip(this.btnShiftLeft, "Shift Map Left");
+            this.btnShiftLeft.Click += new DecentForms.EventHandler(this.btnShiftLeft_Click);
+            // 
+            // btnShiftUp
+            // 
+            this.btnShiftUp.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnShiftUp.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnShiftUp.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnShiftUp.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnShiftUp.Image = null;
+            this.btnShiftUp.Location = new System.Drawing.Point(567, 3);
+            this.btnShiftUp.Name = "btnShiftUp";
+            this.btnShiftUp.Size = new System.Drawing.Size(24, 24);
+            this.btnShiftUp.TabIndex = 13;
+            this.btnShiftUp.Text = "▲";
+            this.toolTip1.SetToolTip(this.btnShiftUp, "Shift Map Up");
+            this.btnShiftUp.Click += new DecentForms.EventHandler(this.btnShiftUp_Click);
+            // 
+            // btnShiftDown
+            // 
+            this.btnShiftDown.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnShiftDown.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnShiftDown.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnShiftDown.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnShiftDown.Image = null;
+            this.btnShiftDown.Location = new System.Drawing.Point(597, 3);
+            this.btnShiftDown.Name = "btnShiftDown";
+            this.btnShiftDown.Size = new System.Drawing.Size(24, 24);
+            this.btnShiftDown.TabIndex = 14;
+            this.btnShiftDown.Text = "▼";
+            this.toolTip1.SetToolTip(this.btnShiftDown, "Shift Map Down");
+            this.btnShiftDown.Click += new DecentForms.EventHandler(this.btnShiftDown_Click);
+            // 
+            // btnShiftRight
+            // 
+            this.btnShiftRight.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnShiftRight.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnShiftRight.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnShiftRight.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnShiftRight.Image = null;
+            this.btnShiftRight.Location = new System.Drawing.Point(627, 3);
+            this.btnShiftRight.Name = "btnShiftRight";
+            this.btnShiftRight.Size = new System.Drawing.Size(24, 24);
+            this.btnShiftRight.TabIndex = 15;
+            this.btnShiftRight.Text = "►";
+            this.toolTip1.SetToolTip(this.btnShiftRight, "Shift Map Right");
+            this.btnShiftRight.Click += new DecentForms.EventHandler(this.btnShiftRight_Click);
             // 
             // labelEditInfo
             // 
@@ -2060,6 +2128,10 @@
         private System.Windows.Forms.TabPage tabCharset;
         private Controls.CharacterEditor characterEditor;
     private DecentForms.Button btnCopyMapImage;
+    private DecentForms.Button btnShiftLeft;
+    private DecentForms.Button btnShiftUp;
+    private DecentForms.Button btnShiftDown;
+    private DecentForms.Button btnShiftRight;
     private DecentForms.Button btnZoomOut;
     private DecentForms.Button btnZoomIn;
     private System.Windows.Forms.Label labelZoom;

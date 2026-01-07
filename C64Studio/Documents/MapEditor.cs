@@ -2420,6 +2420,113 @@ namespace RetroDevStudio.Documents
       }
     }
 
+    private void btnShiftLeft_Click( DecentForms.ControlBase sender )
+    {
+      ShiftMap( -1, 0 );
+    }
+
+    private void btnShiftRight_Click( DecentForms.ControlBase sender )
+    {
+      ShiftMap( 1, 0 );
+    }
+
+    private void btnShiftUp_Click( DecentForms.ControlBase sender )
+    {
+      ShiftMap( 0, -1 );
+    }
+
+    private void btnShiftDown_Click( DecentForms.ControlBase sender )
+    {
+      ShiftMap( 0, 1 );
+    }
+
+    private void ShiftMap( int DX, int DY )
+    {
+      if ( m_CurrentMap == null )
+      {
+        return;
+      }
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height ) );
+
+      int    w = m_CurrentMap.Tiles.Width;
+      int    h = m_CurrentMap.Tiles.Height;
+
+      if ( DX > 0 )
+      {
+        for ( int x = w - 1; x >= DX; --x )
+        {
+          for ( int y = 0; y < h; ++y )
+          {
+            m_CurrentMap.Tiles[x, y] = m_CurrentMap.Tiles[x - DX, y];
+          }
+        }
+        for ( int x = 0; x < DX; ++x )
+        {
+           for ( int y = 0; y < h; ++y )
+           {
+             m_CurrentMap.Tiles[x, y] = 0; 
+           }
+        }
+      }
+      else if ( DX < 0 )
+      {
+         int absDX = -DX;
+         for ( int x = 0; x < w - absDX; ++x )
+         {
+           for ( int y = 0; y < h; ++y )
+           {
+             m_CurrentMap.Tiles[x, y] = m_CurrentMap.Tiles[x + absDX, y];
+           }
+         }
+         for ( int x = w - absDX; x < w; ++x )
+         {
+            for ( int y = 0; y < h; ++y )
+            {
+              m_CurrentMap.Tiles[x, y] = 0;
+            }
+         }
+      }
+      
+      if ( DY > 0 )
+      {
+        for ( int y = h - 1; y >= DY; --y )
+        {
+          for ( int x = 0; x < w; ++x )
+          {
+            m_CurrentMap.Tiles[x, y] = m_CurrentMap.Tiles[x, y - DY];
+          }
+        }
+        for ( int y = 0; y < DY; ++y )
+        {
+           for ( int x = 0; x < w; ++x )
+           {
+             m_CurrentMap.Tiles[x, y] = 0;
+           }
+        }
+      }
+      else if ( DY < 0 )
+      {
+         int absDY = -DY;
+         for ( int y = 0; y < h - absDY; ++y )
+         {
+           for ( int x = 0; x < w; ++x )
+           {
+             m_CurrentMap.Tiles[x, y] = m_CurrentMap.Tiles[x, y + absDY];
+           }
+         }
+         for ( int y = h - absDY; y < h; ++y )
+         {
+            for ( int x = 0; x < w; ++x )
+            {
+              m_CurrentMap.Tiles[x, y] = 0;
+            }
+         }
+      }
+
+      SetModified();
+      RedrawMap();
+    }
+
 
 
     private void panelCharacters_SelectedIndexChanged( object sender, EventArgs e )
