@@ -2174,7 +2174,13 @@ namespace RetroDevStudio.Documents
       }
 
       m_MapProject.Tiles.Add( tile );
+      tile.Index = m_MapProject.Tiles.Count - 1;
       RefreshMapTileList();
+      
+      if ( comboTiles.Items.Count > 0 )
+      {
+        comboTiles.SelectedIndex = comboTiles.Items.Count - 1;
+      }
       Modified = true;
     }
 
