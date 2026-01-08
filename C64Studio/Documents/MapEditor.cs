@@ -1867,6 +1867,11 @@ namespace RetroDevStudio.Documents
         return;
       }
 
+      if ( editSwatchSize.Text != m_MapProject.ColorSwatchSize.ToString() )
+      {
+        editSwatchSize.Text = m_MapProject.ColorSwatchSize.ToString();
+      }
+
       int selectedIndex = comboTiles.SelectedIndex;
       int selectedTileIndex = -1;
       if ( m_CurrentEditorTile != null )
@@ -2554,11 +2559,56 @@ namespace RetroDevStudio.Documents
 
     private void RedrawColorChooser()
     {
+      if ( m_MapProject == null ) return;
+      int itemsPerRow = Math.Max( 1, panelCharColors.ClientSize.Width / m_MapProject.ColorSwatchSize );
+      int numRows = ( 16 + itemsPerRow - 1 ) / itemsPerRow;
+      int requiredHeight = numRows * m_MapProject.ColorSwatchSize;
+      
+      if ( panelCharColors.Height != requiredHeight )
+      {
+        panelCharColors.Height = requiredHeight;
+      }
+      if ( ( panelCharColors.DisplayPage.Width != panelCharColors.ClientSize.Width )
+      ||   ( panelCharColors.DisplayPage.Height != requiredHeight ) )
+      {
+        panelCharColors.DisplayPage.Create( panelCharColors.ClientSize.Width, requiredHeight, GR.Drawing.PixelFormat.Format32bppArgb );
+      }
+      panelCharColors.DisplayPage.Box( 0, 0, panelCharColors.DisplayPage.Width, panelCharColors.DisplayPage.Height, 0xff000000 );
+
+      GR.Image.FastImage tempImage = new GR.Image.FastImage( 8, 8, GR.Drawing.PixelFormat.Format32bppArgb );
+
       for ( byte i = 0; i < 16; ++i )
       {
-        DrawCharImage( panelCharColors.DisplayPage, i * 8, 0, m_CurrentChar, i );
+        DrawCharImage( tempImage, 0, 0, m_CurrentChar, i );
+
+        for ( int y = 0; y < 8; ++y )
+        {
+          for ( int x = 0; x < 8; ++x )
+          {
+            uint pixel = tempImage.GetPixel( x, y );
+
+            int destX = ( i % itemsPerRow ) * m_MapProject.ColorSwatchSize;
+            int destY = ( i / itemsPerRow ) * m_MapProject.ColorSwatchSize;
+
+            int destStartX = destX + ( x * m_MapProject.ColorSwatchSize ) / 8;
+            int destXEnd = destX + ( ( x + 1 ) * m_MapProject.ColorSwatchSize ) / 8;
+            int destStartY = destY + ( y * m_MapProject.ColorSwatchSize ) / 8;
+            int destYEnd = destY + ( ( y + 1 ) * m_MapProject.ColorSwatchSize ) / 8;
+
+            for ( int dy = destStartY; dy < destYEnd; ++dy )
+            {
+              for ( int dx = destStartX; dx < destXEnd; ++dx )
+              {
+                panelCharColors.DisplayPage.SetPixel( dx, dy, pixel );
+              }
+            }
+          }
+        }
       }
-      panelCharColors.DisplayPage.Rectangle( m_CurrentColor * 8, 0, 8, 8, Core.Settings.FGColor( ColorableElement.SELECTION_FRAME ) );
+      int selX = ( m_CurrentColor % itemsPerRow ) * m_MapProject.ColorSwatchSize;
+      int selY = ( m_CurrentColor / itemsPerRow ) * m_MapProject.ColorSwatchSize;
+
+      panelCharColors.DisplayPage.Rectangle( selX, selY, m_MapProject.ColorSwatchSize, m_MapProject.ColorSwatchSize, Core.Settings.FGColor( ColorableElement.SELECTION_FRAME ) );
       panelCharColors.Invalidate();
     }
 
@@ -2587,16 +2637,23 @@ namespace RetroDevStudio.Documents
     {
       if ( ( Buttons & MouseButtons.Left ) == MouseButtons.Left )
       {
-        int colorIndex = (int)( ( 16 * X ) / panelCharColors.ClientSize.Width );
-        m_CurrentColor = (byte)colorIndex;
-        RedrawColorChooser();
-
-        if ( ( m_CurrentTileChar != null )
-        &&   ( m_CurrentTileChar.Color != m_CurrentColor )
-        &&   ( listTileInfo.SelectedIndices.Count > 0 )
-        &&   ( listTileChars.SelectedItems.Count > 0 ) )
+        int itemsPerRow = Math.Max( 1, panelCharColors.ClientSize.Width / m_MapProject.ColorSwatchSize );
+        int col = X / m_MapProject.ColorSwatchSize;
+        int row = Y / m_MapProject.ColorSwatchSize;
+        int colorIndex = col + row * itemsPerRow;
+        
+        if ( ( colorIndex >= 0 )
+        &&   ( colorIndex < 16 ) )
         {
-          DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
+          m_CurrentColor = (byte)colorIndex;
+          RedrawColorChooser();
+
+          if ( ( m_CurrentTileChar != null )
+          &&   ( m_CurrentTileChar.Color != m_CurrentColor )
+          &&   ( listTileInfo.SelectedIndices.Count > 0 )
+          &&   ( listTileChars.SelectedItems.Count > 0 ) )
+          {
+            DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
 
           m_CurrentTileChar.Color = m_CurrentColor;
 
@@ -2607,6 +2664,7 @@ namespace RetroDevStudio.Documents
         }
       }
     }
+  }
 
 
 
@@ -5319,7 +5377,43 @@ namespace RetroDevStudio.Documents
     {
        UpdateMapAspectRatio();
     }
-  }
-}
 
+    private void editSwatchSize_KeyPress( object sender, KeyPressEventArgs e )
+    {
+      if ( ( !char.IsDigit( e.KeyChar ) )
+      &&   ( !char.IsControl( e.KeyChar ) ) )
+      {
+        e.Handled = true;
+      }
+    }
+
+
+
+    private void editSwatchSize_KeyDown( object sender, KeyEventArgs e )
+    {
+      if ( e.KeyCode == Keys.Enter )
+      {
+        int size = GR.Convert.ToI32( editSwatchSize.Text );
+        if ( size < 4 )
+        {
+          size = 4;
+          editSwatchSize.Text = size.ToString();
+        }
+        if ( size > 64 )
+        {
+          size = 64;
+          editSwatchSize.Text = size.ToString();
+        }
+        if ( m_MapProject.ColorSwatchSize != size )
+        {
+          m_MapProject.ColorSwatchSize = size;
+          SetModified();
+          RedrawColorChooser();
+        }
+        e.Handled = true;
+        e.SuppressKeyPress = true;
+      }
+    }
+  }
+} // namespace RetroDevStudio.Documents
 

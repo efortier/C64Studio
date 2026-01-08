@@ -119,7 +119,10 @@
             this.mapVScroll = new DecentForms.VScrollBar();
             this.tabMapEditor = new System.Windows.Forms.TabControl();
             this.tabTiles = new System.Windows.Forms.TabPage();
+            this.labelSwatchSize = new System.Windows.Forms.Label();
+            this.editSwatchSize = new System.Windows.Forms.TextBox();
             this.btnTileApply = new DecentForms.Button();
+            this.btnGetTileCount = new DecentForms.Button();
             this.btnCopyTileCharToNextIncreased = new DecentForms.Button();
             this.btnSetNextTileChar = new DecentForms.Button();
             this.btnMoveTileDown = new DecentForms.Button();
@@ -172,7 +175,6 @@
             this.btnImport = new DecentForms.Button();
             this.comboImportMethod = new System.Windows.Forms.ComboBox();
             this.label2 = new System.Windows.Forms.Label();
-            this.btnGetTileCount = new DecentForms.Button();
             this.tabPage1 = new System.Windows.Forms.TabPage();
             this.label7 = new System.Windows.Forms.Label();
             this.label8 = new System.Windows.Forms.Label();
@@ -1237,6 +1239,8 @@
             // 
             // tabTiles
             // 
+            this.tabTiles.Controls.Add(this.labelSwatchSize);
+            this.tabTiles.Controls.Add(this.editSwatchSize);
             this.tabTiles.Controls.Add(this.btnTileApply);
             this.tabTiles.Controls.Add(this.btnGetTileCount);
             this.tabTiles.Controls.Add(this.btnCopyTileCharToNextIncreased);
@@ -1275,6 +1279,25 @@
             this.tabTiles.Text = "Tiles";
             this.tabTiles.UseVisualStyleBackColor = true;
             // 
+            // labelSwatchSize
+            // 
+            this.labelSwatchSize.AutoSize = true;
+            this.labelSwatchSize.Location = new System.Drawing.Point(993, 295);
+            this.labelSwatchSize.Name = "labelSwatchSize";
+            this.labelSwatchSize.Size = new System.Drawing.Size(69, 13);
+            this.labelSwatchSize.TabIndex = 22;
+            this.labelSwatchSize.Text = "Swatch Size:";
+            // 
+            // editSwatchSize
+            // 
+            this.editSwatchSize.Location = new System.Drawing.Point(1068, 292);
+            this.editSwatchSize.Name = "editSwatchSize";
+            this.editSwatchSize.Size = new System.Drawing.Size(40, 20);
+            this.editSwatchSize.TabIndex = 23;
+            this.editSwatchSize.Text = "8";
+            this.editSwatchSize.KeyDown += new System.Windows.Forms.KeyEventHandler(this.editSwatchSize_KeyDown);
+            this.editSwatchSize.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.editSwatchSize_KeyPress);
+            // 
             // btnTileApply
             // 
             this.btnTileApply.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
@@ -1289,6 +1312,20 @@
             this.btnTileApply.TabIndex = 25;
             this.btnTileApply.Text = "Apply";
             this.btnTileApply.Click += new DecentForms.EventHandler(this.btnTileApply_Click);
+            // 
+            // btnGetTileCount
+            // 
+            this.btnGetTileCount.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnGetTileCount.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnGetTileCount.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnGetTileCount.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnGetTileCount.Image = null;
+            this.btnGetTileCount.Location = new System.Drawing.Point(419, 357);
+            this.btnGetTileCount.Name = "btnGetTileCount";
+            this.btnGetTileCount.Size = new System.Drawing.Size(87, 23);
+            this.btnGetTileCount.TabIndex = 26;
+            this.btnGetTileCount.Text = "Get tile count";
+            this.btnGetTileCount.Click += new DecentForms.EventHandler(this.btnGetTileCount_Click);
             // 
             // btnCopyTileCharToNextIncreased
             // 
@@ -1877,20 +1914,6 @@
             this.label2.TabIndex = 35;
             this.label2.Text = "Import Method:";
             // 
-            // btnGetTileCount
-            // 
-            this.btnGetTileCount.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            this.btnGetTileCount.BorderStyle = DecentForms.BorderStyle.FLAT;
-            this.btnGetTileCount.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            this.btnGetTileCount.DialogResult = System.Windows.Forms.DialogResult.OK;
-            this.btnGetTileCount.Image = null;
-            this.btnGetTileCount.Location = new System.Drawing.Point(419, 357);
-            this.btnGetTileCount.Name = "btnGetTileCount";
-            this.btnGetTileCount.Size = new System.Drawing.Size(87, 23);
-            this.btnGetTileCount.TabIndex = 26;
-            this.btnGetTileCount.Text = "Get tile count";
-            this.btnGetTileCount.Click += new DecentForms.EventHandler(this.btnGetTileCount_Click);
-            // 
             // tabPage1
             // 
             this.tabPage1.Controls.Add(this.label7);
@@ -2165,6 +2188,8 @@
     private System.Windows.Forms.TextBox editDataExport;
     private System.Windows.Forms.Panel panelExport;
     private System.Windows.Forms.Label label5;
+    private System.Windows.Forms.TextBox editSwatchSize;
+    private System.Windows.Forms.Label labelSwatchSize;
     private System.Windows.Forms.ComboBox comboExportOrientation;
     private System.Windows.Forms.Panel panelImport;
     private DecentForms.Button btnImport;
