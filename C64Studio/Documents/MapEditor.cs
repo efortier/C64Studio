@@ -1900,7 +1900,7 @@ namespace RetroDevStudio.Documents
           item.Text = tile.Index.ToString();
           item.SubItems.Add( tile.Name );
           item.SubItems.Add( tile.Chars.Width.ToString() + "x" + tile.Chars.Height.ToString() );
-          item.SubItems.Add( "0" );
+          item.SubItems.Add( "?" );
           item.Tag = tile;
 
           listTileInfo.Items.Add( item );
@@ -3012,6 +3012,25 @@ namespace RetroDevStudio.Documents
 
 
 
+    private void btnGetTileCount_Click( DecentForms.ControlBase Sender )
+    {
+      RecalcTileUsageInCurrentMap();
+
+      listTileInfo.BeginUpdate();
+      foreach ( ListViewItem item in listTileInfo.Items )
+      {
+        Formats.MapProject.Tile tile = (Formats.MapProject.Tile)item.Tag;
+        if ( ( tile.Index >= 0 ) 
+        &&   ( tile.Index < _TileUsage.Count ) )
+        {
+          item.SubItems[3].Text = _TileUsage[tile.Index].ToString();
+        }
+      }
+      listTileInfo.EndUpdate();
+    }
+
+
+
     public void AddTile( int TileIndex, Formats.MapProject.Tile Tile )
     {
       m_MapProject.Tiles.Insert( TileIndex, Tile );
@@ -3100,6 +3119,11 @@ namespace RetroDevStudio.Documents
 
       btnCopyTileCharToNextIncreased.Enabled  = ( listTileChars.SelectedIndices.Count != 0 );
       btnSetNextTileChar.Enabled              = ( listTileChars.SelectedIndices.Count != 0 );
+
+      if ( listTileChars.Items.Count > 0 )
+      {
+        listTileChars.SelectedIndices.Add( 0 );
+      }
 
       RedrawTile();
     }
@@ -3461,11 +3485,26 @@ namespace RetroDevStudio.Documents
       {
         return;
       }
-      if ( m_CurrentEditedTile.Passable != checkTilePassable.Checked )
+      bool    firstUndo = true;
+
+      foreach ( ListViewItem item in listTileInfo.SelectedItems )
       {
-        DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
-        m_CurrentEditedTile.Passable = checkTilePassable.Checked;
-        SetModified();
+        Formats.MapProject.Tile tile = (Formats.MapProject.Tile)item.Tag;
+
+        if ( tile.Passable != checkTilePassable.Checked )
+        {
+          if ( firstUndo )
+          {
+            DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, tile.Index ) );
+            firstUndo = false;
+          }
+          else
+          {
+            DocumentInfo.UndoManager.AddGroupedUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, tile.Index ) );
+          }
+          tile.Passable = checkTilePassable.Checked;
+          SetModified();
+        }
       }
     }
 
@@ -3476,11 +3515,26 @@ namespace RetroDevStudio.Documents
       {
         return;
       }
-      if ( m_CurrentEditedTile.NotExportedOnMap != checkNotExportedOnMap.Checked )
+      bool    firstUndo = true;
+
+      foreach ( ListViewItem item in listTileInfo.SelectedItems )
       {
-        DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
-        m_CurrentEditedTile.NotExportedOnMap = checkNotExportedOnMap.Checked;
-        SetModified();
+        Formats.MapProject.Tile tile = (Formats.MapProject.Tile)item.Tag;
+
+        if ( tile.NotExportedOnMap != checkNotExportedOnMap.Checked )
+        {
+          if ( firstUndo )
+          {
+            DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, tile.Index ) );
+            firstUndo = false;
+          }
+          else
+          {
+            DocumentInfo.UndoManager.AddGroupedUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, tile.Index ) );
+          }
+          tile.NotExportedOnMap = checkNotExportedOnMap.Checked;
+          SetModified();
+        }
       }
     }
 

@@ -172,6 +172,7 @@
             this.btnImport = new DecentForms.Button();
             this.comboImportMethod = new System.Windows.Forms.ComboBox();
             this.label2 = new System.Windows.Forms.Label();
+            this.btnGetTileCount = new DecentForms.Button();
             this.tabPage1 = new System.Windows.Forms.TabPage();
             this.label7 = new System.Windows.Forms.Label();
             this.label8 = new System.Windows.Forms.Label();
@@ -252,7 +253,7 @@
             this.tabMarkers.Location = new System.Drawing.Point(4, 22);
             this.tabMarkers.Name = "tabMarkers";
             this.tabMarkers.Padding = new System.Windows.Forms.Padding(3);
-            this.tabMarkers.Size = new System.Drawing.Size(1385, 628);
+            this.tabMarkers.Size = new System.Drawing.Size(192, 74);
             this.tabMarkers.TabIndex = 4;
             this.tabMarkers.Text = "Markers";
             this.tabMarkers.UseVisualStyleBackColor = true;
@@ -1161,7 +1162,7 @@
             // labelEditInfo
             // 
             this.labelEditInfo.Anchor = System.Windows.Forms.AnchorStyles.None;
-            this.labelEditInfo.Location = new System.Drawing.Point(537, 3);
+            this.labelEditInfo.Location = new System.Drawing.Point(3, 30);
             this.labelEditInfo.Name = "labelEditInfo";
             this.labelEditInfo.Size = new System.Drawing.Size(211, 23);
             this.labelEditInfo.TabIndex = 9;
@@ -1237,6 +1238,7 @@
             // tabTiles
             // 
             this.tabTiles.Controls.Add(this.btnTileApply);
+            this.tabTiles.Controls.Add(this.btnGetTileCount);
             this.tabTiles.Controls.Add(this.btnCopyTileCharToNextIncreased);
             this.tabTiles.Controls.Add(this.btnSetNextTileChar);
             this.tabTiles.Controls.Add(this.btnMoveTileDown);
@@ -1281,7 +1283,7 @@
             this.btnTileApply.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnTileApply.Enabled = false;
             this.btnTileApply.Image = null;
-            this.btnTileApply.Location = new System.Drawing.Point(474, 88);
+            this.btnTileApply.Location = new System.Drawing.Point(522, 85);
             this.btnTileApply.Name = "btnTileApply";
             this.btnTileApply.Size = new System.Drawing.Size(58, 23);
             this.btnTileApply.TabIndex = 25;
@@ -1296,7 +1298,7 @@
             this.btnCopyTileCharToNextIncreased.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnCopyTileCharToNextIncreased.Enabled = false;
             this.btnCopyTileCharToNextIncreased.Image = null;
-            this.btnCopyTileCharToNextIncreased.Location = new System.Drawing.Point(591, 248);
+            this.btnCopyTileCharToNextIncreased.Location = new System.Drawing.Point(639, 245);
             this.btnCopyTileCharToNextIncreased.Name = "btnCopyTileCharToNextIncreased";
             this.btnCopyTileCharToNextIncreased.Size = new System.Drawing.Size(75, 23);
             this.btnCopyTileCharToNextIncreased.TabIndex = 28;
@@ -1312,7 +1314,7 @@
             this.btnSetNextTileChar.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnSetNextTileChar.Enabled = false;
             this.btnSetNextTileChar.Image = null;
-            this.btnSetNextTileChar.Location = new System.Drawing.Point(591, 217);
+            this.btnSetNextTileChar.Location = new System.Drawing.Point(639, 214);
             this.btnSetNextTileChar.Name = "btnSetNextTileChar";
             this.btnSetNextTileChar.Size = new System.Drawing.Size(75, 23);
             this.btnSetNextTileChar.TabIndex = 28;
@@ -1328,7 +1330,7 @@
             this.btnMoveTileDown.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnMoveTileDown.Enabled = false;
             this.btnMoveTileDown.Image = null;
-            this.btnMoveTileDown.Location = new System.Drawing.Point(447, 321);
+            this.btnMoveTileDown.Location = new System.Drawing.Point(495, 318);
             this.btnMoveTileDown.Name = "btnMoveTileDown";
             this.btnMoveTileDown.Size = new System.Drawing.Size(44, 23);
             this.btnMoveTileDown.TabIndex = 26;
@@ -1343,7 +1345,7 @@
             this.btnMoveTileUp.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnMoveTileUp.Enabled = false;
             this.btnMoveTileUp.Image = null;
-            this.btnMoveTileUp.Location = new System.Drawing.Point(397, 321);
+            this.btnMoveTileUp.Location = new System.Drawing.Point(445, 318);
             this.btnMoveTileUp.Name = "btnMoveTileUp";
             this.btnMoveTileUp.Size = new System.Drawing.Size(44, 23);
             this.btnMoveTileUp.TabIndex = 26;
@@ -1358,7 +1360,7 @@
             this.btnTileDelete.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnTileDelete.Enabled = false;
             this.btnTileDelete.Image = null;
-            this.btnTileDelete.Location = new System.Drawing.Point(474, 117);
+            this.btnTileDelete.Location = new System.Drawing.Point(522, 114);
             this.btnTileDelete.Name = "btnTileDelete";
             this.btnTileDelete.Size = new System.Drawing.Size(58, 23);
             this.btnTileDelete.TabIndex = 25;
@@ -1373,7 +1375,7 @@
             this.btnTileClone.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnTileClone.Enabled = false;
             this.btnTileClone.Image = null;
-            this.btnTileClone.Location = new System.Drawing.Point(404, 117);
+            this.btnTileClone.Location = new System.Drawing.Point(452, 114);
             this.btnTileClone.Name = "btnTileClone";
             this.btnTileClone.Size = new System.Drawing.Size(58, 23);
             this.btnTileClone.TabIndex = 25;
@@ -1387,7 +1389,7 @@
             this.btnTileAdd.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             this.btnTileAdd.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnTileAdd.Image = null;
-            this.btnTileAdd.Location = new System.Drawing.Point(404, 88);
+            this.btnTileAdd.Location = new System.Drawing.Point(452, 85);
             this.btnTileAdd.Name = "btnTileAdd";
             this.btnTileAdd.Size = new System.Drawing.Size(58, 23);
             this.btnTileAdd.TabIndex = 25;
@@ -1402,7 +1404,7 @@
             this.columnHeader7});
             this.listTileChars.FullRowSelect = true;
             this.listTileChars.HideSelection = false;
-            this.listTileChars.Location = new System.Drawing.Point(541, 8);
+            this.listTileChars.Location = new System.Drawing.Point(589, 5);
             this.listTileChars.Name = "listTileChars";
             this.listTileChars.OwnerDraw = true;
             this.listTileChars.SelectedTextBGColor = ((uint)(4294901760u));
@@ -1430,6 +1432,8 @@
             // 
             // listTileInfo
             // 
+            this.listTileInfo.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left)));
             this.listTileInfo.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
             this.columnHeader4,
             this.columnHeader1,
@@ -1442,7 +1446,7 @@
             this.listTileInfo.OwnerDraw = true;
             this.listTileInfo.SelectedTextBGColor = ((uint)(4294901760u));
             this.listTileInfo.SelectedTextColor = ((uint)(4294967295u));
-            this.listTileInfo.Size = new System.Drawing.Size(359, 612);
+            this.listTileInfo.Size = new System.Drawing.Size(407, 612);
             this.listTileInfo.TabIndex = 24;
             this.listTileInfo.UseCompatibleStateImageBehavior = false;
             this.listTileInfo.View = System.Windows.Forms.View.Details;
@@ -1468,21 +1472,21 @@
             // 
             // editTileName
             // 
-            this.editTileName.Location = new System.Drawing.Point(432, 62);
+            this.editTileName.Location = new System.Drawing.Point(480, 59);
             this.editTileName.Name = "editTileName";
             this.editTileName.Size = new System.Drawing.Size(100, 20);
             this.editTileName.TabIndex = 23;
             // 
             // editTileHeight
             // 
-            this.editTileHeight.Location = new System.Drawing.Point(432, 35);
+            this.editTileHeight.Location = new System.Drawing.Point(480, 32);
             this.editTileHeight.Name = "editTileHeight";
             this.editTileHeight.Size = new System.Drawing.Size(100, 20);
             this.editTileHeight.TabIndex = 23;
             // 
             // editTileWidth
             // 
-            this.editTileWidth.Location = new System.Drawing.Point(432, 8);
+            this.editTileWidth.Location = new System.Drawing.Point(480, 5);
             this.editTileWidth.Name = "editTileWidth";
             this.editTileWidth.Size = new System.Drawing.Size(100, 20);
             this.editTileWidth.TabIndex = 23;
@@ -1490,7 +1494,7 @@
             // checkNotExportedOnMap
             // 
             this.checkNotExportedOnMap.AutoSize = true;
-            this.checkNotExportedOnMap.Location = new System.Drawing.Point(397, 294);
+            this.checkNotExportedOnMap.Location = new System.Drawing.Point(445, 291);
             this.checkNotExportedOnMap.Name = "checkNotExportedOnMap";
             this.checkNotExportedOnMap.Size = new System.Drawing.Size(125, 17);
             this.checkNotExportedOnMap.TabIndex = 23;
@@ -1503,7 +1507,7 @@
             this.checkTilePassable.AutoSize = true;
             this.checkTilePassable.Checked = true;
             this.checkTilePassable.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.checkTilePassable.Location = new System.Drawing.Point(397, 272);
+            this.checkTilePassable.Location = new System.Drawing.Point(445, 269);
             this.checkTilePassable.Name = "checkTilePassable";
             this.checkTilePassable.Size = new System.Drawing.Size(69, 17);
             this.checkTilePassable.TabIndex = 23;
@@ -1514,7 +1518,7 @@
             // label17
             // 
             this.label17.AutoSize = true;
-            this.label17.Location = new System.Drawing.Point(368, 65);
+            this.label17.Location = new System.Drawing.Point(416, 62);
             this.label17.Name = "label17";
             this.label17.Size = new System.Drawing.Size(38, 13);
             this.label17.TabIndex = 22;
@@ -1523,7 +1527,7 @@
             // labelTilesBGColor4
             // 
             this.labelTilesBGColor4.AutoSize = true;
-            this.labelTilesBGColor4.Location = new System.Drawing.Point(394, 241);
+            this.labelTilesBGColor4.Location = new System.Drawing.Point(442, 238);
             this.labelTilesBGColor4.Name = "labelTilesBGColor4";
             this.labelTilesBGColor4.Size = new System.Drawing.Size(61, 13);
             this.labelTilesBGColor4.TabIndex = 22;
@@ -1532,7 +1536,7 @@
             // labelTilesMulticolor2
             // 
             this.labelTilesMulticolor2.AutoSize = true;
-            this.labelTilesMulticolor2.Location = new System.Drawing.Point(394, 215);
+            this.labelTilesMulticolor2.Location = new System.Drawing.Point(442, 212);
             this.labelTilesMulticolor2.Name = "labelTilesMulticolor2";
             this.labelTilesMulticolor2.Size = new System.Drawing.Size(64, 13);
             this.labelTilesMulticolor2.TabIndex = 22;
@@ -1541,7 +1545,7 @@
             // label16
             // 
             this.label16.AutoSize = true;
-            this.label16.Location = new System.Drawing.Point(368, 38);
+            this.label16.Location = new System.Drawing.Point(416, 35);
             this.label16.Name = "label16";
             this.label16.Size = new System.Drawing.Size(61, 13);
             this.label16.TabIndex = 22;
@@ -1550,7 +1554,7 @@
             // labelTilesMulticolor1
             // 
             this.labelTilesMulticolor1.AutoSize = true;
-            this.labelTilesMulticolor1.Location = new System.Drawing.Point(394, 189);
+            this.labelTilesMulticolor1.Location = new System.Drawing.Point(442, 186);
             this.labelTilesMulticolor1.Name = "labelTilesMulticolor1";
             this.labelTilesMulticolor1.Size = new System.Drawing.Size(64, 13);
             this.labelTilesMulticolor1.TabIndex = 22;
@@ -1559,7 +1563,7 @@
             // label4
             // 
             this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(368, 11);
+            this.label4.Location = new System.Drawing.Point(416, 8);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(58, 13);
             this.label4.TabIndex = 22;
@@ -1568,7 +1572,7 @@
             // label15
             // 
             this.label15.AutoSize = true;
-            this.label15.Location = new System.Drawing.Point(394, 162);
+            this.label15.Location = new System.Drawing.Point(442, 159);
             this.label15.Name = "label15";
             this.label15.Size = new System.Drawing.Size(68, 13);
             this.label15.TabIndex = 22;
@@ -1590,7 +1594,7 @@
             this.panelCharacters.HottrackColor = ((uint)(2151694591u));
             this.panelCharacters.ItemHeight = 8;
             this.panelCharacters.ItemWidth = 8;
-            this.panelCharacters.Location = new System.Drawing.Point(677, 8);
+            this.panelCharacters.Location = new System.Drawing.Point(725, 5);
             this.panelCharacters.Name = "panelCharacters";
             this.panelCharacters.PixelFormat = GR.Drawing.PixelFormat.DontCare;
             this.panelCharacters.SelectedIndex = -1;
@@ -1606,7 +1610,7 @@
             this.comboTileBGColor4.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
             this.comboTileBGColor4.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboTileBGColor4.FormattingEnabled = true;
-            this.comboTileBGColor4.Location = new System.Drawing.Point(476, 238);
+            this.comboTileBGColor4.Location = new System.Drawing.Point(524, 235);
             this.comboTileBGColor4.Name = "comboTileBGColor4";
             this.comboTileBGColor4.Size = new System.Drawing.Size(59, 21);
             this.comboTileBGColor4.TabIndex = 1;
@@ -1618,7 +1622,7 @@
             this.comboTileMulticolor2.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
             this.comboTileMulticolor2.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboTileMulticolor2.FormattingEnabled = true;
-            this.comboTileMulticolor2.Location = new System.Drawing.Point(476, 212);
+            this.comboTileMulticolor2.Location = new System.Drawing.Point(524, 209);
             this.comboTileMulticolor2.Name = "comboTileMulticolor2";
             this.comboTileMulticolor2.Size = new System.Drawing.Size(59, 21);
             this.comboTileMulticolor2.TabIndex = 1;
@@ -1630,7 +1634,7 @@
             this.comboTileMulticolor1.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
             this.comboTileMulticolor1.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboTileMulticolor1.FormattingEnabled = true;
-            this.comboTileMulticolor1.Location = new System.Drawing.Point(476, 185);
+            this.comboTileMulticolor1.Location = new System.Drawing.Point(524, 182);
             this.comboTileMulticolor1.Name = "comboTileMulticolor1";
             this.comboTileMulticolor1.Size = new System.Drawing.Size(59, 21);
             this.comboTileMulticolor1.TabIndex = 1;
@@ -1642,7 +1646,7 @@
             this.comboTileBackground.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
             this.comboTileBackground.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboTileBackground.FormattingEnabled = true;
-            this.comboTileBackground.Location = new System.Drawing.Point(476, 159);
+            this.comboTileBackground.Location = new System.Drawing.Point(524, 156);
             this.comboTileBackground.Name = "comboTileBackground";
             this.comboTileBackground.Size = new System.Drawing.Size(59, 21);
             this.comboTileBackground.TabIndex = 1;
@@ -1655,7 +1659,7 @@
             this.panelCharColors.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
             this.panelCharColors.DisplayPage = fastImage2;
             this.panelCharColors.Image = null;
-            this.panelCharColors.Location = new System.Drawing.Point(677, 274);
+            this.panelCharColors.Location = new System.Drawing.Point(725, 271);
             this.panelCharColors.Name = "panelCharColors";
             this.panelCharColors.Size = new System.Drawing.Size(260, 20);
             this.panelCharColors.TabIndex = 0;
@@ -1669,7 +1673,7 @@
             this.pictureTileDisplay.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
             this.pictureTileDisplay.DisplayPage = fastImage3;
             this.pictureTileDisplay.Image = null;
-            this.pictureTileDisplay.Location = new System.Drawing.Point(948, 8);
+            this.pictureTileDisplay.Location = new System.Drawing.Point(996, 5);
             this.pictureTileDisplay.Name = "pictureTileDisplay";
             this.pictureTileDisplay.Size = new System.Drawing.Size(260, 260);
             this.pictureTileDisplay.TabIndex = 0;
@@ -1682,7 +1686,7 @@
             this.tabCharset.Controls.Add(this.characterEditor);
             this.tabCharset.Location = new System.Drawing.Point(4, 22);
             this.tabCharset.Name = "tabCharset";
-            this.tabCharset.Size = new System.Drawing.Size(1385, 628);
+            this.tabCharset.Size = new System.Drawing.Size(192, 74);
             this.tabCharset.TabIndex = 3;
             this.tabCharset.Text = "Character Set";
             this.tabCharset.UseVisualStyleBackColor = true;
@@ -1696,7 +1700,8 @@
             this.characterEditor.Location = new System.Drawing.Point(0, 0);
             this.characterEditor.Name = "characterEditor";
             this.characterEditor.ShowCreateTileButton = false;
-            this.characterEditor.Size = new System.Drawing.Size(1385, 628);
+            this.characterEditor.Size = new System.Drawing.Size(192, 74);
+            this.characterEditor.SwatchSize = 8;
             this.characterEditor.TabIndex = 0;
             this.characterEditor.Modified += new RetroDevStudio.Controls.CharacterEditor.ModifiedHandler(this.characterEditor_Modified);
             this.characterEditor.CharactersShifted += new RetroDevStudio.Controls.CharacterEditor.CharsetShiftedHandler(this.characterEditor_CharactersShifted);
@@ -1716,7 +1721,7 @@
             this.tabExport.Location = new System.Drawing.Point(4, 22);
             this.tabExport.Name = "tabExport";
             this.tabExport.Padding = new System.Windows.Forms.Padding(3);
-            this.tabExport.Size = new System.Drawing.Size(1385, 628);
+            this.tabExport.Size = new System.Drawing.Size(192, 74);
             this.tabExport.TabIndex = 4;
             this.tabExport.Text = "Export";
             this.tabExport.UseVisualStyleBackColor = true;
@@ -1748,7 +1753,7 @@
             | System.Windows.Forms.AnchorStyles.Left)));
             this.panelExport.Location = new System.Drawing.Point(9, 83);
             this.panelExport.Name = "panelExport";
-            this.panelExport.Size = new System.Drawing.Size(842, 554);
+            this.panelExport.Size = new System.Drawing.Size(842, 0);
             this.panelExport.TabIndex = 41;
             // 
             // editDataExport
@@ -1760,7 +1765,7 @@
             this.editDataExport.Multiline = true;
             this.editDataExport.Name = "editDataExport";
             this.editDataExport.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.editDataExport.Size = new System.Drawing.Size(1193, 614);
+            this.editDataExport.Size = new System.Drawing.Size(0, 60);
             this.editDataExport.TabIndex = 40;
             this.editDataExport.WordWrap = false;
             // 
@@ -1824,7 +1829,7 @@
             this.tabImport.Location = new System.Drawing.Point(4, 22);
             this.tabImport.Name = "tabImport";
             this.tabImport.Padding = new System.Windows.Forms.Padding(3);
-            this.tabImport.Size = new System.Drawing.Size(1385, 628);
+            this.tabImport.Size = new System.Drawing.Size(192, 74);
             this.tabImport.TabIndex = 5;
             this.tabImport.Text = "Import";
             this.tabImport.UseVisualStyleBackColor = true;
@@ -1836,7 +1841,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.panelImport.Location = new System.Drawing.Point(-4, 32);
             this.panelImport.Name = "panelImport";
-            this.panelImport.Size = new System.Drawing.Size(1389, 596);
+            this.panelImport.Size = new System.Drawing.Size(196, 42);
             this.panelImport.TabIndex = 37;
             // 
             // btnImport
@@ -1871,6 +1876,20 @@
             this.label2.Size = new System.Drawing.Size(78, 13);
             this.label2.TabIndex = 35;
             this.label2.Text = "Import Method:";
+            // 
+            // btnGetTileCount
+            // 
+            this.btnGetTileCount.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnGetTileCount.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnGetTileCount.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnGetTileCount.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnGetTileCount.Image = null;
+            this.btnGetTileCount.Location = new System.Drawing.Point(419, 357);
+            this.btnGetTileCount.Name = "btnGetTileCount";
+            this.btnGetTileCount.Size = new System.Drawing.Size(87, 23);
+            this.btnGetTileCount.TabIndex = 26;
+            this.btnGetTileCount.Text = "Get tile count";
+            this.btnGetTileCount.Click += new DecentForms.EventHandler(this.btnGetTileCount_Click);
             // 
             // tabPage1
             // 
@@ -2103,6 +2122,7 @@
     private System.Windows.Forms.ColumnHeader columnHeader2;
     private System.Windows.Forms.ColumnHeader columnHeader3;
     private System.Windows.Forms.ColumnHeader columnHeader4;
+    private DecentForms.Button btnGetTileCount;
     private RetroDevStudio.Controls.CSListView listTileChars;
     private System.Windows.Forms.ColumnHeader columnHeader5;
     private System.Windows.Forms.ColumnHeader columnHeader6;
