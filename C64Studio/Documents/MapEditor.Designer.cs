@@ -1477,6 +1477,11 @@
             this.columnHeader2,
             this.columnHeader3});
             this.listTileInfo.FullRowSelect = true;
+            this.listTileInfo.AllowDrop = true;
+            this.listTileInfo.ItemDrag += new System.Windows.Forms.ItemDragEventHandler(this.listTileInfo_ItemDrag);
+            this.listTileInfo.DragDrop += new System.Windows.Forms.DragEventHandler(this.listTileInfo_DragDrop);
+            this.listTileInfo.DragEnter += new System.Windows.Forms.DragEventHandler(this.listTileInfo_DragEnter);
+            this.listTileInfo.DragOver += new System.Windows.Forms.DragEventHandler(this.listTileInfo_DragOver);
             this.listTileInfo.HideSelection = false;
             this.listTileInfo.Location = new System.Drawing.Point(3, 8);
             this.listTileInfo.Name = "listTileInfo";

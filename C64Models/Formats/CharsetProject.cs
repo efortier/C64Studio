@@ -627,16 +627,8 @@ namespace RetroDevStudio.Formats
 
                   // Check if we have grid settings
                   // PlaygroundWidth * PlaygroundHeight * 4 (chars)
-                  int dataStartOffset = 0;
                   // if we read scale, we are at offset 12 (width, height, scale)
                   // grid settings take 8 bytes (bool as int, int as opacity)
-                  // if remainingBytes > expectedDataSize + 8, we have grid settings?
-                  // Wait, remainingBytes was calculated before reading Scale? No, subChunk.Length is total.
-                  // We read W, H. Remaining is Length - 8.
-                  // If we read Scale, we consumed 4.
-                  // Let's refine check.
-
-                  int currentReadBytes = 8; // W, H
                   if ( subMemIn.Position < subChunk.Length )
                   {
                     // Attempt to read Scale

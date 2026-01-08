@@ -3736,6 +3736,208 @@ namespace RetroDevStudio.Documents
 
 
 
+    public void MoveTile( int FromIndex, int ToIndex )
+    {
+      if ( FromIndex == ToIndex )
+      {
+        return;
+      }
+      if ( ( FromIndex < 0 )
+      ||   ( FromIndex >= m_MapProject.Tiles.Count )
+      ||   ( ToIndex < 0 )
+      ||   ( ToIndex >= m_MapProject.Tiles.Count ) )
+      {
+        return;
+      }
+
+      Formats.MapProject.Tile tile = m_MapProject.Tiles[FromIndex];
+
+      m_MapProject.Tiles.RemoveAt( FromIndex );
+      m_MapProject.Tiles.Insert( ToIndex, tile );
+
+      for ( int i = 0; i < m_MapProject.Tiles.Count; ++i )
+      {
+        m_MapProject.Tiles[i].Index = i;
+      }
+
+      // update maps
+      foreach ( var map in m_MapProject.Maps )
+      {
+        for ( int x = 0; x < map.Tiles.Width; ++x )
+        {
+          for ( int y = 0; y < map.Tiles.Height; ++y )
+          {
+            int tileIndex = map.Tiles[x, y];
+
+            if ( tileIndex == FromIndex )
+            {
+              map.Tiles[x, y] = ToIndex;
+            }
+            else if ( FromIndex < ToIndex )
+            {
+              if ( ( tileIndex > FromIndex )
+              &&   ( tileIndex <= ToIndex ) )
+              {
+                --map.Tiles[x, y];
+              }
+            }
+            else
+            {
+              // FromIndex > ToIndex
+              if ( ( tileIndex >= ToIndex )
+              &&   ( tileIndex < FromIndex ) )
+              {
+                ++map.Tiles[x, y];
+              }
+            }
+          }
+        }
+      }
+
+      // update list
+      ListViewItem item = listTileInfo.Items[FromIndex];
+      listTileInfo.Items.RemoveAt( FromIndex );
+      listTileInfo.Items.Insert( ToIndex, item );
+
+      // update combo
+      object comboItem = comboTiles.Items[FromIndex];
+      comboTiles.Items.RemoveAt( FromIndex );
+      comboTiles.Items.Insert( ToIndex, comboItem );
+
+      RedrawMap();
+      SetModified();
+    }
+
+
+
+    private void listTileInfo_ItemDrag( object sender, ItemDragEventArgs e )
+    {
+      listTileInfo.DoDragDrop( e.Item, DragDropEffects.Move );
+    }
+
+
+
+    private void listTileInfo_DragEnter( object sender, DragEventArgs e )
+    {
+      if ( e.Data.GetDataPresent( typeof( ListViewItem ) ) )
+      {
+        e.Effect = DragDropEffects.Move;
+      }
+      else
+      {
+        e.Effect = DragDropEffects.None;
+      }
+    }
+
+
+
+    private void listTileInfo_DragOver( object sender, DragEventArgs e )
+    {
+      System.Drawing.Point targetPoint = listTileInfo.PointToClient( new System.Drawing.Point( e.X, e.Y ) );
+      int targetIndex = listTileInfo.InsertionMark.NearestIndex( targetPoint );
+
+      if ( targetIndex > -1 )
+      {
+        System.Drawing.Rectangle itemBounds = listTileInfo.GetItemRect( targetIndex );
+        if ( targetPoint.Y > itemBounds.Top + ( itemBounds.Height / 2 ) )
+        {
+          listTileInfo.InsertionMark.AppearsAfterItem = true;
+        }
+        else
+        {
+          listTileInfo.InsertionMark.AppearsAfterItem = false;
+        }
+      }
+      listTileInfo.InsertionMark.Index = targetIndex;
+    }
+
+
+
+    private void listTileInfo_DragDrop( object sender, DragEventArgs e )
+    {
+      System.Drawing.Point targetPoint = listTileInfo.PointToClient( new System.Drawing.Point( e.X, e.Y ) );
+      int targetIndex = listTileInfo.InsertionMark.NearestIndex( targetPoint );
+
+      if ( targetIndex > -1 )
+      {
+        if ( listTileInfo.InsertionMark.AppearsAfterItem )
+        {
+          ++targetIndex;
+        }
+      }
+
+      else
+      {
+        bool  reallyBelow = false;
+        if ( listTileInfo.Items.Count > 0 )
+        {
+          var lastItemRect = listTileInfo.GetItemRect( listTileInfo.Items.Count - 1 );
+          if ( targetPoint.Y > lastItemRect.Bottom )
+          {
+            reallyBelow = true;
+          }
+        }
+        else
+        {
+          reallyBelow = true;
+        }
+
+        if ( reallyBelow )
+        {
+          targetIndex = listTileInfo.Items.Count;
+        }
+        else
+        {
+          // We are likely ON an item but NearestIndex failed for some reason
+          // OR we are dragging onto ourselves?
+          var hitInfo = listTileInfo.HitTest( targetPoint );
+          if ( hitInfo.Item != null )
+          {
+            targetIndex = hitInfo.Item.Index;
+            // determine before/after
+            var itemBounds = listTileInfo.GetItemRect( targetIndex );
+            if ( targetPoint.Y > itemBounds.Top + ( itemBounds.Height / 2 ) )
+            {
+              ++targetIndex;
+            }
+          }
+          else
+          {
+            return;
+          }
+        }
+      }
+
+      ListViewItem draggedItem = (ListViewItem)e.Data.GetData( typeof( ListViewItem ) );
+      if ( draggedItem == null )
+      {
+        return;
+      }
+
+      int fromIndex = draggedItem.Index;
+      int toIndex = targetIndex;
+
+      if ( fromIndex == toIndex )
+      {
+        return;
+      }
+      // adjust toIndex if moving down, because removing the item shifts indices
+      if ( ( toIndex > fromIndex )
+      &&   ( toIndex > 0 ) )
+      {
+        --toIndex;
+      }
+
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileMove( this, m_MapProject, fromIndex, toIndex ) );
+      MoveTile( fromIndex, toIndex );
+
+      listTileInfo.SelectedIndices.Clear();
+      listTileInfo.SelectedIndices.Add( toIndex );
+      listTileInfo.EnsureVisible( toIndex );
+    }
+
+
+
     public void SwapTiles( int Index1, int Index2 )
     {
       Formats.MapProject.Tile tile1 = m_MapProject.Tiles[Index1];
