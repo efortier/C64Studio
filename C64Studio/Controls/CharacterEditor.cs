@@ -47,6 +47,18 @@ namespace RetroDevStudio.Controls
       }
     }
 
+    public string CharacterMapUsageText
+    {
+      get
+      {
+        return labelCharMapUsageCount.Text;
+      }
+      set
+      {
+        labelCharMapUsageCount.Text = value;
+      }
+    }
+
     public event EventHandler<EventArgs> CharacterSelectionChanged;
     private bool                        _SkipRebuildCharImage = false;
 

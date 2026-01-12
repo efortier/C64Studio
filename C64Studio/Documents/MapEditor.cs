@@ -1567,24 +1567,53 @@ namespace RetroDevStudio.Documents
       int     usageCount = 0;
       int     charIndex = characterEditor.CurrentCharIndex;
 
+      // cache occurrences per tile
+      int[]   charOccurrencesInTile = new int[m_MapProject.Tiles.Count];
+
       if ( ( charIndex >= 0 )
       &&   ( charIndex < m_MapProject.Charset.Characters.Count ) )
       {
-        foreach ( var tile in m_MapProject.Tiles )
+        for ( int i = 0; i < m_MapProject.Tiles.Count; ++i )
         {
+          var tile = m_MapProject.Tiles[i];
+          int tileCharCount = 0;
           for ( int y = 0; y < tile.Chars.Height; ++y )
           {
             for ( int x = 0; x < tile.Chars.Width; ++x )
             {
               if ( tile.Chars[x, y].Character == charIndex )
               {
-                ++usageCount;
+                ++tileCharCount;
+              }
+            }
+          }
+          charOccurrencesInTile[i] = tileCharCount;
+          usageCount += tileCharCount;
+        }
+      }
+      characterEditor.CharacterUsageText = "Usage in tiles: " + usageCount;
+
+      long mapUsageCount = 0;
+      if ( ( charIndex >= 0 )
+      &&   ( charIndex < m_MapProject.Charset.Characters.Count ) )
+      {
+        foreach ( var map in m_MapProject.Maps )
+        {
+          for ( int y = 0; y < map.Tiles.Height; ++y )
+          {
+            for ( int x = 0; x < map.Tiles.Width; ++x )
+            {
+              int tileIndex = map.Tiles[x,y];
+              if ( ( tileIndex >= 0 )
+              &&   ( tileIndex < charOccurrencesInTile.Length ) )
+              {
+                 mapUsageCount += charOccurrencesInTile[tileIndex];
               }
             }
           }
         }
       }
-      characterEditor.CharacterUsageText = "Usage in tiles: " + usageCount;
+      characterEditor.CharacterMapUsageText = "Usage in maps: " + mapUsageCount;
     }
 
     private void DrawTile( int trueX, int trueY, int TileIndex )
