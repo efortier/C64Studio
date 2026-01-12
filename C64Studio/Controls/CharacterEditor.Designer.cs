@@ -30,7 +30,7 @@
     {
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(CharacterEditor));
-            GR.Image.FastImage fastImage3 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage2 = new GR.Image.FastImage();
             this.comboCategories = new System.Windows.Forms.ComboBox();
             this.checkShowPlaygroundGrid = new System.Windows.Forms.CheckBox();
             this.trackGridOpacity = new System.Windows.Forms.TrackBar();
@@ -62,6 +62,9 @@
             this.btnCharMoveLeft = new DecentForms.Button();
             this.tabCharacterEditor = new System.Windows.Forms.TabControl();
             this.tabEditor = new System.Windows.Forms.TabPage();
+            this.splitContainer1 = new System.Windows.Forms.SplitContainer();
+            this.panelCharacters = new GR.Forms.ImageListbox();
+            this.picturePlayground = new GR.Forms.FastPictureBox();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
             this.btnClearPlayground = new DecentForms.Button();
             this.btnCropPlayground = new DecentForms.Button();
@@ -97,8 +100,6 @@
             this.radioPlaygroundScale2x = new DecentForms.RadioButton();
             this.radioPlaygroundScale4x = new DecentForms.RadioButton();
             this.radioPlaygroundScale8x = new DecentForms.RadioButton();
-            this.picturePlayground = new GR.Forms.FastPictureBox();
-            this.panelCharacters = new GR.Forms.ImageListbox();
             this.labelCharUsageCount = new System.Windows.Forms.Label();
             this.tabCategories = new System.Windows.Forms.TabPage();
             this.btnMoveCategoryDown = new DecentForms.Button();
@@ -116,11 +117,16 @@
             this.columnHeader2 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.editCategoryName = new System.Windows.Forms.TextBox();
             this.label3 = new System.Windows.Forms.Label();
-            this.btnSortCategories = new DecentForms.Button();
             this.saveFileDialog1 = new System.Windows.Forms.SaveFileDialog();
+            this.btnSortCategories = new DecentForms.Button();
+            this.splitContainer2 = new System.Windows.Forms.SplitContainer();
             ((System.ComponentModel.ISupportInitialize)(this.trackGridOpacity)).BeginInit();
             this.tabCharacterEditor.SuspendLayout();
             this.tabEditor.SuspendLayout();
+            this.splitContainer1.Panel1.SuspendLayout();
+            this.splitContainer1.Panel2.SuspendLayout();
+            this.splitContainer1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.picturePlayground)).BeginInit();
             this.groupBox2.SuspendLayout();
             this.flowLayoutPanel2.SuspendLayout();
             this.flowLayoutPanel1.SuspendLayout();
@@ -129,9 +135,10 @@
             this.groupMoveChar.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.canvasEditor)).BeginInit();
             this.flowPlaygroundScale.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.picturePlayground)).BeginInit();
             this.tabCategories.SuspendLayout();
             this.groupCategorySpecific.SuspendLayout();
+            this.splitContainer2.Panel1.SuspendLayout();
+            this.splitContainer2.SuspendLayout();
             this.SuspendLayout();
             // 
             // comboCategories
@@ -514,6 +521,7 @@
             // 
             // tabEditor
             // 
+            this.tabEditor.Controls.Add(this.splitContainer1);
             this.tabEditor.Controls.Add(this.groupBox2);
             this.tabEditor.Controls.Add(this.flowLayoutPanel2);
             this.tabEditor.Controls.Add(this.flowLayoutPanel1);
@@ -528,10 +536,8 @@
             this.tabEditor.Controls.Add(this.comboCharsetMode);
             this.tabEditor.Controls.Add(this.labelCharsetMode);
             this.tabEditor.Controls.Add(this.flowPlaygroundScale);
-            this.tabEditor.Controls.Add(this.picturePlayground);
             this.tabEditor.Controls.Add(this.checkPasteMultiColor);
             this.tabEditor.Controls.Add(this.checkShowGrid);
-            this.tabEditor.Controls.Add(this.panelCharacters);
             this.tabEditor.Controls.Add(this.labelCharNo);
             this.tabEditor.Controls.Add(this.label4);
             this.tabEditor.Controls.Add(this.labelCharUsageCount);
@@ -543,6 +549,68 @@
             this.tabEditor.TabIndex = 0;
             this.tabEditor.Text = "Editor";
             this.tabEditor.UseVisualStyleBackColor = true;
+            // 
+            // splitContainer1
+            // 
+            this.splitContainer1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.splitContainer1.Location = new System.Drawing.Point(620, 6);
+            this.splitContainer1.Name = "splitContainer1";
+            // 
+            // splitContainer1.Panel1
+            // 
+            this.splitContainer1.Panel1.Controls.Add(this.splitContainer2);
+            // 
+            // splitContainer1.Panel2
+            // 
+            this.splitContainer1.Panel2.Controls.Add(this.picturePlayground);
+            this.splitContainer1.Size = new System.Drawing.Size(804, 460);
+            this.splitContainer1.SplitterDistance = 317;
+            this.splitContainer1.TabIndex = 68;
+            // 
+            // panelCharacters
+            // 
+            this.panelCharacters.AllowPopup = false;
+            this.panelCharacters.AutoScroll = true;
+            this.panelCharacters.AutoScrollHorizontalMaximum = 100;
+            this.panelCharacters.AutoScrollHorizontalMinimum = 0;
+            this.panelCharacters.AutoScrollHPos = 0;
+            this.panelCharacters.AutoScrollVerticalMaximum = -23;
+            this.panelCharacters.AutoScrollVerticalMinimum = 0;
+            this.panelCharacters.AutoScrollVPos = 0;
+            this.panelCharacters.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.panelCharacters.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.panelCharacters.EnableAutoScrollHorizontal = true;
+            this.panelCharacters.EnableAutoScrollVertical = true;
+            this.panelCharacters.HottrackColor = ((uint)(2151694591u));
+            this.panelCharacters.ItemHeight = 8;
+            this.panelCharacters.ItemWidth = 8;
+            this.panelCharacters.Location = new System.Drawing.Point(0, 0);
+            this.panelCharacters.Name = "panelCharacters";
+            this.panelCharacters.PixelFormat = GR.Drawing.PixelFormat.DontCare;
+            this.panelCharacters.SelectedIndex = -1;
+            this.panelCharacters.Size = new System.Drawing.Size(317, 343);
+            this.panelCharacters.TabIndex = 14;
+            this.panelCharacters.TabStop = true;
+            this.panelCharacters.VisibleAutoScrollHorizontal = false;
+            this.panelCharacters.VisibleAutoScrollVertical = false;
+            this.panelCharacters.SelectionChanged += new System.EventHandler(this.panelCharacters_SelectionChanged);
+            // 
+            // picturePlayground
+            // 
+            this.picturePlayground.AutoResize = false;
+            this.picturePlayground.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.picturePlayground.DisplayPage = fastImage2;
+            this.picturePlayground.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.picturePlayground.Image = null;
+            this.picturePlayground.Location = new System.Drawing.Point(0, 0);
+            this.picturePlayground.Name = "picturePlayground";
+            this.picturePlayground.Size = new System.Drawing.Size(483, 460);
+            this.picturePlayground.TabIndex = 51;
+            this.picturePlayground.TabStop = false;
+            this.picturePlayground.MouseDown += new System.Windows.Forms.MouseEventHandler(this.picturePlayground_MouseDown);
+            this.picturePlayground.MouseMove += new System.Windows.Forms.MouseEventHandler(this.picturePlayground_MouseMove);
             // 
             // groupBox2
             // 
@@ -883,11 +951,12 @@
             // 
             // groupMoveChar
             // 
+            this.groupMoveChar.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.groupMoveChar.Controls.Add(this.btnCharMoveDown);
             this.groupMoveChar.Controls.Add(this.btnCharMoveRight);
             this.groupMoveChar.Controls.Add(this.btnCharMoveUp);
             this.groupMoveChar.Controls.Add(this.btnCharMoveLeft);
-            this.groupMoveChar.Location = new System.Drawing.Point(620, 354);
+            this.groupMoveChar.Location = new System.Drawing.Point(620, 475);
             this.groupMoveChar.Name = "groupMoveChar";
             this.groupMoveChar.Size = new System.Drawing.Size(137, 54);
             this.groupMoveChar.TabIndex = 25;
@@ -1000,58 +1069,15 @@
             this.radioPlaygroundScale8x.Text = "8x";
             this.radioPlaygroundScale8x.CheckedChanged += new DecentForms.EventHandler(this.radioPlaygroundScale_CheckedChanged);
             // 
-            // picturePlayground
-            // 
-            this.picturePlayground.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.picturePlayground.AutoResize = false;
-            this.picturePlayground.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.picturePlayground.DisplayPage = fastImage3;
-            this.picturePlayground.Image = null;
-            this.picturePlayground.Location = new System.Drawing.Point(950, 3);
-            this.picturePlayground.Name = "picturePlayground";
-            this.picturePlayground.Size = new System.Drawing.Size(474, 463);
-            this.picturePlayground.TabIndex = 51;
-            this.picturePlayground.TabStop = false;
-            this.picturePlayground.MouseDown += new System.Windows.Forms.MouseEventHandler(this.picturePlayground_MouseDown);
-            this.picturePlayground.MouseMove += new System.Windows.Forms.MouseEventHandler(this.picturePlayground_MouseMove);
-            // 
-            // panelCharacters
-            // 
-            this.panelCharacters.AllowPopup = false;
-            this.panelCharacters.AutoScroll = true;
-            this.panelCharacters.AutoScrollHorizontalMaximum = 100;
-            this.panelCharacters.AutoScrollHorizontalMinimum = 0;
-            this.panelCharacters.AutoScrollHPos = 0;
-            this.panelCharacters.AutoScrollVerticalMaximum = -23;
-            this.panelCharacters.AutoScrollVerticalMinimum = 0;
-            this.panelCharacters.AutoScrollVPos = 0;
-            this.panelCharacters.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.panelCharacters.EnableAutoScrollHorizontal = true;
-            this.panelCharacters.EnableAutoScrollVertical = true;
-            this.panelCharacters.HottrackColor = ((uint)(2151694591u));
-            this.panelCharacters.ItemHeight = 8;
-            this.panelCharacters.ItemWidth = 8;
-            this.panelCharacters.Location = new System.Drawing.Point(620, 3);
-            this.panelCharacters.Name = "panelCharacters";
-            this.panelCharacters.PixelFormat = GR.Drawing.PixelFormat.DontCare;
-            this.panelCharacters.SelectedIndex = -1;
-            this.panelCharacters.Size = new System.Drawing.Size(320, 320);
-            this.panelCharacters.TabIndex = 14;
-            this.panelCharacters.TabStop = true;
-            this.panelCharacters.VisibleAutoScrollHorizontal = false;
-            this.panelCharacters.VisibleAutoScrollVertical = false;
-            this.panelCharacters.SelectionChanged += new System.EventHandler(this.panelCharacters_SelectionChanged);
-            // 
             // labelCharUsageCount
             // 
+            this.labelCharUsageCount.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.labelCharUsageCount.AutoSize = true;
-            this.labelCharUsageCount.Location = new System.Drawing.Point(617, 328);
+            this.labelCharUsageCount.Location = new System.Drawing.Point(763, 475);
             this.labelCharUsageCount.Name = "labelCharUsageCount";
-            this.labelCharUsageCount.Size = new System.Drawing.Size(50, 13);
+            this.labelCharUsageCount.Size = new System.Drawing.Size(46, 13);
             this.labelCharUsageCount.TabIndex = 36;
-            this.labelCharUsageCount.Text = "Usage: 0";
+            this.labelCharUsageCount.Text = "[tile use]";
             // 
             // tabCategories
             // 
@@ -1067,7 +1093,7 @@
             this.tabCategories.Location = new System.Drawing.Point(4, 22);
             this.tabCategories.Name = "tabCategories";
             this.tabCategories.Padding = new System.Windows.Forms.Padding(3);
-            this.tabCategories.Size = new System.Drawing.Size(1430, 541);
+            this.tabCategories.Size = new System.Drawing.Size(1430, 631);
             this.tabCategories.TabIndex = 1;
             this.tabCategories.Text = "Categories";
             this.tabCategories.UseVisualStyleBackColor = true;
@@ -1257,6 +1283,20 @@
             this.btnSortCategories.Text = "Sort by Categories";
             this.btnSortCategories.Click += new DecentForms.EventHandler(this.btnSortCategories_Click);
             // 
+            // splitContainer2
+            // 
+            this.splitContainer2.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitContainer2.Location = new System.Drawing.Point(0, 0);
+            this.splitContainer2.Name = "splitContainer2";
+            this.splitContainer2.Orientation = System.Windows.Forms.Orientation.Horizontal;
+            // 
+            // splitContainer2.Panel1
+            // 
+            this.splitContainer2.Panel1.Controls.Add(this.panelCharacters);
+            this.splitContainer2.Size = new System.Drawing.Size(317, 460);
+            this.splitContainer2.SplitterDistance = 343;
+            this.splitContainer2.TabIndex = 69;
+            // 
             // CharacterEditor
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
@@ -1267,6 +1307,10 @@
             this.tabCharacterEditor.ResumeLayout(false);
             this.tabEditor.ResumeLayout(false);
             this.tabEditor.PerformLayout();
+            this.splitContainer1.Panel1.ResumeLayout(false);
+            this.splitContainer1.Panel2.ResumeLayout(false);
+            this.splitContainer1.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.picturePlayground)).EndInit();
             this.groupBox2.ResumeLayout(false);
             this.groupBox2.PerformLayout();
             this.flowLayoutPanel2.ResumeLayout(false);
@@ -1278,11 +1322,12 @@
             this.groupMoveChar.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.canvasEditor)).EndInit();
             this.flowPlaygroundScale.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.picturePlayground)).EndInit();
             this.tabCategories.ResumeLayout(false);
             this.tabCategories.PerformLayout();
             this.groupCategorySpecific.ResumeLayout(false);
             this.groupCategorySpecific.PerformLayout();
+            this.splitContainer2.Panel1.ResumeLayout(false);
+            this.splitContainer2.ResumeLayout(false);
             this.ResumeLayout(false);
 
     }
@@ -1376,5 +1421,7 @@
         private System.Windows.Forms.TextBox editSwatchSize;
         private System.Windows.Forms.GroupBox groupBox2;
         private System.Windows.Forms.SaveFileDialog saveFileDialog1;
+        private System.Windows.Forms.SplitContainer splitContainer1;
+        private System.Windows.Forms.SplitContainer splitContainer2;
     }
 }
