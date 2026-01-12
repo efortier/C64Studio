@@ -35,6 +35,19 @@ namespace RetroDevStudio.Controls
 
     private bool                        DoNotUpdateFromControls = false;
     private bool                        DoNotAddUndo = false;
+    public string CharacterUsageText
+    {
+      get
+      {
+        return labelCharUsageCount.Text;
+      }
+      set
+      {
+        labelCharUsageCount.Text = value;
+      }
+    }
+
+    public event EventHandler<EventArgs> CharacterSelectionChanged;
     private bool                        _SkipRebuildCharImage = false;
 
     private CharsetProject              m_Project = new CharsetProject();
@@ -1150,6 +1163,11 @@ namespace RetroDevStudio.Controls
 
         SelectCategory( m_Project.Characters[m_CurrentChar].Category );
         RedrawColorPicker();
+        
+        if ( CharacterSelectionChanged != null )
+        {
+          CharacterSelectionChanged( this, new EventArgs() );
+        }
       }
       ValidateMoveButtons();
     }

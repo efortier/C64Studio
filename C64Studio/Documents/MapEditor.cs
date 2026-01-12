@@ -125,6 +125,7 @@ namespace RetroDevStudio.Documents
       characterEditor.Modified += CharacterEditor_Modified;
       characterEditor.ShowCreateTileButton = true;
       characterEditor.CreateTileFromCharacter += CharacterEditor_CreateTileFromCharacter;
+      characterEditor.CharacterSelectionChanged += CharacterEditor_CharacterSelectionChanged;
 
       comboExportMethod.Items.Add( new GR.Generic.Tupel<string, Type>( "as assembly", typeof( ExportMapAsAssembly ) ) );
       comboExportMethod.Items.Add( new GR.Generic.Tupel<string, Type>( "to binary file", typeof( ExportMapAsBinaryFile ) ) );
@@ -1547,6 +1548,43 @@ namespace RetroDevStudio.Documents
        {
          RenderOffsetY = (int)( pictureEditor.DisplayPage.Height - mapPixelHeight ) / 2;
        }
+    }
+
+
+
+
+
+    private void CharacterEditor_CharacterSelectionChanged( object sender, EventArgs e )
+    {
+      UpdateCharUsageCount();
+    }
+
+
+
+    private void UpdateCharUsageCount()
+    {
+      // Calculate usage of current character in map tiles
+      int     usageCount = 0;
+      int     charIndex = characterEditor.CurrentCharIndex;
+
+      if ( ( charIndex >= 0 )
+      &&   ( charIndex < m_MapProject.Charset.Characters.Count ) )
+      {
+        foreach ( var tile in m_MapProject.Tiles )
+        {
+          for ( int y = 0; y < tile.Chars.Height; ++y )
+          {
+            for ( int x = 0; x < tile.Chars.Width; ++x )
+            {
+              if ( tile.Chars[x, y].Character == charIndex )
+              {
+                ++usageCount;
+              }
+            }
+          }
+        }
+      }
+      characterEditor.CharacterUsageText = "Usage in tiles: " + usageCount;
     }
 
     private void DrawTile( int trueX, int trueY, int TileIndex )
