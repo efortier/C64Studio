@@ -1469,6 +1469,7 @@
             // 
             // listTileInfo
             // 
+            this.listTileInfo.AllowDrop = true;
             this.listTileInfo.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left)));
             this.listTileInfo.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
@@ -1477,11 +1478,6 @@
             this.columnHeader2,
             this.columnHeader3});
             this.listTileInfo.FullRowSelect = true;
-            this.listTileInfo.AllowDrop = true;
-            this.listTileInfo.ItemDrag += new System.Windows.Forms.ItemDragEventHandler(this.listTileInfo_ItemDrag);
-            this.listTileInfo.DragDrop += new System.Windows.Forms.DragEventHandler(this.listTileInfo_DragDrop);
-            this.listTileInfo.DragEnter += new System.Windows.Forms.DragEventHandler(this.listTileInfo_DragEnter);
-            this.listTileInfo.DragOver += new System.Windows.Forms.DragEventHandler(this.listTileInfo_DragOver);
             this.listTileInfo.HideSelection = false;
             this.listTileInfo.Location = new System.Drawing.Point(3, 8);
             this.listTileInfo.Name = "listTileInfo";
@@ -1492,7 +1488,11 @@
             this.listTileInfo.TabIndex = 24;
             this.listTileInfo.UseCompatibleStateImageBehavior = false;
             this.listTileInfo.View = System.Windows.Forms.View.Details;
+            this.listTileInfo.ItemDrag += new System.Windows.Forms.ItemDragEventHandler(this.listTileInfo_ItemDrag);
             this.listTileInfo.SelectedIndexChanged += new System.EventHandler(this.listTileInfo_SelectedIndexChanged);
+            this.listTileInfo.DragDrop += new System.Windows.Forms.DragEventHandler(this.listTileInfo_DragDrop);
+            this.listTileInfo.DragEnter += new System.Windows.Forms.DragEventHandler(this.listTileInfo_DragEnter);
+            this.listTileInfo.DragOver += new System.Windows.Forms.DragEventHandler(this.listTileInfo_DragOver);
             // 
             // columnHeader4
             // 
@@ -1728,7 +1728,7 @@
             this.tabCharset.Controls.Add(this.characterEditor);
             this.tabCharset.Location = new System.Drawing.Point(4, 22);
             this.tabCharset.Name = "tabCharset";
-            this.tabCharset.Size = new System.Drawing.Size(192, 74);
+            this.tabCharset.Size = new System.Drawing.Size(1385, 628);
             this.tabCharset.TabIndex = 3;
             this.tabCharset.Text = "Character Set";
             this.tabCharset.UseVisualStyleBackColor = true;
@@ -1742,7 +1742,7 @@
             this.characterEditor.Location = new System.Drawing.Point(0, 0);
             this.characterEditor.Name = "characterEditor";
             this.characterEditor.ShowCreateTileButton = false;
-            this.characterEditor.Size = new System.Drawing.Size(192, 74);
+            this.characterEditor.Size = new System.Drawing.Size(1385, 628);
             this.characterEditor.SwatchSize = 8;
             this.characterEditor.TabIndex = 0;
             this.characterEditor.Modified += new RetroDevStudio.Controls.CharacterEditor.ModifiedHandler(this.characterEditor_Modified);
