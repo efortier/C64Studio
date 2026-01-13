@@ -155,9 +155,10 @@ namespace RetroDevStudio.Controls
       }
       set
       {
-        if ( m_EditorWidthInChars != value )
+        if ( ( m_EditorWidthInChars != value )
+        ||   ( m_EditorHeightInChars != value ) )
         {
-          SetEditorMode( value );
+          SetEditorMode( value, value );
           
           if ( value == 1 )
           {
@@ -174,11 +175,27 @@ namespace RetroDevStudio.Controls
         }
       }
     }
-    
-    private void SetEditorMode( int Mode )
+
+    public int EditorWidth
     {
-      m_EditorWidthInChars = Mode;
-      m_EditorHeightInChars = Mode;
+      get
+      {
+        return m_EditorWidthInChars;
+      }
+    }
+
+    public int EditorHeight
+    {
+      get
+      {
+        return m_EditorHeightInChars;
+      }
+    }
+    
+    private void SetEditorMode( int Width, int Height )
+    {
+      m_EditorWidthInChars = Width;
+      m_EditorHeightInChars = Height;
       AdjustCharacterSizes();
       canvasEditor.Invalidate();
     }
@@ -3429,10 +3446,12 @@ namespace RetroDevStudio.Controls
       m_CharacterHeight = Lookup.CharacterHeightInPixel( Lookup.GraphicTileModeFromTextCharMode( m_Project.Mode, 0 ) );
 
       // adjust aspect ratio of the editor
-      int   biggerSize = Math.Max( m_CharacterWidth, m_CharacterHeight );
+      int totalPixelWidth = m_CharacterWidth * m_EditorWidthInChars;
+      int totalPixelHeight = m_CharacterHeight * m_EditorHeightInChars;
+      int biggerSize = Math.Max( totalPixelWidth, totalPixelHeight );
 
-      canvasEditor.Size = new System.Drawing.Size( m_CharacterWidth * m_ZoomLevel * m_CharacterEditorOrigWidth / biggerSize,
-                                                    m_CharacterHeight * m_ZoomLevel * m_CharacterEditorOrigHeight / biggerSize );
+      canvasEditor.Size = new System.Drawing.Size( totalPixelWidth * m_ZoomLevel * m_CharacterEditorOrigWidth / biggerSize,
+                                                    totalPixelHeight * m_ZoomLevel * m_CharacterEditorOrigHeight / biggerSize );
 
       panelCharacters.ItemWidth = m_CharacterWidth;
       panelCharacters.ItemHeight = m_CharacterHeight;
@@ -4150,7 +4169,7 @@ namespace RetroDevStudio.Controls
         {
             if (ButtonCanvas1x1.Checked)
             {
-                SetEditorMode( 1 );
+                SetEditorMode( 1, 1 );
                 if (!DoNotUpdateFromControls)
                 {
                     RaiseModifiedEvent();
@@ -4162,7 +4181,19 @@ namespace RetroDevStudio.Controls
         {
             if (ButtonCanvas2x2.Checked)
             {
-                SetEditorMode( 2 );
+                SetEditorMode( 2, 2 );
+                if (!DoNotUpdateFromControls)
+                {
+                    RaiseModifiedEvent();
+                }
+            }
+        }
+
+        private void ButtonCanvas2x3_CheckedChanged(DecentForms.ControlBase Sender)
+        {
+            if (ButtonCanvas2x3.Checked)
+            {
+                SetEditorMode( 2, 3 );
                 if (!DoNotUpdateFromControls)
                 {
                     RaiseModifiedEvent();
@@ -4174,7 +4205,7 @@ namespace RetroDevStudio.Controls
         {
             if (ButtonCanvas4x4.Checked)
             {
-                SetEditorMode( 4 );
+                SetEditorMode( 4, 4 );
                 if (!DoNotUpdateFromControls)
                 {
                     RaiseModifiedEvent();

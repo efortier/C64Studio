@@ -2250,17 +2250,18 @@ namespace RetroDevStudio.Documents
       var tile = new MapProject.Tile();
       tile.Name = MakeTileNameUnique( dlg.InputText );
 
-      int tileSize = characterEditor.EditorMode;
+      int tileWidth = characterEditor.EditorWidth;
+      int tileHeight = characterEditor.EditorHeight;
 
       // Resize tile layer
-      tile.Chars.Resize( tileSize, tileSize );
+      tile.Chars.Resize( tileWidth, tileHeight );
 
       int startChar = characterEditor.CurrentCharIndex;
       int charsPerRow = characterEditor.CharactersPerRow;
 
-      for ( int y = 0; y < tileSize; ++y )
+      for ( int y = 0; y < tileHeight; ++y )
       {
-        for ( int x = 0; x < tileSize; ++x )
+        for ( int x = 0; x < tileWidth; ++x )
         {
           int charIndex = startChar + x + y * charsPerRow;
           if ( charIndex < m_MapProject.Charset.Characters.Count )
