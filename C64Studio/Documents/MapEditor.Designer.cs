@@ -29,11 +29,11 @@
     private void InitializeComponent()
     {
             this.components = new System.ComponentModel.Container();
-            GR.Image.FastImage fastImage1 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage9 = new GR.Image.FastImage();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MapEditor));
-            GR.Image.FastImage fastImage2 = new GR.Image.FastImage();
-            GR.Image.FastImage fastImage3 = new GR.Image.FastImage();
-            GR.Image.FastImage fastImage4 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage10 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage11 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage12 = new GR.Image.FastImage();
             this.panelMapContainer = new System.Windows.Forms.Panel();
             this.pictureEditor = new GR.Forms.FastPictureBox();
             this.tabMarkers = new System.Windows.Forms.TabPage();
@@ -140,6 +140,8 @@
             this.columnHeader2 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeader3 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.editTileName = new System.Windows.Forms.TextBox();
+            this.editTileGroupId = new System.Windows.Forms.TextBox();
+            this.labelTileGroupId = new System.Windows.Forms.Label();
             this.editTileHeight = new System.Windows.Forms.TextBox();
             this.editTileWidth = new System.Windows.Forms.TextBox();
             this.checkNotExportedOnMap = new System.Windows.Forms.CheckBox();
@@ -229,7 +231,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.pictureEditor.AutoResize = false;
             this.pictureEditor.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.pictureEditor.DisplayPage = fastImage1;
+            this.pictureEditor.DisplayPage = fastImage9;
             this.pictureEditor.Image = null;
             this.pictureEditor.Location = new System.Drawing.Point(0, 0);
             this.pictureEditor.Name = "pictureEditor";
@@ -1253,6 +1255,8 @@
             this.tabTiles.Controls.Add(this.listTileChars);
             this.tabTiles.Controls.Add(this.listTileInfo);
             this.tabTiles.Controls.Add(this.editTileName);
+            this.tabTiles.Controls.Add(this.editTileGroupId);
+            this.tabTiles.Controls.Add(this.labelTileGroupId);
             this.tabTiles.Controls.Add(this.editTileHeight);
             this.tabTiles.Controls.Add(this.editTileWidth);
             this.tabTiles.Controls.Add(this.checkNotExportedOnMap);
@@ -1320,7 +1324,7 @@
             this.btnGetTileCount.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             this.btnGetTileCount.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnGetTileCount.Image = null;
-            this.btnGetTileCount.Location = new System.Drawing.Point(419, 357);
+            this.btnGetTileCount.Location = new System.Drawing.Point(419, 434);
             this.btnGetTileCount.Name = "btnGetTileCount";
             this.btnGetTileCount.Size = new System.Drawing.Size(87, 23);
             this.btnGetTileCount.TabIndex = 26;
@@ -1367,7 +1371,7 @@
             this.btnMoveTileDown.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnMoveTileDown.Enabled = false;
             this.btnMoveTileDown.Image = null;
-            this.btnMoveTileDown.Location = new System.Drawing.Point(495, 318);
+            this.btnMoveTileDown.Location = new System.Drawing.Point(419, 405);
             this.btnMoveTileDown.Name = "btnMoveTileDown";
             this.btnMoveTileDown.Size = new System.Drawing.Size(44, 23);
             this.btnMoveTileDown.TabIndex = 26;
@@ -1382,7 +1386,7 @@
             this.btnMoveTileUp.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnMoveTileUp.Enabled = false;
             this.btnMoveTileUp.Image = null;
-            this.btnMoveTileUp.Location = new System.Drawing.Point(445, 318);
+            this.btnMoveTileUp.Location = new System.Drawing.Point(419, 376);
             this.btnMoveTileUp.Name = "btnMoveTileUp";
             this.btnMoveTileUp.Size = new System.Drawing.Size(44, 23);
             this.btnMoveTileUp.TabIndex = 26;
@@ -1519,6 +1523,24 @@
             this.editTileName.Size = new System.Drawing.Size(100, 20);
             this.editTileName.TabIndex = 23;
             // 
+            // editTileGroupId
+            // 
+            this.editTileGroupId.Location = new System.Drawing.Point(498, 264);
+            this.editTileGroupId.MaxLength = 5;
+            this.editTileGroupId.Name = "editTileGroupId";
+            this.editTileGroupId.Size = new System.Drawing.Size(59, 20);
+            this.editTileGroupId.TabIndex = 23;
+            this.editTileGroupId.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.editTileGroupId_KeyPress);
+            // 
+            // labelTileGroupId
+            // 
+            this.labelTileGroupId.AutoSize = true;
+            this.labelTileGroupId.Location = new System.Drawing.Point(416, 267);
+            this.labelTileGroupId.Name = "labelTileGroupId";
+            this.labelTileGroupId.Size = new System.Drawing.Size(51, 13);
+            this.labelTileGroupId.TabIndex = 22;
+            this.labelTileGroupId.Text = "Group Id:";
+            // 
             // editTileHeight
             // 
             this.editTileHeight.Location = new System.Drawing.Point(480, 32);
@@ -1536,7 +1558,7 @@
             // checkNotExportedOnMap
             // 
             this.checkNotExportedOnMap.AutoSize = true;
-            this.checkNotExportedOnMap.Location = new System.Drawing.Point(445, 291);
+            this.checkNotExportedOnMap.Location = new System.Drawing.Point(419, 315);
             this.checkNotExportedOnMap.Name = "checkNotExportedOnMap";
             this.checkNotExportedOnMap.Size = new System.Drawing.Size(125, 17);
             this.checkNotExportedOnMap.TabIndex = 23;
@@ -1549,7 +1571,7 @@
             this.checkTilePassable.AutoSize = true;
             this.checkTilePassable.Checked = true;
             this.checkTilePassable.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.checkTilePassable.Location = new System.Drawing.Point(445, 269);
+            this.checkTilePassable.Location = new System.Drawing.Point(419, 293);
             this.checkTilePassable.Name = "checkTilePassable";
             this.checkTilePassable.Size = new System.Drawing.Size(69, 17);
             this.checkTilePassable.TabIndex = 23;
@@ -1569,7 +1591,7 @@
             // labelTilesBGColor4
             // 
             this.labelTilesBGColor4.AutoSize = true;
-            this.labelTilesBGColor4.Location = new System.Drawing.Point(442, 238);
+            this.labelTilesBGColor4.Location = new System.Drawing.Point(416, 239);
             this.labelTilesBGColor4.Name = "labelTilesBGColor4";
             this.labelTilesBGColor4.Size = new System.Drawing.Size(61, 13);
             this.labelTilesBGColor4.TabIndex = 22;
@@ -1578,7 +1600,7 @@
             // labelTilesMulticolor2
             // 
             this.labelTilesMulticolor2.AutoSize = true;
-            this.labelTilesMulticolor2.Location = new System.Drawing.Point(442, 212);
+            this.labelTilesMulticolor2.Location = new System.Drawing.Point(416, 213);
             this.labelTilesMulticolor2.Name = "labelTilesMulticolor2";
             this.labelTilesMulticolor2.Size = new System.Drawing.Size(64, 13);
             this.labelTilesMulticolor2.TabIndex = 22;
@@ -1596,7 +1618,7 @@
             // labelTilesMulticolor1
             // 
             this.labelTilesMulticolor1.AutoSize = true;
-            this.labelTilesMulticolor1.Location = new System.Drawing.Point(442, 186);
+            this.labelTilesMulticolor1.Location = new System.Drawing.Point(416, 187);
             this.labelTilesMulticolor1.Name = "labelTilesMulticolor1";
             this.labelTilesMulticolor1.Size = new System.Drawing.Size(64, 13);
             this.labelTilesMulticolor1.TabIndex = 22;
@@ -1614,7 +1636,7 @@
             // label15
             // 
             this.label15.AutoSize = true;
-            this.label15.Location = new System.Drawing.Point(442, 159);
+            this.label15.Location = new System.Drawing.Point(416, 160);
             this.label15.Name = "label15";
             this.label15.Size = new System.Drawing.Size(68, 13);
             this.label15.TabIndex = 22;
@@ -1652,7 +1674,7 @@
             this.comboTileBGColor4.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
             this.comboTileBGColor4.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboTileBGColor4.FormattingEnabled = true;
-            this.comboTileBGColor4.Location = new System.Drawing.Point(524, 235);
+            this.comboTileBGColor4.Location = new System.Drawing.Point(498, 236);
             this.comboTileBGColor4.Name = "comboTileBGColor4";
             this.comboTileBGColor4.Size = new System.Drawing.Size(59, 21);
             this.comboTileBGColor4.TabIndex = 1;
@@ -1664,7 +1686,7 @@
             this.comboTileMulticolor2.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
             this.comboTileMulticolor2.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboTileMulticolor2.FormattingEnabled = true;
-            this.comboTileMulticolor2.Location = new System.Drawing.Point(524, 209);
+            this.comboTileMulticolor2.Location = new System.Drawing.Point(498, 210);
             this.comboTileMulticolor2.Name = "comboTileMulticolor2";
             this.comboTileMulticolor2.Size = new System.Drawing.Size(59, 21);
             this.comboTileMulticolor2.TabIndex = 1;
@@ -1676,7 +1698,7 @@
             this.comboTileMulticolor1.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
             this.comboTileMulticolor1.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboTileMulticolor1.FormattingEnabled = true;
-            this.comboTileMulticolor1.Location = new System.Drawing.Point(524, 182);
+            this.comboTileMulticolor1.Location = new System.Drawing.Point(498, 183);
             this.comboTileMulticolor1.Name = "comboTileMulticolor1";
             this.comboTileMulticolor1.Size = new System.Drawing.Size(59, 21);
             this.comboTileMulticolor1.TabIndex = 1;
@@ -1688,7 +1710,7 @@
             this.comboTileBackground.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
             this.comboTileBackground.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboTileBackground.FormattingEnabled = true;
-            this.comboTileBackground.Location = new System.Drawing.Point(524, 156);
+            this.comboTileBackground.Location = new System.Drawing.Point(498, 157);
             this.comboTileBackground.Name = "comboTileBackground";
             this.comboTileBackground.Size = new System.Drawing.Size(59, 21);
             this.comboTileBackground.TabIndex = 1;
@@ -1699,7 +1721,7 @@
             // 
             this.panelCharColors.AutoResize = false;
             this.panelCharColors.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.panelCharColors.DisplayPage = fastImage2;
+            this.panelCharColors.DisplayPage = fastImage10;
             this.panelCharColors.Image = null;
             this.panelCharColors.Location = new System.Drawing.Point(725, 271);
             this.panelCharColors.Name = "panelCharColors";
@@ -1713,7 +1735,7 @@
             // 
             this.pictureTileDisplay.AutoResize = false;
             this.pictureTileDisplay.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.pictureTileDisplay.DisplayPage = fastImage3;
+            this.pictureTileDisplay.DisplayPage = fastImage11;
             this.pictureTileDisplay.Image = null;
             this.pictureTileDisplay.Location = new System.Drawing.Point(996, 5);
             this.pictureTileDisplay.Name = "pictureTileDisplay";
@@ -1728,7 +1750,7 @@
             this.tabCharset.Controls.Add(this.characterEditor);
             this.tabCharset.Location = new System.Drawing.Point(4, 22);
             this.tabCharset.Name = "tabCharset";
-            this.tabCharset.Size = new System.Drawing.Size(1385, 628);
+            this.tabCharset.Size = new System.Drawing.Size(192, 74);
             this.tabCharset.TabIndex = 3;
             this.tabCharset.Text = "Character Set";
             this.tabCharset.UseVisualStyleBackColor = true;
@@ -1736,13 +1758,15 @@
             // characterEditor
             // 
             this.characterEditor.AllowModeChange = false;
+            this.characterEditor.CharacterMapUsageText = "[map use]";
             this.characterEditor.CharactersPerRow = 64;
+            this.characterEditor.CharacterUsageText = "[tile use]";
             this.characterEditor.Dock = System.Windows.Forms.DockStyle.Fill;
             this.characterEditor.EditorMode = 1;
             this.characterEditor.Location = new System.Drawing.Point(0, 0);
             this.characterEditor.Name = "characterEditor";
             this.characterEditor.ShowCreateTileButton = false;
-            this.characterEditor.Size = new System.Drawing.Size(1385, 628);
+            this.characterEditor.Size = new System.Drawing.Size(192, 74);
             this.characterEditor.SwatchSize = 8;
             this.characterEditor.TabIndex = 0;
             this.characterEditor.Modified += new RetroDevStudio.Controls.CharacterEditor.ModifiedHandler(this.characterEditor_Modified);
@@ -2036,7 +2060,7 @@
             // 
             this.fastPictureBox1.AutoResize = false;
             this.fastPictureBox1.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.fastPictureBox1.DisplayPage = fastImage4;
+            this.fastPictureBox1.DisplayPage = fastImage12;
             this.fastPictureBox1.Image = null;
             this.fastPictureBox1.Location = new System.Drawing.Point(658, 390);
             this.fastPictureBox1.Name = "fastPictureBox1";
@@ -2255,6 +2279,8 @@
         private DecentForms.Button btnAddMarkerType;
         private DecentForms.Button btnUpdateMarkerType;
         private DecentForms.Button btnDeleteMarkerType;
+        private System.Windows.Forms.TextBox editTileGroupId;
+        private System.Windows.Forms.Label labelTileGroupId;
 
     }
 }

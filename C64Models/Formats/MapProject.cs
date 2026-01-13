@@ -40,6 +40,7 @@ namespace RetroDevStudio.Formats
       public int          Index = 0;
       public bool         Passable = true;
       public bool         NotExportedOnMap = false;
+      public int          GroupId = 0;
 
       public Tile()
       {
@@ -240,6 +241,7 @@ namespace RetroDevStudio.Formats
         }
         chunkTile.AppendU8( tile.Passable ? (byte)1 : (byte)0 );
         chunkTile.AppendU8( tile.NotExportedOnMap ? (byte)1 : (byte)0 );
+        chunkTile.AppendI32( tile.GroupId );
         chunkProjectData.Append( chunkTile.ToBuffer() );
       }
       foreach ( Map map in Maps )
@@ -462,6 +464,10 @@ namespace RetroDevStudio.Formats
                       if ( subChunkReader.Position < subChunkReader.Size )
                       {
                         tile.NotExportedOnMap = ( subChunkReader.ReadUInt8() != 0 );
+                      }
+                      if ( subChunkReader.Position < subChunkReader.Size )
+                      {
+                        tile.GroupId = subChunkReader.ReadInt32();
                       }
                       Tiles.Add( tile );
                       tile.Index = Tiles.Count - 1;

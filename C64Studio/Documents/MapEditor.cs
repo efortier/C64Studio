@@ -3241,6 +3241,7 @@ namespace RetroDevStudio.Documents
       editTileWidth.Text = m_CurrentEditedTile.Chars.Width.ToString();
       editTileHeight.Text = m_CurrentEditedTile.Chars.Height.ToString();
       editTileName.Text = m_CurrentEditedTile.Name;
+      editTileGroupId.Text = m_CurrentEditedTile.GroupId.ToString();
 
       UpdateCurrentTileCharacterList();
 
@@ -3683,6 +3684,18 @@ namespace RetroDevStudio.Documents
         listTileInfo.SelectedItems[0].SubItems[1].Text = m_CurrentEditedTile.Name;
         GR.Generic.Tupel<string, Formats.MapProject.Tile>      comboItem = (GR.Generic.Tupel<string, Formats.MapProject.Tile>)comboTiles.Items[listTileInfo.SelectedIndices[0]];
         comboItem.first = m_CurrentEditedTile.Name;
+        SetModified();
+      }
+
+      int groupId = GR.Convert.ToI32( editTileGroupId.Text );
+      if ( m_CurrentEditedTile.GroupId != groupId )
+      {
+        if ( !modified )
+        {
+          DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
+          modified = true;
+        }
+        m_CurrentEditedTile.GroupId = groupId;
         SetModified();
       }
 
@@ -5685,6 +5698,28 @@ namespace RetroDevStudio.Documents
         e.SuppressKeyPress = true;
       }
     }
+    private void editTileGroupId_KeyPress( object sender, KeyPressEventArgs e )
+    {
+      if ( e.KeyChar == 13 )
+      {
+        // Enter
+        int groupId = GR.Convert.ToI32( editTileGroupId.Text );
+        if ( m_CurrentEditedTile.GroupId != groupId )
+        {
+          DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
+          m_CurrentEditedTile.GroupId = groupId;
+          SetModified();
+        }
+        editTileGroupId.SelectAll();
+        e.Handled = true;
+      }
+      else if ( ( !char.IsDigit( e.KeyChar ) )
+      &&        ( !char.IsControl( e.KeyChar ) ) )
+      {
+        e.Handled = true;
+      }
+    }
+
   }
 } // namespace RetroDevStudio.Documents
 
