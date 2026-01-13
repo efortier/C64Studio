@@ -60,6 +60,7 @@ namespace RetroDevStudio.Documents
     private int                         m_CurEditorOffsetY = 0;
 
     private Random                      m_Random = new Random();
+    private System.Drawing.Point        m_LastPaintedPos = new System.Drawing.Point( -1, -1 );
 
     private ToolMode                    m_ToolMode = ToolMode.SINGLE_TILE;
 
@@ -1116,6 +1117,7 @@ namespace RetroDevStudio.Documents
       if ( ( Buttons & MouseButtons.Left ) == 0 )
       {
         m_MouseButtonReleased = true;
+        m_LastPaintedPos = new System.Drawing.Point( -1, -1 );
 
         switch ( m_ToolMode )
         {
@@ -1261,10 +1263,16 @@ namespace RetroDevStudio.Documents
             if ( m_CurrentEditorTile != null )
             {
               int     tileIndex = m_CurrentEditorTile.Index;
+              System.Drawing.Point currentPos = new System.Drawing.Point( trueX + offsetX, trueY + offsetY );
 
               if ( ( checkAutoTiling.Checked )
               &&   ( m_CurrentEditorTile.GroupId != 0 ) )
               {
+                if ( currentPos == m_LastPaintedPos )
+                {
+                   // same pos, assume same result
+                   return;
+                }
                 // auto-tiling with group
                 // find neighbors
                 var neighbors = new List<int>();
@@ -1342,6 +1350,7 @@ namespace RetroDevStudio.Documents
                 {
                   tileIndex = possibleCandidates[m_Random.Next( possibleCandidates.Count )];
                 }
+                m_LastPaintedPos = currentPos;
               }
 
               if ( m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY] != tileIndex )
