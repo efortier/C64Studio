@@ -29,11 +29,11 @@
     private void InitializeComponent()
     {
             this.components = new System.ComponentModel.Container();
-            GR.Image.FastImage fastImage9 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage5 = new GR.Image.FastImage();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MapEditor));
-            GR.Image.FastImage fastImage10 = new GR.Image.FastImage();
-            GR.Image.FastImage fastImage11 = new GR.Image.FastImage();
-            GR.Image.FastImage fastImage12 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage6 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage7 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage8 = new GR.Image.FastImage();
             this.panelMapContainer = new System.Windows.Forms.Panel();
             this.pictureEditor = new GR.Forms.FastPictureBox();
             this.tabMarkers = new System.Windows.Forms.TabPage();
@@ -113,6 +113,7 @@
             this.btnShiftUp = new DecentForms.Button();
             this.btnShiftDown = new DecentForms.Button();
             this.btnShiftRight = new DecentForms.Button();
+            this.checkAutoTiling = new System.Windows.Forms.CheckBox();
             this.labelEditInfo = new System.Windows.Forms.Label();
             this.comboTiles = new System.Windows.Forms.ListBox();
             this.mapHScroll = new DecentForms.HScrollBar();
@@ -179,7 +180,6 @@
             this.label2 = new System.Windows.Forms.Label();
             this.tabPage1 = new System.Windows.Forms.TabPage();
             this.label7 = new System.Windows.Forms.Label();
-            this.label8 = new System.Windows.Forms.Label();
             this.label9 = new System.Windows.Forms.Label();
             this.imageListbox1 = new GR.Forms.ImageListbox();
             this.checkBox1 = new System.Windows.Forms.CheckBox();
@@ -188,6 +188,7 @@
             this.comboBox3 = new System.Windows.Forms.ComboBox();
             this.fastPictureBox1 = new GR.Forms.FastPictureBox();
             this.fastPictureBox2 = new GR.Forms.FastPictureBox();
+            this.label8 = new System.Windows.Forms.Label();
             this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
             ((System.ComponentModel.ISupportInitialize)(this.m_FileWatcher)).BeginInit();
             this.panelMapContainer.SuspendLayout();
@@ -231,7 +232,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.pictureEditor.AutoResize = false;
             this.pictureEditor.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.pictureEditor.DisplayPage = fastImage9;
+            this.pictureEditor.DisplayPage = fastImage5;
             this.pictureEditor.Image = null;
             this.pictureEditor.Location = new System.Drawing.Point(0, 0);
             this.pictureEditor.Name = "pictureEditor";
@@ -938,10 +939,11 @@
             this.flowLayoutPanel1.Controls.Add(this.btnShiftUp);
             this.flowLayoutPanel1.Controls.Add(this.btnShiftDown);
             this.flowLayoutPanel1.Controls.Add(this.btnShiftRight);
+            this.flowLayoutPanel1.Controls.Add(this.checkAutoTiling);
             this.flowLayoutPanel1.Controls.Add(this.labelEditInfo);
             this.flowLayoutPanel1.Location = new System.Drawing.Point(174, 6);
             this.flowLayoutPanel1.Name = "flowLayoutPanel1";
-            this.flowLayoutPanel1.Size = new System.Drawing.Size(791, 30);
+            this.flowLayoutPanel1.Size = new System.Drawing.Size(840, 30);
             this.flowLayoutPanel1.TabIndex = 36;
             // 
             // btnToolEdit
@@ -1083,7 +1085,7 @@
             // 
             this.labelZoom.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.labelZoom.AutoSize = true;
-            this.labelZoom.Location = new System.Drawing.Point(453, 8);
+            this.labelZoom.Location = new System.Drawing.Point(453, 10);
             this.labelZoom.Name = "labelZoom";
             this.labelZoom.Size = new System.Drawing.Size(33, 13);
             this.labelZoom.TabIndex = 9;
@@ -1163,10 +1165,19 @@
             this.toolTip1.SetToolTip(this.btnShiftRight, "Shift Map Right");
             this.btnShiftRight.Click += new DecentForms.EventHandler(this.btnShiftRight_Click);
             // 
+            // checkAutoTiling
+            // 
+            this.checkAutoTiling.Location = new System.Drawing.Point(657, 3);
+            this.checkAutoTiling.Name = "checkAutoTiling";
+            this.checkAutoTiling.Size = new System.Drawing.Size(73, 27);
+            this.checkAutoTiling.TabIndex = 16;
+            this.checkAutoTiling.Text = "Auto-tiling";
+            this.checkAutoTiling.UseVisualStyleBackColor = true;
+            // 
             // labelEditInfo
             // 
             this.labelEditInfo.Anchor = System.Windows.Forms.AnchorStyles.None;
-            this.labelEditInfo.Location = new System.Drawing.Point(3, 30);
+            this.labelEditInfo.Location = new System.Drawing.Point(3, 33);
             this.labelEditInfo.Name = "labelEditInfo";
             this.labelEditInfo.Size = new System.Drawing.Size(211, 23);
             this.labelEditInfo.TabIndex = 9;
@@ -1278,7 +1289,7 @@
             this.tabTiles.Location = new System.Drawing.Point(4, 22);
             this.tabTiles.Name = "tabTiles";
             this.tabTiles.Padding = new System.Windows.Forms.Padding(3);
-            this.tabTiles.Size = new System.Drawing.Size(1385, 628);
+            this.tabTiles.Size = new System.Drawing.Size(192, 74);
             this.tabTiles.TabIndex = 2;
             this.tabTiles.Text = "Tiles";
             this.tabTiles.UseVisualStyleBackColor = true;
@@ -1488,7 +1499,7 @@
             this.listTileInfo.OwnerDraw = true;
             this.listTileInfo.SelectedTextBGColor = ((uint)(4294901760u));
             this.listTileInfo.SelectedTextColor = ((uint)(4294967295u));
-            this.listTileInfo.Size = new System.Drawing.Size(407, 612);
+            this.listTileInfo.Size = new System.Drawing.Size(407, 58);
             this.listTileInfo.TabIndex = 24;
             this.listTileInfo.UseCompatibleStateImageBehavior = false;
             this.listTileInfo.View = System.Windows.Forms.View.Details;
@@ -1721,7 +1732,7 @@
             // 
             this.panelCharColors.AutoResize = false;
             this.panelCharColors.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.panelCharColors.DisplayPage = fastImage10;
+            this.panelCharColors.DisplayPage = fastImage6;
             this.panelCharColors.Image = null;
             this.panelCharColors.Location = new System.Drawing.Point(725, 271);
             this.panelCharColors.Name = "panelCharColors";
@@ -1735,7 +1746,7 @@
             // 
             this.pictureTileDisplay.AutoResize = false;
             this.pictureTileDisplay.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.pictureTileDisplay.DisplayPage = fastImage11;
+            this.pictureTileDisplay.DisplayPage = fastImage7;
             this.pictureTileDisplay.Image = null;
             this.pictureTileDisplay.Location = new System.Drawing.Point(996, 5);
             this.pictureTileDisplay.Name = "pictureTileDisplay";
@@ -1946,7 +1957,6 @@
             // tabPage1
             // 
             this.tabPage1.Controls.Add(this.label7);
-            this.tabPage1.Controls.Add(this.label8);
             this.tabPage1.Controls.Add(this.label9);
             this.tabPage1.Controls.Add(this.imageListbox1);
             this.tabPage1.Controls.Add(this.checkBox1);
@@ -1971,15 +1981,6 @@
             this.label7.Size = new System.Drawing.Size(64, 13);
             this.label7.TabIndex = 22;
             this.label7.Text = "Multicolor 2:";
-            // 
-            // label8
-            // 
-            this.label8.AutoSize = true;
-            this.label8.Location = new System.Drawing.Point(658, 38);
-            this.label8.Name = "label8";
-            this.label8.Size = new System.Drawing.Size(64, 13);
-            this.label8.TabIndex = 22;
-            this.label8.Text = "Multicolor 1:";
             // 
             // label9
             // 
@@ -2060,7 +2061,7 @@
             // 
             this.fastPictureBox1.AutoResize = false;
             this.fastPictureBox1.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.fastPictureBox1.DisplayPage = fastImage12;
+            this.fastPictureBox1.DisplayPage = fastImage8;
             this.fastPictureBox1.Image = null;
             this.fastPictureBox1.Location = new System.Drawing.Point(658, 390);
             this.fastPictureBox1.Name = "fastPictureBox1";
@@ -2072,13 +2073,22 @@
             // 
             this.fastPictureBox2.AutoResize = false;
             this.fastPictureBox2.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.fastPictureBox2.DisplayPage = fastImage9;
+            this.fastPictureBox2.DisplayPage = fastImage5;
             this.fastPictureBox2.Image = null;
             this.fastPictureBox2.Location = new System.Drawing.Point(8, 6);
             this.fastPictureBox2.Name = "fastPictureBox2";
             this.fastPictureBox2.Size = new System.Drawing.Size(644, 404);
             this.fastPictureBox2.TabIndex = 0;
             this.fastPictureBox2.TabStop = false;
+            // 
+            // label8
+            // 
+            this.label8.AutoSize = true;
+            this.label8.Location = new System.Drawing.Point(658, 38);
+            this.label8.Name = "label8";
+            this.label8.Size = new System.Drawing.Size(64, 13);
+            this.label8.TabIndex = 22;
+            this.label8.Text = "Multicolor 1:";
             // 
             // MapEditor
             // 
@@ -2192,13 +2202,14 @@
     private System.Windows.Forms.ComboBox comboTileBGColor4;
     private DecentForms.Button btnCopyTileCharToNextIncreased;
         private System.Windows.Forms.ToolTip toolTip1;
+    private System.Windows.Forms.CheckBox checkAutoTiling;
         private DecentForms.RadioButton btnToolMarker;
         private System.Windows.Forms.ComboBox comboMarkerTypes;
         private System.Windows.Forms.ComboBox comboMarkerColorOverride;
     private DecentForms.Button btnSetNextTileChar;
     private DecentForms.Button btnTileClone;
         private System.Windows.Forms.TabPage tabCharset;
-        private Controls.CharacterEditor characterEditor;
+    private Controls.CharacterEditor characterEditor;
     private DecentForms.Button btnCopyMapImage;
     private DecentForms.Button btnShiftLeft;
     private DecentForms.Button btnShiftUp;

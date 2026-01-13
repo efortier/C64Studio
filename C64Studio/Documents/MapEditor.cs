@@ -59,6 +59,8 @@ namespace RetroDevStudio.Documents
     private int                         m_CurEditorOffsetX = 0;
     private int                         m_CurEditorOffsetY = 0;
 
+    private Random                      m_Random = new Random();
+
     private ToolMode                    m_ToolMode = ToolMode.SINGLE_TILE;
 
     private bool[,]                     m_SelectedTiles = new bool[20, 12];
@@ -1258,26 +1260,110 @@ namespace RetroDevStudio.Documents
           case ToolMode.SINGLE_TILE:
             if ( m_CurrentEditorTile != null )
             {
-              if ( m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY] != m_CurrentEditorTile.Index )
+              int     tileIndex = m_CurrentEditorTile.Index;
+
+              if ( ( checkAutoTiling.Checked )
+              &&   ( m_CurrentEditorTile.GroupId != 0 ) )
+              {
+                // auto-tiling with group
+                // find neighbors
+                var neighbors = new List<int>();
+                if ( trueX + offsetX > 0 )
+                {
+                  neighbors.Add( m_CurrentMap.Tiles[trueX + offsetX - 1, trueY + offsetY] );
+                }
+                if ( trueX + offsetX < m_CurrentMap.Tiles.Width - 1 )
+                {
+                  neighbors.Add( m_CurrentMap.Tiles[trueX + offsetX + 1, trueY + offsetY] );
+                }
+                if ( trueY + offsetY > 0 )
+                {
+                  neighbors.Add( m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY - 1] );
+                }
+                if ( trueY + offsetY < m_CurrentMap.Tiles.Height - 1 )
+                {
+                  neighbors.Add( m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY + 1] );
+                }
+
+                // filter only group members
+                var groupMembers = new List<int>();
+                foreach ( var tile in m_MapProject.Tiles )
+                {
+                  if ( tile.GroupId == m_CurrentEditorTile.GroupId )
+                  {
+                    groupMembers.Add( tile.Index );
+                  }
+                }
+
+                var neighboringGroupMembers = new Dictionary<int,int>();
+                foreach ( int neighborIndex in neighbors )
+                {
+                  if ( m_MapProject.Tiles[neighborIndex].GroupId == m_CurrentEditorTile.GroupId )
+                  {
+                    if ( !neighboringGroupMembers.ContainsKey( neighborIndex ) )
+                    {
+                      neighboringGroupMembers.Add( neighborIndex, 0 );
+                    }
+                    neighboringGroupMembers[neighborIndex]++;
+                  }
+                }
+
+                var possibleCandidates = new List<int>();
+                if ( neighboringGroupMembers.Count == 0 )
+                {
+                  // no neighbors from same group, pick any
+                  possibleCandidates.AddRange( groupMembers );
+                }
+                else
+                {
+                  // find candidates with least occurrence
+                  int minOccurrence = int.MaxValue;
+                  foreach ( var member in groupMembers )
+                  {
+                    int occurrence = 0;
+                    if ( neighboringGroupMembers.ContainsKey( member ) )
+                    {
+                      occurrence = neighboringGroupMembers[member];
+                    }
+                    if ( occurrence < minOccurrence )
+                    {
+                      minOccurrence = occurrence;
+                      possibleCandidates.Clear();
+                      possibleCandidates.Add( member );
+                    }
+                    else if ( occurrence == minOccurrence )
+                    {
+                      possibleCandidates.Add( member );
+                    }
+                  }
+                }
+
+                if ( possibleCandidates.Count > 0 )
+                {
+                  tileIndex = possibleCandidates[m_Random.Next( possibleCandidates.Count )];
+                }
+              }
+
+              if ( m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY] != tileIndex )
               {
                 if ( m_MouseButtonReleased )
                 {
                   m_MouseButtonReleased = false;
                   DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height ) );
                 }
-                m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY] = m_CurrentEditorTile.Index;
+                m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY] = tileIndex;
                 SetModified();
                 //RecalcTileUsageInCurrentMap();
 
-                DrawTile( trueX, trueY, m_CurrentEditorTile.Index );
+                DrawTile( trueX, trueY, tileIndex );
                 // copy to image cache
                 pictureEditor.DisplayPage.DrawTo( m_Image,
                                 trueX * 8 * m_CurrentMap.TileSpacingX,
                                 trueY * 8 * m_CurrentMap.TileSpacingY,
                                 trueX * 8 * m_CurrentMap.TileSpacingX,
                                 trueY * 8 * m_CurrentMap.TileSpacingY,
-                                m_MapProject.Tiles[m_CurrentEditorTile.Index].Chars.Width * 8,
-                                m_MapProject.Tiles[m_CurrentEditorTile.Index].Chars.Height * 8 );
+                                m_MapProject.Tiles[tileIndex].Chars.Width * 8,
+                                m_MapProject.Tiles[tileIndex].Chars.Height * 8 );
 
                 pictureEditor.Invalidate( new System.Drawing.Rectangle( ( trueX * m_CurrentMap.TileSpacingX ) * 8,
                                                                         ( trueY * m_CurrentMap.TileSpacingY ) * 8,
