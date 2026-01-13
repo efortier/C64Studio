@@ -49,7 +49,8 @@ namespace RetroDevStudio.Documents
     private const int                   MapZoomMinPercent = 50;
     private const int                   MapZoomMaxPercent = 400;
     private const int                   MapZoomStepPercent = 25;
-    private const int                   MapTileListItemHeight = 24;
+    private const int                   MapTileListItemHeight = 44;
+    private const int                   MapTilePreviewPadding = 2;
 
     private GR.Image.MemoryImage        m_Image = new GR.Image.MemoryImage( MapDisplayBaseWidth, MapDisplayBaseHeight, GR.Drawing.PixelFormat.Format32bppRgb );
 
@@ -3511,7 +3512,7 @@ namespace RetroDevStudio.Documents
         return;
       }
 
-      int previewPadding = 2;
+      int previewPadding = MapTilePreviewPadding;
       int previewSize = Math.Max( 1, e.Bounds.Height - previewPadding * 2 );
       System.Drawing.Rectangle previewRect = new System.Drawing.Rectangle( e.Bounds.Left + previewPadding,
                                                                            e.Bounds.Top + ( e.Bounds.Height - previewSize ) / 2,
