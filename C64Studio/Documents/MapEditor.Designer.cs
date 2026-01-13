@@ -2072,7 +2072,7 @@
             // 
             this.fastPictureBox2.AutoResize = false;
             this.fastPictureBox2.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.fastPictureBox2.DisplayPage = fastImage1;
+            this.fastPictureBox2.DisplayPage = fastImage9;
             this.fastPictureBox2.Image = null;
             this.fastPictureBox2.Location = new System.Drawing.Point(8, 6);
             this.fastPictureBox2.Name = "fastPictureBox2";
