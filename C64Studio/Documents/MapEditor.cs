@@ -1266,7 +1266,7 @@ namespace RetroDevStudio.Documents
                 }
                 m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY] = m_CurrentEditorTile.Index;
                 SetModified();
-                RecalcTileUsageInCurrentMap();
+                //RecalcTileUsageInCurrentMap();
 
                 DrawTile( trueX, trueY, m_CurrentEditorTile.Index );
                 // copy to image cache
