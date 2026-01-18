@@ -959,9 +959,28 @@ namespace RetroDevStudio.Controls
       for ( int charIndex = CharIndex; charIndex < CharIndex + Count; ++charIndex )
       {
         RebuildAffectedChar( charIndex );
-        if ( m_CurrentChar == charIndex )
+        if ( !currentCharChanged )
         {
-          currentCharChanged = true;
+          if ( m_CurrentChar == charIndex )
+          {
+            currentCharChanged = true;
+          }
+          if ( ( !currentCharChanged )
+          &&   ( ( m_EditorWidthInChars > 1 )
+          ||     ( m_EditorHeightInChars > 1 ) ) )
+          {
+            for ( int y = 0; y < m_EditorHeightInChars; ++y )
+            {
+              for ( int x = 0; x < m_EditorWidthInChars; ++x )
+              {
+                int   testChar = m_CurrentChar + x + y * CharactersPerRow;
+                if ( testChar == charIndex )
+                {
+                  currentCharChanged = true;
+                }
+              }
+            }
+          }
         }
       }
 
