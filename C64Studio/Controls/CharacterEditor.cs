@@ -1187,6 +1187,10 @@ namespace RetroDevStudio.Controls
 
     private void panelCharacters_SelectionChanged( object sender, EventArgs e )
     {
+      if ( DoNotUpdateFromControls )
+      {
+        return;
+      }
       ValidateMoveToTarget();
 
       int newChar = panelCharacters.SelectedIndex;
@@ -1224,7 +1228,7 @@ namespace RetroDevStudio.Controls
 
     private void ValidateMoveButtons()
     {
-      bool enable = ( panelCharacters.SelectedIndices.Count == 1 );
+      bool enable = ( panelCharacters.SelectedIndices.Count > 0 );
       btnCharMoveUp.Enabled = enable;
       btnCharMoveDown.Enabled = enable;
       btnCharMoveLeft.Enabled = enable;
@@ -3228,30 +3232,51 @@ namespace RetroDevStudio.Controls
 
     private void SwapCharacter( int Offset )
     {
-      if ( panelCharacters.SelectedIndices.Count != 1 )
+      if ( panelCharacters.SelectedIndices.Count == 0 )
       {
         return;
       }
-      int currentIndex = panelCharacters.SelectedIndex;
-      int targetIndex = currentIndex + Offset;
-
-      if ( ( targetIndex < 0 )
-      ||   ( targetIndex >= m_Project.TotalNumberOfCharacters ) )
+      var   selectedIndices = new List<int>();
+      foreach ( int index in panelCharacters.SelectedIndices )
       {
-        return;
+        selectedIndices.Add( index );
       }
 
-      if ( Lookup.IsECMMode( m_Project.Mode ) )
+      // 1. Validate
+      foreach ( int currentIndex in selectedIndices )
       {
-        // stay in 64 char block
-        if ( currentIndex / 64 != targetIndex / 64 )
+        int targetIndex = currentIndex + Offset;
+
+        if ( ( targetIndex < 0 )
+        ||   ( targetIndex >= m_Project.TotalNumberOfCharacters ) )
         {
           return;
         }
+
+        if ( Lookup.IsECMMode( m_Project.Mode ) )
+        {
+          // stay in 64 char block
+          if ( currentIndex / 64 != targetIndex / 64 )
+          {
+            return;
+          }
+        }
       }
 
-      //UndoManager.AddUndoTask( new Undo.UndoCharacterEditorCharChange( this, m_Project, 0, m_Project.TotalNumberOfCharacters ) );
-      UndoManager.AddUndoTask( new Undo.UndoCharacterEditorCharChange( this, m_Project, Math.Min( currentIndex, targetIndex ), Math.Abs( targetIndex - currentIndex ) + 1 ) );
+      // 2. Sort execution order
+      // if moving right/down (positive offset), we must move the highest indices first
+      if ( Offset > 0 )
+      {
+        selectedIndices.Sort( ( x, y ) => y.CompareTo( x ) );
+      }
+      else
+      {
+        selectedIndices.Sort();
+      }
+
+      UndoManager.StartUndoGroup();
+
+      var newSelectedIndices = new List<int>();
 
       int[]   charMapNewToOld = new int[m_Project.TotalNumberOfCharacters];
       int[]   charMapOldToNew = new int[m_Project.TotalNumberOfCharacters];
@@ -3261,66 +3286,163 @@ namespace RetroDevStudio.Controls
         charMapOldToNew[i] = i;
       }
 
-      if ( Lookup.IsECMMode( m_Project.Mode ) ) 
+      foreach ( int currentIndex in selectedIndices )
       {
-        for ( int i = 0; i < 4; ++i )
+        int targetIndex = currentIndex + Offset;
+
+        UndoManager.AddGroupedUndoTask( new Undo.UndoCharacterEditorCharChange( this, m_Project, Math.Min( currentIndex, targetIndex ), Math.Abs( targetIndex - currentIndex ) + 1 ) );
+
+        newSelectedIndices.Add( targetIndex );
+
+        // update map
+        if ( Lookup.IsECMMode( m_Project.Mode ) )
         {
-          charMapOldToNew[i * 64 + currentIndex % 64] = i * 64 + targetIndex % 64;
-          charMapOldToNew[i * 64 + targetIndex % 64] = i * 64 + currentIndex % 64;
-          
-          charMapNewToOld[i * 64 + currentIndex % 64] = i * 64 + targetIndex % 64;
-          charMapNewToOld[i * 64 + targetIndex % 64] = i * 64 + currentIndex % 64;
+          for ( int i = 0; i < 4; ++i )
+          {
+            int   idx1 = i * 64 + currentIndex % 64;
+            int   idx2 = i * 64 + targetIndex % 64;
+
+            // swap mapping
+            int   mappedIdx1 = -1;
+            int   mappedIdx2 = -1;
+
+            // find entry that points to idx1
+            for ( int j = 0; j < m_Project.TotalNumberOfCharacters; ++j )
+            {
+              if ( charMapOldToNew[j] == idx1 )
+              {
+                mappedIdx1 = j;
+              }
+              if ( charMapOldToNew[j] == idx2 )
+              {
+                mappedIdx2 = j;
+              }
+            }
+            if ( mappedIdx1 != -1 )
+            {
+              charMapOldToNew[mappedIdx1] = idx2;
+              charMapNewToOld[idx2] = mappedIdx1;
+            }
+            if ( mappedIdx2 != -1 )
+            {
+              charMapOldToNew[mappedIdx2] = idx1;
+              charMapNewToOld[idx1] = mappedIdx2;
+            }
+          }
+        }
+        else
+        {
+          int   idx1 = currentIndex;
+          int   idx2 = targetIndex;
+
+          // swap mapping
+          int   mappedIdx1 = -1;
+          int   mappedIdx2 = -1;
+
+          // find entry that points to idx1
+          for ( int j = 0; j < m_Project.TotalNumberOfCharacters; ++j )
+          {
+            if ( charMapOldToNew[j] == idx1 )
+            {
+              mappedIdx1 = j;
+            }
+            if ( charMapOldToNew[j] == idx2 )
+            {
+              mappedIdx2 = j;
+            }
+          }
+          if ( mappedIdx1 != -1 )
+          {
+            charMapOldToNew[mappedIdx1] = idx2;
+            charMapNewToOld[idx2] = mappedIdx1;
+          }
+          if ( mappedIdx2 != -1 )
+          {
+            charMapOldToNew[mappedIdx2] = idx1;
+            charMapNewToOld[idx1] = mappedIdx2;
+          }
+        }
+
+        // Swap Data
+        var tempChar = m_Project.Characters[currentIndex];
+        m_Project.Characters[currentIndex] = m_Project.Characters[targetIndex];
+        m_Project.Characters[targetIndex] = tempChar;
+
+        var tempItem = panelCharacters.Items[currentIndex];
+        panelCharacters.Items[currentIndex] = panelCharacters.Items[targetIndex];
+        panelCharacters.Items[targetIndex] = tempItem;
+
+        if ( Lookup.IsECMMode( m_Project.Mode ) )
+        {
+          for ( int i = 1; i < 4; ++i )
+          {
+            int Source = currentIndex % 64 + i * 64;
+            int Target = targetIndex % 64 + i * 64;
+
+            tempChar = m_Project.Characters[Source];
+            m_Project.Characters[Source] = m_Project.Characters[Target];
+            m_Project.Characters[Target] = tempChar;
+
+            tempItem = panelCharacters.Items[Source];
+            panelCharacters.Items[Source] = panelCharacters.Items[Target];
+            panelCharacters.Items[Target] = tempItem;
+          }
         }
       }
-      else
-      {
-        charMapOldToNew[currentIndex] = targetIndex;
-        charMapOldToNew[targetIndex] = currentIndex;
-        
-        charMapNewToOld[currentIndex] = targetIndex;
-        charMapNewToOld[targetIndex] = currentIndex;
-      }
-
-      // Swap Data
-      var tempChar = m_Project.Characters[currentIndex];
-      m_Project.Characters[currentIndex] = m_Project.Characters[targetIndex];
-      m_Project.Characters[targetIndex] = tempChar;
-      
-      var tempItem = panelCharacters.Items[currentIndex];
-      panelCharacters.Items[currentIndex] = panelCharacters.Items[targetIndex];
-      panelCharacters.Items[targetIndex] = tempItem;
-
-      if ( Lookup.IsECMMode( m_Project.Mode ) )
-      {
-        for ( int i = 1; i < 4; ++i )
-        {
-          int Source = currentIndex % 64 + i * 64;
-          int Target = targetIndex % 64 + i * 64;
-          
-          tempChar = m_Project.Characters[Source];
-          m_Project.Characters[Source] = m_Project.Characters[Target];
-          m_Project.Characters[Target] = tempChar;
-          
-          tempItem = panelCharacters.Items[Source];
-          panelCharacters.Items[Source] = panelCharacters.Items[Target];
-          panelCharacters.Items[Target] = tempItem;
-        }
-      }
+      RaiseCharactersShiftedEvent( charMapOldToNew, charMapNewToOld );
 
       // Update Selection to follow the character
-      panelCharacters.SelectedIndex = targetIndex;
+      DoNotUpdateFromControls = true;
+      int   oldFocusedIndex = panelCharacters.SelectedIndex;
+
+      int   newFocusedIndex = -1;
+      if ( oldFocusedIndex != -1 )
+      {
+         // If the focused item was part of the selection, it moved.
+         if ( selectedIndices.Contains( oldFocusedIndex ) )
+         {
+           newFocusedIndex = oldFocusedIndex + Offset;
+         }
+         else
+         {
+           // Focused item was not selected, so it didn't move. Keep focus there.
+           newFocusedIndex = oldFocusedIndex;
+         }
+
+         if ( ( newFocusedIndex < 0 )
+         ||   ( newFocusedIndex >= m_Project.TotalNumberOfCharacters ) )
+         {
+           newFocusedIndex = -1;
+         }
+      }
+
+      panelCharacters.SetSelectedIndices( newSelectedIndices );
+
+      // Restore active char state since SelectionChanged was suppressed
+      if ( newFocusedIndex != -1 ) 
+      {
+        m_CurrentChar = (ushort)newFocusedIndex;
+        if ( m_Project.Characters[m_CurrentChar].Category < comboCategories.Items.Count )
+        {
+          SelectCategory( m_Project.Characters[m_CurrentChar].Category );
+        }
+      }
+
+      DoNotUpdateFromControls = false;
 
       // Events
-      //panelCharacters.Invalidate();
+      ValidateMoveButtons();
+      panelCharacters.Invalidate();
       RedrawPlayground();
       canvasEditor.Invalidate();
       RedrawColorPicker();
 
-      RaiseCharactersShiftedEvent( charMapOldToNew, charMapNewToOld );
-
       var modifiedChars = new List<int>();
-      modifiedChars.Add( currentIndex );
-      modifiedChars.Add( targetIndex );
+      foreach ( int index in selectedIndices )
+      {
+        modifiedChars.Add( index );
+        modifiedChars.Add( index + Offset );
+      }
       RaiseModifiedEvent( modifiedChars );
     }
 

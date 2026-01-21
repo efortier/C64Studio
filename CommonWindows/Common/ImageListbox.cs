@@ -1406,5 +1406,32 @@ namespace GR.Forms
 
 
 
+    public void SetSelectedIndices( IEnumerable<int> Indices )
+    {
+      InvalidateSelectedItems();
+      m_SelectedIndices.Clear();
+      m_SelectedItem = -1;
+      m_SelectionAnchor = -1;
+
+      foreach ( int index in Indices )
+      {
+        if ( ( index >= 0 )
+        &&   ( index < Items.Count ) )
+        {
+          m_SelectedIndices.Add( index );
+          // Set primary selection to the first valid one found, if not set
+          if ( m_SelectedItem == -1 )
+          {
+            m_SelectedItem = index;
+          }
+        }
+      }
+      InvalidateSelectedItems();
+      if ( SelectionChanged != null )
+      {
+        SelectionChanged( this, new EventArgs() );
+      }
+    }
+
   }
 }

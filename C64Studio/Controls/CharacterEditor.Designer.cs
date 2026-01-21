@@ -1135,7 +1135,7 @@
             this.tabCategories.Location = new System.Drawing.Point(4, 22);
             this.tabCategories.Name = "tabCategories";
             this.tabCategories.Padding = new System.Windows.Forms.Padding(3);
-            this.tabCategories.Size = new System.Drawing.Size(1430, 631);
+            this.tabCategories.Size = new System.Drawing.Size(1430, 716);
             this.tabCategories.TabIndex = 1;
             this.tabCategories.Text = "Categories";
             this.tabCategories.UseVisualStyleBackColor = true;
