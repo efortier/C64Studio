@@ -2180,7 +2180,19 @@ namespace RetroDevStudio.Controls
             }
 
             int destIndex = destX + destY * m_Project.PlaygroundWidth;
-            uint newValue = (uint)( sourceCharIndex | ( m_CurrentColor << 16 ) );
+            int effectiveColor = m_CurrentColor;
+
+            var charMode = m_Project.Characters[sourceCharIndex].Tile.Mode;
+            if ( ( charMode == GraphicTileMode.COMMODORE_MULTICOLOR_CHARACTERS )
+            ||   ( charMode == GraphicTileMode.COMMODORE_MULTICOLOR_CHARACTERS_8X16 ) )
+            {
+              if ( effectiveColor < 8 )
+              {
+                effectiveColor += 8;
+              }
+            }
+
+            uint newValue = (uint)( sourceCharIndex | ( effectiveColor << 16 ) );
 
             if ( m_Project.PlaygroundChars[destIndex] != newValue )
             {
@@ -2196,7 +2208,7 @@ namespace RetroDevStudio.Controls
               }
 
               m_Project.PlaygroundChars[destIndex] = newValue;
-              DrawScaledChar( sourceCharIndex, m_CurrentColor, destX * scaledCharWidth, destY * scaledCharHeight, scale );
+              DrawScaledChar( sourceCharIndex, effectiveColor, destX * scaledCharWidth, destY * scaledCharHeight, scale );
             }
           }
         }
