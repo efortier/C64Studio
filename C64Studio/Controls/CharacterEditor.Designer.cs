@@ -30,7 +30,7 @@
     {
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(CharacterEditor));
-            GR.Image.FastImage fastImage1 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage2 = new GR.Image.FastImage();
             this.comboCategories = new System.Windows.Forms.ComboBox();
             this.checkShowPlaygroundGrid = new System.Windows.Forms.CheckBox();
             this.trackGridOpacity = new System.Windows.Forms.TrackBar();
@@ -104,6 +104,7 @@
             this.radioPlaygroundScale8x = new DecentForms.RadioButton();
             this.labelCharUsageCount = new System.Windows.Forms.Label();
             this.labelCharMapUsageCount = new System.Windows.Forms.Label();
+            this.checkShowListGrid = new System.Windows.Forms.CheckBox();
             this.tabCategories = new System.Windows.Forms.TabPage();
             this.btnMoveCategoryDown = new DecentForms.Button();
             this.btnMoveCategoryUp = new DecentForms.Button();
@@ -545,6 +546,7 @@
             this.tabEditor.Controls.Add(this.labelCharUsageCount);
             this.tabEditor.Controls.Add(this.labelCharMapUsageCount);
             this.tabEditor.Controls.Add(this.comboCategories);
+            this.tabEditor.Controls.Add(this.checkShowListGrid);
             this.tabEditor.Location = new System.Drawing.Point(4, 22);
             this.tabEditor.Name = "tabEditor";
             this.tabEditor.Padding = new System.Windows.Forms.Padding(3);
@@ -558,7 +560,7 @@
             this.splitContainer1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.splitContainer1.Location = new System.Drawing.Point(620, 6);
+            this.splitContainer1.Location = new System.Drawing.Point(620, 3);
             this.splitContainer1.Name = "splitContainer1";
             // 
             // splitContainer1.Panel1
@@ -618,7 +620,7 @@
             // 
             this.picturePlayground.AutoResize = false;
             this.picturePlayground.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.picturePlayground.DisplayPage = fastImage1;
+            this.picturePlayground.DisplayPage = fastImage2;
             this.picturePlayground.Dock = System.Windows.Forms.DockStyle.Fill;
             this.picturePlayground.Image = null;
             this.picturePlayground.Location = new System.Drawing.Point(0, 0);
@@ -988,7 +990,7 @@
             this.groupMoveChar.Controls.Add(this.btnCharMoveRight);
             this.groupMoveChar.Controls.Add(this.btnCharMoveUp);
             this.groupMoveChar.Controls.Add(this.btnCharMoveLeft);
-            this.groupMoveChar.Location = new System.Drawing.Point(620, 560);
+            this.groupMoveChar.Location = new System.Drawing.Point(620, 558);
             this.groupMoveChar.Name = "groupMoveChar";
             this.groupMoveChar.Size = new System.Drawing.Size(137, 54);
             this.groupMoveChar.TabIndex = 25;
@@ -1120,6 +1122,18 @@
             this.labelCharMapUsageCount.Size = new System.Drawing.Size(53, 13);
             this.labelCharMapUsageCount.TabIndex = 37;
             this.labelCharMapUsageCount.Text = "[map use]";
+            // 
+            // checkShowListGrid
+            // 
+            this.checkShowListGrid.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.checkShowListGrid.AutoSize = true;
+            this.checkShowListGrid.Location = new System.Drawing.Point(620, 615);
+            this.checkShowListGrid.Name = "checkShowListGrid";
+            this.checkShowListGrid.Size = new System.Drawing.Size(75, 17);
+            this.checkShowListGrid.TabIndex = 67;
+            this.checkShowListGrid.Text = "Show Grid";
+            this.checkShowListGrid.UseVisualStyleBackColor = true;
+            this.checkShowListGrid.CheckedChanged += new System.EventHandler(this.checkShowListGrid_CheckedChanged);
             // 
             // tabCategories
             // 
@@ -1393,6 +1407,7 @@
     private System.Windows.Forms.TabPage tabCategories;
     private System.Windows.Forms.GroupBox groupAllCategories;
     private DecentForms.Button btnSortCategories;
+    private System.Windows.Forms.CheckBox checkShowListGrid;
     private System.Windows.Forms.GroupBox groupCategorySpecific;
     private System.Windows.Forms.Label label5;
     private System.Windows.Forms.TextBox editCollapseIndex;

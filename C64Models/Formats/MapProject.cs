@@ -148,6 +148,7 @@ namespace RetroDevStudio.Formats
     public TextMode                     Mode = TextMode.COMMODORE_40_X_25_HIRES;
     public CharsetProject               Charset = new Formats.CharsetProject();
     public bool                         ShowGrid = false;
+    public bool                         ShowCharacterListGrid = false;
     public bool                         KeepCharacterAspectRatio = false;
     public int                          CharactersPerRow = 16;
     public int                          CharacterEditorMode = 1;
@@ -189,7 +190,7 @@ namespace RetroDevStudio.Formats
 
       GR.IO.FileChunk chunkProjectInfo = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_INFO );
       // version
-      chunkProjectInfo.AppendU32( 5 );
+      chunkProjectInfo.AppendU32( 6 );
       chunkProjectInfo.AppendString( ExternalCharset );
       chunkProjectInfo.AppendI32( ShowGrid ? 1 : 0 );
       chunkProjectInfo.AppendString( RightClickAction );
@@ -197,6 +198,7 @@ namespace RetroDevStudio.Formats
       chunkProjectInfo.AppendI32( CharactersPerRow );
       chunkProjectInfo.AppendI32( CharacterEditorMode );
       chunkProjectInfo.AppendI32( ColorSwatchSize );
+      chunkProjectInfo.AppendI32( ShowCharacterListGrid ? 1 : 0 );
       projectFile.Append( chunkProjectInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkCharset = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET );
@@ -400,6 +402,10 @@ namespace RetroDevStudio.Formats
               if ( version >= 5 )
               {
                 ColorSwatchSize = chunkReader.ReadInt32();
+              }
+              if ( version >= 6 )
+              {
+                ShowCharacterListGrid = ( chunkReader.ReadInt32() == 1 );
               }
             }
             break;

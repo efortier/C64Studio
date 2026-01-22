@@ -64,6 +64,7 @@ namespace RetroDevStudio.Formats
     public int            ExportStartCharacter = 0;
     public int            ExportNumCharacters = 256;
     public bool           ShowGrid = false;
+    public bool           ShowCharacterListGrid = false;
     public bool           ShowPlaygroundGrid = false;
     public int            PlaygroundGridOpacity = 128; // 0-255
     public int            TotalNumberOfCharacters = 256;
@@ -214,6 +215,7 @@ namespace RetroDevStudio.Formats
       chunkCharsetInfo.AppendI32( TotalNumberOfCharacters );
       chunkCharsetInfo.AppendI32( ShowGrid ? 1 : 0 );
       chunkCharsetInfo.AppendI32( (int)RightClickDrawing );
+      chunkCharsetInfo.AppendI32( ShowCharacterListGrid ? 1 : 0 );
       chunkCharsetProject.Append( chunkCharsetInfo.ToBuffer() );
 
 
@@ -561,6 +563,10 @@ namespace RetroDevStudio.Formats
                   else
                   {
                     RightClickDrawing = RightClickDrawing.PICK_COLOR;
+                  }
+                  if ( subMemIn.Position < subChunk.Length )
+                  {
+                    ShowCharacterListGrid = ( subMemIn.ReadInt32() == 1 );
                   }
                   break;
                 case FileChunkConstants.CHARSET_COLOR_SETTINGS:

@@ -423,6 +423,10 @@ namespace RetroDevStudio.Controls
       }
       m_Project.PlaygroundGridOpacity = trackGridOpacity.Value;
       picturePlayground.Invalidate();
+      
+      panelCharacters.GridColor = System.Drawing.Color.FromArgb( trackGridOpacity.Value, System.Drawing.Color.Gray );
+      panelCharacters.Invalidate();
+      
       RaiseModifiedEvent( new List<int>() );
     }
 
@@ -1622,6 +1626,10 @@ namespace RetroDevStudio.Controls
 
       checkShowPlaygroundGrid.Checked = m_Project.ShowPlaygroundGrid;
       trackGridOpacity.Value = m_Project.PlaygroundGridOpacity;
+      
+      checkShowListGrid.Checked = m_Project.ShowCharacterListGrid;
+      panelCharacters.ShowGrid = m_Project.ShowCharacterListGrid;
+      panelCharacters.GridColor = System.Drawing.Color.FromArgb( m_Project.PlaygroundGridOpacity, System.Drawing.Color.Gray );
 
       ApplyRightClickDrawing( m_Project.RightClickDrawing );
 
@@ -2034,6 +2042,19 @@ namespace RetroDevStudio.Controls
       m_Project.ShowGrid = checkShowGrid.Checked;
 
       canvasEditor.Invalidate();
+    }
+
+
+
+    private void checkShowListGrid_CheckedChanged( object sender, EventArgs e )
+    {
+      if ( DoNotUpdateFromControls )
+      {
+        return;
+      }
+      panelCharacters.ShowGrid = checkShowListGrid.Checked;
+      m_Project.ShowCharacterListGrid = checkShowListGrid.Checked;
+      RaiseModifiedEvent( new List<int>() );
     }
 
 

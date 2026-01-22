@@ -942,6 +942,26 @@ namespace GR.Forms
 
 
 
+    private bool                  m_ShowGrid = false;
+    // Actually, simple Color property.
+    public System.Drawing.Color   GridColor { get; set; } = System.Drawing.SystemColors.ControlDark;
+
+    public bool ShowGrid
+    {
+      get
+      {
+        return m_ShowGrid;
+      }
+      set
+      {
+        if ( m_ShowGrid != value )
+        {
+          m_ShowGrid = value;
+          Invalidate();
+        }
+      }
+    }
+
     protected override void OnPaint( PaintEventArgs e )
     {
       if ( m_DisplayPage.BitsPerPixel == 0 )
@@ -957,6 +977,8 @@ namespace GR.Forms
       int     itemInLine = 0;
       bool    hasNativeImages = false;
       var     itemRect = new System.Drawing.Rectangle( 0, 0, ClientSize.Width, 1 );
+      var     gridPen = new System.Drawing.Pen( GridColor );
+
       while ( itemIndex < Items.Count )
       {
         if ( itemIndex < 0 )
@@ -996,7 +1018,16 @@ namespace GR.Forms
         m_DisplayPage.Box( itemRect.Right, itemRect.Y, ClientSize.Width - itemRect.Right, m_ItemHeight, 0 );
       }
       m_DisplayPage.Box( 0, itemRect.Bottom, ClientSize.Width, ClientSize.Height - itemRect.Bottom, 0 );
-
+      
+      int   destWidth = ClientRectangle.Width;
+      int   destHeight = ClientRectangle.Height;
+      if ( ( m_ActiveClientSize.Width > 0 )
+      &&   ( m_ActiveClientSize.Height > 0 ) )
+      {
+        destWidth = m_ActiveClientSize.Width;
+        destHeight = m_ActiveClientSize.Height;
+      }
+      
       if ( !hasNativeImages )
       {
         IntPtr hdcPage = e.Graphics.GetHdc();
@@ -1010,6 +1041,53 @@ namespace GR.Forms
           m_DisplayPage.DrawToHDC( hdcPage, ClientRectangle );
         }
         e.Graphics.ReleaseHdc( hdcPage );
+      }
+      
+      // Now draw Overlay Grid if needed
+      if ( m_ShowGrid )
+      {
+         double scaleX = 1.0;
+         double scaleY = 1.0;
+         
+         if ( !hasNativeImages )
+         {
+           // Memory Images are blitted from DisplayPage to ClientRect(or ActiveSize)
+           // Calculate proper scale
+           if ( m_DisplayPage.Width > 0 )
+           {
+              scaleX = (double)destWidth / m_DisplayPage.Width;
+           }
+           if ( m_DisplayPage.Height > 0 )
+           {
+              scaleY = (double)destHeight / m_DisplayPage.Height;
+           }
+         }
+      
+         itemIndex = m_Offset * m_ItemsPerLine;
+         while ( itemIndex < Items.Count )
+         {
+            if ( itemIndex < 0 ) { ++itemIndex; continue; }
+            int     xoffset = ( itemIndex - m_Offset * m_ItemsPerLine ) % m_ItemsPerLine;
+            int     yoffset = ( itemIndex - m_Offset * m_ItemsPerLine ) / m_ItemsPerLine;
+            itemRect = new System.Drawing.Rectangle( xoffset * m_ItemWidth, yoffset * m_ItemHeight, m_ItemWidth, m_ItemHeight );
+            
+            if ( !hasNativeImages )
+            {
+               // Apply scaling
+               int sX = (int)( itemRect.X * scaleX );
+               int sY = (int)( itemRect.Y * scaleY );
+               int sW = (int)( ( itemRect.Right * scaleX ) ) - sX;
+               int sH = (int)( ( itemRect.Bottom * scaleY ) ) - sY;
+               
+               e.Graphics.DrawRectangle( gridPen, sX, sY, sW, sH );
+            }
+            else
+            {
+               e.Graphics.DrawRectangle( gridPen, itemRect.X, itemRect.Y, itemRect.Width, itemRect.Height );
+            }
+            
+            ++itemIndex;
+         }
       }
 
       if ( m_ItemUnderMouse != -1 )
@@ -1110,6 +1188,7 @@ namespace GR.Forms
         }
       }*/
       hottrackBrush.Dispose();
+      gridPen.Dispose();
     }
 
 
