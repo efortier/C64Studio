@@ -2211,8 +2211,99 @@ namespace RetroDevStudio.Controls
 
 
 
+    private void MirrorBlock( bool Horizontal, bool Vertical )
+    {
+      UndoManager.StartUndoGroup();
+
+      int   pixelWidth = 1;
+      
+      var mainTile = m_Project.Characters[m_CurrentChar].Tile;
+      pixelWidth = Lookup.PixelWidth( mainTile.Mode );
+
+      int   totalWidth = m_EditorWidthInChars * 8;
+      int   totalHeight = m_EditorHeightInChars * 8;
+      Tupel<ColorType, byte>[,]  fullBuffer = new Tupel<ColorType, byte>[totalWidth,totalHeight];
+
+      var affectedChars = new List<int>();
+
+      // 1. Read entire block into buffer
+      for ( int y = 0; y < m_EditorHeightInChars; ++y )
+      {
+        for ( int x = 0; x < m_EditorWidthInChars; ++x )
+        {
+          int   charIndex = m_CurrentChar + x + y * CharactersPerRow;
+          if ( charIndex >= m_Project.TotalNumberOfCharacters )
+          {
+            continue;
+          }
+          affectedChars.Add( charIndex );
+
+          UndoManager.AddGroupedUndoTask( new Undo.UndoCharacterEditorCharChange( this, m_Project, charIndex, 1 ) );
+
+          var tile = m_Project.Characters[charIndex].Tile;
+          for ( int py = 0; py < 8; ++py )
+          {
+            for ( int px = 0; px < 8; ++px )
+            {
+               fullBuffer[x * 8 + px, y * 8 + py] = tile.GetPixel( px, py );
+            }
+          }
+        }
+      }
+
+      // 2. Write back mirrored
+      for ( int y = 0; y < m_EditorHeightInChars; ++y )
+      {
+        for ( int x = 0; x < m_EditorWidthInChars; ++x )
+        {
+          int   charIndex = m_CurrentChar + x + y * CharactersPerRow;
+          if ( charIndex >= m_Project.TotalNumberOfCharacters )
+          {
+            continue;
+          }
+
+          var tile = m_Project.Characters[charIndex].Tile;
+          int charPixelWidth = Lookup.PixelWidth( tile.Mode );
+
+          for ( int py = 0; py < 8; ++py )
+          {
+            int   readY = y * 8 + py;
+            if ( Vertical )
+            {
+               readY = totalHeight - 1 - ( y * 8 + py );
+            }
+
+            for ( int px = 0; px < 8; px += charPixelWidth )
+            {
+              int   readX = x * 8 + px;
+              if ( Horizontal )
+              {
+                // Mirror pixel block of width 'charPixelWidth'
+                // E.g. width=2. Pixel at 0 spans 0,1. Mirrored Pixel should be at Width-2 spanning Width-2, Width-1.
+                // Formula: TotalWidth - CurrentX - PixelWidth
+                readX = totalWidth - ( x * 8 + px ) - charPixelWidth;
+              }
+              
+              var pixelValue = fullBuffer[readX, readY];
+              
+              tile.SetPixel( px, py, pixelValue );
+            }
+          }
+          RebuildAffectedChar( charIndex );
+        }
+      }
+      canvasEditor.Invalidate();
+      RaiseModifiedEvent( affectedChars );
+    }
+
     public void MirrorX()
     {
+      if ( ( m_EditorWidthInChars > 1 )
+      ||   ( m_EditorHeightInChars > 1 ) )
+      {
+        MirrorBlock( true, false );
+        return;
+      }
       List<int>     selectedChars = Uniquify( panelCharacters.SelectedIndices );
 
       UndoManager.StartUndoGroup();
@@ -2242,6 +2333,12 @@ namespace RetroDevStudio.Controls
 
     public void MirrorY()
     {
+      if ( ( m_EditorWidthInChars > 1 )
+      ||   ( m_EditorHeightInChars > 1 ) )
+      {
+        MirrorBlock( false, true );
+        return;
+      }
       List<int>     selectedChars = Uniquify( panelCharacters.SelectedIndices );
 
       UndoManager.StartUndoGroup();
@@ -2264,6 +2361,7 @@ namespace RetroDevStudio.Controls
       canvasEditor.Invalidate();
       RaiseModifiedEvent( selectedChars );
     }
+
 
 
 
