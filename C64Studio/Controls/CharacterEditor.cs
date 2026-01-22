@@ -990,7 +990,9 @@ namespace RetroDevStudio.Controls
         _ColorSettingsDlg.CustomColor = (byte)m_Project.Characters[m_CurrentChar].Tile.CustomColor;
 
         comboCharsetMode.SelectedIndex = (int)m_Project.Mode;
+        canvasEditor.Invalidate();
       }
+      panelCharacters.Invalidate();
 
       RefreshCategoryCounts();
       DoNotUpdateFromControls = false;
@@ -2357,6 +2359,13 @@ namespace RetroDevStudio.Controls
 
     public void ShiftDown()
     {
+      if ( ( m_EditorWidthInChars > 1 )
+      ||   ( m_EditorHeightInChars > 1 ) )
+      {
+        ShiftBlock( 0, 1 );
+        return;
+      }
+
       List<int>     selectedChars = Uniquify( panelCharacters.SelectedIndices );
 
       UndoManager.StartUndoGroup();
@@ -2403,8 +2412,100 @@ namespace RetroDevStudio.Controls
 
 
 
+    private void ShiftBlock( int ShiftX, int ShiftY )
+    {
+      UndoManager.StartUndoGroup();
+
+      int   pixelWidth = 1;
+      
+      // Determine base pixel width from the top-left character
+      // This assumes the whole block uses a consistent mode for shifting purposes
+      var mainTile = m_Project.Characters[m_CurrentChar].Tile;
+      pixelWidth = Lookup.PixelWidth( mainTile.Mode );
+
+      int   totalWidth = m_EditorWidthInChars * 8;
+      int   totalHeight = m_EditorHeightInChars * 8;
+      Tupel<ColorType, byte>[,]  fullBuffer = new Tupel<ColorType, byte>[totalWidth,totalHeight];
+
+      var affectedChars = new List<int>();
+
+      // 1. Read entire block into buffer
+      for ( int y = 0; y < m_EditorHeightInChars; ++y )
+      {
+        for ( int x = 0; x < m_EditorWidthInChars; ++x )
+        {
+          int   charIndex = m_CurrentChar + x + y * CharactersPerRow;
+          if ( charIndex >= m_Project.TotalNumberOfCharacters )
+          {
+            continue;
+          }
+          affectedChars.Add( charIndex );
+
+          UndoManager.AddGroupedUndoTask( new Undo.UndoCharacterEditorCharChange( this, m_Project, charIndex, 1 ) );
+
+          var tile = m_Project.Characters[charIndex].Tile;
+          for ( int py = 0; py < 8; ++py )
+          {
+            for ( int px = 0; px < 8; ++px )
+            {
+               fullBuffer[x * 8 + px, y * 8 + py] = tile.GetPixel( px, py );
+            }
+          }
+        }
+      }
+
+      // 2. Write back shifted
+      for ( int y = 0; y < m_EditorHeightInChars; ++y )
+      {
+        for ( int x = 0; x < m_EditorWidthInChars; ++x )
+        {
+          int   charIndex = m_CurrentChar + x + y * CharactersPerRow;
+          if ( charIndex >= m_Project.TotalNumberOfCharacters )
+          {
+            continue;
+          }
+
+          var tile = m_Project.Characters[charIndex].Tile;
+          // Apply same mode logic for consistency
+          int charPixelWidth = Lookup.PixelWidth( tile.Mode );
+
+          for ( int py = 0; py < 8; ++py )
+          {
+            int   readY = ( y * 8 + py - ShiftY + totalHeight ) % totalHeight;
+
+            for ( int px = 0; px < 8; px += charPixelWidth )
+            {
+              // For pixel width > 1 (Multicolor), we treat the multi-bit pixel as one unit
+              // But GetPixel/SetPixel usually address by bit/pixel index.
+              // Lookup.PixelWidth(MC) = 2.
+              // ShiftX should be multiple of PixelWidth.
+              
+              int   readX = ( x * 8 + px - ShiftX + totalWidth ) % totalWidth;
+              
+              // We read the pixel value at the shifted position
+              // Note: GetPixel returns color index.
+              var pixelValue = fullBuffer[readX, readY];
+              
+              tile.SetPixel( px, py, pixelValue );
+            }
+          }
+          RebuildAffectedChar( charIndex );
+        }
+      }
+      canvasEditor.Invalidate();
+      RaiseModifiedEvent( affectedChars );
+    }
+
+
+
     public void ShiftUp()
     {
+      if ( ( m_EditorWidthInChars > 1 )
+      ||   ( m_EditorHeightInChars > 1 ) )
+      {
+        ShiftBlock( 0, -1 );
+        return;
+      }
       List<int>     selectedChars = Uniquify( panelCharacters.SelectedIndices );
 
       UndoManager.StartUndoGroup();
@@ -2432,6 +2533,13 @@ namespace RetroDevStudio.Controls
 
     public void ShiftLeft()
     {
+      if ( ( m_EditorWidthInChars > 1 )
+      ||   ( m_EditorHeightInChars > 1 ) )
+      {
+        int pixelWidth = Lookup.PixelWidth( m_Project.Characters[m_CurrentChar].Tile.Mode );
+        ShiftBlock( -pixelWidth, 0 );
+        return;
+      }
       List<int>     selectedChars = Uniquify( panelCharacters.SelectedIndices );
 
       UndoManager.StartUndoGroup();
@@ -2475,6 +2583,13 @@ namespace RetroDevStudio.Controls
 
     public void ShiftRight()
     {
+      if ( ( m_EditorWidthInChars > 1 )
+      ||   ( m_EditorHeightInChars > 1 ) )
+      {
+        int pixelWidth = Lookup.PixelWidth( m_Project.Characters[m_CurrentChar].Tile.Mode );
+        ShiftBlock( pixelWidth, 0 );
+        return;
+      }
       List<int>     selectedChars = Uniquify( panelCharacters.SelectedIndices );
 
       UndoManager.StartUndoGroup();
