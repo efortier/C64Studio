@@ -1564,6 +1564,72 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( "MAP_COUNT" + labelSuffix + " " + DataByteDirective + " $" + Maps.Count.ToString( "X2" ) );
       sb.AppendLine();
 
+      // Map Data
+      if ( ( Settings.Assembly.MapSizeCommentEnabled ) && ( !string.IsNullOrEmpty( Settings.Assembly.CommentChars ) ) )
+      {
+        sb.AppendLine( Settings.Assembly.CommentChars + " map data" );
+      }
+
+      // Global Map Tables
+      // MAPS_WIDTH
+      sb.AppendLine( LabelPrefix + "MAPS_WIDTH" + labelSuffix );
+      GR.Memory.ByteBuffer mapWidths = new GR.Memory.ByteBuffer();
+      for ( int i = 0; i < Maps.Count; ++i )
+      {
+        mapWidths.AppendU8( (byte)Maps[i].Tiles.Width );
+      }
+      sb.AppendLine( Util.ToASMData( mapWidths, WrapData, WrapByteCount, DataByteDirective ) );
+      sb.AppendLine();
+
+      // MAPS_HEIGHT
+      sb.AppendLine( LabelPrefix + "MAPS_HEIGHT" + labelSuffix );
+      GR.Memory.ByteBuffer mapHeights = new GR.Memory.ByteBuffer();
+      for ( int i = 0; i < Maps.Count; ++i )
+      {
+        mapHeights.AppendU8( (byte)Maps[i].Tiles.Height );
+      }
+      sb.AppendLine( Util.ToASMData( mapHeights, WrapData, WrapByteCount, DataByteDirective ) );
+      sb.AppendLine();
+
+      if ( Settings.Assembly.ExportMapColors )
+      {
+        // MAPS_BG_COLOR
+        sb.AppendLine( LabelPrefix + "MAPS_BG_COLOR" + labelSuffix );
+        GR.Memory.ByteBuffer mapBGColors = new GR.Memory.ByteBuffer();
+        for ( int i = 0; i < Maps.Count; ++i )
+        {
+          int effectiveBGColor = Maps[i].AlternativeBackgroundColor;
+          if ( effectiveBGColor == -1 ) effectiveBGColor = BackgroundColor;
+          mapBGColors.AppendU8( (byte)( effectiveBGColor & 0x0f ) );
+        }
+        sb.AppendLine( Util.ToASMData( mapBGColors, WrapData, WrapByteCount, DataByteDirective ) );
+        sb.AppendLine();
+
+        // MAPS_MC1_COLOR
+        sb.AppendLine( LabelPrefix + "MAPS_MC1_COLOR" + labelSuffix );
+        GR.Memory.ByteBuffer mapMC1Colors = new GR.Memory.ByteBuffer();
+        for ( int i = 0; i < Maps.Count; ++i )
+        {
+          int effectiveMC1 = Maps[i].AlternativeMultiColor1;
+          if ( effectiveMC1 == -1 ) effectiveMC1 = Charset.Colors.MultiColor1;
+          mapMC1Colors.AppendU8( (byte)( effectiveMC1 & 0x0f ) );
+        }
+        sb.AppendLine( Util.ToASMData( mapMC1Colors, WrapData, WrapByteCount, DataByteDirective ) );
+        sb.AppendLine();
+
+        // MAPS_MC2_COLOR
+        sb.AppendLine( LabelPrefix + "MAPS_MC2_COLOR" + labelSuffix );
+        GR.Memory.ByteBuffer mapMC2Colors = new GR.Memory.ByteBuffer();
+        for ( int i = 0; i < Maps.Count; ++i )
+        {
+          int effectiveMC2 = Maps[i].AlternativeMultiColor2;
+          if ( effectiveMC2 == -1 ) effectiveMC2 = Charset.Colors.MultiColor2;
+          mapMC2Colors.AppendU8( (byte)( effectiveMC2 & 0x0f ) );
+        }
+        sb.AppendLine( Util.ToASMData( mapMC2Colors, WrapData, WrapByteCount, DataByteDirective ) );
+        sb.AppendLine();
+      }
+
       if ( ( Settings.Assembly.MapSizeCommentEnabled ) && ( !string.IsNullOrEmpty( Settings.Assembly.CommentChars ) ) )
       {
         for ( int i = 0; i < Tiles.Count; ++i )
@@ -1685,71 +1751,6 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( sbTable.ToString() );
       sb.AppendLine();
 
-      // Map Data
-      if ( ( Settings.Assembly.MapSizeCommentEnabled ) && ( !string.IsNullOrEmpty( Settings.Assembly.CommentChars ) ) )
-      {
-        sb.AppendLine( Settings.Assembly.CommentChars + " map data" );
-      }
-
-      // Global Map Tables
-      // MAPS_WIDTH
-      sb.AppendLine( LabelPrefix + "MAPS_WIDTH" + labelSuffix );
-      GR.Memory.ByteBuffer mapWidths = new GR.Memory.ByteBuffer();
-      for ( int i = 0; i < Maps.Count; ++i )
-      {
-        mapWidths.AppendU8( (byte)Maps[i].Tiles.Width );
-      }
-      sb.AppendLine( Util.ToASMData( mapWidths, WrapData, WrapByteCount, DataByteDirective ) );
-      sb.AppendLine();
-
-      // MAPS_HEIGHT
-      sb.AppendLine( LabelPrefix + "MAPS_HEIGHT" + labelSuffix );
-      GR.Memory.ByteBuffer mapHeights = new GR.Memory.ByteBuffer();
-      for ( int i = 0; i < Maps.Count; ++i )
-      {
-        mapHeights.AppendU8( (byte)Maps[i].Tiles.Height );
-      }
-      sb.AppendLine( Util.ToASMData( mapHeights, WrapData, WrapByteCount, DataByteDirective ) );
-      sb.AppendLine();
-
-      if ( Settings.Assembly.ExportMapColors )
-      {
-        // MAPS_BG_COLOR
-        sb.AppendLine( LabelPrefix + "MAPS_BG_COLOR" + labelSuffix );
-        GR.Memory.ByteBuffer mapBGColors = new GR.Memory.ByteBuffer();
-        for ( int i = 0; i < Maps.Count; ++i )
-        {
-          int effectiveBGColor = Maps[i].AlternativeBackgroundColor;
-          if ( effectiveBGColor == -1 ) effectiveBGColor = BackgroundColor;
-          mapBGColors.AppendU8( (byte)( effectiveBGColor & 0x0f ) );
-        }
-        sb.AppendLine( Util.ToASMData( mapBGColors, WrapData, WrapByteCount, DataByteDirective ) );
-        sb.AppendLine();
-
-        // MAPS_MC1_COLOR
-        sb.AppendLine( LabelPrefix + "MAPS_MC1_COLOR" + labelSuffix );
-        GR.Memory.ByteBuffer mapMC1Colors = new GR.Memory.ByteBuffer();
-        for ( int i = 0; i < Maps.Count; ++i )
-        {
-          int effectiveMC1 = Maps[i].AlternativeMultiColor1;
-          if ( effectiveMC1 == -1 ) effectiveMC1 = Charset.Colors.MultiColor1;
-          mapMC1Colors.AppendU8( (byte)( effectiveMC1 & 0x0f ) );
-        }
-        sb.AppendLine( Util.ToASMData( mapMC1Colors, WrapData, WrapByteCount, DataByteDirective ) );
-        sb.AppendLine();
-
-        // MAPS_MC2_COLOR
-        sb.AppendLine( LabelPrefix + "MAPS_MC2_COLOR" + labelSuffix );
-        GR.Memory.ByteBuffer mapMC2Colors = new GR.Memory.ByteBuffer();
-        for ( int i = 0; i < Maps.Count; ++i )
-        {
-          int effectiveMC2 = Maps[i].AlternativeMultiColor2;
-          if ( effectiveMC2 == -1 ) effectiveMC2 = Charset.Colors.MultiColor2;
-          mapMC2Colors.AppendU8( (byte)( effectiveMC2 & 0x0f ) );
-        }
-        sb.AppendLine( Util.ToASMData( mapMC2Colors, WrapData, WrapByteCount, DataByteDirective ) );
-        sb.AppendLine();
-      }
 
       if ( ( Settings.Assembly.ExportMapAsCharAndColors )
       &&   ( Settings.Assembly.ExportMapColors ) )
