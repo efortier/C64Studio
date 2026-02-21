@@ -131,6 +131,15 @@ namespace RetroDevStudio.Controls
       }
     }
 
+    private void checkCharsetPrefixLoadAddress_CheckedChanged( object sender, EventArgs e )
+    {
+      editCharsetPrefixLoadAddress.Enabled = checkCharsetPrefixLoadAddress.Checked;
+      if ( !m_ApplyingSettings )
+      {
+        RaiseSettingsChanged();
+      }
+    }
+
     private void btnBrowseCharsetExportDirectory_Click(object sender, EventArgs e)
     {
       System.Windows.Forms.FolderBrowserDialog browser = new System.Windows.Forms.FolderBrowserDialog();
@@ -290,6 +299,18 @@ namespace RetroDevStudio.Controls
       if ( checkExportCharset.Checked )
       {
         GR.Memory.ByteBuffer charData = Info.Map.Charset.CharacterData();
+        if ( checkCharsetPrefixLoadAddress.Checked )
+        {
+          if ( ( editCharsetPrefixLoadAddress.Text.Length == 4 )
+          &&   ( GR.Convert.ToI32( editCharsetPrefixLoadAddress.Text, 16 ) >= 0 ) )
+          {
+             int loadAddress = GR.Convert.ToI32( editCharsetPrefixLoadAddress.Text, 16 );
+             GR.Memory.ByteBuffer  newCharData = new GR.Memory.ByteBuffer();
+             newCharData.AppendU16( (ushort)loadAddress );
+             newCharData.Append( charData );
+             charData = newCharData;
+          }
+        }
         
         if ( !string.IsNullOrEmpty( editCharsetExportFilename.Text ) )
         {
@@ -500,10 +521,14 @@ namespace RetroDevStudio.Controls
         checkExportCharset.Checked = assemblySettings.ExportCharset;
         editCharsetExportDirectory.Text = assemblySettings.CharsetExportDirectory;
         editCharsetExportFilename.Text = assemblySettings.CharsetExportFilename;
+
+        checkCharsetPrefixLoadAddress.Checked = Settings.CharsetBinary.PrefixLoadAddress;
+        editCharsetPrefixLoadAddress.Text = Settings.CharsetBinary.PrefixLoadAddressHex;
         
         editCharsetExportDirectory.Enabled = checkExportCharset.Checked;
         btnBrowseCharsetExportDirectory.Enabled = checkExportCharset.Checked;
         editCharsetExportFilename.Enabled = checkExportCharset.Checked;
+        editCharsetPrefixLoadAddress.Enabled = checkCharsetPrefixLoadAddress.Checked;
 
         checkAlwaysOverwrite.Checked = assemblySettings.AlwaysOverwrite;
         checkExportMapAsCharAndColors.Checked = assemblySettings.ExportMapAsCharAndColors;
@@ -551,7 +576,12 @@ namespace RetroDevStudio.Controls
       assemblySettings.WrapMapData = checkWrapMapData.Checked;
       assemblySettings.ExportCharset = checkExportCharset.Checked;
       assemblySettings.CharsetExportDirectory = editCharsetExportDirectory.Text;
+      assemblySettings.CharsetExportDirectory = editCharsetExportDirectory.Text;
       assemblySettings.CharsetExportFilename = editCharsetExportFilename.Text;
+      
+      Settings.CharsetBinary.PrefixLoadAddress = checkCharsetPrefixLoadAddress.Checked;
+      Settings.CharsetBinary.PrefixLoadAddressHex = editCharsetPrefixLoadAddress.Text;
+
       assemblySettings.CharsetExportFilename = editCharsetExportFilename.Text;
       assemblySettings.AlwaysOverwrite = checkAlwaysOverwrite.Checked;
       assemblySettings.AlwaysOverwrite = checkAlwaysOverwrite.Checked;

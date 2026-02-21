@@ -61,6 +61,8 @@ namespace RetroDevStudio.Controls
             this.editCharsetExportDirectory = new System.Windows.Forms.TextBox();
             this.labelCharsetExportDirectory = new System.Windows.Forms.Label();
             this.checkExportCharset = new System.Windows.Forms.CheckBox();
+            this.checkCharsetPrefixLoadAddress = new System.Windows.Forms.CheckBox();
+            this.editCharsetPrefixLoadAddress = new System.Windows.Forms.TextBox();
             this.checkAlwaysOverwrite = new System.Windows.Forms.CheckBox();
             this.checkExportPassableBitfields = new System.Windows.Forms.CheckBox();
             this.checkExportPassableBitfieldsAsBinary = new System.Windows.Forms.CheckBox();
@@ -347,9 +349,11 @@ namespace RetroDevStudio.Controls
             this.groupCharset.Controls.Add(this.editCharsetExportDirectory);
             this.groupCharset.Controls.Add(this.labelCharsetExportDirectory);
             this.groupCharset.Controls.Add(this.checkExportCharset);
+            this.groupCharset.Controls.Add(this.checkCharsetPrefixLoadAddress);
+            this.groupCharset.Controls.Add(this.editCharsetPrefixLoadAddress);
             this.groupCharset.Location = new System.Drawing.Point(3, 325);
             this.groupCharset.Name = "groupCharset";
-            this.groupCharset.Size = new System.Drawing.Size(397, 100);
+            this.groupCharset.Size = new System.Drawing.Size(397, 120);
             this.groupCharset.TabIndex = 23;
             this.groupCharset.TabStop = false;
             this.groupCharset.Text = "Character Set";
@@ -411,6 +415,27 @@ namespace RetroDevStudio.Controls
             this.checkExportCharset.Text = "Export character set";
             this.checkExportCharset.UseVisualStyleBackColor = true;
             this.checkExportCharset.CheckedChanged += new System.EventHandler(this.checkExportCharset_CheckedChanged);
+            // 
+            // checkCharsetPrefixLoadAddress
+            // 
+            this.checkCharsetPrefixLoadAddress.AutoSize = true;
+            this.checkCharsetPrefixLoadAddress.Location = new System.Drawing.Point(6, 90);
+            this.checkCharsetPrefixLoadAddress.Name = "checkCharsetPrefixLoadAddress";
+            this.checkCharsetPrefixLoadAddress.Size = new System.Drawing.Size(117, 17);
+            this.checkCharsetPrefixLoadAddress.TabIndex = 6;
+            this.checkCharsetPrefixLoadAddress.Text = "Prefix load address";
+            this.checkCharsetPrefixLoadAddress.UseVisualStyleBackColor = true;
+            this.checkCharsetPrefixLoadAddress.CheckedChanged += new System.EventHandler(this.checkCharsetPrefixLoadAddress_CheckedChanged);
+            // 
+            // editCharsetPrefixLoadAddress
+            // 
+            this.editCharsetPrefixLoadAddress.Enabled = false;
+            this.editCharsetPrefixLoadAddress.Location = new System.Drawing.Point(130, 88);
+            this.editCharsetPrefixLoadAddress.MaxLength = 4;
+            this.editCharsetPrefixLoadAddress.Name = "editCharsetPrefixLoadAddress";
+            this.editCharsetPrefixLoadAddress.Size = new System.Drawing.Size(60, 20);
+            this.editCharsetPrefixLoadAddress.TabIndex = 7;
+            this.editCharsetPrefixLoadAddress.TextChanged += new System.EventHandler(this.HandleSettingsChanged);
             // 
             // checkAlwaysOverwrite
             // 
@@ -573,5 +598,7 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.CheckBox checkExportPassableBitfields;
     private System.Windows.Forms.CheckBox checkExportPassableBitfieldsAsBinary;
     private System.Windows.Forms.CheckBox checkExportMarkers;
+    private System.Windows.Forms.CheckBox checkCharsetPrefixLoadAddress;
+    private System.Windows.Forms.TextBox editCharsetPrefixLoadAddress;
   }
 }
