@@ -662,7 +662,20 @@ namespace RetroDevStudio.Controls
       {
         return false;
       }
-      return TrimmedLine.Contains( "=" );
+
+      string lineToCheck = TrimmedLine;
+      int commentPos1 = lineToCheck.IndexOf( ';' );
+      int commentPos2 = lineToCheck.IndexOf( "//" );
+      int commentPos = -1;
+      if ( commentPos1 != -1 ) commentPos = commentPos1;
+      if ( commentPos2 != -1 && ( commentPos == -1 || commentPos2 < commentPos ) ) commentPos = commentPos2;
+      
+      if ( commentPos != -1 )
+      {
+        lineToCheck = lineToCheck.Substring( 0, commentPos );
+      }
+      
+      return lineToCheck.Contains( "=" );
     }
 
     private bool IsSimpleLabelLine( string TrimmedLine )
@@ -680,17 +693,35 @@ namespace RetroDevStudio.Controls
       {
         return false;
       }
-      if ( TrimmedLine.EndsWith( ":" ) )
+
+      string lineToCheck = TrimmedLine;
+      int commentPos1 = lineToCheck.IndexOf( ';' );
+      int commentPos2 = lineToCheck.IndexOf( "//" );
+      int commentPos = -1;
+      if ( commentPos1 != -1 ) commentPos = commentPos1;
+      if ( commentPos2 != -1 && ( commentPos == -1 || commentPos2 < commentPos ) ) commentPos = commentPos2;
+      
+      if ( commentPos != -1 )
+      {
+        lineToCheck = lineToCheck.Substring( 0, commentPos );
+      }
+      lineToCheck = lineToCheck.TrimEnd();
+      
+      if ( string.IsNullOrEmpty( lineToCheck ) )
       {
         return false;
       }
-      if ( TrimmedLine.Contains( "=" ) )
+      if ( lineToCheck.EndsWith( ":" ) )
       {
         return false;
       }
-      for ( int i = 0; i < TrimmedLine.Length; ++i )
+      if ( lineToCheck.Contains( "=" ) )
       {
-        if ( char.IsWhiteSpace( TrimmedLine[i] ) )
+        return false;
+      }
+      for ( int i = 0; i < lineToCheck.Length; ++i )
+      {
+        if ( char.IsWhiteSpace( lineToCheck[i] ) )
         {
           return false;
         }

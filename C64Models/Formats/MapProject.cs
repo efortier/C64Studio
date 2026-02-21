@@ -1540,7 +1540,7 @@ namespace RetroDevStudio.Formats
         {
           int     colorIndex = colors[i] & 0x0f;
 
-          string    line = LabelPrefix + colorLabels[i] + " = $" + colorIndex.ToString( "X2" );
+          string    line = colorLabels[i] + labelSuffix + " " + DataByteDirective + " $" + colorIndex.ToString( "X2" );
 
           if ( ( Settings.Assembly.MapSizeCommentEnabled ) && ( !string.IsNullOrEmpty( Settings.Assembly.CommentChars ) ) )
           {
@@ -1560,7 +1560,8 @@ namespace RetroDevStudio.Formats
         sb.AppendLine();
       }
 
-      sb.AppendLine( LabelPrefix + "TILE_COUNT=" + Tiles.Count );
+      sb.AppendLine( "TILE_COUNT" + labelSuffix + " " + DataByteDirective + " $" + Tiles.Count.ToString( "X2" ) );
+      sb.AppendLine( "MAP_COUNT" + labelSuffix + " " + DataByteDirective + " $" + Maps.Count.ToString( "X2" ) );
       sb.AppendLine();
 
       if ( ( Settings.Assembly.MapSizeCommentEnabled ) && ( !string.IsNullOrEmpty( Settings.Assembly.CommentChars ) ) )
@@ -1689,8 +1690,6 @@ namespace RetroDevStudio.Formats
       {
         sb.AppendLine( Settings.Assembly.CommentChars + " map data" );
       }
-      sb.AppendLine( LabelPrefix + "MAP_COUNT=" + Maps.Count );
-      sb.AppendLine();
 
       // Global Map Tables
       // MAPS_WIDTH
