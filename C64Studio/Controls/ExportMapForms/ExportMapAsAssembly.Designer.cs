@@ -349,8 +349,8 @@ namespace RetroDevStudio.Controls
             this.groupCharset.Controls.Add(this.editCharsetExportDirectory);
             this.groupCharset.Controls.Add(this.labelCharsetExportDirectory);
             this.groupCharset.Controls.Add(this.checkExportCharset);
-            this.groupCharset.Controls.Add(this.checkCharsetPrefixLoadAddress);
             this.groupCharset.Controls.Add(this.editCharsetPrefixLoadAddress);
+            this.groupCharset.Controls.Add(this.checkCharsetPrefixLoadAddress);
             this.groupCharset.Location = new System.Drawing.Point(3, 325);
             this.groupCharset.Name = "groupCharset";
             this.groupCharset.Size = new System.Drawing.Size(397, 120);
@@ -419,9 +419,9 @@ namespace RetroDevStudio.Controls
             // checkCharsetPrefixLoadAddress
             // 
             this.checkCharsetPrefixLoadAddress.AutoSize = true;
-            this.checkCharsetPrefixLoadAddress.Location = new System.Drawing.Point(6, 90);
+            this.checkCharsetPrefixLoadAddress.Location = new System.Drawing.Point(3, 91);
             this.checkCharsetPrefixLoadAddress.Name = "checkCharsetPrefixLoadAddress";
-            this.checkCharsetPrefixLoadAddress.Size = new System.Drawing.Size(117, 17);
+            this.checkCharsetPrefixLoadAddress.Size = new System.Drawing.Size(115, 17);
             this.checkCharsetPrefixLoadAddress.TabIndex = 6;
             this.checkCharsetPrefixLoadAddress.Text = "Prefix load address";
             this.checkCharsetPrefixLoadAddress.UseVisualStyleBackColor = true;
@@ -430,7 +430,7 @@ namespace RetroDevStudio.Controls
             // editCharsetPrefixLoadAddress
             // 
             this.editCharsetPrefixLoadAddress.Enabled = false;
-            this.editCharsetPrefixLoadAddress.Location = new System.Drawing.Point(130, 88);
+            this.editCharsetPrefixLoadAddress.Location = new System.Drawing.Point(124, 89);
             this.editCharsetPrefixLoadAddress.MaxLength = 4;
             this.editCharsetPrefixLoadAddress.Name = "editCharsetPrefixLoadAddress";
             this.editCharsetPrefixLoadAddress.Size = new System.Drawing.Size(60, 20);
@@ -495,7 +495,7 @@ namespace RetroDevStudio.Controls
             // groupPrefixCode
             // 
             this.groupPrefixCode.Controls.Add(this.editPrefixCode);
-            this.groupPrefixCode.Location = new System.Drawing.Point(9, 431);
+            this.groupPrefixCode.Location = new System.Drawing.Point(6, 451);
             this.groupPrefixCode.Name = "groupPrefixCode";
             this.groupPrefixCode.Size = new System.Drawing.Size(391, 100);
             this.groupPrefixCode.TabIndex = 24;
@@ -506,7 +506,7 @@ namespace RetroDevStudio.Controls
             // 
             this.editPrefixCode.AcceptsReturn = true;
             this.editPrefixCode.AcceptsTab = true;
-            this.editPrefixCode.Location = new System.Drawing.Point(6, 19);
+            this.editPrefixCode.Location = new System.Drawing.Point(8, 19);
             this.editPrefixCode.Multiline = true;
             this.editPrefixCode.Name = "editPrefixCode";
             this.editPrefixCode.ScrollBars = System.Windows.Forms.ScrollBars.Both;
@@ -524,8 +524,8 @@ namespace RetroDevStudio.Controls
             this.Controls.Add(this.checkExportMarkers);
             this.Controls.Add(this.checkExportMapAsCharAndColors);
             this.Controls.Add(this.checkAlwaysOverwrite);
-            this.Controls.Add(this.groupCharset);
             this.Controls.Add(this.groupPrefixCode);
+            this.Controls.Add(this.groupCharset);
             this.Controls.Add(this.groupAutoSave);
             this.Controls.Add(this.checkExportMapColors);
             this.Controls.Add(this.checkExportTilesetColors);
