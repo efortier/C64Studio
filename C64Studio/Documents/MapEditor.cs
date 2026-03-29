@@ -5500,6 +5500,7 @@ namespace RetroDevStudio.Documents
       var newType = new MapProject.MarkerType();
       newType.Name = name;
       newType.Color = comboMarkerColor.SelectedIndex;
+      newType.TagID = (int)editMarkerTagID.Value;
       newType.ID = 0;
       if ( m_MapProject.MarkerTypes.Count > 0 )
       {
@@ -5520,6 +5521,7 @@ namespace RetroDevStudio.Documents
        type.Name = editMarkerName.Text;
        type.Color = comboMarkerColor.SelectedIndex;
        type.ExportSymbol = editMarkerExportSymbol.Text;
+       type.TagID = (int)editMarkerTagID.Value;
        
        RefreshMarkerTypes();
        listMarkerTypes.SelectedIndex = listMarkerTypes.SelectedIndex; // Restore selection
@@ -5551,6 +5553,7 @@ namespace RetroDevStudio.Documents
        editMarkerName.Text = type.Name;
        comboMarkerColor.SelectedIndex = type.Color;
        editMarkerExportSymbol.Text = type.ExportSymbol;
+       editMarkerTagID.Value = type.TagID;
     }
 
     private void editMarkerExportSymbol_KeyPress( object sender, KeyPressEventArgs e )

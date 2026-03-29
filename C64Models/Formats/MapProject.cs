@@ -31,6 +31,7 @@ namespace RetroDevStudio.Formats
       public string     ExportSymbol = "";
       public int        Color = 1; 
       public int        ID = 0;
+      public int        TagID = 0;
     };
 
     public class Tile
@@ -222,6 +223,7 @@ namespace RetroDevStudio.Formats
         chunkMarkerType.AppendString( markerType.Name );
         chunkMarkerType.AppendI32( markerType.Color );
         chunkMarkerType.AppendString( markerType.ExportSymbol );
+        chunkMarkerType.AppendU8( (byte)markerType.TagID );
         chunkProjectData.Append( chunkMarkerType.ToBuffer() );
       }
 
@@ -442,6 +444,10 @@ namespace RetroDevStudio.Formats
                       if ( subChunkReader.Position < subChunkReader.Size )
                       {
                         mType.ExportSymbol = subChunkReader.ReadString();
+                      }
+                      if ( subChunkReader.Position < subChunkReader.Size )
+                      {
+                        mType.TagID = subChunkReader.ReadUInt8();
                       }
                       MarkerTypes.Add( mType );
                     }
@@ -2214,17 +2220,19 @@ namespace RetroDevStudio.Formats
                if ( marker.Type == markerType.ID )
                {
                  sb.Append( DataByteDirective + " " );
-                 if ( HexFormat )
-                 {
-                   sb.Append( "$" + marker.X.ToString( "X2" ) );
-                   sb.Append( ",$" + marker.Y.ToString( "X2" ) );
-                 }
-                 else
-                 {
-                   sb.Append( marker.X.ToString() );
-                   sb.Append( "," + marker.Y.ToString() );
-                 }
-                 sb.AppendLine();
+             if ( HexFormat )
+             {
+               sb.Append( "$" + marker.X.ToString( "X2" ) );
+               sb.Append( ",$" + marker.Y.ToString( "X2" ) );
+               sb.Append( ",$" + markerType.TagID.ToString( "X2" ) );
+             }
+             else
+             {
+               sb.Append( marker.X.ToString() );
+               sb.Append( "," + marker.Y.ToString() );
+               sb.Append( "," + markerType.TagID.ToString() );
+             }
+             sb.AppendLine();
                }
              }
              sb.AppendLine();

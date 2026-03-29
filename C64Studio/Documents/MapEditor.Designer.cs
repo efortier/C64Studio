@@ -42,6 +42,8 @@
             this.btnAddMarkerType = new DecentForms.Button();
             this.editMarkerExportSymbol = new System.Windows.Forms.TextBox();
             this.labelMarkerExportSymbol = new System.Windows.Forms.Label();
+            this.editMarkerTagID = new System.Windows.Forms.NumericUpDown();
+            this.labelMarkerTagID = new System.Windows.Forms.Label();
             this.comboMarkerColor = new System.Windows.Forms.ComboBox();
             this.labelMarkerColor = new System.Windows.Forms.Label();
             this.editMarkerName = new System.Windows.Forms.TextBox();
@@ -194,6 +196,7 @@
             this.panelMapContainer.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureEditor)).BeginInit();
             this.tabMarkers.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.editMarkerTagID)).BeginInit();
             this.menuStrip1.SuspendLayout();
             this.tabEditor.SuspendLayout();
             this.groupBox1.SuspendLayout();
@@ -250,6 +253,8 @@
             this.tabMarkers.Controls.Add(this.btnAddMarkerType);
             this.tabMarkers.Controls.Add(this.editMarkerExportSymbol);
             this.tabMarkers.Controls.Add(this.labelMarkerExportSymbol);
+            this.tabMarkers.Controls.Add(this.editMarkerTagID);
+            this.tabMarkers.Controls.Add(this.labelMarkerTagID);
             this.tabMarkers.Controls.Add(this.comboMarkerColor);
             this.tabMarkers.Controls.Add(this.labelMarkerColor);
             this.tabMarkers.Controls.Add(this.editMarkerName);
@@ -271,7 +276,7 @@
             this.btnDeleteMarkerType.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnDeleteMarkerType.Enabled = false;
             this.btnDeleteMarkerType.Image = null;
-            this.btnDeleteMarkerType.Location = new System.Drawing.Point(346, 100);
+            this.btnDeleteMarkerType.Location = new System.Drawing.Point(346, 126);
             this.btnDeleteMarkerType.Name = "btnDeleteMarkerType";
             this.btnDeleteMarkerType.Size = new System.Drawing.Size(80, 23);
             this.btnDeleteMarkerType.TabIndex = 9;
@@ -286,7 +291,7 @@
             this.btnUpdateMarkerType.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnUpdateMarkerType.Enabled = false;
             this.btnUpdateMarkerType.Image = null;
-            this.btnUpdateMarkerType.Location = new System.Drawing.Point(260, 100);
+            this.btnUpdateMarkerType.Location = new System.Drawing.Point(260, 126);
             this.btnUpdateMarkerType.Name = "btnUpdateMarkerType";
             this.btnUpdateMarkerType.Size = new System.Drawing.Size(75, 23);
             this.btnUpdateMarkerType.TabIndex = 8;
@@ -300,7 +305,7 @@
             this.btnAddMarkerType.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             this.btnAddMarkerType.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnAddMarkerType.Image = null;
-            this.btnAddMarkerType.Location = new System.Drawing.Point(174, 100);
+            this.btnAddMarkerType.Location = new System.Drawing.Point(174, 126);
             this.btnAddMarkerType.Name = "btnAddMarkerType";
             this.btnAddMarkerType.Size = new System.Drawing.Size(75, 23);
             this.btnAddMarkerType.TabIndex = 7;
@@ -323,6 +328,27 @@
             this.labelMarkerExportSymbol.Size = new System.Drawing.Size(77, 13);
             this.labelMarkerExportSymbol.TabIndex = 5;
             this.labelMarkerExportSymbol.Text = "Export Symbol:";
+            // 
+            // editMarkerTagID
+            // 
+            this.editMarkerTagID.Location = new System.Drawing.Point(260, 96);
+            this.editMarkerTagID.Maximum = new decimal(new int[] {
+            255,
+            0,
+            0,
+            0});
+            this.editMarkerTagID.Name = "editMarkerTagID";
+            this.editMarkerTagID.Size = new System.Drawing.Size(120, 20);
+            this.editMarkerTagID.TabIndex = 10;
+            // 
+            // labelMarkerTagID
+            // 
+            this.labelMarkerTagID.AutoSize = true;
+            this.labelMarkerTagID.Location = new System.Drawing.Point(174, 98);
+            this.labelMarkerTagID.Name = "labelMarkerTagID";
+            this.labelMarkerTagID.Size = new System.Drawing.Size(43, 13);
+            this.labelMarkerTagID.TabIndex = 11;
+            this.labelMarkerTagID.Text = "Tag ID:";
             // 
             // comboMarkerColor
             // 
@@ -2101,6 +2127,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.m_FileWatcher)).EndInit();
             this.panelMapContainer.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.pictureEditor)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.editMarkerTagID)).EndInit();
             this.tabMarkers.ResumeLayout(false);
             this.tabMarkers.PerformLayout();
             this.menuStrip1.ResumeLayout(false);
@@ -2290,6 +2317,8 @@
         private DecentForms.Button btnAddMarkerType;
         private DecentForms.Button btnUpdateMarkerType;
         private DecentForms.Button btnDeleteMarkerType;
+        private System.Windows.Forms.NumericUpDown editMarkerTagID;
+        private System.Windows.Forms.Label labelMarkerTagID;
         private System.Windows.Forms.TextBox editTileGroupId;
         private System.Windows.Forms.Label labelTileGroupId;
 
