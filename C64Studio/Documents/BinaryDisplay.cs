@@ -498,6 +498,19 @@ namespace RetroDevStudio.Documents
 
 
 
+    public override void RefreshDisplayOptions()
+    {
+      base.RefreshDisplayOptions();
+
+      var selColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( Types.ColorableElement.SELECTED_TEXT ) );
+      hexView.ShadowSelectionColor = System.Drawing.Color.FromArgb( 100, selColor.R, selColor.G, selColor.B );
+
+      hexView.BackColor = GR.Color.Helper.FromARGB( Core.Settings.BGColor( Types.ColorableElement.BACKGROUND_CONTROL ) );
+      hexView.ForeColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( Types.ColorableElement.CONTROL_TEXT ) );
+    }
+
+
+
   }
 }
 

@@ -38,6 +38,12 @@ namespace RetroDevStudio.Dialogs.Preferences
 
     public override void ApplySettingsToControls()
     {
+      comboThemeMode.Items.Clear();
+      comboThemeMode.Items.Add( "Custom" );
+      comboThemeMode.Items.Add( "Light" );
+      comboThemeMode.Items.Add( "Dark" );
+      comboThemeMode.SelectedIndex = (int)Core.Settings.CurrentThemeMode;
+
       comboElementBG.BeginUpdate();
       comboElementFG.BeginUpdate();
 
@@ -79,6 +85,18 @@ namespace RetroDevStudio.Dialogs.Preferences
 
       Core.Settings.SetDefaultColors();
 
+      var themeModeStr = xmlSettingRoot.Attribute( "ThemeMode" );
+      if ( !string.IsNullOrEmpty( themeModeStr ) )
+      {
+        try
+        {
+          Core.Settings.CurrentThemeMode = (Types.ThemeMode)Enum.Parse( typeof( Types.ThemeMode ), themeModeStr, true );
+        }
+        catch
+        {
+        }
+      }
+
       foreach ( var xmlKey in xmlSettingRoot.ChildElements )
       {
         if ( xmlKey.Type == "Color" )
@@ -106,6 +124,7 @@ namespace RetroDevStudio.Dialogs.Preferences
     public override void ExportSettings( XMLElement SettingsRoot )
     {
       GR.Strings.XMLElement     xmlSettingRoot = new GR.Strings.XMLElement( "EditorColors" );
+      xmlSettingRoot.AddAttribute( "ThemeMode", Core.Settings.CurrentThemeMode.ToString() );
       SettingsRoot.AddChild( xmlSettingRoot );
 
       foreach ( Types.ColorableElement element in System.Enum.GetValues( typeof( Types.ColorableElement ) ) )
@@ -272,6 +291,60 @@ namespace RetroDevStudio.Dialogs.Preferences
 
 
 
+    private void SwitchToCustomIfNeeded()
+    {
+      if ( Core.Settings.CurrentThemeMode != Types.ThemeMode.Custom )
+      {
+        Core.Settings.CurrentThemeMode = Types.ThemeMode.Custom;
+        if ( comboThemeMode.SelectedIndex != 0 )
+        {
+          comboThemeMode.SelectedIndex = 0;
+        }
+      }
+    }
+
+
+
+    private void comboThemeMode_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      if ( _insideColorRefresh )
+      {
+        return;
+      }
+
+      var newMode = (Types.ThemeMode)comboThemeMode.SelectedIndex;
+      if ( newMode == Core.Settings.CurrentThemeMode )
+      {
+        return;
+      }
+
+      Core.Settings.CurrentThemeMode = newMode;
+      switch ( newMode )
+      {
+        case Types.ThemeMode.Light:
+          Core.Settings.SetLightColors();
+          break;
+        case Types.ThemeMode.Dark:
+          Core.Settings.SetDarkColors();
+          break;
+        case Types.ThemeMode.Custom:
+          break;
+      }
+
+      _insideColorRefresh = true;
+      RefillColorList();
+      if ( listColoring.Items.Count > 0 )
+      {
+        listColoring.SelectedIndices.Add( 0 );
+      }
+      listColoring_SelectedIndexChanged( listColoring, EventArgs.Empty );
+      _insideColorRefresh = false;
+
+      RefreshDisplayOnDocuments();
+    }
+
+
+
     private void comboElementFG_SelectedIndexChanged( object sender, EventArgs e )
     {
       if ( listColoring.SelectedItems.Count == 0 )
@@ -287,6 +360,7 @@ namespace RetroDevStudio.Dialogs.Preferences
         color.FGColor = comboColor.FGColor;
         panelElementPreview.Invalidate();
 
+        SwitchToCustomIfNeeded();
         ColorsChanged( (Types.ColorableElement)listColoring.SelectedIndices[0] );
       }
     }
@@ -327,6 +401,7 @@ namespace RetroDevStudio.Dialogs.Preferences
           color.BGColor = comboColor.FGColor;
         }
         panelElementPreview.Invalidate();
+        SwitchToCustomIfNeeded();
         ColorsChanged( (Types.ColorableElement)listColoring.SelectedIndices[0] );
       }
     }
@@ -352,6 +427,7 @@ namespace RetroDevStudio.Dialogs.Preferences
         comboElementFG.SelectedIndex = 0;
         comboElementFG.Invalidate();
         panelElementPreview.Invalidate();
+        SwitchToCustomIfNeeded();
         RefreshDisplayOnDocuments();
       }
     }
@@ -380,6 +456,7 @@ namespace RetroDevStudio.Dialogs.Preferences
         comboElementBG.SelectedIndex = ColorComboIndexOfCustomItem( color );
         comboElementBG.Invalidate();
         panelElementPreview.Invalidate();
+        SwitchToCustomIfNeeded();
         RefreshDisplayOnDocuments();
       }
     }
@@ -401,7 +478,18 @@ namespace RetroDevStudio.Dialogs.Preferences
     private void btnSetDefaultsColors_Click( DecentForms.ControlBase Sender )
     {
       Core.Settings.SetDefaultColors();
+      Core.Settings.CurrentThemeMode = Types.ThemeMode.Light;
+
+      _insideColorRefresh = true;
+      comboThemeMode.SelectedIndex = (int)Types.ThemeMode.Light;
+      RefillColorList();
+      if ( listColoring.Items.Count > 0 )
+      {
+        listColoring.SelectedIndices.Add( 0 );
+      }
       listColoring_SelectedIndexChanged( listColoring, new EventArgs() );
+      _insideColorRefresh = false;
+
       RefreshDisplayOnDocuments();
     }
 

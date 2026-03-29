@@ -1062,39 +1062,41 @@ namespace RetroDevStudio
       StudioCore.Theming.ApplyThemeToToolStripItems( mainTools, mainTools.Items );
       StudioCore.Theming.ApplyThemeToToolStripItems( debugTools, debugTools.Items );
 
-      panelMain.Theme.Skin.DockPaneStripSkin.DocumentGradient.InactiveTabGradient.StartColor = StudioCore.Theming.DarkenColor( bgColor );
-      panelMain.Theme.Skin.DockPaneStripSkin.DocumentGradient.InactiveTabGradient.EndColor = StudioCore.Theming.DarkenColor( bgColor );
+      var shiftedBgColor = StudioCore.Theming.ShiftColor( bgColor );
+
+      panelMain.Theme.Skin.DockPaneStripSkin.DocumentGradient.InactiveTabGradient.StartColor = shiftedBgColor;
+      panelMain.Theme.Skin.DockPaneStripSkin.DocumentGradient.InactiveTabGradient.EndColor = shiftedBgColor;
       panelMain.Theme.Skin.DockPaneStripSkin.DocumentGradient.InactiveTabGradient.TextColor = fgColor;
       panelMain.Theme.Skin.DockPaneStripSkin.DocumentGradient.ActiveTabGradient.StartColor = bgColor;
       panelMain.Theme.Skin.DockPaneStripSkin.DocumentGradient.ActiveTabGradient.EndColor = bgColor;
       panelMain.Theme.Skin.DockPaneStripSkin.DocumentGradient.ActiveTabGradient.TextColor = fgColor;
-      panelMain.Theme.Skin.DockPaneStripSkin.DocumentGradient.DockStripGradient.StartColor = StudioCore.Theming.DarkenColor( bgColor );
-      panelMain.Theme.Skin.DockPaneStripSkin.DocumentGradient.DockStripGradient.EndColor = StudioCore.Theming.DarkenColor( bgColor );
+      panelMain.Theme.Skin.DockPaneStripSkin.DocumentGradient.DockStripGradient.StartColor = shiftedBgColor;
+      panelMain.Theme.Skin.DockPaneStripSkin.DocumentGradient.DockStripGradient.EndColor = shiftedBgColor;
 
       panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.ActiveTabGradient.StartColor = bgColor;
       panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.ActiveTabGradient.EndColor = bgColor;
       panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.ActiveTabGradient.TextColor = fgColor;
-      panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.InactiveTabGradient.StartColor = StudioCore.Theming.DarkenColor( bgColor );
-      panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.InactiveTabGradient.EndColor = StudioCore.Theming.DarkenColor( bgColor );
+      panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.InactiveTabGradient.StartColor = shiftedBgColor;
+      panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.InactiveTabGradient.EndColor = shiftedBgColor;
       panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.InactiveTabGradient.TextColor = fgColor;
-      panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.DockStripGradient.StartColor = StudioCore.Theming.DarkenColor( bgColor );
-      panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.DockStripGradient.EndColor = StudioCore.Theming.DarkenColor( bgColor );
+      panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.DockStripGradient.StartColor = shiftedBgColor;
+      panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.DockStripGradient.EndColor = shiftedBgColor;
 
       panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.ActiveCaptionGradient.StartColor = bgColor;
-      panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.ActiveCaptionGradient.EndColor = StudioCore.Theming.DarkenColor( bgColor );
+      panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.ActiveCaptionGradient.EndColor = shiftedBgColor;
       panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.ActiveCaptionGradient.TextColor = fgColor;
-      panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.InactiveCaptionGradient.StartColor = StudioCore.Theming.DarkenColor( bgColor );
-      panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.InactiveCaptionGradient.EndColor = StudioCore.Theming.DarkenColor( StudioCore.Theming.DarkenColor( bgColor ) );
+      panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.InactiveCaptionGradient.StartColor = shiftedBgColor;
+      panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.InactiveCaptionGradient.EndColor = StudioCore.Theming.ShiftColor( shiftedBgColor );
       panelMain.Theme.Skin.DockPaneStripSkin.ToolWindowGradient.InactiveCaptionGradient.TextColor = fgColor;
-      panelMain.Theme.Skin.AutoHideStripSkin.DockStripBackground.StartColor = StudioCore.Theming.DarkenColor( bgColor );
-      panelMain.Theme.Skin.AutoHideStripSkin.DockStripBackground.EndColor = StudioCore.Theming.DarkenColor( bgColor );
+      panelMain.Theme.Skin.AutoHideStripSkin.DockStripBackground.StartColor = shiftedBgColor;
+      panelMain.Theme.Skin.AutoHideStripSkin.DockStripBackground.EndColor = shiftedBgColor;
 
 
-      panelMain.DockBackColor = StudioCore.Theming.DarkenColor( bgColor );
+      panelMain.DockBackColor = shiftedBgColor;
       panelMain.ForeColor = fgColor;
       foreach ( var pane in panelMain.Panes )
       {
-        pane.DockPanel.DockBackColor = StudioCore.Theming.DarkenColor( bgColor );
+        pane.DockPanel.DockBackColor = shiftedBgColor;
         pane.DockPanel.ForeColor = fgColor;
       }
 
@@ -1102,9 +1104,12 @@ namespace RetroDevStudio
       {
         if ( ctrl is MdiClient )
         {
-          ctrl.BackColor = StudioCore.Theming.DarkenColor( bgColor );
+          ctrl.BackColor = shiftedBgColor;
         }
       }
+
+      // Apply dark title bar if theme is dark
+      StudioCore.Theming.SetDarkTitleBar( this );
     }
 
 
@@ -7207,7 +7212,7 @@ namespace RetroDevStudio
 
     public Project AddNewSolution( string preferredSolutionName = "New Solution" )
     {
-      var solWizard = new FormSolutionWizard( preferredSolutionName, StudioCore.Settings );
+      var solWizard = new FormSolutionWizard( preferredSolutionName, StudioCore.Settings, StudioCore );
       if ( solWizard.ShowDialog() != DialogResult.OK )
       {
         return null;

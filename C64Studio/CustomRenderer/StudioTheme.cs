@@ -3,6 +3,7 @@ using RetroDevStudio.Types;
 using RetroDevStudio;
 using System;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Drawing.Drawing2D;
 using System.Diagnostics;
@@ -39,6 +40,11 @@ namespace RetroDevStudio.CustomRenderer
 
   public class StudioTheme : ToolStripProfessionalRenderer
   {
+    [DllImport( "dwmapi.dll", PreserveSig = true )]
+    private static extern int DwmSetWindowAttribute( IntPtr hwnd, int attr, ref int attrValue, int attrSize );
+
+    private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+
     private StudioCore      Core;
 
 
@@ -130,15 +136,6 @@ namespace RetroDevStudio.CustomRenderer
 
           button.DisabledTextColor = DarkenColor( GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.CONTROL_TEXT ) ) );
         }
-        /*
-        if ( control is MenuStrip )
-        {
-          var menuStrip = control as MenuStrip;
-          if ( menuStrip.Renderer != this )
-          {
-            menuStrip.Renderer = this;
-          }
-        }*/
 
         control.ForeColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.CONTROL_TEXT ) );
 
@@ -148,12 +145,16 @@ namespace RetroDevStudio.CustomRenderer
 
           combo.BackColor = GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) );
           combo.ForeColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.CONTROL_TEXT ) );
+          if ( combo.DropDownStyle == ComboBoxStyle.DropDownList )
+          {
+            combo.FlatStyle = FlatStyle.Popup;
+          }
         }
         if ( control is TextBox )
         {
           var edit = control as TextBox;
 
-          edit.BackColor = GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.CONTROL_TEXT ) );
+          edit.BackColor = GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) );
         }
         if ( control is Button )
         {
@@ -177,6 +178,53 @@ namespace RetroDevStudio.CustomRenderer
           {
             button.BackColor = GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_BUTTON ) );
           }
+        }
+        if ( control is GroupBox )
+        {
+          var gb = control as GroupBox;
+
+          gb.ForeColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.CONTROL_TEXT ) );
+          gb.FlatStyle = FlatStyle.Flat;
+        }
+        if ( control is NumericUpDown )
+        {
+          var nud = control as NumericUpDown;
+
+          nud.BackColor = GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) );
+          nud.ForeColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.CONTROL_TEXT ) );
+        }
+        if ( control is ListBox )
+        {
+          var lb = control as ListBox;
+
+          lb.BackColor = GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) );
+          lb.ForeColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.CONTROL_TEXT ) );
+        }
+        if ( control is RichTextBox )
+        {
+          var rtb = control as RichTextBox;
+
+          rtb.BackColor = GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) );
+          rtb.ForeColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.CONTROL_TEXT ) );
+        }
+        if ( control is DataGridView )
+        {
+          var dgv = control as DataGridView;
+
+          dgv.BackgroundColor = GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) );
+          dgv.DefaultCellStyle.BackColor = GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) );
+          dgv.DefaultCellStyle.ForeColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.CONTROL_TEXT ) );
+          dgv.ColumnHeadersDefaultCellStyle.BackColor = GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) );
+          dgv.ColumnHeadersDefaultCellStyle.ForeColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.CONTROL_TEXT ) );
+          dgv.EnableHeadersVisualStyles = false;
+          dgv.GridColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.BACKGROUND_CONTROL ) );
+        }
+        if ( control is TreeView )
+        {
+          var tv = control as TreeView;
+
+          tv.BackColor = GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) );
+          tv.ForeColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.CONTROL_TEXT ) );
         }
         if ( control is ToolStrip )
         {
@@ -246,7 +294,7 @@ namespace RetroDevStudio.CustomRenderer
 
       TabPage page = control.TabPages[e.Index];
 
-      var bgColorUnselected = DarkenColor( GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) ) );
+      var bgColorUnselected = ShiftColor( GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) ) );
       var bgColorSelected = GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) );
 
       if ( e.State == DrawItemState.Selected )
@@ -271,8 +319,8 @@ namespace RetroDevStudio.CustomRenderer
     {
       e.DrawBackground();
 
-      e.Graphics.FillRectangle( new SolidBrush( DarkenColor( GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) ) ) ), e.Bounds );
-      e.Graphics.FillRectangle( new SolidBrush( DarkenColor( DarkenColor( GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.CONTROL_TEXT ) ) ) ) ),
+      e.Graphics.FillRectangle( new SolidBrush( ShiftColor( GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) ) ) ), e.Bounds );
+      e.Graphics.FillRectangle( new SolidBrush( ShiftColor( ShiftColor( GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.CONTROL_TEXT ) ) ) ) ),
         new Rectangle( e.Bounds.Right - 1, e.Bounds.Top, 1, e.Bounds.Height ) );
 
       var stringFormat = new StringFormat();
@@ -299,14 +347,65 @@ namespace RetroDevStudio.CustomRenderer
       Form.BackColor = GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) );
 
       RecolorControlsRecursive( Form.Controls );
+
+      SetDarkTitleBar( Form );
+    }
+
+
+
+    public void SetDarkTitleBar( Form Form )
+    {
+      if ( !Form.IsHandleCreated )
+      {
+        return;
+      }
+
+      try
+      {
+        if ( Environment.OSVersion.Version.Build >= 17763 )
+        {
+          var bg = GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) );
+          bool isDark = ( 0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B ) < 128;
+          int value = isDark ? 1 : 0;
+          DwmSetWindowAttribute( Form.Handle, DWMWA_USE_IMMERSIVE_DARK_MODE, ref value, sizeof( int ) );
+        }
+      }
+      catch
+      {
+        // DwmSetWindowAttribute may not be available on all systems
+      }
     }
 
 
 
     internal Color DarkenColor( Color OrigColor )
     {
-      float   darkFactor = 0.85f; // 0.75f
+      float   darkFactor = 0.85f;
       return System.Drawing.Color.FromArgb( OrigColor.A, (int)( OrigColor.R * darkFactor ), (int)( OrigColor.G * darkFactor ), (int)( OrigColor.B * darkFactor ) );
+    }
+
+
+
+    internal Color LightenColor( Color OrigColor )
+    {
+      float   factor = 1.3f;
+      int     offset = 15;
+      return System.Drawing.Color.FromArgb( OrigColor.A,
+        Math.Min( 255, (int)( OrigColor.R * factor ) + offset ),
+        Math.Min( 255, (int)( OrigColor.G * factor ) + offset ),
+        Math.Min( 255, (int)( OrigColor.B * factor ) + offset ) );
+    }
+
+
+
+    internal Color ShiftColor( Color OrigColor )
+    {
+      float luminance = ( 0.299f * OrigColor.R + 0.587f * OrigColor.G + 0.114f * OrigColor.B ) / 255f;
+      if ( luminance < 0.5f )
+      {
+        return LightenColor( OrigColor );
+      }
+      return DarkenColor( OrigColor );
     }
 
 

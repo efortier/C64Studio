@@ -327,6 +327,17 @@ namespace RetroDevStudio.Types
     LAST_ENTRY
   }
 
+
+
+  public enum ThemeMode
+  {
+    Custom = 0,
+    Light = 1,
+    Dark = 2
+  }
+
+
+
   public class ColorSetting
   {
     public uint         FGColor = 0;

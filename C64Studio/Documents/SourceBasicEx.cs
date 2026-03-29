@@ -850,7 +850,14 @@ namespace RetroDevStudio.Documents
         editSource.CaretColor = System.Drawing.Color.Black;
       }
 
-      BackColor = Core.Theming.DarkenColor( GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) ) );
+      // theme-aware selection and disabled colors
+      var selColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.SELECTED_TEXT ) );
+      editSource.SelectionColor = System.Drawing.Color.FromArgb( 60, selColor.R, selColor.G, selColor.B );
+
+      var disabledColor = Core.Theming.DarkenColor( GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.CONTROL_TEXT ) ) );
+      editSource.DisabledColor = System.Drawing.Color.FromArgb( 100, disabledColor.R, disabledColor.G, disabledColor.B );
+
+      BackColor = Core.Theming.ShiftColor( GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) ) );
       editSource.ForeColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.CODE ) );
 
       labelBASICVersion.BackColor = BackColor;

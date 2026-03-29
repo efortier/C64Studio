@@ -734,6 +734,12 @@ namespace RetroDevStudio.Documents
       UnchangedColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.BACKGROUND_CONTROL ) );
 
       hexView.MarkedForeColor = ChangedColor;
+
+      var selColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.SELECTED_TEXT ) );
+      hexView.ShadowSelectionColor = System.Drawing.Color.FromArgb( 100, selColor.R, selColor.G, selColor.B );
+
+      hexView.BackColor = GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) );
+      hexView.ForeColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.CONTROL_TEXT ) );
     }
 
 

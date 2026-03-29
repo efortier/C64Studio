@@ -3141,7 +3141,7 @@ namespace RetroDevStudio.Documents
     {
       base.RefreshDisplayOptions();
 
-      BackColor = Core.Theming.DarkenColor( GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) ) );
+      BackColor = Core.Theming.ShiftColor( GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) ) );
 
       // Font
       editSource.Font = new System.Drawing.Font( Core.Settings.SourceFontFamily, Core.Settings.SourceFontSize, Core.Settings.SourceFontStyle );
@@ -3160,6 +3160,13 @@ namespace RetroDevStudio.Documents
       {
         editSource.CaretColor = System.Drawing.Color.Black;
       }
+
+      // theme-aware selection and disabled colors
+      var selColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.SELECTED_TEXT ) );
+      editSource.SelectionColor = System.Drawing.Color.FromArgb( 60, selColor.R, selColor.G, selColor.B );
+
+      var disabledColor = Core.Theming.DarkenColor( GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.CONTROL_TEXT ) ) );
+      editSource.DisabledColor = System.Drawing.Color.FromArgb( 100, disabledColor.R, disabledColor.G, disabledColor.B );
 
       ApplySyntaxColoring( Types.ColorableElement.EMPTY_SPACE );
       ApplySyntaxColoring( Types.ColorableElement.COMMENT );

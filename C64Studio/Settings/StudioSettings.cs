@@ -251,6 +251,8 @@ namespace RetroDevStudio
 
     public GR.Collections.Map<Types.ColorableElement,Types.ColorSetting>  SyntaxColoring = new GR.Collections.Map<RetroDevStudio.Types.ColorableElement, RetroDevStudio.Types.ColorSetting>();
 
+    public Types.ThemeMode    CurrentThemeMode = Types.ThemeMode.Custom;
+
     public GR.Collections.Map<Types.Function, Types.FunctionInfo> Functions = new GR.Collections.Map<RetroDevStudio.Types.Function, Types.FunctionInfo>();
 
     public GR.Collections.Map<ToolWindowType, ToolWindow> Tools = new GR.Collections.Map<ToolWindowType, ToolWindow>();
@@ -702,6 +704,10 @@ namespace RetroDevStudio
       GR.IO.FileChunk chunkMapEditor = new GR.IO.FileChunk( FileChunkConstants.SETTINGS_MAP_EDITOR );
       chunkMapEditor.AppendI32( MapEditorZoomPercent );
       SettingsData.Append( chunkMapEditor.ToBuffer() );
+
+      GR.IO.FileChunk chunkThemeMode = new GR.IO.FileChunk( FileChunkConstants.SETTINGS_THEME_MODE );
+      chunkThemeMode.AppendU8( (byte)CurrentThemeMode );
+      SettingsData.Append( chunkThemeMode.ToBuffer() );
 
       GR.IO.FileChunk chunkRunEmu = new GR.IO.FileChunk( FileChunkConstants.SETTINGS_RUN_EMULATOR );
       chunkRunEmu.AppendU8( (byte)( TrueDriveEnabled ? 1 : 0 ) );
@@ -1255,6 +1261,13 @@ namespace RetroDevStudio
               MapEditorZoomPercent = GR.MathUtil.Clamp( 50, MapEditorZoomPercent, 400 );
             }
             break;
+          case FileChunkConstants.SETTINGS_THEME_MODE:
+            {
+              GR.IO.IReader binIn = chunkData.MemoryReader();
+
+              CurrentThemeMode = (Types.ThemeMode)binIn.ReadUInt8();
+            }
+            break;
           case FileChunkConstants.SETTINGS_RUN_EMULATOR:
             {
               GR.IO.IReader binIn = chunkData.MemoryReader();
@@ -1717,6 +1730,13 @@ namespace RetroDevStudio
 
     public void SetDefaultColors()
     {
+      SetLightColors();
+    }
+
+
+
+    public void SetLightColors()
+    {
       SetSyntaxColor( RetroDevStudio.Types.ColorableElement.NONE, 0xff800000, 0xffffffff, true );
       SetSyntaxColor( RetroDevStudio.Types.ColorableElement.CODE, 0xff000000, 0xffffffff, true );
       SetSyntaxColor( RetroDevStudio.Types.ColorableElement.LITERAL_STRING, 0xff008000, 0xffffffff, true );
@@ -1736,15 +1756,54 @@ namespace RetroDevStudio
       SetSyntaxColor( RetroDevStudio.Types.ColorableElement.CHANGED_DEBUG_ELEMENT, 0xffff0000, 0xfff0f0f0, true );
       SetSyntaxColor( RetroDevStudio.Types.ColorableElement.SELECTION_FRAME, 0xff80ff80, 0xff000000, true );
       SetSyntaxColor( RetroDevStudio.Types.ColorableElement.BACKGROUND_BUTTON, 0xff000000, 0xffE1E1E1, true );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.CONTROL_TEXT, 0xff000000, 0xfff0f0f0, true );
 
+      FillMissingColorEntries( 0xff000000, 0xffffffff );
+    }
+
+
+
+    public void SetDarkColors()
+    {
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.NONE, 0xffD4D4D4, 0xff1E1E1E, true );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.CODE, 0xffD4D4D4, 0xff1E1E1E, true );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.LITERAL_STRING, 0xffCE9178, 0xff1E1E1E, true );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.LITERAL_NUMBER, 0xffB5CEA8, 0xff1E1E1E, true );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.LABEL, 0xff4EC9B0, 0xff1E1E1E, true );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.IMMEDIATE_LABEL, 0xff4EC9B0, 0xff1E1E1E, true );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.COMMENT, 0xff6A9955, 0xff1E1E1E, true );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.PSEUDO_OP, 0xffC586C0, 0xff1E1E1E, true );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.CURRENT_DEBUG_LINE, 0xffFFFFFF, 0xff4B4B00, false );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.EMPTY_SPACE, 0xffD4D4D4, 0xff1E1E1E, false );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.OPERATOR, 0xff569CD6, 0xff1E1E1E, true );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.ERROR_UNDERLINE, 0xffF44747, 0xff1E1E1E, false );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.WARNING_UNDERLINE, 0xffCCA700, 0xff1E1E1E, false );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.HIGHLIGHTED_SEARCH_RESULTS, 0xffFFFFFF, 0xff613214, true );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.SELECTED_TEXT, 0xff264F78, 0xff264F78, true );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.BACKGROUND_CONTROL, 0xffCCCCCC, 0xff2D2D30, true );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.CHANGED_DEBUG_ELEMENT, 0xffFF6B6B, 0xff2D2D30, true );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.SELECTION_FRAME, 0xff80FF80, 0xff1E1E1E, true );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.BACKGROUND_BUTTON, 0xffCCCCCC, 0xff3E3E42, true );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.CONTROL_TEXT, 0xffF1F1F1, 0xff2D2D30, true );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.LINE_NUMBERS, 0xff858585, 0xff1E1E1E, true );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.MINI_MAP, 0xffFF0000, 0xff1E1E1E, true );
+      SetSyntaxColor( RetroDevStudio.Types.ColorableElement.MACRO_CALL, 0xffDCDCAA, 0xff1E1E1E, true );
+
+      FillMissingColorEntries( 0xffD4D4D4, 0xff1E1E1E );
+    }
+
+
+
+    private void FillMissingColorEntries( uint defaultFG, uint defaultBG )
+    {
       foreach ( Types.ColorableElement color in System.Enum.GetValues( typeof( Types.ColorableElement ) ) )
       {
         if ( !SyntaxColoring.ContainsKey( color ) )
         {
           SyntaxColoring[color] = new Types.ColorSetting( GR.EnumHelper.GetDescription( color ) )
           {
-            FGColor = 0xff000000,
-            BGColor = 0xffffffff,
+            FGColor = defaultFG,
+            BGColor = defaultBG,
             BGColorAuto = false
           };
         }

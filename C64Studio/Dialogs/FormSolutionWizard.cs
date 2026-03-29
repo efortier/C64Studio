@@ -22,11 +22,13 @@ namespace RetroDevStudio.Dialogs
     public bool             CreateRepositoryForProject = false;
 
     private StudioSettings  Settings;
+    private StudioCore      Core;
 
 
-    public FormSolutionWizard( string ProjectName, StudioSettings Settings )
+    public FormSolutionWizard( string ProjectName, StudioSettings Settings, StudioCore Core = null )
     {
       this.Settings           = Settings;
+      this.Core               = Core;
       InitializeComponent();
       editSolutionName.Text   = ProjectName;
       editProjectName.Text    = ProjectName;
@@ -43,6 +45,11 @@ namespace RetroDevStudio.Dialogs
 
       editSolutionName.SelectAll();
       UpdateSummary();
+
+      if ( Core != null )
+      {
+        Core.Theming.ApplyTheme( this );
+      }
     }
     
 

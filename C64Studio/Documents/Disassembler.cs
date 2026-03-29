@@ -278,6 +278,30 @@ namespace RetroDevStudio.Documents
 
       editDisassembly.CaretWidth = Core.Settings.CaretWidth;
 
+      // theme-aware selection and disabled colors
+      var selColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( Types.ColorableElement.SELECTED_TEXT ) );
+      editDisassembly.SelectionColor = System.Drawing.Color.FromArgb( 60, selColor.R, selColor.G, selColor.B );
+
+      var disabledColor = Core.Theming.DarkenColor( GR.Color.Helper.FromARGB( Core.Settings.FGColor( Types.ColorableElement.CONTROL_TEXT ) ) );
+      editDisassembly.DisabledColor = System.Drawing.Color.FromArgb( 100, disabledColor.R, disabledColor.G, disabledColor.B );
+
+      // caret color
+      System.Drawing.Color backColorForCaret = GR.Color.Helper.FromARGB( Core.Settings.BGColor( Types.ColorableElement.EMPTY_SPACE ) );
+      if ( ( 0.2126 * backColorForCaret.R + 0.7152 * backColorForCaret.G + 0.0722 * backColorForCaret.B ) < 127.5 )
+      {
+        editDisassembly.CaretColor = System.Drawing.Color.White;
+      }
+      else
+      {
+        editDisassembly.CaretColor = System.Drawing.Color.Black;
+      }
+
+      var hexSelColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( Types.ColorableElement.SELECTED_TEXT ) );
+      hexView.ShadowSelectionColor = System.Drawing.Color.FromArgb( 100, hexSelColor.R, hexSelColor.G, hexSelColor.B );
+
+      hexView.BackColor = GR.Color.Helper.FromARGB( Core.Settings.BGColor( Types.ColorableElement.BACKGROUND_CONTROL ) );
+      hexView.ForeColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( Types.ColorableElement.CONTROL_TEXT ) );
+
       //call OnTextChanged for refresh syntax highlighting
       editDisassembly.OnTextChanged();
     }
