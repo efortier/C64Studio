@@ -1280,28 +1280,56 @@ namespace RetroDevStudio.Formats
         {
           sbMaps.Append( LabelPrefix );
           sbMaps.AppendLine( "MAP_" + NormalizeAsLabel( map.Name.ToUpper() ) + "_PASSABLE_BITS" );
-          
+
+           bool[] passable = new bool[exportWidth * exportHeight];
+           for ( int idx = 0; idx < passable.Length; ++idx )
+           {
+             passable[idx] = true;
+           }
+           for ( int ty = 0; ty < map.Tiles.Height; ++ty )
+           {
+             for ( int tx = 0; tx < map.Tiles.Width; ++tx )
+             {
+               int tileIndex = GetExportTileIndex( map.Tiles[tx, ty] );
+               if ( ( tileIndex >= 0 )
+               &&   ( tileIndex < Tiles.Count )
+               &&   ( !Tiles[tileIndex].Passable ) )
+               {
+                 var tile = Tiles[tileIndex];
+                 for ( int cy = 0; cy < tile.Chars.Height; ++cy )
+                 {
+                   for ( int cx = 0; cx < tile.Chars.Width; ++cx )
+                   {
+                     int px = tx * map.TileSpacingX + cx;
+                     int py = ty * map.TileSpacingY + cy;
+                     if ( ( px < exportWidth )
+                     &&   ( py < exportHeight ) )
+                     {
+                       passable[py * exportWidth + px] = false;
+                     }
+                   }
+                 }
+               }
+             }
+           }
+
            GR.Memory.ByteBuffer bitfieldData = new GR.Memory.ByteBuffer();
-           
-           for ( int y = 0; y < map.Tiles.Height; ++y )
+           for ( int y = 0; y < exportHeight; ++y )
            {
              int     currentX = 0;
-             while ( currentX < map.Tiles.Width )
+             while ( currentX < exportWidth )
              {
-                byte   bits = 0;
- 
-                for ( int j = 0; j < 8; ++j )
-                {
-                  if ( currentX + j < map.Tiles.Width )
-                  {
-                    if ( Tiles[GetExportTileIndex( map.Tiles[currentX + j, y] )].Passable )
-                    {
-                      bits |= (byte)( 1 << ( 7 - j ) );
-                    }
-                  }
-                }
-                bitfieldData.AppendU8( bits );
-                currentX += 8;
+               byte   bits = 0;
+               for ( int j = 0; j < 8; ++j )
+               {
+                 if ( ( currentX + j < exportWidth )
+                 &&   ( passable[y * exportWidth + currentX + j] ) )
+                 {
+                   bits |= (byte)( 1 << ( 7 - j ) );
+                 }
+               }
+               bitfieldData.AppendU8( bits );
+               currentX += 8;
              }
            }
  
@@ -1987,29 +2015,81 @@ namespace RetroDevStudio.Formats
         {
           sb.Append( LabelPrefix );
           sb.AppendLine( "MAP_" + ( i + 1 ).ToString( "D2" ) + "_PASSABLE_BITS" + labelSuffix );
-          
+
+           int passableWidth = map.Tiles.Width * map.TileSpacingX;
+           int passableHeight = map.Tiles.Height * map.TileSpacingY;
+           for ( int ty = 0; ty < map.Tiles.Height; ++ty )
+           {
+             for ( int tx = 0; tx < map.Tiles.Width; ++tx )
+             {
+               int tileIndex = GetExportTileIndex( map.Tiles[tx, ty] );
+               if ( ( tileIndex >= 0 )
+               &&   ( tileIndex < Tiles.Count ) )
+               {
+                 var tile = Tiles[tileIndex];
+                 int w = tx * map.TileSpacingX + tile.Chars.Width;
+                 int h = ty * map.TileSpacingY + tile.Chars.Height;
+                 if ( w > passableWidth )
+                 {
+                   passableWidth = w;
+                 }
+                 if ( h > passableHeight )
+                 {
+                   passableHeight = h;
+                 }
+               }
+             }
+           }
+
+           bool[] passable = new bool[passableWidth * passableHeight];
+           for ( int idx = 0; idx < passable.Length; ++idx )
+           {
+             passable[idx] = true;
+           }
+           for ( int ty = 0; ty < map.Tiles.Height; ++ty )
+           {
+             for ( int tx = 0; tx < map.Tiles.Width; ++tx )
+             {
+               int tileIndex = GetExportTileIndex( map.Tiles[tx, ty] );
+               if ( ( tileIndex >= 0 )
+               &&   ( tileIndex < Tiles.Count )
+               &&   ( !Tiles[tileIndex].Passable ) )
+               {
+                 var tile = Tiles[tileIndex];
+                 for ( int cy = 0; cy < tile.Chars.Height; ++cy )
+                 {
+                   for ( int cx = 0; cx < tile.Chars.Width; ++cx )
+                   {
+                     int px = tx * map.TileSpacingX + cx;
+                     int py = ty * map.TileSpacingY + cy;
+                     if ( ( px < passableWidth )
+                     &&   ( py < passableHeight ) )
+                     {
+                       passable[py * passableWidth + px] = false;
+                     }
+                   }
+                 }
+               }
+             }
+           }
 
            GR.Memory.ByteBuffer bitfieldData = new GR.Memory.ByteBuffer();
-           
-           for ( int y = 0; y < map.Tiles.Height; ++y )
+           for ( int y = 0; y < passableHeight; ++y )
            {
              int     currentX = 0;
-             while ( currentX < map.Tiles.Width )
+             while ( currentX < passableWidth )
              {
-                byte   bits = 0;
- 
-                for ( int bitIndex = 0; bitIndex < 8; ++bitIndex )
-                {
-                  if ( currentX + bitIndex < map.Tiles.Width )
-                  {
-                    if ( Tiles[GetExportTileIndex( map.Tiles[currentX + bitIndex, y] )].Passable )
-                    {
-                      bits |= (byte)( 1 << ( 7 - bitIndex ) );
-                    }
-                  }
-                }
-                bitfieldData.AppendU8( bits );
-                currentX += 8;
+               byte   bits = 0;
+               for ( int bitIndex = 0; bitIndex < 8; ++bitIndex )
+               {
+                 if ( ( currentX + bitIndex < passableWidth )
+                 &&   ( passable[y * passableWidth + currentX + bitIndex] ) )
+                 {
+                   bits |= (byte)( 1 << ( 7 - bitIndex ) );
+                 }
+               }
+               bitfieldData.AppendU8( bits );
+               currentX += 8;
              }
            }
  
