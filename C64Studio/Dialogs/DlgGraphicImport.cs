@@ -1251,7 +1251,10 @@ namespace RetroDevStudio.Dialogs
     {
       ComboBox combo = (ComboBox)sender;
 
-      e.DrawBackground();
+      if ( Core?.Theming != null )
+        Core.Theming.DrawThemedBackground( e, combo );
+      else
+        e.DrawBackground();
       if ( e.Index == -1 )
       {
         return;
@@ -1261,27 +1264,13 @@ namespace RetroDevStudio.Dialogs
       {
         // any
         int colorIndex = e.Index;
-        if ( ( e.State & DrawItemState.Selected ) != 0 )
-        {
-          e.Graphics.DrawString( combo.Items[colorIndex].ToString(), combo.Font, new System.Drawing.SolidBrush( System.Drawing.Color.White ), 3.0f, e.Bounds.Top + 1.0f );
-        }
-        else
-        {
-          e.Graphics.DrawString( combo.Items[colorIndex].ToString(), combo.Font, new System.Drawing.SolidBrush( System.Drawing.Color.Black ), 3.0f, e.Bounds.Top + 1.0f );
-        }
+        e.Graphics.DrawString( combo.Items[colorIndex].ToString(), combo.Font, new System.Drawing.SolidBrush( combo.ForeColor ), 3.0f, e.Bounds.Top + 1.0f );
       }
       else
       {
         int colorIndex = e.Index - 1;
         e.Graphics.FillRectangle( m_CurPalette.ColorBrushes[colorIndex], itemRect );
-        if ( ( e.State & DrawItemState.Selected ) != 0 )
-        {
-          e.Graphics.DrawString( combo.Items[colorIndex + 1].ToString(), combo.Font, new System.Drawing.SolidBrush( System.Drawing.Color.White ), 3.0f, e.Bounds.Top + 1.0f );
-        }
-        else
-        {
-          e.Graphics.DrawString( combo.Items[colorIndex + 1].ToString(), combo.Font, new System.Drawing.SolidBrush( System.Drawing.Color.Black ), 3.0f, e.Bounds.Top + 1.0f );
-        }
+        e.Graphics.DrawString( combo.Items[colorIndex + 1].ToString(), combo.Font, new System.Drawing.SolidBrush( combo.ForeColor ), 3.0f, e.Bounds.Top + 1.0f );
       }
     }
 

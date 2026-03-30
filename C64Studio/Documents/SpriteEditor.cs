@@ -1971,7 +1971,10 @@ namespace RetroDevStudio.Documents
 
     private void comboSprite_DrawItem( object sender, DrawItemEventArgs e )
     {
-      e.DrawBackground();
+      if ( Core?.Theming != null )
+        Core.Theming.DrawThemedBackground( e, (Control)sender );
+      else
+        e.DrawBackground();
       if ( e.Index == -1 )
       {
         return;

@@ -3592,7 +3592,10 @@ namespace RetroDevStudio.Documents
 
     private void comboTiles_DrawItem( object sender, DrawItemEventArgs e )
     {
-      e.DrawBackground();
+      if ( Core?.Theming != null )
+        Core.Theming.DrawThemedBackground( e, comboTiles );
+      else
+        e.DrawBackground();
       if ( ( e.Index < 0 )
       ||   ( e.Index >= comboTiles.Items.Count ) )
       {
@@ -3646,7 +3649,7 @@ namespace RetroDevStudio.Documents
       string label = e.Index.ToString() + ": " + tile.Name;
       int textX = previewRect.Right + 6;
       int textY = e.Bounds.Top + ( e.Bounds.Height - comboTiles.Font.Height ) / 2;
-      System.Drawing.Brush textBrush = ( ( e.State & DrawItemState.Selected ) != 0 ) ? System.Drawing.SystemBrushes.HighlightText : System.Drawing.SystemBrushes.WindowText;
+      System.Drawing.Brush textBrush = new System.Drawing.SolidBrush( comboTiles.ForeColor );
       e.Graphics.DrawString( label, comboTiles.Font, textBrush, textX, textY );
       e.DrawFocusRectangle();
     }
@@ -4461,7 +4464,10 @@ namespace RetroDevStudio.Documents
     {
       ComboBox combo = (ComboBox)sender;
 
-      e.DrawBackground();
+      if ( Core?.Theming != null )
+        Core.Theming.DrawThemedBackground( e, combo );
+      else
+        e.DrawBackground();
       System.Drawing.Rectangle itemRect = new System.Drawing.Rectangle( e.Bounds.Left + 20, e.Bounds.Top, e.Bounds.Width - 20, e.Bounds.Height );
 
       int colorToUse = e.Index - 1;
@@ -5684,10 +5690,13 @@ namespace RetroDevStudio.Documents
     private void comboMarkerColorOverride_DrawItem( object sender, DrawItemEventArgs e )
     {
        ComboBox combo = (ComboBox)sender;
-       
+
        if ( e.Index < 0 ) return;
 
-       e.DrawBackground();
+       if ( Core?.Theming != null )
+         Core.Theming.DrawThemedBackground( e, combo );
+       else
+         e.DrawBackground();
 
        int colorIndex = e.Index;
        

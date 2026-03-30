@@ -497,7 +497,10 @@ namespace RetroDevStudio.Dialogs.Preferences
 
     private void comboElementFG_DrawItem( object sender, DrawItemEventArgs e )
     {
-      e.DrawBackground();
+      if ( Core?.Theming != null )
+        Core.Theming.DrawThemedBackground( e, (Control)sender );
+      else
+        e.DrawBackground();
       if ( e.Index == -1 )
       {
         return;
@@ -516,7 +519,10 @@ namespace RetroDevStudio.Dialogs.Preferences
 
     private void comboElementBG_DrawItem( object sender, DrawItemEventArgs e )
     {
-      e.DrawBackground();
+      if ( Core?.Theming != null )
+        Core.Theming.DrawThemedBackground( e, (Control)sender );
+      else
+        e.DrawBackground();
       if ( e.Index == -1 )
       {
         return;

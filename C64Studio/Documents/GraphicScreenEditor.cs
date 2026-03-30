@@ -2668,21 +2668,17 @@ namespace RetroDevStudio.Documents
     {
       ListBox list = (ListBox)sender;
 
-      e.DrawBackground();
+      if ( Core?.Theming != null )
+        Core.Theming.DrawThemedBackground( e, list );
+      else
+        e.DrawBackground();
 
       int offset = (int)e.Graphics.MeasureString( "22", list.Font ).Width + 5 + 3;
       System.Drawing.Rectangle itemRect = new System.Drawing.Rectangle( e.Bounds.Left + offset, e.Bounds.Top, e.Bounds.Width - offset, e.Bounds.Height );
       if ( e.Index != -1 )
       {
         e.Graphics.FillRectangle( ConstantData.Palette.ColorBrushes[e.Index], itemRect );
-        if ( ( e.State & DrawItemState.Selected ) != 0 )
-        {
-          e.Graphics.DrawString( list.Items[e.Index].ToString(), list.Font, new System.Drawing.SolidBrush( System.Drawing.Color.White ), 3.0f, e.Bounds.Top + 1.0f );
-        }
-        else
-        {
-          e.Graphics.DrawString( list.Items[e.Index].ToString(), list.Font, new System.Drawing.SolidBrush( System.Drawing.Color.Black ), 3.0f, e.Bounds.Top + 1.0f );
-        }
+        e.Graphics.DrawString( list.Items[e.Index].ToString(), list.Font, new System.Drawing.SolidBrush( list.ForeColor ), 3.0f, e.Bounds.Top + 1.0f );
       }
     }
 

@@ -79,22 +79,19 @@ namespace RetroDevStudio.Dialogs
 
     private void listPalette_DrawItem( object sender, DrawItemEventArgs e )
     {
-      e.DrawBackground();
+      if ( Core?.Theming != null )
+        Core.Theming.DrawThemedBackground( e, (Control)sender );
+      else
+        e.DrawBackground();
 
       if ( e.Index == -1 )
       {
         return;
       }
 
+      var textBrush = new SolidBrush( listPalette.ForeColor );
       var textRect = new Rectangle( e.Bounds.Left, e.Bounds.Top, 30, e.Bounds.Height );
-      if ( ( e.State & DrawItemState.Selected ) == DrawItemState.Selected )
-      {
-        e.Graphics.DrawString( e.Index.ToString(), listPalette.Font, System.Drawing.SystemBrushes.HighlightText, textRect );
-      }
-      else
-      {
-        e.Graphics.DrawString( e.Index.ToString(), listPalette.Font, System.Drawing.SystemBrushes.ControlText, textRect );
-      }
+      e.Graphics.DrawString( e.Index.ToString(), listPalette.Font, textBrush, textRect );
       var smallerRect = new Rectangle( e.Bounds.Left + 30, e.Bounds.Top, e.Bounds.Width - 30, e.Bounds.Height );
       e.Graphics.FillRectangle( Colors.Palette.ColorBrushes[e.Index], smallerRect );
     }

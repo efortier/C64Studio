@@ -43,6 +43,9 @@ namespace RetroDevStudio.CustomRenderer
     [DllImport( "dwmapi.dll", PreserveSig = true )]
     private static extern int DwmSetWindowAttribute( IntPtr hwnd, int attr, ref int attrValue, int attrSize );
 
+    [DllImport( "uxtheme.dll", CharSet = CharSet.Unicode )]
+    private static extern int SetWindowTheme( IntPtr hwnd, string pszSubAppName, string pszSubIdList );
+
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
 
     private StudioCore      Core;
@@ -145,9 +148,13 @@ namespace RetroDevStudio.CustomRenderer
 
           combo.BackColor = GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) );
           combo.ForeColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.CONTROL_TEXT ) );
-          if ( combo.DropDownStyle == ComboBoxStyle.DropDownList )
+          if ( ( combo.DropDownStyle == ComboBoxStyle.DropDownList )
+          &&   ( combo.DrawMode == DrawMode.Normal ) )
           {
-            combo.FlatStyle = FlatStyle.Popup;
+            // DropDownList ignores BackColor with visual styles unless owner-drawn
+            combo.DrawMode = DrawMode.OwnerDrawFixed;
+            combo.DrawItem -= ComboBoxDropDownList_DrawItem;
+            combo.DrawItem += ComboBoxDropDownList_DrawItem;
           }
         }
         if ( control is TextBox )
@@ -232,9 +239,29 @@ namespace RetroDevStudio.CustomRenderer
 
           ApplyThemeToToolStripItems( toolStrip, toolStrip.Items );
         }
+        if ( control is TabPage )
+        {
+          var tabPage = control as TabPage;
+
+          // UseVisualStyleBackColor ignores BackColor and paints
+          // the OS visual styles background (white) instead
+          tabPage.UseVisualStyleBackColor = false;
+        }
         if ( control is TabControl )
         {
           var tabControl = control as TabControl;
+
+          // Strip visual styles from the TabControl so BackColor is respected
+          // and the OS doesn't paint its own white border/background
+          if ( tabControl.IsHandleCreated )
+          {
+            SetWindowTheme( tabControl.Handle, "", "" );
+          }
+          else
+          {
+            tabControl.HandleCreated -= TabControl_HandleCreated;
+            tabControl.HandleCreated += TabControl_HandleCreated;
+          }
 
           if ( tabControl.DrawMode != TabDrawMode.OwnerDrawFixed )
           {
@@ -288,6 +315,21 @@ namespace RetroDevStudio.CustomRenderer
 
 
 
+    private void ComboBoxDropDownList_DrawItem( object sender, DrawItemEventArgs e )
+    {
+      var combo = (ComboBox)sender;
+
+      DrawThemedBackground( e, combo );
+
+      if ( e.Index >= 0 )
+      {
+        e.Graphics.DrawString( combo.Items[e.Index].ToString(), combo.Font,
+          new SolidBrush( combo.ForeColor ), e.Bounds.Left + 2, e.Bounds.Top + 1 );
+      }
+    }
+
+
+
     private void TabControl_DrawItem( object sender, DrawItemEventArgs e )
     {
       var control = (TabControl)sender;
@@ -311,6 +353,15 @@ namespace RetroDevStudio.CustomRenderer
       int yOffset = (e.State == DrawItemState.Selected) ? -2 : 1;
       paddedBounds.Offset( 1, yOffset );
       TextRenderer.DrawText( e.Graphics, page.Text, e.Font, paddedBounds, page.ForeColor );
+    }
+
+
+
+    private void TabControl_HandleCreated( object sender, EventArgs e )
+    {
+      var tabControl = (TabControl)sender;
+      SetWindowTheme( tabControl.Handle, "", "" );
+      tabControl.HandleCreated -= TabControl_HandleCreated;
     }
 
 
@@ -410,6 +461,21 @@ namespace RetroDevStudio.CustomRenderer
 
 
 
+    public void DrawThemedBackground( DrawItemEventArgs e, Control Owner )
+    {
+      if ( ( e.State & DrawItemState.Selected ) != 0 )
+      {
+        var selColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.SELECTED_TEXT ) );
+        e.Graphics.FillRectangle( new SolidBrush( Color.FromArgb( 100, selColor.R, selColor.G, selColor.B ) ), e.Bounds );
+      }
+      else
+      {
+        e.Graphics.FillRectangle( new SolidBrush( Owner.BackColor ), e.Bounds );
+      }
+    }
+
+
+
     public void DrawSingleColorComboBox( ComboBox Combo, DrawItemEventArgs e, Palette Pal )
     {
       DrawSingleColorComboBox( Combo, e, Pal, 0 );
@@ -419,7 +485,7 @@ namespace RetroDevStudio.CustomRenderer
 
     public void DrawSingleColorComboBox( ComboBox Combo, DrawItemEventArgs e, Palette Pal, int PaletteOffset )
     {
-      e.DrawBackground();
+      DrawThemedBackground( e, Combo );
       if ( e.Index == -1 )
       {
         return;
@@ -458,7 +524,7 @@ namespace RetroDevStudio.CustomRenderer
 
     public void DrawMultiColorComboBox( ComboBox Combo, DrawItemEventArgs e, Palette Pal )
     {
-      e.DrawBackground();
+      DrawThemedBackground( e, Combo );
       if ( e.Index == -1 )
       {
         return;
@@ -506,7 +572,7 @@ namespace RetroDevStudio.CustomRenderer
 
     public void DrawVC20ColorComboBox( ComboBox Combo, DrawItemEventArgs e, Palette Pal )
     {
-      e.DrawBackground();
+      DrawThemedBackground( e, Combo );
       if ( e.Index == -1 )
       {
         return;
