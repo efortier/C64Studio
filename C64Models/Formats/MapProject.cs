@@ -23,6 +23,7 @@ namespace RetroDevStudio.Formats
       public int        Y = 0;
       public int        Type = 0;
       public string     Name = "";
+      public byte       Value = 0;
     };
 
     public class MarkerType
@@ -114,6 +115,20 @@ namespace RetroDevStudio.Formats
         public string PrefixLoadAddressHex = "";
       }
 
+      public class GameBinarySettings
+      {
+        public bool   ExportMarkers = true;
+        public bool   ExportColors = true;
+        public bool   ExportPassableBits = true;
+        public bool   PrefixLoadAddress = false;
+        public string PrefixLoadAddressHex = "";
+        public bool   SaveOnExport = false;
+        public string ExportDirectory = "";
+        public string ExportFilename = "";
+        public bool   UseAbsoluteAddresses = false;
+        public string AbsoluteBaseAddressHex = "";
+      }
+
       public class TargetSettings
       {
         public string TargetFilename = "";
@@ -123,11 +138,12 @@ namespace RetroDevStudio.Formats
       public int    ExportOrientationIndex = 0;
       public int    ExportMethodIndex = 0;
 
-      public AssemblySettings  Assembly = new AssemblySettings();
-      public BinarySettings    Binary = new BinarySettings();
-      public BinarySettings    CharsetBinary = new BinarySettings();
-      public TargetSettings    CharsetProject = new TargetSettings();
-      public TargetSettings    Charscreen = new TargetSettings();
+      public AssemblySettings     Assembly = new AssemblySettings();
+      public BinarySettings       Binary = new BinarySettings();
+      public BinarySettings       CharsetBinary = new BinarySettings();
+      public GameBinarySettings   GameBinary = new GameBinarySettings();
+      public TargetSettings       CharsetProject = new TargetSettings();
+      public TargetSettings       Charscreen = new TargetSettings();
     };
 
 
@@ -153,7 +169,7 @@ namespace RetroDevStudio.Formats
     public bool                         KeepCharacterAspectRatio = false;
     public int                          CharactersPerRow = 16;
     public int                          CharacterEditorMode = 1;
-    public int                          ColorSwatchSize = 8;
+    public int                          ColorSwatchSize = 16;
     public ExportSettings               Settings = new ExportSettings();
 
 
@@ -294,6 +310,7 @@ namespace RetroDevStudio.Formats
           chunkMarker.AppendI32( marker.Y );
           chunkMarker.AppendI32( marker.Type );
           chunkMarker.AppendString( marker.Name );
+          chunkMarker.AppendU8( marker.Value );
           chunkMap.Append( chunkMarker.ToBuffer() );
         }
 
@@ -312,7 +329,7 @@ namespace RetroDevStudio.Formats
       projectFile.Append( chunkProjectData.ToBuffer() );
 
       GR.IO.FileChunk chunkExportSettings = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS );
-      chunkExportSettings.AppendU32( 15 );
+      chunkExportSettings.AppendU32( 17 );
       chunkExportSettings.AppendI32(Settings.ExportDataIndex );
       chunkExportSettings.AppendI32(Settings.ExportOrientationIndex );
       chunkExportSettings.AppendI32( Settings.ExportMethodIndex );
@@ -352,6 +369,18 @@ namespace RetroDevStudio.Formats
       chunkExportSettings.AppendI32( DesignerBackgroundColor );
       chunkExportSettings.AppendI32( Settings.Assembly.ExportMarkers ? 1 : 0 );
       chunkExportSettings.AppendString( Settings.Assembly.PrefixCode ?? "" ); // Added new field
+      // version 16: game binary settings
+      chunkExportSettings.AppendI32( Settings.GameBinary.ExportMarkers ? 1 : 0 );
+      chunkExportSettings.AppendI32( Settings.GameBinary.ExportColors ? 1 : 0 );
+      chunkExportSettings.AppendI32( Settings.GameBinary.ExportPassableBits ? 1 : 0 );
+      chunkExportSettings.AppendI32( Settings.GameBinary.PrefixLoadAddress ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.GameBinary.PrefixLoadAddressHex ?? "" );
+      chunkExportSettings.AppendI32( Settings.GameBinary.SaveOnExport ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.GameBinary.ExportDirectory ?? "" );
+      chunkExportSettings.AppendString( Settings.GameBinary.ExportFilename ?? "" );
+      // version 17: absolute base address
+      chunkExportSettings.AppendI32( Settings.GameBinary.UseAbsoluteAddresses ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.GameBinary.AbsoluteBaseAddressHex ?? "" );
       projectFile.Append( chunkExportSettings.ToBuffer() );
       return projectFile;
     }
@@ -404,6 +433,10 @@ namespace RetroDevStudio.Formats
               if ( version >= 5 )
               {
                 ColorSwatchSize = chunkReader.ReadInt32();
+                if ( ColorSwatchSize < 1 )
+                {
+                  ColorSwatchSize = 16;
+                }
               }
               if ( version >= 6 )
               {
@@ -560,6 +593,14 @@ namespace RetroDevStudio.Formats
                               marker.Y = mapChunkReader.ReadInt32();
                               marker.Type = mapChunkReader.ReadInt32();
                               marker.Name = mapChunkReader.ReadString();
+                              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+                              {
+                                marker.Value = mapChunkReader.ReadUInt8();
+                              }
+                              else
+                              {
+                                marker.Value = 0;
+                              }
                               map.Markers.Add( marker );
                             }
                             break;
@@ -625,6 +666,22 @@ namespace RetroDevStudio.Formats
                 if ( version >= 15 )
                 {
                   Settings.Assembly.PrefixCode = chunkReader.ReadString();
+                }
+                if ( version >= 16 )
+                {
+                  Settings.GameBinary.ExportMarkers = ( chunkReader.ReadInt32() != 0 );
+                  Settings.GameBinary.ExportColors = ( chunkReader.ReadInt32() != 0 );
+                  Settings.GameBinary.ExportPassableBits = ( chunkReader.ReadInt32() != 0 );
+                  Settings.GameBinary.PrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                  Settings.GameBinary.PrefixLoadAddressHex = chunkReader.ReadString();
+                  Settings.GameBinary.SaveOnExport = ( chunkReader.ReadInt32() != 0 );
+                  Settings.GameBinary.ExportDirectory = chunkReader.ReadString();
+                  Settings.GameBinary.ExportFilename = chunkReader.ReadString();
+                }
+                if ( version >= 17 )
+                {
+                  Settings.GameBinary.UseAbsoluteAddresses = ( chunkReader.ReadInt32() != 0 );
+                  Settings.GameBinary.AbsoluteBaseAddressHex = chunkReader.ReadString();
                 }
               }
             }
@@ -1528,6 +1585,356 @@ namespace RetroDevStudio.Formats
           }
         }
       }
+    }
+
+
+
+    public GR.Memory.ByteBuffer ExportAsGameBinary( bool ExportMarkers, bool ExportColors, bool ExportPassable, ushort BaseAddress = 0 )
+    {
+      var buf = new GR.Memory.ByteBuffer();
+      int addrBase = BaseAddress;
+
+      // ========== HEADER (47 bytes, 0x2F) ==========
+      buf.AppendU8( 0x44 ); // +$00 'D'
+      buf.AppendU8( 0x48 ); // +$01 'H'
+      buf.AppendU8( 4 );    // +$02 marker_stride (bytes per marker record: tag, x, y, value)
+      buf.AppendU8( (byte)Tiles.Count );  // +$03
+      buf.AppendU8( (byte)Maps.Count );   // +$04
+      // 21 x 2-byte offset placeholders (+$05 .. +$2E)
+      for ( int i = 0; i < 21; ++i )
+        buf.AppendU16( 0 );
+
+      // Header offset positions (byte offset within header for each pointer)
+      const int HDR_TILES_WIDTH       = 0x05;
+      const int HDR_TILES_HEIGHT      = 0x07;
+      const int HDR_TILES_FLAGS       = 0x09;
+      const int HDR_TILE_CHAR_OFF_LO  = 0x0B;
+      const int HDR_TILE_CHAR_OFF_HI  = 0x0D;
+      const int HDR_TILE_COLOR_OFF_LO = 0x0F;
+      const int HDR_TILE_COLOR_OFF_HI = 0x11;
+      const int HDR_MAP_WIDTH         = 0x13;
+      const int HDR_MAP_HEIGHT        = 0x15;
+      const int HDR_MAP_BG_COLOR      = 0x17;
+      const int HDR_MAP_MC1_COLOR     = 0x19;
+      const int HDR_MAP_MC2_COLOR     = 0x1B;
+      const int HDR_MAP_MARKER_COUNT  = 0x1D;
+      const int HDR_MAP_CHAR_GRID_LO  = 0x1F;
+      const int HDR_MAP_CHAR_GRID_HI  = 0x21;
+      const int HDR_MAP_COLOR_GRID_LO = 0x23;
+      const int HDR_MAP_COLOR_GRID_HI = 0x25;
+      const int HDR_MAP_PASSABLE_LO   = 0x27;
+      const int HDR_MAP_PASSABLE_HI   = 0x29;
+      const int HDR_MAP_MARKERS_LO    = 0x2B;
+      const int HDR_MAP_MARKERS_HI    = 0x2D;
+
+      // ========== TILE ARRAYS ==========
+
+      // tiles_width[]
+      buf.SetU16At( HDR_TILES_WIDTH, (ushort)( buf.Length + addrBase ) );
+      for ( int t = 0; t < Tiles.Count; ++t )
+        buf.AppendU8( (byte)Tiles[t].Chars.Width );
+
+      // tiles_height[]
+      buf.SetU16At( HDR_TILES_HEIGHT, (ushort)( buf.Length + addrBase ) );
+      for ( int t = 0; t < Tiles.Count; ++t )
+        buf.AppendU8( (byte)Tiles[t].Chars.Height );
+
+      // tiles_flags[]
+      buf.SetU16At( HDR_TILES_FLAGS, (ushort)( buf.Length + addrBase ) );
+      for ( int t = 0; t < Tiles.Count; ++t )
+        buf.AppendU8( (byte)( Tiles[t].Passable ? 1 : 0 ) );
+
+      // Build tile char and color blobs
+      var tileCharBlobs = new List<GR.Memory.ByteBuffer>();
+      var tileColorBlobs = new List<GR.Memory.ByteBuffer>();
+      for ( int t = 0; t < Tiles.Count; ++t )
+      {
+        var tile = Tiles[t];
+        var charBlob = new GR.Memory.ByteBuffer();
+        var colorBlob = new GR.Memory.ByteBuffer();
+        for ( int y = 0; y < tile.Chars.Height; ++y )
+        {
+          for ( int x = 0; x < tile.Chars.Width; ++x )
+          {
+            charBlob.AppendU8( tile.Chars[x, y].Character );
+            colorBlob.AppendU8( tile.Chars[x, y].Color );
+          }
+        }
+        tileCharBlobs.Add( charBlob );
+        tileColorBlobs.Add( colorBlob );
+      }
+
+      // tile_char_offset_lo[] — placeholders, will patch with absolute offsets
+      int tileCharOffLoPos = (int)buf.Length;
+      buf.SetU16At( HDR_TILE_CHAR_OFF_LO, (ushort)( buf.Length + addrBase ) );
+      for ( int t = 0; t < Tiles.Count; ++t )
+        buf.AppendU8( 0 );
+
+      // tile_char_offset_hi[]
+      int tileCharOffHiPos = (int)buf.Length;
+      buf.SetU16At( HDR_TILE_CHAR_OFF_HI, (ushort)( buf.Length + addrBase ) );
+      for ( int t = 0; t < Tiles.Count; ++t )
+        buf.AppendU8( 0 );
+
+      // tile_color_offset_lo[]
+      int tileColorOffLoPos = (int)buf.Length;
+      buf.SetU16At( HDR_TILE_COLOR_OFF_LO, (ushort)( buf.Length + addrBase ) );
+      for ( int t = 0; t < Tiles.Count; ++t )
+        buf.AppendU8( 0 );
+
+      // tile_color_offset_hi[]
+      int tileColorOffHiPos = (int)buf.Length;
+      buf.SetU16At( HDR_TILE_COLOR_OFF_HI, (ushort)( buf.Length + addrBase ) );
+      for ( int t = 0; t < Tiles.Count; ++t )
+        buf.AppendU8( 0 );
+
+      // Tile char data (concatenated) — patch offset tables
+      int tileCharDataStart = (int)buf.Length;
+      int runningOffset = 0;
+      for ( int t = 0; t < Tiles.Count; ++t )
+      {
+        int absAddr = tileCharDataStart + runningOffset + addrBase;
+        buf.SetU8At( tileCharOffLoPos + t, (byte)( absAddr & 0xFF ) );
+        buf.SetU8At( tileCharOffHiPos + t, (byte)( ( absAddr >> 8 ) & 0xFF ) );
+        runningOffset += (int)tileCharBlobs[t].Length;
+      }
+      for ( int t = 0; t < Tiles.Count; ++t )
+        buf.Append( tileCharBlobs[t] );
+
+      // Tile color data (concatenated) — patch offset tables
+      int tileColorDataStart = (int)buf.Length;
+      runningOffset = 0;
+      for ( int t = 0; t < Tiles.Count; ++t )
+      {
+        int absAddr = tileColorDataStart + runningOffset + addrBase;
+        buf.SetU8At( tileColorOffLoPos + t, (byte)( absAddr & 0xFF ) );
+        buf.SetU8At( tileColorOffHiPos + t, (byte)( ( absAddr >> 8 ) & 0xFF ) );
+        runningOffset += (int)tileColorBlobs[t].Length;
+      }
+      for ( int t = 0; t < Tiles.Count; ++t )
+        buf.Append( tileColorBlobs[t] );
+
+      // ========== MAP METADATA ARRAYS ==========
+
+      // Pre-compute char-level dimensions and marker counts for all maps
+      int[] exportWidths = new int[Maps.Count];
+      int[] exportHeights = new int[Maps.Count];
+      int[] markerCounts = new int[Maps.Count];
+      for ( int m = 0; m < Maps.Count; ++m )
+      {
+        var map = Maps[m];
+        int ew = map.Tiles.Width * map.TileSpacingX;
+        int eh = map.Tiles.Height * map.TileSpacingY;
+        for ( int ty = 0; ty < map.Tiles.Height; ++ty )
+        {
+          for ( int tx = 0; tx < map.Tiles.Width; ++tx )
+          {
+            int tileIndex = GetExportTileIndex( map.Tiles[tx, ty] );
+            if ( ( tileIndex >= 0 ) && ( tileIndex < Tiles.Count ) )
+            {
+              var tile = Tiles[tileIndex];
+              int w = tx * map.TileSpacingX + tile.Chars.Width;
+              int h = ty * map.TileSpacingY + tile.Chars.Height;
+              if ( w > ew ) ew = w;
+              if ( h > eh ) eh = h;
+            }
+          }
+        }
+        exportWidths[m] = ew;
+        exportHeights[m] = eh;
+        markerCounts[m] = ExportMarkers ? map.Markers.Count : 0;
+      }
+
+      // map_width[]
+      buf.SetU16At( HDR_MAP_WIDTH, (ushort)( buf.Length + addrBase ) );
+      for ( int m = 0; m < Maps.Count; ++m )
+        buf.AppendU8( (byte)exportWidths[m] );
+
+      // map_height[]
+      buf.SetU16At( HDR_MAP_HEIGHT, (ushort)( buf.Length + addrBase ) );
+      for ( int m = 0; m < Maps.Count; ++m )
+        buf.AppendU8( (byte)exportHeights[m] );
+
+      // map_bg_color[]
+      buf.SetU16At( HDR_MAP_BG_COLOR, (ushort)( buf.Length + addrBase ) );
+      for ( int m = 0; m < Maps.Count; ++m )
+        buf.AppendU8( (byte)( Maps[m].AlternativeBackgroundColor >= 0 ? Maps[m].AlternativeBackgroundColor : BackgroundColor ) );
+
+      // map_mc1_color[]
+      buf.SetU16At( HDR_MAP_MC1_COLOR, (ushort)( buf.Length + addrBase ) );
+      for ( int m = 0; m < Maps.Count; ++m )
+        buf.AppendU8( (byte)( Maps[m].AlternativeMultiColor1 >= 0 ? Maps[m].AlternativeMultiColor1 : MultiColor1 ) );
+
+      // map_mc2_color[]
+      buf.SetU16At( HDR_MAP_MC2_COLOR, (ushort)( buf.Length + addrBase ) );
+      for ( int m = 0; m < Maps.Count; ++m )
+        buf.AppendU8( (byte)( Maps[m].AlternativeMultiColor2 >= 0 ? Maps[m].AlternativeMultiColor2 : MultiColor2 ) );
+
+      // map_marker_count[]
+      buf.SetU16At( HDR_MAP_MARKER_COUNT, (ushort)( buf.Length + addrBase ) );
+      for ( int m = 0; m < Maps.Count; ++m )
+        buf.AppendU8( (byte)markerCounts[m] );
+
+      // ========== MAP DATA LOOKUP TABLES (placeholders) ==========
+
+      int mapCharGridLoPos = (int)buf.Length;
+      buf.SetU16At( HDR_MAP_CHAR_GRID_LO, (ushort)( buf.Length + addrBase ) );
+      for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
+      int mapCharGridHiPos = (int)buf.Length;
+      buf.SetU16At( HDR_MAP_CHAR_GRID_HI, (ushort)( buf.Length + addrBase ) );
+      for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
+
+      int mapColorGridLoPos = (int)buf.Length;
+      buf.SetU16At( HDR_MAP_COLOR_GRID_LO, (ushort)( buf.Length + addrBase ) );
+      for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
+      int mapColorGridHiPos = (int)buf.Length;
+      buf.SetU16At( HDR_MAP_COLOR_GRID_HI, (ushort)( buf.Length + addrBase ) );
+      for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
+
+      int mapPassableLoPos = (int)buf.Length;
+      buf.SetU16At( HDR_MAP_PASSABLE_LO, (ushort)( buf.Length + addrBase ) );
+      for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
+      int mapPassableHiPos = (int)buf.Length;
+      buf.SetU16At( HDR_MAP_PASSABLE_HI, (ushort)( buf.Length + addrBase ) );
+      for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
+
+      int mapMarkersLoPos = (int)buf.Length;
+      buf.SetU16At( HDR_MAP_MARKERS_LO, (ushort)( buf.Length + addrBase ) );
+      for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
+      int mapMarkersHiPos = (int)buf.Length;
+      buf.SetU16At( HDR_MAP_MARKERS_HI, (ushort)( buf.Length + addrBase ) );
+      for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
+
+      // ========== PER-MAP VARIABLE DATA ==========
+
+      for ( int m = 0; m < Maps.Count; ++m )
+      {
+        var map = Maps[m];
+        int ew = exportWidths[m];
+        int eh = exportHeights[m];
+
+        // Build char grid and color grid
+        var charGrid = new byte[ew * eh];
+        var colorGrid = new byte[ew * eh];
+        for ( int ty = 0; ty < map.Tiles.Height; ++ty )
+        {
+          for ( int tx = 0; tx < map.Tiles.Width; ++tx )
+          {
+            int tileIndex = GetExportTileIndex( map.Tiles[tx, ty] );
+            if ( ( tileIndex >= 0 )
+            &&   ( tileIndex < Tiles.Count )
+            &&   ( tileIndex != Settings.Assembly.EmptyTileIndex || !Settings.Assembly.EmptyTileCompressionEnabled ) )
+            {
+              var tile = Tiles[tileIndex];
+              for ( int cy = 0; cy < tile.Chars.Height; ++cy )
+              {
+                for ( int cx = 0; cx < tile.Chars.Width; ++cx )
+                {
+                  int finalX = tx * map.TileSpacingX + cx;
+                  int finalY = ty * map.TileSpacingY + cy;
+                  if ( ( finalX < ew ) && ( finalY < eh ) )
+                  {
+                    int off = finalX + finalY * ew;
+                    charGrid[off] = tile.Chars[cx, cy].Character;
+                    colorGrid[off] = tile.Chars[cx, cy].Color;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // Write char grid, patch lookup table
+        int charGridAddr = (int)buf.Length + addrBase;
+        buf.SetU8At( mapCharGridLoPos + m, (byte)( charGridAddr & 0xFF ) );
+        buf.SetU8At( mapCharGridHiPos + m, (byte)( ( charGridAddr >> 8 ) & 0xFF ) );
+        for ( int i = 0; i < charGrid.Length; ++i )
+          buf.AppendU8( charGrid[i] );
+
+        // Write color grid
+        if ( ExportColors )
+        {
+          int colorGridAddr = (int)buf.Length + addrBase;
+          buf.SetU8At( mapColorGridLoPos + m, (byte)( colorGridAddr & 0xFF ) );
+          buf.SetU8At( mapColorGridHiPos + m, (byte)( ( colorGridAddr >> 8 ) & 0xFF ) );
+          for ( int i = 0; i < colorGrid.Length; ++i )
+            buf.AppendU8( colorGrid[i] );
+        }
+
+        // Write passable bits
+        if ( ExportPassable )
+        {
+          int passableAddr = (int)buf.Length + addrBase;
+          buf.SetU8At( mapPassableLoPos + m, (byte)( passableAddr & 0xFF ) );
+          buf.SetU8At( mapPassableHiPos + m, (byte)( ( passableAddr >> 8 ) & 0xFF ) );
+
+          bool[] passable = new bool[ew * eh];
+          for ( int idx = 0; idx < passable.Length; ++idx )
+            passable[idx] = true;
+          for ( int ty = 0; ty < map.Tiles.Height; ++ty )
+          {
+            for ( int tx = 0; tx < map.Tiles.Width; ++tx )
+            {
+              int tileIndex = GetExportTileIndex( map.Tiles[tx, ty] );
+              if ( ( tileIndex >= 0 ) && ( tileIndex < Tiles.Count ) && ( !Tiles[tileIndex].Passable ) )
+              {
+                var tile = Tiles[tileIndex];
+                for ( int cy = 0; cy < tile.Chars.Height; ++cy )
+                {
+                  for ( int cx = 0; cx < tile.Chars.Width; ++cx )
+                  {
+                    int px = tx * map.TileSpacingX + cx;
+                    int py = ty * map.TileSpacingY + cy;
+                    if ( ( px < ew ) && ( py < eh ) )
+                      passable[py * ew + px] = false;
+                  }
+                }
+              }
+            }
+          }
+          for ( int y = 0; y < eh; ++y )
+          {
+            int currentX = 0;
+            while ( currentX < ew )
+            {
+              byte bits = 0;
+              for ( int bitIndex = 0; bitIndex < 8; ++bitIndex )
+              {
+                if ( ( currentX + bitIndex < ew ) && ( passable[y * ew + currentX + bitIndex] ) )
+                  bits |= (byte)( 1 << ( 7 - bitIndex ) );
+              }
+              buf.AppendU8( bits );
+              currentX += 8;
+            }
+          }
+        }
+
+        // Write markers
+        if ( ExportMarkers )
+        {
+          int markersAddr = (int)buf.Length + addrBase;
+          buf.SetU8At( mapMarkersLoPos + m, (byte)( markersAddr & 0xFF ) );
+          buf.SetU8At( mapMarkersHiPos + m, (byte)( ( markersAddr >> 8 ) & 0xFF ) );
+          foreach ( var marker in map.Markers )
+          {
+            byte tagId = 0;
+            foreach ( var mt in MarkerTypes )
+            {
+              if ( mt.ID == marker.Type )
+              {
+                tagId = (byte)mt.TagID;
+                break;
+              }
+            }
+            buf.AppendU8( tagId );
+            buf.AppendU8( (byte)( marker.X * map.TileSpacingX ) );
+            buf.AppendU8( (byte)( marker.Y * map.TileSpacingY ) );
+            buf.AppendU8( marker.Value );
+          }
+        }
+      }
+
+      return buf;
     }
 
 

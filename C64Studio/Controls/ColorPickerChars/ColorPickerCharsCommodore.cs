@@ -35,11 +35,12 @@ namespace RetroDevStudio.Controls
 
     public override void Redraw()
     {
-      if ( _Charset == null )
+      if ( ( _Charset == null )
+      ||   ( SwatchSize <= 0 ) )
       {
         return;
       }
-      
+
       int     itemsPerRow = 16;
       if ( Parent != null )
       {
@@ -93,6 +94,10 @@ namespace RetroDevStudio.Controls
 
     private void panelCharColors_PostPaint( GR.Image.FastImage TargetBuffer )
     {
+      if ( SwatchSize <= 0 )
+      {
+        return;
+      }
       int     itemsPerRow = 16;
       if ( Parent != null )
       {
@@ -131,13 +136,14 @@ namespace RetroDevStudio.Controls
     private void HandleMouseOnColorChooser( int X, int Y, MouseButtons Buttons )
     {
       if ( ( X < 0 )
-      ||   ( X >= panelCharColors.ClientSize.Width ) 
+      ||   ( X >= panelCharColors.ClientSize.Width )
       ||   ( Y < 0 )
-      ||   ( Y >= panelCharColors.ClientSize.Height ) )
+      ||   ( Y >= panelCharColors.ClientSize.Height )
+      ||   ( SwatchSize <= 0 ) )
       {
         return;
       }
-      
+
       int     itemsPerRow = 16;
       if ( Parent != null )
       {

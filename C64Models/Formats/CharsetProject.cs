@@ -77,6 +77,7 @@ namespace RetroDevStudio.Formats
     public int            PlaygroundWidth = 16;
     public int            PlaygroundHeight = 16;
     public int            PlaygroundScale = 2;  // 1x, 2x, 4x, or 8x scale (default 2x = 16 pixels per char)
+    public int            ColorSwatchSize = 16;
 
 
 
@@ -216,6 +217,7 @@ namespace RetroDevStudio.Formats
       chunkCharsetInfo.AppendI32( ShowGrid ? 1 : 0 );
       chunkCharsetInfo.AppendI32( (int)RightClickDrawing );
       chunkCharsetInfo.AppendI32( ShowCharacterListGrid ? 1 : 0 );
+      chunkCharsetInfo.AppendI32( ColorSwatchSize );
       chunkCharsetProject.Append( chunkCharsetInfo.ToBuffer() );
 
 
@@ -567,6 +569,14 @@ namespace RetroDevStudio.Formats
                   if ( subMemIn.Position < subChunk.Length )
                   {
                     ShowCharacterListGrid = ( subMemIn.ReadInt32() == 1 );
+                  }
+                  if ( subMemIn.Position < subChunk.Length )
+                  {
+                    ColorSwatchSize = subMemIn.ReadInt32();
+                    if ( ColorSwatchSize < 1 )
+                    {
+                      ColorSwatchSize = 16;
+                    }
                   }
                   break;
                 case FileChunkConstants.CHARSET_COLOR_SETTINGS:

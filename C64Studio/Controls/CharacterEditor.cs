@@ -200,12 +200,16 @@ namespace RetroDevStudio.Controls
       canvasEditor.Invalidate();
     }
 
-    private int m_ColorSwatchSize = 8;
+    private int m_ColorSwatchSize = 16;
     public int SwatchSize
     {
       get { return m_ColorSwatchSize; }
       set
       {
+        if ( value < 1 )
+        {
+          value = 16;
+        }
         if ( m_ColorSwatchSize != value )
         {
           m_ColorSwatchSize = value;
@@ -1882,12 +1886,13 @@ namespace RetroDevStudio.Controls
         {
           return;
         }
-        int size = 8;
+        int size = 16;
         if ( ( int.TryParse( editSwatchSize.Text, out size ) )
         &&   ( size > 0 )
         &&   ( size <= 64 ) )
         {
           SwatchSize = size;
+          RaiseModifiedEvent();
         }
         e.Handled = true;
         e.SuppressKeyPress = true;

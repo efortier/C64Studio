@@ -106,6 +106,8 @@
             this.btnToolSelect = new DecentForms.RadioButton();
             this.btnToolMarker = new DecentForms.RadioButton();
             this.comboMarkerTypes = new System.Windows.Forms.ComboBox();
+            this.labelMarkerValue = new System.Windows.Forms.Label();
+            this.editMarkerValue = new System.Windows.Forms.NumericUpDown();
             this.comboMarkerColorOverride = new System.Windows.Forms.ComboBox();
             this.btnZoomOut = new DecentForms.Button();
             this.btnZoomIn = new DecentForms.Button();
@@ -197,6 +199,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.pictureEditor)).BeginInit();
             this.tabMarkers.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.editMarkerTagID)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.editMarkerValue)).BeginInit();
             this.menuStrip1.SuspendLayout();
             this.tabEditor.SuspendLayout();
             this.groupBox1.SuspendLayout();
@@ -956,6 +959,8 @@
             this.flowLayoutPanel1.Controls.Add(this.btnToolSelect);
             this.flowLayoutPanel1.Controls.Add(this.btnToolMarker);
             this.flowLayoutPanel1.Controls.Add(this.comboMarkerTypes);
+            this.flowLayoutPanel1.Controls.Add(this.labelMarkerValue);
+            this.flowLayoutPanel1.Controls.Add(this.editMarkerValue);
             this.flowLayoutPanel1.Controls.Add(this.comboMarkerColorOverride);
             this.flowLayoutPanel1.Controls.Add(this.btnZoomOut);
             this.flowLayoutPanel1.Controls.Add(this.btnZoomIn);
@@ -1056,16 +1061,37 @@
             this.btnToolMarker.Text = "M";
             this.toolTip1.SetToolTip(this.btnToolMarker, "Markers");
             this.btnToolMarker.CheckedChanged += new DecentForms.EventHandler(this.btnToolMarker_CheckedChanged);
-            // 
+            //
             // comboMarkerTypes
-            // 
+            //
             this.comboMarkerTypes.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboMarkerTypes.Location = new System.Drawing.Point(183, 3);
             this.comboMarkerTypes.Name = "comboMarkerTypes";
             this.comboMarkerTypes.Size = new System.Drawing.Size(150, 21);
             this.comboMarkerTypes.TabIndex = 3;
             this.comboMarkerTypes.SelectedIndexChanged += new System.EventHandler(this.comboMarkerTypes_SelectedIndexChanged);
-            // 
+            //
+            // labelMarkerValue
+            //
+            this.labelMarkerValue.AutoSize = true;
+            this.labelMarkerValue.Location = new System.Drawing.Point(339, 7);
+            this.labelMarkerValue.Name = "labelMarkerValue";
+            this.labelMarkerValue.Size = new System.Drawing.Size(37, 13);
+            this.labelMarkerValue.TabIndex = 30;
+            this.labelMarkerValue.Text = "Value:";
+            this.labelMarkerValue.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
+            //
+            // editMarkerValue
+            //
+            this.editMarkerValue.Location = new System.Drawing.Point(382, 3);
+            this.editMarkerValue.Maximum = new decimal(new int[] { 255, 0, 0, 0});
+            this.editMarkerValue.Minimum = new decimal(new int[] { 0, 0, 0, 0});
+            this.editMarkerValue.Name = "editMarkerValue";
+            this.editMarkerValue.Size = new System.Drawing.Size(55, 20);
+            this.editMarkerValue.TabIndex = 31;
+            this.editMarkerValue.Value = new decimal(new int[] { 0, 0, 0, 0});
+            this.editMarkerValue.ValueChanged += new System.EventHandler(this.editMarkerValue_ValueChanged);
+            //
             // comboMarkerColorOverride
             // 
             this.comboMarkerColorOverride.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
@@ -1335,7 +1361,7 @@
             this.editSwatchSize.Name = "editSwatchSize";
             this.editSwatchSize.Size = new System.Drawing.Size(40, 20);
             this.editSwatchSize.TabIndex = 23;
-            this.editSwatchSize.Text = "8";
+            this.editSwatchSize.Text = "16";
             this.editSwatchSize.KeyDown += new System.Windows.Forms.KeyEventHandler(this.editSwatchSize_KeyDown);
             this.editSwatchSize.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.editSwatchSize_KeyPress);
             // 
@@ -1804,7 +1830,7 @@
             this.characterEditor.Name = "characterEditor";
             this.characterEditor.ShowCreateTileButton = false;
             this.characterEditor.Size = new System.Drawing.Size(192, 74);
-            this.characterEditor.SwatchSize = 8;
+            this.characterEditor.SwatchSize = 16;
             this.characterEditor.TabIndex = 0;
             this.characterEditor.Modified += new RetroDevStudio.Controls.CharacterEditor.ModifiedHandler(this.characterEditor_Modified);
             this.characterEditor.CharactersShifted += new RetroDevStudio.Controls.CharacterEditor.CharsetShiftedHandler(this.characterEditor_CharactersShifted);
@@ -2128,6 +2154,7 @@
             this.panelMapContainer.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.pictureEditor)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMarkerTagID)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.editMarkerValue)).EndInit();
             this.tabMarkers.ResumeLayout(false);
             this.tabMarkers.PerformLayout();
             this.menuStrip1.ResumeLayout(false);
@@ -2232,6 +2259,8 @@
     private System.Windows.Forms.CheckBox checkAutoTiling;
         private DecentForms.RadioButton btnToolMarker;
         private System.Windows.Forms.ComboBox comboMarkerTypes;
+        private System.Windows.Forms.Label labelMarkerValue;
+        private System.Windows.Forms.NumericUpDown editMarkerValue;
         private System.Windows.Forms.ComboBox comboMarkerColorOverride;
     private DecentForms.Button btnSetNextTileChar;
     private DecentForms.Button btnTileClone;

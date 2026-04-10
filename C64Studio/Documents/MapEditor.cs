@@ -136,6 +136,7 @@ namespace RetroDevStudio.Documents
       comboExportMethod.Items.Add( new GR.Generic.Tupel<string, Type>( "charset to charset project", typeof( ExportMapCharsetAsCharset ) ) );
       comboExportMethod.Items.Add( new GR.Generic.Tupel<string, Type>( "charset to binary file", typeof( ExportMapCharsetAsBinaryFile ) ) );
       comboExportMethod.Items.Add( new GR.Generic.Tupel<string, Type>( "map to char screen project", typeof( ExportMapAsCharscreen ) ) );
+      comboExportMethod.Items.Add( new GR.Generic.Tupel<string, Type>( "as game binary", typeof( ExportMapAsGameBinary ) ) );
       comboExportMethod.SelectedIndex = 0;
 
       comboImportMethod.Items.Add( new GR.Generic.Tupel<string, Type>( "charset from character set file", typeof( ImportMapCharsetFromCharsetFile ) ) );
@@ -1542,9 +1543,10 @@ namespace RetroDevStudio.Documents
                    var existingMarker = m_CurrentMap.Markers.FirstOrDefault( m => m.X == trueX + offsetX && m.Y == trueY + offsetY );
                    if ( existingMarker != null )
                    {
-                     // Replace type? Or do nothing?
+                     // Replace type and value
                      existingMarker.Type = type.ID;
                      existingMarker.Name = type.Name + " " + ( m_CurrentMap.Markers.Count + 1 );
+                     existingMarker.Value = (byte)editMarkerValue.Value;
                    }
                    else
                    {
@@ -1553,6 +1555,7 @@ namespace RetroDevStudio.Documents
                      marker.Y = trueY + offsetY;
                      marker.Type = type.ID;
                      marker.Name = type.Name + " " + ( m_CurrentMap.Markers.Count + 1 );
+                     marker.Value = (byte)editMarkerValue.Value;
                      m_CurrentMap.Markers.Add( marker );
                    }
                    RedrawMap();
@@ -1572,6 +1575,9 @@ namespace RetroDevStudio.Documents
            var markerToRemove = m_CurrentMap.Markers.FirstOrDefault( m => m.X == trueX + offsetX && m.Y == trueY + offsetY );
            if ( markerToRemove != null )
            {
+             // Load this marker's value into the edit field before removing, so the user
+             // can inspect and reuse it.
+             editMarkerValue.Value = markerToRemove.Value;
              m_CurrentMap.Markers.Remove( markerToRemove );
              RedrawMap();
              pictureEditor.Invalidate();
@@ -2723,7 +2729,11 @@ namespace RetroDevStudio.Documents
 
     private void RedrawColorChooser()
     {
-      if ( m_MapProject == null ) return;
+      if ( ( m_MapProject == null )
+      ||   ( m_MapProject.ColorSwatchSize <= 0 ) )
+      {
+        return;
+      }
       int itemsPerRow = Math.Max( 1, panelCharColors.ClientSize.Width / m_MapProject.ColorSwatchSize );
       int numRows = ( 16 + itemsPerRow - 1 ) / itemsPerRow;
       int requiredHeight = numRows * m_MapProject.ColorSwatchSize;
@@ -2801,6 +2811,10 @@ namespace RetroDevStudio.Documents
     {
       if ( ( Buttons & MouseButtons.Left ) == MouseButtons.Left )
       {
+        if ( m_MapProject.ColorSwatchSize <= 0 )
+        {
+          return;
+        }
         int itemsPerRow = Math.Max( 1, panelCharColors.ClientSize.Width / m_MapProject.ColorSwatchSize );
         int col = X / m_MapProject.ColorSwatchSize;
         int row = Y / m_MapProject.ColorSwatchSize;
@@ -5617,6 +5631,12 @@ namespace RetroDevStudio.Documents
            SetModified();
          }
       }
+    }
+
+    private void editMarkerValue_ValueChanged( object sender, EventArgs e )
+    {
+      // Intentionally no-op: the value is read from the control when placing markers.
+      // Ensures the control always holds a valid byte (0-255) via its Min/Max.
     }
 
     private void btnClearMarkers_Click( DecentForms.ControlBase Sender )

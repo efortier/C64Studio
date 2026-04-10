@@ -242,6 +242,7 @@ namespace RetroDevStudio.Documents
     public void CharsetWasImported()
     {
       characterEditor.CharsetUpdated( m_Charset );
+      characterEditor.SwatchSize      = m_Charset.ColorSwatchSize;
 
       editCharactersCount.Text        = m_Charset.ExportNumCharacters.ToString();
       editCharactersFrom.Text         = m_Charset.ExportStartCharacter.ToString();
@@ -256,6 +257,7 @@ namespace RetroDevStudio.Documents
 
     public override GR.Memory.ByteBuffer SaveToBuffer()
     {
+      m_Charset.ColorSwatchSize = characterEditor.SwatchSize;
       return m_Charset.SaveToBuffer();
     }
 
