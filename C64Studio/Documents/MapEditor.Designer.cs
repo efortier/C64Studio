@@ -108,6 +108,8 @@
             this.comboMarkerTypes = new System.Windows.Forms.ComboBox();
             this.labelMarkerValue = new System.Windows.Forms.Label();
             this.editMarkerValue = new System.Windows.Forms.NumericUpDown();
+            this.checkMarkerDefaultEnabled = new System.Windows.Forms.CheckBox();
+            this.checkMarkerDefaultTriggered = new System.Windows.Forms.CheckBox();
             this.comboMarkerColorOverride = new System.Windows.Forms.ComboBox();
             this.btnZoomOut = new DecentForms.Button();
             this.btnZoomIn = new DecentForms.Button();
@@ -258,6 +260,8 @@
             this.tabMarkers.Controls.Add(this.labelMarkerExportSymbol);
             this.tabMarkers.Controls.Add(this.editMarkerTagID);
             this.tabMarkers.Controls.Add(this.labelMarkerTagID);
+            this.tabMarkers.Controls.Add(this.checkMarkerDefaultEnabled);
+            this.tabMarkers.Controls.Add(this.checkMarkerDefaultTriggered);
             this.tabMarkers.Controls.Add(this.comboMarkerColor);
             this.tabMarkers.Controls.Add(this.labelMarkerColor);
             this.tabMarkers.Controls.Add(this.editMarkerName);
@@ -343,16 +347,40 @@
             this.editMarkerTagID.Name = "editMarkerTagID";
             this.editMarkerTagID.Size = new System.Drawing.Size(120, 20);
             this.editMarkerTagID.TabIndex = 10;
-            // 
+            //
             // labelMarkerTagID
-            // 
+            //
             this.labelMarkerTagID.AutoSize = true;
             this.labelMarkerTagID.Location = new System.Drawing.Point(174, 98);
             this.labelMarkerTagID.Name = "labelMarkerTagID";
             this.labelMarkerTagID.Size = new System.Drawing.Size(43, 13);
             this.labelMarkerTagID.TabIndex = 11;
             this.labelMarkerTagID.Text = "Tag ID:";
-            // 
+            //
+            // checkMarkerDefaultEnabled
+            //
+            this.checkMarkerDefaultEnabled.AutoSize = true;
+            this.checkMarkerDefaultEnabled.Checked = true;
+            this.checkMarkerDefaultEnabled.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.checkMarkerDefaultEnabled.Location = new System.Drawing.Point(174, 158);
+            this.checkMarkerDefaultEnabled.Name = "checkMarkerDefaultEnabled";
+            this.checkMarkerDefaultEnabled.Size = new System.Drawing.Size(127, 17);
+            this.checkMarkerDefaultEnabled.TabIndex = 12;
+            this.checkMarkerDefaultEnabled.Text = "Enabled (default)";
+            this.checkMarkerDefaultEnabled.UseVisualStyleBackColor = true;
+            //
+            // checkMarkerDefaultTriggered
+            //
+            this.checkMarkerDefaultTriggered.AutoSize = true;
+            this.checkMarkerDefaultTriggered.Checked = false;
+            this.checkMarkerDefaultTriggered.CheckState = System.Windows.Forms.CheckState.Unchecked;
+            this.checkMarkerDefaultTriggered.Location = new System.Drawing.Point(174, 182);
+            this.checkMarkerDefaultTriggered.Name = "checkMarkerDefaultTriggered";
+            this.checkMarkerDefaultTriggered.Size = new System.Drawing.Size(133, 17);
+            this.checkMarkerDefaultTriggered.TabIndex = 13;
+            this.checkMarkerDefaultTriggered.Text = "Triggered (default)";
+            this.checkMarkerDefaultTriggered.UseVisualStyleBackColor = true;
+            //
             // comboMarkerColor
             // 
             this.comboMarkerColor.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
@@ -2261,6 +2289,8 @@
         private System.Windows.Forms.ComboBox comboMarkerTypes;
         private System.Windows.Forms.Label labelMarkerValue;
         private System.Windows.Forms.NumericUpDown editMarkerValue;
+        private System.Windows.Forms.CheckBox checkMarkerDefaultEnabled;
+        private System.Windows.Forms.CheckBox checkMarkerDefaultTriggered;
         private System.Windows.Forms.ComboBox comboMarkerColorOverride;
     private DecentForms.Button btnSetNextTileChar;
     private DecentForms.Button btnTileClone;

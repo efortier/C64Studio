@@ -24,6 +24,8 @@ namespace RetroDevStudio.Formats
       public int        Type = 0;
       public string     Name = "";
       public byte       Value = 0;
+      public bool       Enabled = true;
+      public bool       Triggered = false;
     };
 
     public class MarkerType
@@ -127,6 +129,13 @@ namespace RetroDevStudio.Formats
         public string ExportFilename = "";
         public bool   UseAbsoluteAddresses = false;
         public string AbsoluteBaseAddressHex = "";
+        // v18: per-method charset export + .def sidecar toggle
+        public bool   ExportCharset = false;
+        public string CharsetExportDirectory = "";
+        public string CharsetExportFilename = "";
+        public bool   CharsetPrefixLoadAddress = false;
+        public string CharsetPrefixLoadAddressHex = "";
+        public bool   GenerateDefFile = true;
       }
 
       public class TargetSettings
@@ -311,6 +320,8 @@ namespace RetroDevStudio.Formats
           chunkMarker.AppendI32( marker.Type );
           chunkMarker.AppendString( marker.Name );
           chunkMarker.AppendU8( marker.Value );
+          chunkMarker.AppendU8( (byte)( marker.Enabled ? 1 : 0 ) );
+          chunkMarker.AppendU8( (byte)( marker.Triggered ? 1 : 0 ) );
           chunkMap.Append( chunkMarker.ToBuffer() );
         }
 
@@ -329,7 +340,7 @@ namespace RetroDevStudio.Formats
       projectFile.Append( chunkProjectData.ToBuffer() );
 
       GR.IO.FileChunk chunkExportSettings = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS );
-      chunkExportSettings.AppendU32( 17 );
+      chunkExportSettings.AppendU32( 18 );
       chunkExportSettings.AppendI32(Settings.ExportDataIndex );
       chunkExportSettings.AppendI32(Settings.ExportOrientationIndex );
       chunkExportSettings.AppendI32( Settings.ExportMethodIndex );
@@ -381,6 +392,13 @@ namespace RetroDevStudio.Formats
       // version 17: absolute base address
       chunkExportSettings.AppendI32( Settings.GameBinary.UseAbsoluteAddresses ? 1 : 0 );
       chunkExportSettings.AppendString( Settings.GameBinary.AbsoluteBaseAddressHex ?? "" );
+      // version 18: game binary per-method charset export + .def sidecar toggle
+      chunkExportSettings.AppendI32( Settings.GameBinary.ExportCharset ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.GameBinary.CharsetExportDirectory ?? "" );
+      chunkExportSettings.AppendString( Settings.GameBinary.CharsetExportFilename ?? "" );
+      chunkExportSettings.AppendI32( Settings.GameBinary.CharsetPrefixLoadAddress ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.GameBinary.CharsetPrefixLoadAddressHex ?? "" );
+      chunkExportSettings.AppendI32( Settings.GameBinary.GenerateDefFile ? 1 : 0 );
       projectFile.Append( chunkExportSettings.ToBuffer() );
       return projectFile;
     }
@@ -601,6 +619,22 @@ namespace RetroDevStudio.Formats
                               {
                                 marker.Value = 0;
                               }
+                              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+                              {
+                                marker.Enabled = ( mapChunkReader.ReadUInt8() != 0 );
+                              }
+                              else
+                              {
+                                marker.Enabled = true;
+                              }
+                              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+                              {
+                                marker.Triggered = ( mapChunkReader.ReadUInt8() != 0 );
+                              }
+                              else
+                              {
+                                marker.Triggered = false;
+                              }
                               map.Markers.Add( marker );
                             }
                             break;
@@ -682,6 +716,15 @@ namespace RetroDevStudio.Formats
                 {
                   Settings.GameBinary.UseAbsoluteAddresses = ( chunkReader.ReadInt32() != 0 );
                   Settings.GameBinary.AbsoluteBaseAddressHex = chunkReader.ReadString();
+                }
+                if ( version >= 18 )
+                {
+                  Settings.GameBinary.ExportCharset = ( chunkReader.ReadInt32() != 0 );
+                  Settings.GameBinary.CharsetExportDirectory = chunkReader.ReadString();
+                  Settings.GameBinary.CharsetExportFilename = chunkReader.ReadString();
+                  Settings.GameBinary.CharsetPrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                  Settings.GameBinary.CharsetPrefixLoadAddressHex = chunkReader.ReadString();
+                  Settings.GameBinary.GenerateDefFile = ( chunkReader.ReadInt32() != 0 );
                 }
               }
             }
@@ -1594,38 +1637,36 @@ namespace RetroDevStudio.Formats
       var buf = new GR.Memory.ByteBuffer();
       int addrBase = BaseAddress;
 
-      // ========== HEADER (47 bytes, 0x2F) ==========
-      buf.AppendU8( 0x44 ); // +$00 'D'
-      buf.AppendU8( 0x48 ); // +$01 'H'
-      buf.AppendU8( 4 );    // +$02 marker_stride (bytes per marker record: tag, x, y, value)
-      buf.AppendU8( (byte)Tiles.Count );  // +$03
-      buf.AppendU8( (byte)Maps.Count );   // +$04
-      // 21 x 2-byte offset placeholders (+$05 .. +$2E)
+      // ========== HEADER (45 bytes, 0x2D) ==========
+      buf.AppendU8( 6 );    // +$00 marker_stride (bytes per marker record: tag, x, y, value, enabled, triggered)
+      buf.AppendU8( (byte)Tiles.Count );  // +$01
+      buf.AppendU8( (byte)Maps.Count );   // +$02
+      // 21 x 2-byte offset placeholders (+$03 .. +$2C)
       for ( int i = 0; i < 21; ++i )
         buf.AppendU16( 0 );
 
       // Header offset positions (byte offset within header for each pointer)
-      const int HDR_TILES_WIDTH       = 0x05;
-      const int HDR_TILES_HEIGHT      = 0x07;
-      const int HDR_TILES_FLAGS       = 0x09;
-      const int HDR_TILE_CHAR_OFF_LO  = 0x0B;
-      const int HDR_TILE_CHAR_OFF_HI  = 0x0D;
-      const int HDR_TILE_COLOR_OFF_LO = 0x0F;
-      const int HDR_TILE_COLOR_OFF_HI = 0x11;
-      const int HDR_MAP_WIDTH         = 0x13;
-      const int HDR_MAP_HEIGHT        = 0x15;
-      const int HDR_MAP_BG_COLOR      = 0x17;
-      const int HDR_MAP_MC1_COLOR     = 0x19;
-      const int HDR_MAP_MC2_COLOR     = 0x1B;
-      const int HDR_MAP_MARKER_COUNT  = 0x1D;
-      const int HDR_MAP_CHAR_GRID_LO  = 0x1F;
-      const int HDR_MAP_CHAR_GRID_HI  = 0x21;
-      const int HDR_MAP_COLOR_GRID_LO = 0x23;
-      const int HDR_MAP_COLOR_GRID_HI = 0x25;
-      const int HDR_MAP_PASSABLE_LO   = 0x27;
-      const int HDR_MAP_PASSABLE_HI   = 0x29;
-      const int HDR_MAP_MARKERS_LO    = 0x2B;
-      const int HDR_MAP_MARKERS_HI    = 0x2D;
+      const int HDR_TILES_WIDTH       = 0x03;
+      const int HDR_TILES_HEIGHT      = 0x05;
+      const int HDR_TILES_FLAGS       = 0x07;
+      const int HDR_TILE_CHAR_OFF_LO  = 0x09;
+      const int HDR_TILE_CHAR_OFF_HI  = 0x0B;
+      const int HDR_TILE_COLOR_OFF_LO = 0x0D;
+      const int HDR_TILE_COLOR_OFF_HI = 0x0F;
+      const int HDR_MAP_WIDTH         = 0x11;
+      const int HDR_MAP_HEIGHT        = 0x13;
+      const int HDR_MAP_BG_COLOR      = 0x15;
+      const int HDR_MAP_MC1_COLOR     = 0x17;
+      const int HDR_MAP_MC2_COLOR     = 0x19;
+      const int HDR_MAP_MARKER_COUNT  = 0x1B;
+      const int HDR_MAP_CHAR_GRID_LO  = 0x1D;
+      const int HDR_MAP_CHAR_GRID_HI  = 0x1F;
+      const int HDR_MAP_COLOR_GRID_LO = 0x21;
+      const int HDR_MAP_COLOR_GRID_HI = 0x23;
+      const int HDR_MAP_PASSABLE_LO   = 0x25;
+      const int HDR_MAP_PASSABLE_HI   = 0x27;
+      const int HDR_MAP_MARKERS_LO    = 0x29;
+      const int HDR_MAP_MARKERS_HI    = 0x2B;
 
       // ========== TILE ARRAYS ==========
 
@@ -1930,6 +1971,8 @@ namespace RetroDevStudio.Formats
             buf.AppendU8( (byte)( marker.X * map.TileSpacingX ) );
             buf.AppendU8( (byte)( marker.Y * map.TileSpacingY ) );
             buf.AppendU8( marker.Value );
+            buf.AppendU8( (byte)( marker.Enabled ? 1 : 0 ) );
+            buf.AppendU8( (byte)( marker.Triggered ? 1 : 0 ) );
           }
         }
       }

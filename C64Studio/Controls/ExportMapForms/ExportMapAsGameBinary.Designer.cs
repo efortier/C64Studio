@@ -42,6 +42,17 @@ namespace RetroDevStudio.Controls
       this.btnBrowseExportDirectory = new System.Windows.Forms.Button();
       this.labelExportFilename = new System.Windows.Forms.Label();
       this.editExportFilename = new System.Windows.Forms.TextBox();
+      this.checkGenerateDefFile = new System.Windows.Forms.CheckBox();
+      this.groupCharset = new System.Windows.Forms.GroupBox();
+      this.checkExportCharset = new System.Windows.Forms.CheckBox();
+      this.labelCharsetExportDirectory = new System.Windows.Forms.Label();
+      this.editCharsetExportDirectory = new System.Windows.Forms.TextBox();
+      this.btnBrowseCharsetExportDirectory = new System.Windows.Forms.Button();
+      this.labelCharsetExportFilename = new System.Windows.Forms.Label();
+      this.editCharsetExportFilename = new System.Windows.Forms.TextBox();
+      this.checkCharsetPrefixLoadAddress = new System.Windows.Forms.CheckBox();
+      this.editCharsetPrefixLoadAddress = new System.Windows.Forms.TextBox();
+      this.groupCharset.SuspendLayout();
       this.SuspendLayout();
       //
       // checkExportMarkers
@@ -175,10 +186,118 @@ namespace RetroDevStudio.Controls
       this.editExportFilename.Size = new System.Drawing.Size(195, 20);
       this.editExportFilename.TabIndex = 10;
       //
+      // checkGenerateDefFile
+      //
+      this.checkGenerateDefFile.AutoSize = true;
+      this.checkGenerateDefFile.Checked = true;
+      this.checkGenerateDefFile.CheckState = System.Windows.Forms.CheckState.Checked;
+      this.checkGenerateDefFile.Location = new System.Drawing.Point(3, 208);
+      this.checkGenerateDefFile.Name = "checkGenerateDefFile";
+      this.checkGenerateDefFile.Size = new System.Drawing.Size(180, 17);
+      this.checkGenerateDefFile.TabIndex = 13;
+      this.checkGenerateDefFile.Text = "Generate .def layout sidecar file";
+      this.checkGenerateDefFile.UseVisualStyleBackColor = true;
+      this.checkGenerateDefFile.CheckedChanged += new System.EventHandler(this.checkGenerateDefFile_CheckedChanged);
+      //
+      // groupCharset
+      //
+      this.groupCharset.Controls.Add(this.checkExportCharset);
+      this.groupCharset.Controls.Add(this.labelCharsetExportDirectory);
+      this.groupCharset.Controls.Add(this.editCharsetExportDirectory);
+      this.groupCharset.Controls.Add(this.btnBrowseCharsetExportDirectory);
+      this.groupCharset.Controls.Add(this.labelCharsetExportFilename);
+      this.groupCharset.Controls.Add(this.editCharsetExportFilename);
+      this.groupCharset.Controls.Add(this.checkCharsetPrefixLoadAddress);
+      this.groupCharset.Controls.Add(this.editCharsetPrefixLoadAddress);
+      this.groupCharset.Location = new System.Drawing.Point(3, 235);
+      this.groupCharset.Name = "groupCharset";
+      this.groupCharset.Size = new System.Drawing.Size(316, 148);
+      this.groupCharset.TabIndex = 14;
+      this.groupCharset.TabStop = false;
+      this.groupCharset.Text = "Character Set";
+      //
+      // checkExportCharset
+      //
+      this.checkExportCharset.AutoSize = true;
+      this.checkExportCharset.Location = new System.Drawing.Point(6, 19);
+      this.checkExportCharset.Name = "checkExportCharset";
+      this.checkExportCharset.Size = new System.Drawing.Size(125, 17);
+      this.checkExportCharset.TabIndex = 0;
+      this.checkExportCharset.Text = "Export character set";
+      this.checkExportCharset.UseVisualStyleBackColor = true;
+      this.checkExportCharset.CheckedChanged += new System.EventHandler(this.checkExportCharset_CheckedChanged);
+      //
+      // labelCharsetExportDirectory
+      //
+      this.labelCharsetExportDirectory.AutoSize = true;
+      this.labelCharsetExportDirectory.Location = new System.Drawing.Point(17, 45);
+      this.labelCharsetExportDirectory.Name = "labelCharsetExportDirectory";
+      this.labelCharsetExportDirectory.Size = new System.Drawing.Size(87, 13);
+      this.labelCharsetExportDirectory.TabIndex = 1;
+      this.labelCharsetExportDirectory.Text = "Export directory:";
+      //
+      // editCharsetExportDirectory
+      //
+      this.editCharsetExportDirectory.Enabled = false;
+      this.editCharsetExportDirectory.Location = new System.Drawing.Point(110, 42);
+      this.editCharsetExportDirectory.Name = "editCharsetExportDirectory";
+      this.editCharsetExportDirectory.Size = new System.Drawing.Size(163, 20);
+      this.editCharsetExportDirectory.TabIndex = 2;
+      //
+      // btnBrowseCharsetExportDirectory
+      //
+      this.btnBrowseCharsetExportDirectory.Enabled = false;
+      this.btnBrowseCharsetExportDirectory.Location = new System.Drawing.Point(279, 40);
+      this.btnBrowseCharsetExportDirectory.Name = "btnBrowseCharsetExportDirectory";
+      this.btnBrowseCharsetExportDirectory.Size = new System.Drawing.Size(30, 23);
+      this.btnBrowseCharsetExportDirectory.TabIndex = 3;
+      this.btnBrowseCharsetExportDirectory.Text = "...";
+      this.btnBrowseCharsetExportDirectory.UseVisualStyleBackColor = true;
+      this.btnBrowseCharsetExportDirectory.Click += new System.EventHandler(this.btnBrowseCharsetExportDirectory_Click);
+      //
+      // labelCharsetExportFilename
+      //
+      this.labelCharsetExportFilename.AutoSize = true;
+      this.labelCharsetExportFilename.Location = new System.Drawing.Point(17, 71);
+      this.labelCharsetExportFilename.Name = "labelCharsetExportFilename";
+      this.labelCharsetExportFilename.Size = new System.Drawing.Size(91, 13);
+      this.labelCharsetExportFilename.TabIndex = 4;
+      this.labelCharsetExportFilename.Text = "Export filename:";
+      //
+      // editCharsetExportFilename
+      //
+      this.editCharsetExportFilename.Enabled = false;
+      this.editCharsetExportFilename.Location = new System.Drawing.Point(110, 68);
+      this.editCharsetExportFilename.Name = "editCharsetExportFilename";
+      this.editCharsetExportFilename.Size = new System.Drawing.Size(163, 20);
+      this.editCharsetExportFilename.TabIndex = 5;
+      //
+      // checkCharsetPrefixLoadAddress
+      //
+      this.checkCharsetPrefixLoadAddress.AutoSize = true;
+      this.checkCharsetPrefixLoadAddress.Location = new System.Drawing.Point(6, 100);
+      this.checkCharsetPrefixLoadAddress.Name = "checkCharsetPrefixLoadAddress";
+      this.checkCharsetPrefixLoadAddress.Size = new System.Drawing.Size(121, 17);
+      this.checkCharsetPrefixLoadAddress.TabIndex = 6;
+      this.checkCharsetPrefixLoadAddress.Text = "Prefix load address";
+      this.checkCharsetPrefixLoadAddress.UseVisualStyleBackColor = true;
+      this.checkCharsetPrefixLoadAddress.CheckedChanged += new System.EventHandler(this.checkCharsetPrefixLoadAddress_CheckedChanged);
+      //
+      // editCharsetPrefixLoadAddress
+      //
+      this.editCharsetPrefixLoadAddress.Enabled = false;
+      this.editCharsetPrefixLoadAddress.Font = new System.Drawing.Font("Courier New", 8.25F);
+      this.editCharsetPrefixLoadAddress.Location = new System.Drawing.Point(133, 98);
+      this.editCharsetPrefixLoadAddress.Name = "editCharsetPrefixLoadAddress";
+      this.editCharsetPrefixLoadAddress.Size = new System.Drawing.Size(66, 20);
+      this.editCharsetPrefixLoadAddress.TabIndex = 7;
+      //
       // ExportMapAsGameBinary
       //
       this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
       this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+      this.Controls.Add(this.groupCharset);
+      this.Controls.Add(this.checkGenerateDefFile);
       this.Controls.Add(this.editExportFilename);
       this.Controls.Add(this.labelExportFilename);
       this.Controls.Add(this.btnBrowseExportDirectory);
@@ -193,7 +312,9 @@ namespace RetroDevStudio.Controls
       this.Controls.Add(this.checkExportColors);
       this.Controls.Add(this.checkExportMarkers);
       this.Name = "ExportMapAsGameBinary";
-      this.Size = new System.Drawing.Size(317, 317);
+      this.Size = new System.Drawing.Size(322, 392);
+      this.groupCharset.ResumeLayout(false);
+      this.groupCharset.PerformLayout();
       this.ResumeLayout(false);
       this.PerformLayout();
 
@@ -214,5 +335,15 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.Button btnBrowseExportDirectory;
     private System.Windows.Forms.Label labelExportFilename;
     private System.Windows.Forms.TextBox editExportFilename;
+    private System.Windows.Forms.CheckBox checkGenerateDefFile;
+    private System.Windows.Forms.GroupBox groupCharset;
+    private System.Windows.Forms.CheckBox checkExportCharset;
+    private System.Windows.Forms.Label labelCharsetExportDirectory;
+    private System.Windows.Forms.TextBox editCharsetExportDirectory;
+    private System.Windows.Forms.Button btnBrowseCharsetExportDirectory;
+    private System.Windows.Forms.Label labelCharsetExportFilename;
+    private System.Windows.Forms.TextBox editCharsetExportFilename;
+    private System.Windows.Forms.CheckBox checkCharsetPrefixLoadAddress;
+    private System.Windows.Forms.TextBox editCharsetPrefixLoadAddress;
   }
 }

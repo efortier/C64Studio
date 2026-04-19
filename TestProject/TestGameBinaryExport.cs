@@ -13,32 +13,31 @@ namespace TestProject
   public class TestGameBinaryExport
   {
     // Header offset constants (must match ExportAsGameBinary)
-    const int HDR_MAGIC             = 0x00;
-    const int HDR_MARKER_STRIDE     = 0x02;
-    const int HDR_TILE_COUNT        = 0x03;
-    const int HDR_MAP_COUNT         = 0x04;
-    const int HDR_TILES_WIDTH       = 0x05;
-    const int HDR_TILES_HEIGHT      = 0x07;
-    const int HDR_TILES_FLAGS       = 0x09;
-    const int HDR_TILE_CHAR_OFF_LO  = 0x0B;
-    const int HDR_TILE_CHAR_OFF_HI  = 0x0D;
-    const int HDR_TILE_COLOR_OFF_LO = 0x0F;
-    const int HDR_TILE_COLOR_OFF_HI = 0x11;
-    const int HDR_MAP_WIDTH         = 0x13;
-    const int HDR_MAP_HEIGHT        = 0x15;
-    const int HDR_MAP_BG_COLOR      = 0x17;
-    const int HDR_MAP_MC1_COLOR     = 0x19;
-    const int HDR_MAP_MC2_COLOR     = 0x1B;
-    const int HDR_MAP_MARKER_COUNT  = 0x1D;
-    const int HDR_MAP_CHAR_GRID_LO  = 0x1F;
-    const int HDR_MAP_CHAR_GRID_HI  = 0x21;
-    const int HDR_MAP_COLOR_GRID_LO = 0x23;
-    const int HDR_MAP_COLOR_GRID_HI = 0x25;
-    const int HDR_MAP_PASSABLE_LO   = 0x27;
-    const int HDR_MAP_PASSABLE_HI   = 0x29;
-    const int HDR_MAP_MARKERS_LO    = 0x2B;
-    const int HDR_MAP_MARKERS_HI    = 0x2D;
-    const int HEADER_SIZE           = 0x2F; // 47 bytes
+    const int HDR_MARKER_STRIDE     = 0x00;
+    const int HDR_TILE_COUNT        = 0x01;
+    const int HDR_MAP_COUNT         = 0x02;
+    const int HDR_TILES_WIDTH       = 0x03;
+    const int HDR_TILES_HEIGHT      = 0x05;
+    const int HDR_TILES_FLAGS       = 0x07;
+    const int HDR_TILE_CHAR_OFF_LO  = 0x09;
+    const int HDR_TILE_CHAR_OFF_HI  = 0x0B;
+    const int HDR_TILE_COLOR_OFF_LO = 0x0D;
+    const int HDR_TILE_COLOR_OFF_HI = 0x0F;
+    const int HDR_MAP_WIDTH         = 0x11;
+    const int HDR_MAP_HEIGHT        = 0x13;
+    const int HDR_MAP_BG_COLOR      = 0x15;
+    const int HDR_MAP_MC1_COLOR     = 0x17;
+    const int HDR_MAP_MC2_COLOR     = 0x19;
+    const int HDR_MAP_MARKER_COUNT  = 0x1B;
+    const int HDR_MAP_CHAR_GRID_LO  = 0x1D;
+    const int HDR_MAP_CHAR_GRID_HI  = 0x1F;
+    const int HDR_MAP_COLOR_GRID_LO = 0x21;
+    const int HDR_MAP_COLOR_GRID_HI = 0x23;
+    const int HDR_MAP_PASSABLE_LO   = 0x25;
+    const int HDR_MAP_PASSABLE_HI   = 0x27;
+    const int HDR_MAP_MARKERS_LO    = 0x29;
+    const int HDR_MAP_MARKERS_HI    = 0x2B;
+    const int HEADER_SIZE           = 0x2D; // 45 bytes
 
     /// <summary>Read a 16-bit LE offset from the header and return it.</summary>
     int HdrOff( ByteBuffer buf, int hdrField ) => buf.UInt16At( hdrField );
@@ -86,20 +85,11 @@ namespace TestProject
     // ================================================================
 
     [TestMethod]
-    public void TestHeaderMagicBytes()
-    {
-      var proj = CreateTestProject( 2, 4, 3 );
-      var buf = proj.ExportAsGameBinary( true, true, true );
-      Assert.AreEqual( (byte)0x44, buf.ByteAt( 0 ) );
-      Assert.AreEqual( (byte)0x48, buf.ByteAt( 1 ) );
-    }
-
-    [TestMethod]
     public void TestHeaderMarkerStride()
     {
       var proj = CreateTestProject( 2, 4, 3 );
       var buf = proj.ExportAsGameBinary( true, true, true );
-      Assert.AreEqual( (byte)4, buf.ByteAt( HDR_MARKER_STRIDE ) );
+      Assert.AreEqual( (byte)6, buf.ByteAt( HDR_MARKER_STRIDE ) );
     }
 
     [TestMethod]
@@ -340,24 +330,28 @@ namespace TestProject
       var proj = CreateTestProject( 2, 4, 4 );
       proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 0, Name = "START", ExportSymbol = "START", TagID = 10 } );
       proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 1, Name = "EXIT", ExportSymbol = "EXIT", TagID = 20 } );
-      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 2, Y = 3, Type = 0, Value = 0x42 } );
-      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 1, Type = 1, Value = 0x99 } );
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 2, Y = 3, Type = 0, Value = 0x42, Enabled = true, Triggered = false } );
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 1, Type = 1, Value = 0x99, Enabled = false, Triggered = true } );
 
       var buf = proj.ExportAsGameBinary( true, false, false );
 
       Assert.AreEqual( (byte)2, buf.ByteAt( HdrOff( buf, HDR_MAP_MARKER_COUNT ) ) );
 
       int markersPos = LookupAbsOffset( buf, HDR_MAP_MARKERS_LO, HDR_MAP_MARKERS_HI, 0 );
-      // Marker 0: tag=10, x=2, y=3, value=$42
+      // Marker 0: tag=10, x=2, y=3, value=$42, enabled=1, triggered=0
       Assert.AreEqual( (byte)10, buf.ByteAt( markersPos + 0 ) );
       Assert.AreEqual( (byte)2, buf.ByteAt( markersPos + 1 ) );
       Assert.AreEqual( (byte)3, buf.ByteAt( markersPos + 2 ) );
       Assert.AreEqual( (byte)0x42, buf.ByteAt( markersPos + 3 ) );
-      // Marker 1: tag=20, x=1, y=1, value=$99
-      Assert.AreEqual( (byte)20, buf.ByteAt( markersPos + 4 ) );
-      Assert.AreEqual( (byte)1, buf.ByteAt( markersPos + 5 ) );
-      Assert.AreEqual( (byte)1, buf.ByteAt( markersPos + 6 ) );
-      Assert.AreEqual( (byte)0x99, buf.ByteAt( markersPos + 7 ) );
+      Assert.AreEqual( (byte)1, buf.ByteAt( markersPos + 4 ) );
+      Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 5 ) );
+      // Marker 1: tag=20, x=1, y=1, value=$99, enabled=0, triggered=1
+      Assert.AreEqual( (byte)20, buf.ByteAt( markersPos + 6 ) );
+      Assert.AreEqual( (byte)1, buf.ByteAt( markersPos + 7 ) );
+      Assert.AreEqual( (byte)1, buf.ByteAt( markersPos + 8 ) );
+      Assert.AreEqual( (byte)0x99, buf.ByteAt( markersPos + 9 ) );
+      Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 10 ) );
+      Assert.AreEqual( (byte)1, buf.ByteAt( markersPos + 11 ) );
     }
 
     [TestMethod]
@@ -373,6 +367,8 @@ namespace TestProject
       Assert.AreEqual( (byte)6, buf.ByteAt( markersPos + 1 ) );  // 3*2
       Assert.AreEqual( (byte)6, buf.ByteAt( markersPos + 2 ) );  // 2*3
       Assert.AreEqual( (byte)0x7F, buf.ByteAt( markersPos + 3 ) );
+      Assert.AreEqual( (byte)1, buf.ByteAt( markersPos + 4 ) ); // enabled default
+      Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 5 ) ); // triggered default
     }
 
     [TestMethod]
@@ -383,8 +379,8 @@ namespace TestProject
       proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 1, Type = 0 } );
       var bufWith = proj.ExportAsGameBinary( true, false, false );
       var bufWithout = proj.ExportAsGameBinary( false, false, false );
-      // Stride is 4 (tag, x, y, value), 1 marker
-      Assert.AreEqual( (uint)4, bufWith.Length - bufWithout.Length );
+      // Stride is 6 (tag, x, y, value, enabled, triggered), 1 marker
+      Assert.AreEqual( (uint)6, bufWith.Length - bufWithout.Length );
     }
 
     // ================================================================
@@ -449,13 +445,13 @@ namespace TestProject
       var buf = proj.ExportAsGameBinary( true, false, false );
       Assert.AreEqual( (byte)3, buf.ByteAt( HdrOff( buf, HDR_MAP_MARKER_COUNT ) ) );
       int markersPos = LookupAbsOffset( buf, HDR_MAP_MARKERS_LO, HDR_MAP_MARKERS_HI, 0 );
-      // Stride is now 4 bytes (tag, x, y, value)
+      // Stride is now 6 bytes (tag, x, y, value, enabled, triggered)
       Assert.AreEqual( (byte)100, buf.ByteAt( markersPos + 0 ) );
       Assert.AreEqual( (byte)0x11, buf.ByteAt( markersPos + 3 ) );
-      Assert.AreEqual( (byte)200, buf.ByteAt( markersPos + 4 ) );
-      Assert.AreEqual( (byte)0x22, buf.ByteAt( markersPos + 7 ) );
-      Assert.AreEqual( (byte)100, buf.ByteAt( markersPos + 8 ) );
-      Assert.AreEqual( (byte)0x33, buf.ByteAt( markersPos + 11 ) );
+      Assert.AreEqual( (byte)200, buf.ByteAt( markersPos + 6 ) );
+      Assert.AreEqual( (byte)0x22, buf.ByteAt( markersPos + 9 ) );
+      Assert.AreEqual( (byte)100, buf.ByteAt( markersPos + 12 ) );
+      Assert.AreEqual( (byte)0x33, buf.ByteAt( markersPos + 15 ) );
     }
 
     // ================================================================
@@ -533,8 +529,6 @@ namespace TestProject
 
       var buf = proj.ExportAsGameBinary( true, true, true );
 
-      Assert.AreEqual( (byte)0x44, buf.ByteAt( 0 ) );
-      Assert.AreEqual( (byte)0x48, buf.ByteAt( 1 ) );
       Assert.AreEqual( (byte)3, buf.ByteAt( HDR_TILE_COUNT ) );
       Assert.AreEqual( (byte)1, buf.ByteAt( HDR_MAP_COUNT ) );
       Assert.AreEqual( (byte)4, buf.ByteAt( HdrOff( buf, HDR_MAP_WIDTH ) ) );
@@ -546,9 +540,11 @@ namespace TestProject
       Assert.AreEqual( (byte)1, buf.ByteAt( markersPos + 1 ) );
       Assert.AreEqual( (byte)2, buf.ByteAt( markersPos + 2 ) );
       Assert.AreEqual( (byte)0xAB, buf.ByteAt( markersPos + 3 ) );
+      Assert.AreEqual( (byte)1, buf.ByteAt( markersPos + 4 ) ); // enabled default
+      Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 5 ) ); // triggered default
 
-      // Markers should be the last thing in the file (stride=4)
-      Assert.AreEqual( (uint)( markersPos + 4 ), buf.Length );
+      // Markers should be the last thing in the file (stride=6)
+      Assert.AreEqual( (uint)( markersPos + 6 ), buf.Length );
     }
 
     // ================================================================
@@ -678,14 +674,16 @@ namespace TestProject
 
       var buf = proj.ExportAsGameBinary( true, false, false );
 
-      // Marker stride should be 4 now
-      Assert.AreEqual( (byte)4, buf.ByteAt( HDR_MARKER_STRIDE ) );
+      // Marker stride should be 6 now
+      Assert.AreEqual( (byte)6, buf.ByteAt( HDR_MARKER_STRIDE ) );
 
       int markersPos = LookupAbsOffset( buf, HDR_MAP_MARKERS_LO, HDR_MAP_MARKERS_HI, 0 );
       Assert.AreEqual( (byte)7, buf.ByteAt( markersPos + 0 ) );    // tag
       Assert.AreEqual( (byte)2, buf.ByteAt( markersPos + 1 ) );    // x
       Assert.AreEqual( (byte)1, buf.ByteAt( markersPos + 2 ) );    // y
       Assert.AreEqual( (byte)0xFE, buf.ByteAt( markersPos + 3 ) ); // value
+      Assert.AreEqual( (byte)1, buf.ByteAt( markersPos + 4 ) );    // enabled default
+      Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 5 ) );    // triggered default
     }
 
     [TestMethod]
@@ -694,6 +692,59 @@ namespace TestProject
       // New marker, Value not explicitly set, should be 0
       var marker = new MapProject.Marker { X = 0, Y = 0, Type = 0 };
       Assert.AreEqual( (byte)0, marker.Value );
+    }
+
+    // ================================================================
+    // 16. Marker Enabled/Triggered fields
+    // ================================================================
+
+    [TestMethod]
+    public void TestMarkerEnabledTriggeredDefaults()
+    {
+      // New marker defaults: Enabled = true, Triggered = false
+      var marker = new MapProject.Marker();
+      Assert.AreEqual( true, marker.Enabled );
+      Assert.AreEqual( false, marker.Triggered );
+    }
+
+    [TestMethod]
+    public void TestMarkerEnabledTriggeredRoundtripThroughProjectFile()
+    {
+      var proj = CreateTestProject( 2, 4, 3 );
+      proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 0, Name = "A", ExportSymbol = "A", TagID = 1 } );
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 0, Y = 0, Type = 0, Enabled = true,  Triggered = false } );
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 1, Type = 0, Enabled = false, Triggered = true } );
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 2, Y = 2, Type = 0, Enabled = false, Triggered = false } );
+
+      var savedBuffer = proj.SaveToBuffer();
+      var proj2 = new MapProject();
+      proj2.ReadFromBuffer( savedBuffer );
+
+      Assert.AreEqual( 3, proj2.Maps[0].Markers.Count );
+      Assert.AreEqual( true,  proj2.Maps[0].Markers[0].Enabled );
+      Assert.AreEqual( false, proj2.Maps[0].Markers[0].Triggered );
+      Assert.AreEqual( false, proj2.Maps[0].Markers[1].Enabled );
+      Assert.AreEqual( true,  proj2.Maps[0].Markers[1].Triggered );
+      Assert.AreEqual( false, proj2.Maps[0].Markers[2].Enabled );
+      Assert.AreEqual( false, proj2.Maps[0].Markers[2].Triggered );
+    }
+
+    [TestMethod]
+    public void TestMarkerEnabledTriggeredExportedInBinary()
+    {
+      var proj = CreateTestProject( 2, 4, 3 );
+      proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 0, Name = "DOOR", ExportSymbol = "DOOR", TagID = 9 } );
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 1, Type = 0, Value = 0x55, Enabled = false, Triggered = true } );
+
+      var buf = proj.ExportAsGameBinary( true, false, false );
+
+      int markersPos = LookupAbsOffset( buf, HDR_MAP_MARKERS_LO, HDR_MAP_MARKERS_HI, 0 );
+      Assert.AreEqual( (byte)9,    buf.ByteAt( markersPos + 0 ) ); // tag
+      Assert.AreEqual( (byte)1,    buf.ByteAt( markersPos + 1 ) ); // x
+      Assert.AreEqual( (byte)1,    buf.ByteAt( markersPos + 2 ) ); // y
+      Assert.AreEqual( (byte)0x55, buf.ByteAt( markersPos + 3 ) ); // value
+      Assert.AreEqual( (byte)0,    buf.ByteAt( markersPos + 4 ) ); // enabled = false
+      Assert.AreEqual( (byte)1,    buf.ByteAt( markersPos + 5 ) ); // triggered = true
     }
   }
 }

@@ -210,7 +210,6 @@ namespace RetroDevStudio.Documents
       comboExportOrientation.SelectedIndex = 0;
       comboExportData.SelectedIndex = 0;
       comboExportData.SelectedIndexChanged += ExportSettingsChanged;
-      comboExportData.SelectedIndexChanged += ExportSettingsChanged;
       comboExportOrientation.SelectedIndexChanged += ExportSettingsChanged;
       comboRightClickBehavior.SelectedIndexChanged += comboRightClickBehavior_SelectedIndexChanged;
       comboDesignerBackground.SelectedIndexChanged += comboDesignerBackground_SelectedIndexChanged;
@@ -1543,10 +1542,12 @@ namespace RetroDevStudio.Documents
                    var existingMarker = m_CurrentMap.Markers.FirstOrDefault( m => m.X == trueX + offsetX && m.Y == trueY + offsetY );
                    if ( existingMarker != null )
                    {
-                     // Replace type and value
+                     // Replace type, value, enabled, triggered
                      existingMarker.Type = type.ID;
                      existingMarker.Name = type.Name + " " + ( m_CurrentMap.Markers.Count + 1 );
                      existingMarker.Value = (byte)editMarkerValue.Value;
+                     existingMarker.Enabled = checkMarkerDefaultEnabled.Checked;
+                     existingMarker.Triggered = checkMarkerDefaultTriggered.Checked;
                    }
                    else
                    {
@@ -1556,6 +1557,8 @@ namespace RetroDevStudio.Documents
                      marker.Type = type.ID;
                      marker.Name = type.Name + " " + ( m_CurrentMap.Markers.Count + 1 );
                      marker.Value = (byte)editMarkerValue.Value;
+                     marker.Enabled = checkMarkerDefaultEnabled.Checked;
+                     marker.Triggered = checkMarkerDefaultTriggered.Checked;
                      m_CurrentMap.Markers.Add( marker );
                    }
                    RedrawMap();
@@ -1575,9 +1578,11 @@ namespace RetroDevStudio.Documents
            var markerToRemove = m_CurrentMap.Markers.FirstOrDefault( m => m.X == trueX + offsetX && m.Y == trueY + offsetY );
            if ( markerToRemove != null )
            {
-             // Load this marker's value into the edit field before removing, so the user
+             // Load this marker's state into the edit fields before removing, so the user
              // can inspect and reuse it.
              editMarkerValue.Value = markerToRemove.Value;
+             checkMarkerDefaultEnabled.Checked = markerToRemove.Enabled;
+             checkMarkerDefaultTriggered.Checked = markerToRemove.Triggered;
              m_CurrentMap.Markers.Remove( markerToRemove );
              RedrawMap();
              pictureEditor.Invalidate();
@@ -5364,10 +5369,23 @@ namespace RetroDevStudio.Documents
       m_ExportForm.CreateControl();
       m_ExportForm.SettingsChanged += ExportForm_SettingsChanged;
       ApplyExportSettingsToForm();
+      UpdateExportDataDropdownsState();
       if ( !m_ApplyingExportSettings )
       {
         UpdateExportSettingsFromUI( true );
       }
+    }
+
+
+
+    // The Game Binary exporter always writes the full tileset + all maps in row-major
+    // order, so it ignores Export Data / Orientation. Grey those dropdowns out so the
+    // UI does not imply they have an effect.
+    private void UpdateExportDataDropdownsState()
+    {
+      bool usesExportDataAndOrientation = !( m_ExportForm is ExportMapAsGameBinary );
+      comboExportData.Enabled = usesExportDataAndOrientation;
+      comboExportOrientation.Enabled = usesExportDataAndOrientation;
     }
 
 
