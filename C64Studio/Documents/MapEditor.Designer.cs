@@ -36,13 +36,26 @@
             GR.Image.FastImage fastImage8 = new GR.Image.FastImage();
             this.panelMapContainer = new System.Windows.Forms.Panel();
             this.pictureEditor = new GR.Forms.FastPictureBox();
-            this.tabMarkers = new System.Windows.Forms.TabPage();
+            this.tabMarkers = new Krypton.Navigator.KryptonPage();
+            this.tabEntities = new Krypton.Navigator.KryptonPage();
             this.btnDeleteMarkerType = new DecentForms.Button();
             this.btnUpdateMarkerType = new DecentForms.Button();
             this.btnAddMarkerType = new DecentForms.Button();
+            this.btnDeleteEntityType = new DecentForms.Button();
+            this.btnUpdateEntityType = new DecentForms.Button();
+            this.btnAddEntityType = new DecentForms.Button();
             this.editMarkerExportSymbol = new System.Windows.Forms.TextBox();
             this.labelMarkerExportSymbol = new System.Windows.Forms.Label();
+            this.editEntityExportSymbol = new System.Windows.Forms.TextBox();
+            this.labelEntityExportSymbol = new System.Windows.Forms.Label();
             this.editMarkerTagID = new System.Windows.Forms.NumericUpDown();
+            this.editEntityTagID = new System.Windows.Forms.NumericUpDown();
+            this.editEntityTileIndex = new System.Windows.Forms.NumericUpDown();
+            this.labelEntityTileIndex = new System.Windows.Forms.Label();
+            this.editEntityName = new System.Windows.Forms.TextBox();
+            this.labelEntityName = new System.Windows.Forms.Label();
+            this.labelEntityTagID = new System.Windows.Forms.Label();
+            this.listEntityTypes = new System.Windows.Forms.ListBox();
             this.labelMarkerTagID = new System.Windows.Forms.Label();
             this.comboMarkerColor = new System.Windows.Forms.ComboBox();
             this.labelMarkerColor = new System.Windows.Forms.Label();
@@ -56,7 +69,7 @@
             this.closeCharsetProjectToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.viewToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.keepMapCharacterAspectRatioToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.tabEditor = new System.Windows.Forms.TabPage();
+            this.tabEditor = new Krypton.Navigator.KryptonPage();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.label19 = new System.Windows.Forms.Label();
             this.label25 = new System.Windows.Forms.Label();
@@ -105,9 +118,19 @@
             this.btnToolFill = new DecentForms.RadioButton();
             this.btnToolSelect = new DecentForms.RadioButton();
             this.btnToolMarker = new DecentForms.RadioButton();
+            this.btnToolEntity = new DecentForms.RadioButton();
+            this.comboEntityTypes = new System.Windows.Forms.ComboBox();
+            this.labelEntityValue1 = new System.Windows.Forms.Label();
+            this.editEntityValue1Default = new System.Windows.Forms.NumericUpDown();
+            this.labelEntityValue2 = new System.Windows.Forms.Label();
+            this.editEntityValue2Default = new System.Windows.Forms.NumericUpDown();
+            this.checkEntityDefaultEnabled = new System.Windows.Forms.CheckBox();
+            this.checkShowEntities = new System.Windows.Forms.CheckBox();
             this.comboMarkerTypes = new System.Windows.Forms.ComboBox();
-            this.labelMarkerValue = new System.Windows.Forms.Label();
-            this.editMarkerValue = new System.Windows.Forms.NumericUpDown();
+            this.labelMarkerValue1 = new System.Windows.Forms.Label();
+            this.editMarkerValue1 = new System.Windows.Forms.NumericUpDown();
+            this.labelMarkerValue2 = new System.Windows.Forms.Label();
+            this.editMarkerValue2 = new System.Windows.Forms.NumericUpDown();
             this.checkMarkerDefaultEnabled = new System.Windows.Forms.CheckBox();
             this.checkMarkerDefaultTriggered = new System.Windows.Forms.CheckBox();
             this.comboMarkerColorOverride = new System.Windows.Forms.ComboBox();
@@ -119,13 +142,14 @@
             this.btnShiftUp = new DecentForms.Button();
             this.btnShiftDown = new DecentForms.Button();
             this.btnShiftRight = new DecentForms.Button();
+            this.btnRemoveOverlappingTiles = new DecentForms.Button();
             this.checkAutoTiling = new System.Windows.Forms.CheckBox();
             this.labelEditInfo = new System.Windows.Forms.Label();
             this.comboTiles = new System.Windows.Forms.ListBox();
             this.mapHScroll = new DecentForms.HScrollBar();
             this.mapVScroll = new DecentForms.VScrollBar();
-            this.tabMapEditor = new System.Windows.Forms.TabControl();
-            this.tabTiles = new System.Windows.Forms.TabPage();
+            this.tabMapEditor = new Krypton.Navigator.KryptonNavigator();
+            this.tabTiles = new Krypton.Navigator.KryptonPage();
             this.labelSwatchSize = new System.Windows.Forms.Label();
             this.editSwatchSize = new System.Windows.Forms.TextBox();
             this.btnTileApply = new DecentForms.Button();
@@ -167,9 +191,9 @@
             this.comboTileBackground = new System.Windows.Forms.ComboBox();
             this.panelCharColors = new GR.Forms.FastPictureBox();
             this.pictureTileDisplay = new GR.Forms.FastPictureBox();
-            this.tabCharset = new System.Windows.Forms.TabPage();
+            this.tabCharset = new Krypton.Navigator.KryptonPage();
             this.characterEditor = new RetroDevStudio.Controls.CharacterEditor();
-            this.tabExport = new System.Windows.Forms.TabPage();
+            this.tabExport = new Krypton.Navigator.KryptonPage();
             this.label5 = new System.Windows.Forms.Label();
             this.comboExportOrientation = new System.Windows.Forms.ComboBox();
             this.panelExport = new System.Windows.Forms.Panel();
@@ -179,7 +203,7 @@
             this.label24 = new System.Windows.Forms.Label();
             this.label6 = new System.Windows.Forms.Label();
             this.comboExportData = new System.Windows.Forms.ComboBox();
-            this.tabImport = new System.Windows.Forms.TabPage();
+            this.tabImport = new Krypton.Navigator.KryptonPage();
             this.panelImport = new System.Windows.Forms.Panel();
             this.btnImport = new DecentForms.Button();
             this.comboImportMethod = new System.Windows.Forms.ComboBox();
@@ -200,8 +224,14 @@
             this.panelMapContainer.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureEditor)).BeginInit();
             this.tabMarkers.SuspendLayout();
+            this.tabEntities.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.editMarkerTagID)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.editMarkerValue)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.editEntityTagID)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.editEntityTileIndex)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.editEntityValue1Default)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.editEntityValue2Default)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.editMarkerValue1)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.editMarkerValue2)).BeginInit();
             this.menuStrip1.SuspendLayout();
             this.tabEditor.SuspendLayout();
             this.groupBox1.SuspendLayout();
@@ -273,8 +303,156 @@
             this.tabMarkers.Size = new System.Drawing.Size(192, 74);
             this.tabMarkers.TabIndex = 4;
             this.tabMarkers.Text = "Markers";
-            this.tabMarkers.UseVisualStyleBackColor = true;
-            // 
+            //
+            // tabEntities
+            //
+            this.tabEntities.Controls.Add(this.btnDeleteEntityType);
+            this.tabEntities.Controls.Add(this.btnUpdateEntityType);
+            this.tabEntities.Controls.Add(this.btnAddEntityType);
+            this.tabEntities.Controls.Add(this.editEntityExportSymbol);
+            this.tabEntities.Controls.Add(this.labelEntityExportSymbol);
+            this.tabEntities.Controls.Add(this.editEntityTagID);
+            this.tabEntities.Controls.Add(this.labelEntityTagID);
+            this.tabEntities.Controls.Add(this.editEntityTileIndex);
+            this.tabEntities.Controls.Add(this.labelEntityTileIndex);
+            this.tabEntities.Controls.Add(this.editEntityName);
+            this.tabEntities.Controls.Add(this.labelEntityName);
+            this.tabEntities.Controls.Add(this.listEntityTypes);
+            this.tabEntities.Location = new System.Drawing.Point(4, 22);
+            this.tabEntities.Name = "tabEntities";
+            this.tabEntities.Padding = new System.Windows.Forms.Padding(3);
+            this.tabEntities.Size = new System.Drawing.Size(192, 74);
+            this.tabEntities.TabIndex = 5;
+            this.tabEntities.Text = "Entities";
+            //
+            // btnDeleteEntityType
+            //
+            this.btnDeleteEntityType.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnDeleteEntityType.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnDeleteEntityType.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnDeleteEntityType.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnDeleteEntityType.Enabled = false;
+            this.btnDeleteEntityType.Image = null;
+            this.btnDeleteEntityType.Location = new System.Drawing.Point(346, 126);
+            this.btnDeleteEntityType.Name = "btnDeleteEntityType";
+            this.btnDeleteEntityType.Size = new System.Drawing.Size(80, 23);
+            this.btnDeleteEntityType.TabIndex = 9;
+            this.btnDeleteEntityType.Text = "Delete Type";
+            this.btnDeleteEntityType.Click += new DecentForms.EventHandler(this.btnDeleteEntityType_Click);
+            //
+            // btnUpdateEntityType
+            //
+            this.btnUpdateEntityType.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnUpdateEntityType.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnUpdateEntityType.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnUpdateEntityType.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnUpdateEntityType.Enabled = false;
+            this.btnUpdateEntityType.Image = null;
+            this.btnUpdateEntityType.Location = new System.Drawing.Point(260, 126);
+            this.btnUpdateEntityType.Name = "btnUpdateEntityType";
+            this.btnUpdateEntityType.Size = new System.Drawing.Size(75, 23);
+            this.btnUpdateEntityType.TabIndex = 8;
+            this.btnUpdateEntityType.Text = "Update";
+            this.btnUpdateEntityType.Click += new DecentForms.EventHandler(this.btnUpdateEntityType_Click);
+            //
+            // btnAddEntityType
+            //
+            this.btnAddEntityType.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnAddEntityType.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnAddEntityType.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnAddEntityType.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnAddEntityType.Image = null;
+            this.btnAddEntityType.Location = new System.Drawing.Point(174, 126);
+            this.btnAddEntityType.Name = "btnAddEntityType";
+            this.btnAddEntityType.Size = new System.Drawing.Size(75, 23);
+            this.btnAddEntityType.TabIndex = 7;
+            this.btnAddEntityType.Text = "Add Type";
+            this.btnAddEntityType.Click += new DecentForms.EventHandler(this.btnAddEntityType_Click);
+            //
+            // editEntityExportSymbol
+            //
+            this.editEntityExportSymbol.Location = new System.Drawing.Point(260, 68);
+            this.editEntityExportSymbol.Name = "editEntityExportSymbol";
+            this.editEntityExportSymbol.Size = new System.Drawing.Size(120, 20);
+            this.editEntityExportSymbol.TabIndex = 6;
+            this.editEntityExportSymbol.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.editEntityExportSymbol_KeyPress);
+            //
+            // labelEntityExportSymbol
+            //
+            this.labelEntityExportSymbol.AutoSize = true;
+            this.labelEntityExportSymbol.Location = new System.Drawing.Point(174, 70);
+            this.labelEntityExportSymbol.Name = "labelEntityExportSymbol";
+            this.labelEntityExportSymbol.Size = new System.Drawing.Size(77, 13);
+            this.labelEntityExportSymbol.TabIndex = 5;
+            this.labelEntityExportSymbol.Text = "Export Symbol:";
+            //
+            // editEntityTagID
+            //
+            this.editEntityTagID.Location = new System.Drawing.Point(260, 96);
+            this.editEntityTagID.Maximum = new decimal(new int[] {
+            255,
+            0,
+            0,
+            0});
+            this.editEntityTagID.Name = "editEntityTagID";
+            this.editEntityTagID.Size = new System.Drawing.Size(120, 20);
+            this.editEntityTagID.TabIndex = 10;
+            //
+            // labelEntityTagID
+            //
+            this.labelEntityTagID.AutoSize = true;
+            this.labelEntityTagID.Location = new System.Drawing.Point(174, 98);
+            this.labelEntityTagID.Name = "labelEntityTagID";
+            this.labelEntityTagID.Size = new System.Drawing.Size(43, 13);
+            this.labelEntityTagID.TabIndex = 11;
+            this.labelEntityTagID.Text = "Tag ID:";
+            //
+            // editEntityTileIndex
+            //
+            this.editEntityTileIndex.Location = new System.Drawing.Point(260, 38);
+            this.editEntityTileIndex.Maximum = new decimal(new int[] {
+            255,
+            0,
+            0,
+            0});
+            this.editEntityTileIndex.Name = "editEntityTileIndex";
+            this.editEntityTileIndex.Size = new System.Drawing.Size(120, 20);
+            this.editEntityTileIndex.TabIndex = 4;
+            //
+            // labelEntityTileIndex
+            //
+            this.labelEntityTileIndex.AutoSize = true;
+            this.labelEntityTileIndex.Location = new System.Drawing.Point(174, 40);
+            this.labelEntityTileIndex.Name = "labelEntityTileIndex";
+            this.labelEntityTileIndex.Size = new System.Drawing.Size(60, 13);
+            this.labelEntityTileIndex.TabIndex = 3;
+            this.labelEntityTileIndex.Text = "Tile Index:";
+            //
+            // editEntityName
+            //
+            this.editEntityName.Location = new System.Drawing.Point(220, 8);
+            this.editEntityName.Name = "editEntityName";
+            this.editEntityName.Size = new System.Drawing.Size(160, 20);
+            this.editEntityName.TabIndex = 2;
+            //
+            // labelEntityName
+            //
+            this.labelEntityName.AutoSize = true;
+            this.labelEntityName.Location = new System.Drawing.Point(174, 10);
+            this.labelEntityName.Name = "labelEntityName";
+            this.labelEntityName.Size = new System.Drawing.Size(38, 13);
+            this.labelEntityName.TabIndex = 1;
+            this.labelEntityName.Text = "Name:";
+            //
+            // listEntityTypes
+            //
+            this.listEntityTypes.FormattingEnabled = true;
+            this.listEntityTypes.Location = new System.Drawing.Point(8, 8);
+            this.listEntityTypes.Name = "listEntityTypes";
+            this.listEntityTypes.Size = new System.Drawing.Size(160, 394);
+            this.listEntityTypes.TabIndex = 0;
+            this.listEntityTypes.SelectedIndexChanged += new System.EventHandler(this.listEntityTypes_SelectedIndexChanged);
+            //
             // btnDeleteMarkerType
             // 
             this.btnDeleteMarkerType.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
@@ -318,24 +496,24 @@
             this.btnAddMarkerType.TabIndex = 7;
             this.btnAddMarkerType.Text = "Add Type";
             this.btnAddMarkerType.Click += new DecentForms.EventHandler(this.btnAddMarkerType_Click);
-            // 
+            //
             // editMarkerExportSymbol
-            // 
+            //
             this.editMarkerExportSymbol.Location = new System.Drawing.Point(260, 68);
             this.editMarkerExportSymbol.Name = "editMarkerExportSymbol";
             this.editMarkerExportSymbol.Size = new System.Drawing.Size(120, 20);
             this.editMarkerExportSymbol.TabIndex = 6;
             this.editMarkerExportSymbol.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.editMarkerExportSymbol_KeyPress);
-            // 
+            //
             // labelMarkerExportSymbol
-            // 
+            //
             this.labelMarkerExportSymbol.AutoSize = true;
             this.labelMarkerExportSymbol.Location = new System.Drawing.Point(174, 70);
             this.labelMarkerExportSymbol.Name = "labelMarkerExportSymbol";
             this.labelMarkerExportSymbol.Size = new System.Drawing.Size(77, 13);
             this.labelMarkerExportSymbol.TabIndex = 5;
             this.labelMarkerExportSymbol.Text = "Export Symbol:";
-            // 
+            //
             // editMarkerTagID
             // 
             this.editMarkerTagID.Location = new System.Drawing.Point(260, 96);
@@ -499,7 +677,6 @@
             this.tabEditor.Size = new System.Drawing.Size(1385, 628);
             this.tabEditor.TabIndex = 0;
             this.tabEditor.Text = "Map";
-            this.tabEditor.UseVisualStyleBackColor = true;
             // 
             // groupBox1
             // 
@@ -987,9 +1164,19 @@
             this.flowLayoutPanel1.Controls.Add(this.btnToolSelect);
             this.flowLayoutPanel1.Controls.Add(this.btnToolMarker);
             this.flowLayoutPanel1.Controls.Add(this.comboMarkerTypes);
-            this.flowLayoutPanel1.Controls.Add(this.labelMarkerValue);
-            this.flowLayoutPanel1.Controls.Add(this.editMarkerValue);
+            this.flowLayoutPanel1.Controls.Add(this.labelMarkerValue1);
+            this.flowLayoutPanel1.Controls.Add(this.editMarkerValue1);
+            this.flowLayoutPanel1.Controls.Add(this.labelMarkerValue2);
+            this.flowLayoutPanel1.Controls.Add(this.editMarkerValue2);
             this.flowLayoutPanel1.Controls.Add(this.comboMarkerColorOverride);
+            this.flowLayoutPanel1.Controls.Add(this.btnToolEntity);
+            this.flowLayoutPanel1.Controls.Add(this.comboEntityTypes);
+            this.flowLayoutPanel1.Controls.Add(this.labelEntityValue1);
+            this.flowLayoutPanel1.Controls.Add(this.editEntityValue1Default);
+            this.flowLayoutPanel1.Controls.Add(this.labelEntityValue2);
+            this.flowLayoutPanel1.Controls.Add(this.editEntityValue2Default);
+            this.flowLayoutPanel1.Controls.Add(this.checkEntityDefaultEnabled);
+            this.flowLayoutPanel1.Controls.Add(this.checkShowEntities);
             this.flowLayoutPanel1.Controls.Add(this.btnZoomOut);
             this.flowLayoutPanel1.Controls.Add(this.btnZoomIn);
             this.flowLayoutPanel1.Controls.Add(this.labelZoom);
@@ -998,11 +1185,14 @@
             this.flowLayoutPanel1.Controls.Add(this.btnShiftUp);
             this.flowLayoutPanel1.Controls.Add(this.btnShiftDown);
             this.flowLayoutPanel1.Controls.Add(this.btnShiftRight);
+            this.flowLayoutPanel1.Controls.Add(this.btnRemoveOverlappingTiles);
             this.flowLayoutPanel1.Controls.Add(this.checkAutoTiling);
             this.flowLayoutPanel1.Controls.Add(this.labelEditInfo);
+            this.flowLayoutPanel1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+                                                                                | System.Windows.Forms.AnchorStyles.Right)));
             this.flowLayoutPanel1.Location = new System.Drawing.Point(174, 6);
             this.flowLayoutPanel1.Name = "flowLayoutPanel1";
-            this.flowLayoutPanel1.Size = new System.Drawing.Size(840, 30);
+            this.flowLayoutPanel1.Size = new System.Drawing.Size(1150, 30);
             this.flowLayoutPanel1.TabIndex = 36;
             // 
             // btnToolEdit
@@ -1099,26 +1289,45 @@
             this.comboMarkerTypes.TabIndex = 3;
             this.comboMarkerTypes.SelectedIndexChanged += new System.EventHandler(this.comboMarkerTypes_SelectedIndexChanged);
             //
-            // labelMarkerValue
+            // labelMarkerValue1
             //
-            this.labelMarkerValue.AutoSize = true;
-            this.labelMarkerValue.Location = new System.Drawing.Point(339, 7);
-            this.labelMarkerValue.Name = "labelMarkerValue";
-            this.labelMarkerValue.Size = new System.Drawing.Size(37, 13);
-            this.labelMarkerValue.TabIndex = 30;
-            this.labelMarkerValue.Text = "Value:";
-            this.labelMarkerValue.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
+            this.labelMarkerValue1.AutoSize = true;
+            this.labelMarkerValue1.Location = new System.Drawing.Point(339, 7);
+            this.labelMarkerValue1.Name = "labelMarkerValue1";
+            this.labelMarkerValue1.Size = new System.Drawing.Size(43, 13);
+            this.labelMarkerValue1.TabIndex = 30;
+            this.labelMarkerValue1.Text = "Value 1:";
+            this.labelMarkerValue1.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
             //
-            // editMarkerValue
+            // editMarkerValue1
             //
-            this.editMarkerValue.Location = new System.Drawing.Point(382, 3);
-            this.editMarkerValue.Maximum = new decimal(new int[] { 255, 0, 0, 0});
-            this.editMarkerValue.Minimum = new decimal(new int[] { 0, 0, 0, 0});
-            this.editMarkerValue.Name = "editMarkerValue";
-            this.editMarkerValue.Size = new System.Drawing.Size(55, 20);
-            this.editMarkerValue.TabIndex = 31;
-            this.editMarkerValue.Value = new decimal(new int[] { 0, 0, 0, 0});
-            this.editMarkerValue.ValueChanged += new System.EventHandler(this.editMarkerValue_ValueChanged);
+            this.editMarkerValue1.Location = new System.Drawing.Point(382, 3);
+            this.editMarkerValue1.Maximum = new decimal(new int[] { 255, 0, 0, 0});
+            this.editMarkerValue1.Minimum = new decimal(new int[] { 0, 0, 0, 0});
+            this.editMarkerValue1.Name = "editMarkerValue1";
+            this.editMarkerValue1.Size = new System.Drawing.Size(55, 20);
+            this.editMarkerValue1.TabIndex = 31;
+            this.editMarkerValue1.Value = new decimal(new int[] { 0, 0, 0, 0});
+            this.editMarkerValue1.ValueChanged += new System.EventHandler(this.editMarkerValue_ValueChanged);
+            //
+            // labelMarkerValue2
+            //
+            this.labelMarkerValue2.AutoSize = true;
+            this.labelMarkerValue2.Name = "labelMarkerValue2";
+            this.labelMarkerValue2.Size = new System.Drawing.Size(43, 13);
+            this.labelMarkerValue2.TabIndex = 32;
+            this.labelMarkerValue2.Text = "Value 2:";
+            this.labelMarkerValue2.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
+            //
+            // editMarkerValue2
+            //
+            this.editMarkerValue2.Maximum = new decimal(new int[] { 255, 0, 0, 0});
+            this.editMarkerValue2.Minimum = new decimal(new int[] { 0, 0, 0, 0});
+            this.editMarkerValue2.Name = "editMarkerValue2";
+            this.editMarkerValue2.Size = new System.Drawing.Size(55, 20);
+            this.editMarkerValue2.TabIndex = 33;
+            this.editMarkerValue2.Value = new decimal(new int[] { 0, 0, 0, 0});
+            this.editMarkerValue2.ValueChanged += new System.EventHandler(this.editMarkerValue_ValueChanged);
             //
             // comboMarkerColorOverride
             // 
@@ -1130,6 +1339,87 @@
             this.comboMarkerColorOverride.TabIndex = 4;
             this.comboMarkerColorOverride.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.comboMarkerColorOverride_DrawItem);
             this.comboMarkerColorOverride.SelectedIndexChanged += new System.EventHandler(this.comboMarkerColorOverride_SelectedIndexChanged);
+            //
+            // btnToolEntity
+            //
+            this.btnToolEntity.Appearance = System.Windows.Forms.Appearance.Button;
+            this.btnToolEntity.BorderStyle = DecentForms.BorderStyle.NONE;
+            this.btnToolEntity.CheckAlign = DecentForms.ContentAlignment.MiddleLeft;
+            this.btnToolEntity.Checked = false;
+            this.btnToolEntity.Image = null;
+            this.btnToolEntity.Name = "btnToolEntity";
+            this.btnToolEntity.Size = new System.Drawing.Size(24, 24);
+            this.btnToolEntity.TabIndex = 40;
+            this.btnToolEntity.Text = "E";
+            this.toolTip1.SetToolTip(this.btnToolEntity, "Entities");
+            this.btnToolEntity.CheckedChanged += new DecentForms.EventHandler(this.btnToolEntity_CheckedChanged);
+            //
+            // comboEntityTypes
+            //
+            this.comboEntityTypes.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboEntityTypes.Name = "comboEntityTypes";
+            this.comboEntityTypes.Size = new System.Drawing.Size(150, 21);
+            this.comboEntityTypes.TabIndex = 41;
+            this.comboEntityTypes.SelectedIndexChanged += new System.EventHandler(this.comboEntityTypes_SelectedIndexChanged);
+            //
+            // labelEntityValue1
+            //
+            this.labelEntityValue1.AutoSize = true;
+            this.labelEntityValue1.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
+            this.labelEntityValue1.Name = "labelEntityValue1";
+            this.labelEntityValue1.Size = new System.Drawing.Size(43, 13);
+            this.labelEntityValue1.TabIndex = 42;
+            this.labelEntityValue1.Text = "Value 1:";
+            //
+            // editEntityValue1Default
+            //
+            this.editEntityValue1Default.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
+            this.editEntityValue1Default.Minimum = new decimal(new int[] { 0, 0, 0, 0 });
+            this.editEntityValue1Default.Name = "editEntityValue1Default";
+            this.editEntityValue1Default.Size = new System.Drawing.Size(55, 20);
+            this.editEntityValue1Default.TabIndex = 43;
+            //
+            // labelEntityValue2
+            //
+            this.labelEntityValue2.AutoSize = true;
+            this.labelEntityValue2.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
+            this.labelEntityValue2.Name = "labelEntityValue2";
+            this.labelEntityValue2.Size = new System.Drawing.Size(43, 13);
+            this.labelEntityValue2.TabIndex = 44;
+            this.labelEntityValue2.Text = "Value 2:";
+            //
+            // editEntityValue2Default
+            //
+            this.editEntityValue2Default.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
+            this.editEntityValue2Default.Minimum = new decimal(new int[] { 0, 0, 0, 0 });
+            this.editEntityValue2Default.Name = "editEntityValue2Default";
+            this.editEntityValue2Default.Size = new System.Drawing.Size(55, 20);
+            this.editEntityValue2Default.TabIndex = 45;
+            //
+            // checkEntityDefaultEnabled
+            //
+            this.checkEntityDefaultEnabled.AutoSize = true;
+            this.checkEntityDefaultEnabled.Checked = true;
+            this.checkEntityDefaultEnabled.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.checkEntityDefaultEnabled.Margin = new System.Windows.Forms.Padding(6, 5, 3, 0);
+            this.checkEntityDefaultEnabled.Name = "checkEntityDefaultEnabled";
+            this.checkEntityDefaultEnabled.Size = new System.Drawing.Size(120, 17);
+            this.checkEntityDefaultEnabled.TabIndex = 46;
+            this.checkEntityDefaultEnabled.Text = "Ent. Enabled";
+            this.checkEntityDefaultEnabled.UseVisualStyleBackColor = true;
+            //
+            // checkShowEntities
+            //
+            this.checkShowEntities.AutoSize = true;
+            this.checkShowEntities.Checked = true;
+            this.checkShowEntities.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.checkShowEntities.Margin = new System.Windows.Forms.Padding(6, 5, 3, 0);
+            this.checkShowEntities.Name = "checkShowEntities";
+            this.checkShowEntities.Size = new System.Drawing.Size(110, 17);
+            this.checkShowEntities.TabIndex = 47;
+            this.checkShowEntities.Text = "Show Entities";
+            this.checkShowEntities.UseVisualStyleBackColor = true;
+            this.checkShowEntities.CheckedChanged += new System.EventHandler(this.checkShowEntities_CheckedChanged);
             // 
             // btnZoomOut
             // 
@@ -1244,6 +1534,21 @@
             this.btnShiftRight.Text = "►";
             this.toolTip1.SetToolTip(this.btnShiftRight, "Shift Map Right");
             this.btnShiftRight.Click += new DecentForms.EventHandler(this.btnShiftRight_Click);
+            //
+            // btnRemoveOverlappingTiles
+            //
+            this.btnRemoveOverlappingTiles.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnRemoveOverlappingTiles.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnRemoveOverlappingTiles.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnRemoveOverlappingTiles.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnRemoveOverlappingTiles.Image = null;
+            this.btnRemoveOverlappingTiles.Location = new System.Drawing.Point(657, 3);
+            this.btnRemoveOverlappingTiles.Name = "btnRemoveOverlappingTiles";
+            this.btnRemoveOverlappingTiles.Size = new System.Drawing.Size(24, 24);
+            this.btnRemoveOverlappingTiles.TabIndex = 16;
+            this.btnRemoveOverlappingTiles.Text = "⊘";
+            this.toolTip1.SetToolTip(this.btnRemoveOverlappingTiles, "Remove tiles that are overlapped by larger tiles placed earlier in reading order");
+            this.btnRemoveOverlappingTiles.Click += new DecentForms.EventHandler(this.btnRemoveOverlappingTiles_Click);
             // 
             // checkAutoTiling
             // 
@@ -1316,19 +1621,21 @@
             // 
             // tabMapEditor
             // 
-            this.tabMapEditor.Controls.Add(this.tabEditor);
-            this.tabMapEditor.Controls.Add(this.tabTiles);
-            this.tabMapEditor.Controls.Add(this.tabCharset);
-            this.tabMapEditor.Controls.Add(this.tabExport);
-            this.tabMapEditor.Controls.Add(this.tabImport);
-            this.tabMapEditor.Controls.Add(this.tabMarkers);
+            this.tabMapEditor.Pages.AddRange(new Krypton.Navigator.KryptonPage[] {
+                this.tabEditor,
+                this.tabTiles,
+                this.tabCharset,
+                this.tabExport,
+                this.tabImport,
+                this.tabMarkers,
+                this.tabEntities});
             this.tabMapEditor.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tabMapEditor.Location = new System.Drawing.Point(0, 24);
             this.tabMapEditor.Name = "tabMapEditor";
             this.tabMapEditor.SelectedIndex = 0;
             this.tabMapEditor.Size = new System.Drawing.Size(1393, 654);
             this.tabMapEditor.TabIndex = 0;
-            this.tabMapEditor.SelectedIndexChanged += new System.EventHandler(this.tabMapEditor_SelectedIndexChanged);
+            this.tabMapEditor.SelectedPageChanged += new System.EventHandler(this.tabMapEditor_SelectedIndexChanged);
             // 
             // tabTiles
             // 
@@ -1372,7 +1679,6 @@
             this.tabTiles.Size = new System.Drawing.Size(192, 74);
             this.tabTiles.TabIndex = 2;
             this.tabTiles.Text = "Tiles";
-            this.tabTiles.UseVisualStyleBackColor = true;
             // 
             // labelSwatchSize
             // 
@@ -1844,7 +2150,6 @@
             this.tabCharset.Size = new System.Drawing.Size(192, 74);
             this.tabCharset.TabIndex = 3;
             this.tabCharset.Text = "Character Set";
-            this.tabCharset.UseVisualStyleBackColor = true;
             // 
             // characterEditor
             // 
@@ -1881,7 +2186,6 @@
             this.tabExport.Size = new System.Drawing.Size(192, 74);
             this.tabExport.TabIndex = 4;
             this.tabExport.Text = "Export";
-            this.tabExport.UseVisualStyleBackColor = true;
             // 
             // label5
             // 
@@ -1989,7 +2293,6 @@
             this.tabImport.Size = new System.Drawing.Size(192, 74);
             this.tabImport.TabIndex = 5;
             this.tabImport.Text = "Import";
-            this.tabImport.UseVisualStyleBackColor = true;
             // 
             // panelImport
             // 
@@ -2182,9 +2485,16 @@
             this.panelMapContainer.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.pictureEditor)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMarkerTagID)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.editMarkerValue)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.editMarkerValue1)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.editMarkerValue2)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.editEntityTagID)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.editEntityTileIndex)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.editEntityValue1Default)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.editEntityValue2Default)).EndInit();
             this.tabMarkers.ResumeLayout(false);
             this.tabMarkers.PerformLayout();
+            this.tabEntities.ResumeLayout(false);
+            this.tabEntities.PerformLayout();
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
             this.tabEditor.ResumeLayout(false);
@@ -2223,11 +2533,11 @@
     private System.Windows.Forms.ToolStripMenuItem importCharsetToolStripMenuItem;
     private System.Windows.Forms.ToolStripMenuItem closeCharsetProjectToolStripMenuItem;
     private System.Windows.Forms.ToolStripMenuItem saveCharsetProjectToolStripMenuItem;
-    private System.Windows.Forms.TabPage tabEditor;
+    private Krypton.Navigator.KryptonPage tabEditor;
     private System.Windows.Forms.Panel panelMapContainer;
     private GR.Forms.FastPictureBox pictureEditor;
-    private System.Windows.Forms.TabControl tabMapEditor;
-    private System.Windows.Forms.TabPage tabTiles;
+    private Krypton.Navigator.KryptonNavigator tabMapEditor;
+    private Krypton.Navigator.KryptonPage tabTiles;
     private System.Windows.Forms.Label labelTilesMulticolor2;
     private System.Windows.Forms.Label labelTilesMulticolor1;
     private System.Windows.Forms.Label label15;
@@ -2287,25 +2597,38 @@
     private System.Windows.Forms.CheckBox checkAutoTiling;
         private DecentForms.RadioButton btnToolMarker;
         private System.Windows.Forms.ComboBox comboMarkerTypes;
-        private System.Windows.Forms.Label labelMarkerValue;
-        private System.Windows.Forms.NumericUpDown editMarkerValue;
+        private System.Windows.Forms.Label labelMarkerExportSymbol;
+        private System.Windows.Forms.TextBox editMarkerExportSymbol;
+        private System.Windows.Forms.Label labelMarkerValue1;
+        private System.Windows.Forms.NumericUpDown editMarkerValue1;
+        private System.Windows.Forms.Label labelMarkerValue2;
+        private System.Windows.Forms.NumericUpDown editMarkerValue2;
         private System.Windows.Forms.CheckBox checkMarkerDefaultEnabled;
         private System.Windows.Forms.CheckBox checkMarkerDefaultTriggered;
         private System.Windows.Forms.ComboBox comboMarkerColorOverride;
+        private DecentForms.RadioButton btnToolEntity;
+        private System.Windows.Forms.ComboBox comboEntityTypes;
+        private System.Windows.Forms.Label labelEntityValue1;
+        private System.Windows.Forms.NumericUpDown editEntityValue1Default;
+        private System.Windows.Forms.Label labelEntityValue2;
+        private System.Windows.Forms.NumericUpDown editEntityValue2Default;
+        private System.Windows.Forms.CheckBox checkEntityDefaultEnabled;
+        private System.Windows.Forms.CheckBox checkShowEntities;
     private DecentForms.Button btnSetNextTileChar;
     private DecentForms.Button btnTileClone;
-        private System.Windows.Forms.TabPage tabCharset;
+        private Krypton.Navigator.KryptonPage tabCharset;
     private Controls.CharacterEditor characterEditor;
     private DecentForms.Button btnCopyMapImage;
     private DecentForms.Button btnShiftLeft;
     private DecentForms.Button btnShiftUp;
     private DecentForms.Button btnShiftDown;
     private DecentForms.Button btnShiftRight;
+    private DecentForms.Button btnRemoveOverlappingTiles;
     private DecentForms.Button btnZoomOut;
     private DecentForms.Button btnZoomIn;
     private System.Windows.Forms.Label labelZoom;
-    private System.Windows.Forms.TabPage tabExport;
-    private System.Windows.Forms.TabPage tabImport;
+    private Krypton.Navigator.KryptonPage tabExport;
+    private Krypton.Navigator.KryptonPage tabImport;
     private System.Windows.Forms.Label label6;
     private System.Windows.Forms.ComboBox comboExportData;
     private DecentForms.Button btnExport;
@@ -2365,14 +2688,25 @@
         private System.Windows.Forms.ComboBox comboRightClickBehavior;
         private System.Windows.Forms.ToolStripMenuItem viewToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem keepMapCharacterAspectRatioToolStripMenuItem;
-        private System.Windows.Forms.TabPage tabMarkers;
+        private Krypton.Navigator.KryptonPage tabMarkers;
+        private Krypton.Navigator.KryptonPage tabEntities;
+        private DecentForms.Button btnDeleteEntityType;
+        private DecentForms.Button btnUpdateEntityType;
+        private DecentForms.Button btnAddEntityType;
+        private System.Windows.Forms.TextBox editEntityExportSymbol;
+        private System.Windows.Forms.Label labelEntityExportSymbol;
+        private System.Windows.Forms.NumericUpDown editEntityTagID;
+        private System.Windows.Forms.NumericUpDown editEntityTileIndex;
+        private System.Windows.Forms.Label labelEntityTileIndex;
+        private System.Windows.Forms.TextBox editEntityName;
+        private System.Windows.Forms.Label labelEntityName;
+        private System.Windows.Forms.Label labelEntityTagID;
+        private System.Windows.Forms.ListBox listEntityTypes;
         private System.Windows.Forms.ListBox listMarkerTypes;
         private System.Windows.Forms.Label labelMarkerName;
         private System.Windows.Forms.TextBox editMarkerName;
         private System.Windows.Forms.Label labelMarkerColor;
         private System.Windows.Forms.ComboBox comboMarkerColor;
-        private System.Windows.Forms.Label labelMarkerExportSymbol;
-        private System.Windows.Forms.TextBox editMarkerExportSymbol;
         private DecentForms.Button btnAddMarkerType;
         private DecentForms.Button btnUpdateMarkerType;
         private DecentForms.Button btnDeleteMarkerType;

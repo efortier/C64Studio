@@ -40,6 +40,15 @@ namespace RetroDevStudio.Controls
       editCharsetExportDirectory.TextChanged += HandleSettingsChanged;
       editCharsetExportFilename.TextChanged += HandleSettingsChanged;
       editCharsetPrefixLoadAddress.TextChanged += HandleSettingsChanged;
+      editHeaderAsmDirectory.TextChanged += HandleSettingsChanged;
+      editHeaderAsmFilename.TextChanged += HandleSettingsChanged;
+      editHeaderAsmPrefix.TextChanged += HandleSettingsChanged;
+      editMarkerLabelsDirectory.TextChanged += HandleSettingsChanged;
+      editMarkerLabelsFilename.TextChanged += HandleSettingsChanged;
+      editMarkerLabelsPrefix.TextChanged += HandleSettingsChanged;
+      editEntityLabelsDirectory.TextChanged += HandleSettingsChanged;
+      editEntityLabelsFilename.TextChanged += HandleSettingsChanged;
+      editEntityLabelsPrefix.TextChanged += HandleSettingsChanged;
     }
 
 
@@ -133,6 +142,49 @@ namespace RetroDevStudio.Controls
         }
       }
 
+      // Optional map_header.asm — opt-in. Uses the explicit directory/filename
+      // settings when provided, otherwise falls back to the binary's directory
+      // and "map_header.asm". Regenerated on every export so it never drifts.
+      if ( checkExportHeaderAsm.Checked )
+      {
+        string headerPrefix = editHeaderAsmPrefix.Text;
+        WriteAsmSidecar(
+          "map_header.asm",
+          editHeaderAsmDirectory.Text,
+          editHeaderAsmFilename.Text,
+          "map_header.asm",
+          targetPath,
+          () => RetroDevStudio.Formats.MapProject.GenerateGameBinaryHeaderAsm( headerPrefix ) );
+      }
+
+      // Optional marker-labels sidecar — maps ExportSymbol -> TagID.
+      if ( checkExportMarkerLabels.Checked )
+      {
+        string markerPrefix = editMarkerLabelsPrefix.Text;
+        var map = Info.Map;
+        WriteAsmSidecar(
+          "marker labels",
+          editMarkerLabelsDirectory.Text,
+          editMarkerLabelsFilename.Text,
+          "map_markers.asm",
+          targetPath,
+          () => map.GenerateMarkerLabelsAsm( markerPrefix ) );
+      }
+
+      // Optional entity-labels sidecar — maps EntityType ExportSymbol -> TagID.
+      if ( checkExportEntityLabels.Checked )
+      {
+        string entityPrefix = editEntityLabelsPrefix.Text;
+        var map = Info.Map;
+        WriteAsmSidecar(
+          "entity labels",
+          editEntityLabelsDirectory.Text,
+          editEntityLabelsFilename.Text,
+          "map_entities.asm",
+          targetPath,
+          () => map.GenerateEntityLabelsAsm( entityPrefix ) );
+      }
+
       // Optional character set export (port of the old "As assembly" method's Character Set block)
       if ( checkExportCharset.Checked )
       {
@@ -145,6 +197,52 @@ namespace RetroDevStudio.Controls
         EditOutput.Text = log;
       }
       return true;
+    }
+
+
+
+    private void WriteAsmSidecar( string Description, string ConfiguredDir, string ConfiguredFilename,
+                                  string DefaultFilename, string BinaryPath, Func<string> GenerateContent )
+    {
+      string dir = ConfiguredDir;
+      if ( string.IsNullOrEmpty( dir ) )
+      {
+        try
+        {
+          dir = System.IO.Path.GetDirectoryName( BinaryPath );
+        }
+        catch ( Exception )
+        {
+          dir = null;
+        }
+      }
+
+      string filename = string.IsNullOrEmpty( ConfiguredFilename ) ? DefaultFilename : ConfiguredFilename;
+
+      if ( string.IsNullOrEmpty( dir ) )
+      {
+        if ( Core != null )
+        {
+          Core.Notification.MessageBox( "Sidecar not saved",
+            "The " + Description + " file was not written because no output directory could be determined.\r\nSet a directory in the Game Binary export settings." );
+        }
+        return;
+      }
+
+      string fullPath = System.IO.Path.Combine( dir, filename );
+      try
+      {
+        System.IO.File.WriteAllText( fullPath, GenerateContent() );
+      }
+      catch ( Exception ex )
+      {
+        if ( Core != null )
+        {
+          Core.Notification.MessageBox( "Error saving " + Description,
+            "Could not save the " + Description + " file to:\r\n" + fullPath + "\r\n\r\n" + ex.Message );
+        }
+        // continue — the binary itself was saved
+      }
     }
 
 
@@ -284,6 +382,11 @@ namespace RetroDevStudio.Controls
       var sb = new StringBuilder();
       sb.AppendLine( "Exported " + buf.Length + " bytes to " + targetPath );
       sb.AppendLine();
+
+      // Always include the header-constant definitions near the top so the .def
+      // serves as a complete reference for the accompanying .bin (no need to
+      // cross-reference map_header.asm).
+      sb.AppendLine( RetroDevStudio.Formats.MapProject.GenerateGameBinaryHeaderAsm() );
 
       // --- HEADER ---
       sb.AppendLine( "--- HEADER (45 bytes) ---" );
@@ -454,15 +557,18 @@ namespace RetroDevStudio.Controls
               {
                 int mAddr = markersAddr + mk * markerStride;
                 int mFilePos = mAddr - ba;
+                // Current layout (stride 7): tag, x, y, value1, value2, enabled, triggered
                 string line = "  $" + mAddr.ToString( "X4" ) + ": tag=" + HexByte( buf.ByteAt( mFilePos ) )
                             + " x=" + buf.ByteAt( mFilePos + 1 )
                             + " y=" + buf.ByteAt( mFilePos + 2 );
                 if ( markerStride >= 4 )
-                  line += " value=" + HexByte( buf.ByteAt( mFilePos + 3 ) );
+                  line += " value1=" + HexByte( buf.ByteAt( mFilePos + 3 ) );
                 if ( markerStride >= 5 )
-                  line += " enabled=" + buf.ByteAt( mFilePos + 4 );
+                  line += " value2=" + HexByte( buf.ByteAt( mFilePos + 4 ) );
                 if ( markerStride >= 6 )
-                  line += " triggered=" + buf.ByteAt( mFilePos + 5 );
+                  line += " enabled=" + buf.ByteAt( mFilePos + 5 );
+                if ( markerStride >= 7 )
+                  line += " triggered=" + buf.ByteAt( mFilePos + 6 );
                 sb.AppendLine( line );
               }
             }
@@ -618,6 +724,155 @@ namespace RetroDevStudio.Controls
 
 
 
+    private void checkExportHeaderAsm_CheckedChanged( object sender, EventArgs e )
+    {
+      editHeaderAsmDirectory.Enabled = checkExportHeaderAsm.Checked;
+      btnBrowseHeaderAsmDirectory.Enabled = checkExportHeaderAsm.Checked;
+      editHeaderAsmFilename.Enabled = checkExportHeaderAsm.Checked;
+      editHeaderAsmPrefix.Enabled = checkExportHeaderAsm.Checked;
+
+      // Pre-populate the directory from the binary's auto-save directory when first
+      // enabling the checkbox — that's usually what the user wants.
+      if ( ( checkExportHeaderAsm.Checked )
+      &&   ( string.IsNullOrEmpty( editHeaderAsmDirectory.Text ) )
+      &&   ( !string.IsNullOrEmpty( editExportDirectory.Text ) ) )
+      {
+        editHeaderAsmDirectory.Text = editExportDirectory.Text;
+      }
+      if ( ( checkExportHeaderAsm.Checked )
+      &&   ( string.IsNullOrEmpty( editHeaderAsmFilename.Text ) ) )
+      {
+        editHeaderAsmFilename.Text = "map_header.asm";
+      }
+
+      if ( !m_ApplyingSettings )
+      {
+        RaiseSettingsChanged();
+      }
+    }
+
+
+
+    private void btnBrowseHeaderAsmDirectory_Click( object sender, EventArgs e )
+    {
+      using ( var dlg = new FolderBrowserDialog() )
+      {
+        dlg.Description = "Select directory for map_header.asm";
+        if ( !string.IsNullOrEmpty( editHeaderAsmDirectory.Text ) )
+        {
+          dlg.SelectedPath = editHeaderAsmDirectory.Text;
+        }
+        else if ( !string.IsNullOrEmpty( editExportDirectory.Text ) )
+        {
+          dlg.SelectedPath = editExportDirectory.Text;
+        }
+        if ( dlg.ShowDialog() == DialogResult.OK )
+        {
+          editHeaderAsmDirectory.Text = dlg.SelectedPath;
+        }
+      }
+    }
+
+
+
+    private void checkExportMarkerLabels_CheckedChanged( object sender, EventArgs e )
+    {
+      editMarkerLabelsDirectory.Enabled = checkExportMarkerLabels.Checked;
+      btnBrowseMarkerLabelsDirectory.Enabled = checkExportMarkerLabels.Checked;
+      editMarkerLabelsFilename.Enabled = checkExportMarkerLabels.Checked;
+      editMarkerLabelsPrefix.Enabled = checkExportMarkerLabels.Checked;
+
+      if ( ( checkExportMarkerLabels.Checked )
+      &&   ( string.IsNullOrEmpty( editMarkerLabelsDirectory.Text ) )
+      &&   ( !string.IsNullOrEmpty( editExportDirectory.Text ) ) )
+      {
+        editMarkerLabelsDirectory.Text = editExportDirectory.Text;
+      }
+      if ( ( checkExportMarkerLabels.Checked )
+      &&   ( string.IsNullOrEmpty( editMarkerLabelsFilename.Text ) ) )
+      {
+        editMarkerLabelsFilename.Text = "map_markers.asm";
+      }
+
+      if ( !m_ApplyingSettings )
+      {
+        RaiseSettingsChanged();
+      }
+    }
+
+
+
+    private void btnBrowseMarkerLabelsDirectory_Click( object sender, EventArgs e )
+    {
+      using ( var dlg = new FolderBrowserDialog() )
+      {
+        dlg.Description = "Select directory for marker labels sidecar";
+        if ( !string.IsNullOrEmpty( editMarkerLabelsDirectory.Text ) )
+        {
+          dlg.SelectedPath = editMarkerLabelsDirectory.Text;
+        }
+        else if ( !string.IsNullOrEmpty( editExportDirectory.Text ) )
+        {
+          dlg.SelectedPath = editExportDirectory.Text;
+        }
+        if ( dlg.ShowDialog() == DialogResult.OK )
+        {
+          editMarkerLabelsDirectory.Text = dlg.SelectedPath;
+        }
+      }
+    }
+
+
+
+    private void checkExportEntityLabels_CheckedChanged( object sender, EventArgs e )
+    {
+      editEntityLabelsDirectory.Enabled = checkExportEntityLabels.Checked;
+      btnBrowseEntityLabelsDirectory.Enabled = checkExportEntityLabels.Checked;
+      editEntityLabelsFilename.Enabled = checkExportEntityLabels.Checked;
+      editEntityLabelsPrefix.Enabled = checkExportEntityLabels.Checked;
+
+      if ( ( checkExportEntityLabels.Checked )
+      &&   ( string.IsNullOrEmpty( editEntityLabelsDirectory.Text ) )
+      &&   ( !string.IsNullOrEmpty( editExportDirectory.Text ) ) )
+      {
+        editEntityLabelsDirectory.Text = editExportDirectory.Text;
+      }
+      if ( ( checkExportEntityLabels.Checked )
+      &&   ( string.IsNullOrEmpty( editEntityLabelsFilename.Text ) ) )
+      {
+        editEntityLabelsFilename.Text = "map_entities.asm";
+      }
+
+      if ( !m_ApplyingSettings )
+      {
+        RaiseSettingsChanged();
+      }
+    }
+
+
+
+    private void btnBrowseEntityLabelsDirectory_Click( object sender, EventArgs e )
+    {
+      using ( var dlg = new FolderBrowserDialog() )
+      {
+        dlg.Description = "Select directory for entity labels sidecar";
+        if ( !string.IsNullOrEmpty( editEntityLabelsDirectory.Text ) )
+        {
+          dlg.SelectedPath = editEntityLabelsDirectory.Text;
+        }
+        else if ( !string.IsNullOrEmpty( editExportDirectory.Text ) )
+        {
+          dlg.SelectedPath = editExportDirectory.Text;
+        }
+        if ( dlg.ShowDialog() == DialogResult.OK )
+        {
+          editEntityLabelsDirectory.Text = dlg.SelectedPath;
+        }
+      }
+    }
+
+
+
     private void HandleSettingsChanged( object sender, EventArgs e )
     {
       if ( !m_ApplyingSettings )
@@ -656,6 +911,33 @@ namespace RetroDevStudio.Controls
 
         checkGenerateDefFile.Checked = s.GenerateDefFile;
 
+        checkExportHeaderAsm.Checked = s.ExportHeaderAsm;
+        editHeaderAsmDirectory.Text = s.HeaderAsmDirectory ?? "";
+        editHeaderAsmFilename.Text = string.IsNullOrEmpty( s.HeaderAsmFilename ) ? "map_header.asm" : s.HeaderAsmFilename;
+        editHeaderAsmPrefix.Text = s.HeaderAsmPrefix ?? "";
+        editHeaderAsmDirectory.Enabled = checkExportHeaderAsm.Checked;
+        btnBrowseHeaderAsmDirectory.Enabled = checkExportHeaderAsm.Checked;
+        editHeaderAsmFilename.Enabled = checkExportHeaderAsm.Checked;
+        editHeaderAsmPrefix.Enabled = checkExportHeaderAsm.Checked;
+
+        checkExportMarkerLabels.Checked = s.ExportMarkerLabels;
+        editMarkerLabelsDirectory.Text = s.MarkerLabelsDirectory ?? "";
+        editMarkerLabelsFilename.Text = string.IsNullOrEmpty( s.MarkerLabelsFilename ) ? "map_markers.asm" : s.MarkerLabelsFilename;
+        editMarkerLabelsPrefix.Text = s.MarkerLabelsPrefix ?? "";
+        editMarkerLabelsDirectory.Enabled = checkExportMarkerLabels.Checked;
+        btnBrowseMarkerLabelsDirectory.Enabled = checkExportMarkerLabels.Checked;
+        editMarkerLabelsFilename.Enabled = checkExportMarkerLabels.Checked;
+        editMarkerLabelsPrefix.Enabled = checkExportMarkerLabels.Checked;
+
+        checkExportEntityLabels.Checked = s.ExportEntityLabels;
+        editEntityLabelsDirectory.Text = s.EntityLabelsDirectory ?? "";
+        editEntityLabelsFilename.Text = string.IsNullOrEmpty( s.EntityLabelsFilename ) ? "map_entities.asm" : s.EntityLabelsFilename;
+        editEntityLabelsPrefix.Text = s.EntityLabelsPrefix ?? "";
+        editEntityLabelsDirectory.Enabled = checkExportEntityLabels.Checked;
+        btnBrowseEntityLabelsDirectory.Enabled = checkExportEntityLabels.Checked;
+        editEntityLabelsFilename.Enabled = checkExportEntityLabels.Checked;
+        editEntityLabelsPrefix.Enabled = checkExportEntityLabels.Checked;
+
         checkExportCharset.Checked = s.ExportCharset;
         editCharsetExportDirectory.Text = s.CharsetExportDirectory ?? "";
         editCharsetExportFilename.Text = s.CharsetExportFilename ?? "";
@@ -693,6 +975,18 @@ namespace RetroDevStudio.Controls
       s.ExportDirectory = editExportDirectory.Text ?? "";
       s.ExportFilename = editExportFilename.Text ?? "";
       s.GenerateDefFile = checkGenerateDefFile.Checked;
+      s.ExportHeaderAsm = checkExportHeaderAsm.Checked;
+      s.HeaderAsmDirectory = editHeaderAsmDirectory.Text ?? "";
+      s.HeaderAsmFilename = string.IsNullOrEmpty( editHeaderAsmFilename.Text ) ? "map_header.asm" : editHeaderAsmFilename.Text;
+      s.HeaderAsmPrefix = editHeaderAsmPrefix.Text ?? "";
+      s.ExportMarkerLabels = checkExportMarkerLabels.Checked;
+      s.MarkerLabelsDirectory = editMarkerLabelsDirectory.Text ?? "";
+      s.MarkerLabelsFilename = string.IsNullOrEmpty( editMarkerLabelsFilename.Text ) ? "map_markers.asm" : editMarkerLabelsFilename.Text;
+      s.MarkerLabelsPrefix = editMarkerLabelsPrefix.Text ?? "";
+      s.ExportEntityLabels = checkExportEntityLabels.Checked;
+      s.EntityLabelsDirectory = editEntityLabelsDirectory.Text ?? "";
+      s.EntityLabelsFilename = string.IsNullOrEmpty( editEntityLabelsFilename.Text ) ? "map_entities.asm" : editEntityLabelsFilename.Text;
+      s.EntityLabelsPrefix = editEntityLabelsPrefix.Text ?? "";
       s.ExportCharset = checkExportCharset.Checked;
       s.CharsetExportDirectory = editCharsetExportDirectory.Text ?? "";
       s.CharsetExportFilename = editCharsetExportFilename.Text ?? "";

@@ -23,7 +23,8 @@ namespace RetroDevStudio.Formats
       public int        Y = 0;
       public int        Type = 0;
       public string     Name = "";
-      public byte       Value = 0;
+      public byte       Value1 = 0;
+      public byte       Value2 = 0;
       public bool       Enabled = true;
       public bool       Triggered = false;
     };
@@ -32,7 +33,26 @@ namespace RetroDevStudio.Formats
     {
       public string     Name = "";
       public string     ExportSymbol = "";
-      public int        Color = 1; 
+      public int        Color = 1;
+      public int        ID = 0;
+      public int        TagID = 0;
+    };
+
+    public class Entity
+    {
+      public int        X = 0;
+      public int        Y = 0;
+      public int        Type = 0;
+      public byte       Value1 = 0;
+      public byte       Value2 = 0;
+      public bool       Enabled = true;
+    };
+
+    public class EntityType
+    {
+      public string     Name = "";
+      public string     ExportSymbol = "";
+      public int        TileIndex = 0;
       public int        ID = 0;
       public int        TagID = 0;
     };
@@ -59,6 +79,7 @@ namespace RetroDevStudio.Formats
       public int                TileSpacingX = 2;
       public int                TileSpacingY = 2;
       public List<Marker>       Markers = new List<Marker>();
+      public List<Entity>       Entities = new List<Entity>();
       public GR.Memory.ByteBuffer   ExtraDataOld = new GR.Memory.ByteBuffer();
       public string             ExtraDataText = "";
       public int                AlternativeMultiColor1 = -1;
@@ -66,6 +87,7 @@ namespace RetroDevStudio.Formats
       public int                AlternativeBackgroundColor = -1;
       public int                AlternativeBGColor4 = -1;
       public int                SelectedMarkerType = 0;
+      public int                SelectedEntityType = -1;
       public int                MarkerDimOpacity = 100;
 
       /// <summary>
@@ -136,6 +158,24 @@ namespace RetroDevStudio.Formats
         public bool   CharsetPrefixLoadAddress = false;
         public string CharsetPrefixLoadAddressHex = "";
         public bool   GenerateDefFile = true;
+        // v19: opt-in header-constants sidecar (map_header.asm)
+        public bool   ExportHeaderAsm = false;
+        // v20: optional directory for map_header.asm. Empty -> beside the .bin.
+        public string HeaderAsmDirectory = "";
+        // v21: per-export filename for map_header.asm, plus opt-in marker
+        // labels sidecar (a file mapping ExportSymbol -> TagID).
+        public string HeaderAsmFilename = "map_header.asm";
+        public bool   ExportMarkerLabels = false;
+        public string MarkerLabelsDirectory = "";
+        public string MarkerLabelsFilename = "map_markers.asm";
+        // v22: user-supplied prefix text prepended to each sidecar (includes, etc.).
+        public string HeaderAsmPrefix = "";
+        public string MarkerLabelsPrefix = "";
+        // v23: opt-in entity-labels sidecar (ExportSymbol -> TagID for entities).
+        public bool   ExportEntityLabels = false;
+        public string EntityLabelsDirectory = "";
+        public string EntityLabelsFilename = "map_entities.asm";
+        public string EntityLabelsPrefix = "";
       }
 
       public class TargetSettings
@@ -158,6 +198,7 @@ namespace RetroDevStudio.Formats
 
     public List<Tile>                   Tiles = new List<Tile>();
     public List<MarkerType>             MarkerTypes = new List<MarkerType>();
+    public List<EntityType>             EntityTypes = new List<EntityType>();
     public List<Map>                    Maps = new List<Map>();
 
     public string                       ExternalCharset = "";
@@ -247,9 +288,20 @@ namespace RetroDevStudio.Formats
         chunkMarkerType.AppendI32( markerType.ID );
         chunkMarkerType.AppendString( markerType.Name );
         chunkMarkerType.AppendI32( markerType.Color );
-        chunkMarkerType.AppendString( markerType.ExportSymbol );
+        chunkMarkerType.AppendString( markerType.ExportSymbol ?? "" );
         chunkMarkerType.AppendU8( (byte)markerType.TagID );
         chunkProjectData.Append( chunkMarkerType.ToBuffer() );
+      }
+
+      foreach ( var entityType in EntityTypes )
+      {
+        GR.IO.FileChunk chunkEntityType = new GR.IO.FileChunk( FileChunkConstants.MAP_ENTITY_TYPES );
+        chunkEntityType.AppendI32( entityType.ID );
+        chunkEntityType.AppendString( entityType.Name );
+        chunkEntityType.AppendString( entityType.ExportSymbol ?? "" );
+        chunkEntityType.AppendI32( entityType.TileIndex );
+        chunkEntityType.AppendU8( (byte)entityType.TagID );
+        chunkProjectData.Append( chunkEntityType.ToBuffer() );
       }
 
       foreach ( Tile tile in Tiles )
@@ -319,10 +371,24 @@ namespace RetroDevStudio.Formats
           chunkMarker.AppendI32( marker.Y );
           chunkMarker.AppendI32( marker.Type );
           chunkMarker.AppendString( marker.Name );
-          chunkMarker.AppendU8( marker.Value );
+          chunkMarker.AppendU8( marker.Value1 );
           chunkMarker.AppendU8( (byte)( marker.Enabled ? 1 : 0 ) );
           chunkMarker.AppendU8( (byte)( marker.Triggered ? 1 : 0 ) );
+          // Appended for Value2 — old files that lack this byte get the default 0.
+          chunkMarker.AppendU8( marker.Value2 );
           chunkMap.Append( chunkMarker.ToBuffer() );
+        }
+
+        foreach ( var entity in map.Entities )
+        {
+          GR.IO.FileChunk chunkEntity = new GR.IO.FileChunk( FileChunkConstants.MAP_ENTITIES );
+          chunkEntity.AppendI32( entity.X );
+          chunkEntity.AppendI32( entity.Y );
+          chunkEntity.AppendI32( entity.Type );
+          chunkEntity.AppendU8( entity.Value1 );
+          chunkEntity.AppendU8( entity.Value2 );
+          chunkEntity.AppendU8( (byte)( entity.Enabled ? 1 : 0 ) );
+          chunkMap.Append( chunkEntity.ToBuffer() );
         }
 
         if ( map.ExtraDataOld.Length > 0 )
@@ -340,7 +406,7 @@ namespace RetroDevStudio.Formats
       projectFile.Append( chunkProjectData.ToBuffer() );
 
       GR.IO.FileChunk chunkExportSettings = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS );
-      chunkExportSettings.AppendU32( 18 );
+      chunkExportSettings.AppendU32( 23 );
       chunkExportSettings.AppendI32(Settings.ExportDataIndex );
       chunkExportSettings.AppendI32(Settings.ExportOrientationIndex );
       chunkExportSettings.AppendI32( Settings.ExportMethodIndex );
@@ -399,6 +465,23 @@ namespace RetroDevStudio.Formats
       chunkExportSettings.AppendI32( Settings.GameBinary.CharsetPrefixLoadAddress ? 1 : 0 );
       chunkExportSettings.AppendString( Settings.GameBinary.CharsetPrefixLoadAddressHex ?? "" );
       chunkExportSettings.AppendI32( Settings.GameBinary.GenerateDefFile ? 1 : 0 );
+      // version 19: header-constants sidecar toggle (map_header.asm)
+      chunkExportSettings.AppendI32( Settings.GameBinary.ExportHeaderAsm ? 1 : 0 );
+      // version 20: optional directory override for map_header.asm
+      chunkExportSettings.AppendString( Settings.GameBinary.HeaderAsmDirectory ?? "" );
+      // version 21: header-asm filename + marker-labels sidecar
+      chunkExportSettings.AppendString( Settings.GameBinary.HeaderAsmFilename ?? "map_header.asm" );
+      chunkExportSettings.AppendI32( Settings.GameBinary.ExportMarkerLabels ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.GameBinary.MarkerLabelsDirectory ?? "" );
+      chunkExportSettings.AppendString( Settings.GameBinary.MarkerLabelsFilename ?? "map_markers.asm" );
+      // version 22: per-sidecar user-supplied prefix text
+      chunkExportSettings.AppendString( Settings.GameBinary.HeaderAsmPrefix ?? "" );
+      chunkExportSettings.AppendString( Settings.GameBinary.MarkerLabelsPrefix ?? "" );
+      // version 23: entity-labels sidecar
+      chunkExportSettings.AppendI32( Settings.GameBinary.ExportEntityLabels ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.GameBinary.EntityLabelsDirectory ?? "" );
+      chunkExportSettings.AppendString( Settings.GameBinary.EntityLabelsFilename ?? "map_entities.asm" );
+      chunkExportSettings.AppendString( Settings.GameBinary.EntityLabelsPrefix ?? "" );
       projectFile.Append( chunkExportSettings.ToBuffer() );
       return projectFile;
     }
@@ -501,6 +584,26 @@ namespace RetroDevStudio.Formats
                         mType.TagID = subChunkReader.ReadUInt8();
                       }
                       MarkerTypes.Add( mType );
+                    }
+                    break;
+                  case FileChunkConstants.MAP_ENTITY_TYPES:
+                    {
+                      EntityType  eType = new EntityType();
+                      eType.ID = subChunkReader.ReadInt32();
+                      eType.Name = subChunkReader.ReadString();
+                      if ( subChunkReader.Position < subChunkReader.Size )
+                      {
+                        eType.ExportSymbol = subChunkReader.ReadString();
+                      }
+                      if ( subChunkReader.Position < subChunkReader.Size )
+                      {
+                        eType.TileIndex = subChunkReader.ReadInt32();
+                      }
+                      if ( subChunkReader.Position < subChunkReader.Size )
+                      {
+                        eType.TagID = subChunkReader.ReadUInt8();
+                      }
+                      EntityTypes.Add( eType );
                     }
                     break;
                   case FileChunkConstants.MAP_TILE:
@@ -613,11 +716,11 @@ namespace RetroDevStudio.Formats
                               marker.Name = mapChunkReader.ReadString();
                               if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
                               {
-                                marker.Value = mapChunkReader.ReadUInt8();
+                                marker.Value1 = mapChunkReader.ReadUInt8();
                               }
                               else
                               {
-                                marker.Value = 0;
+                                marker.Value1 = 0;
                               }
                               if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
                               {
@@ -635,7 +738,41 @@ namespace RetroDevStudio.Formats
                               {
                                 marker.Triggered = false;
                               }
+                              // Value2 was added later — absent in older files, defaults to 0.
+                              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+                              {
+                                marker.Value2 = mapChunkReader.ReadUInt8();
+                              }
+                              else
+                              {
+                                marker.Value2 = 0;
+                              }
                               map.Markers.Add( marker );
+                            }
+                            break;
+                          case FileChunkConstants.MAP_ENTITIES:
+                            {
+                              Entity  entity = new Entity();
+                              entity.X = mapChunkReader.ReadInt32();
+                              entity.Y = mapChunkReader.ReadInt32();
+                              entity.Type = mapChunkReader.ReadInt32();
+                              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+                              {
+                                entity.Value1 = mapChunkReader.ReadUInt8();
+                              }
+                              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+                              {
+                                entity.Value2 = mapChunkReader.ReadUInt8();
+                              }
+                              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+                              {
+                                entity.Enabled = ( mapChunkReader.ReadUInt8() != 0 );
+                              }
+                              else
+                              {
+                                entity.Enabled = true;
+                              }
+                              map.Entities.Add( entity );
                             }
                             break;
                         }
@@ -725,6 +862,46 @@ namespace RetroDevStudio.Formats
                   Settings.GameBinary.CharsetPrefixLoadAddress = ( chunkReader.ReadInt32() != 0 );
                   Settings.GameBinary.CharsetPrefixLoadAddressHex = chunkReader.ReadString();
                   Settings.GameBinary.GenerateDefFile = ( chunkReader.ReadInt32() != 0 );
+                }
+                if ( version >= 19 )
+                {
+                  Settings.GameBinary.ExportHeaderAsm = ( chunkReader.ReadInt32() != 0 );
+                }
+                if ( version >= 20 )
+                {
+                  Settings.GameBinary.HeaderAsmDirectory = chunkReader.ReadString();
+                }
+                if ( version >= 21 )
+                {
+                  Settings.GameBinary.HeaderAsmFilename = chunkReader.ReadString();
+                  Settings.GameBinary.ExportMarkerLabels = ( chunkReader.ReadInt32() != 0 );
+                  Settings.GameBinary.MarkerLabelsDirectory = chunkReader.ReadString();
+                  Settings.GameBinary.MarkerLabelsFilename = chunkReader.ReadString();
+                  // Defaults if a newer field is somehow empty
+                  if ( string.IsNullOrEmpty( Settings.GameBinary.HeaderAsmFilename ) )
+                  {
+                    Settings.GameBinary.HeaderAsmFilename = "map_header.asm";
+                  }
+                  if ( string.IsNullOrEmpty( Settings.GameBinary.MarkerLabelsFilename ) )
+                  {
+                    Settings.GameBinary.MarkerLabelsFilename = "map_markers.asm";
+                  }
+                }
+                if ( version >= 22 )
+                {
+                  Settings.GameBinary.HeaderAsmPrefix = chunkReader.ReadString();
+                  Settings.GameBinary.MarkerLabelsPrefix = chunkReader.ReadString();
+                }
+                if ( version >= 23 )
+                {
+                  Settings.GameBinary.ExportEntityLabels = ( chunkReader.ReadInt32() != 0 );
+                  Settings.GameBinary.EntityLabelsDirectory = chunkReader.ReadString();
+                  Settings.GameBinary.EntityLabelsFilename = chunkReader.ReadString();
+                  Settings.GameBinary.EntityLabelsPrefix = chunkReader.ReadString();
+                  if ( string.IsNullOrEmpty( Settings.GameBinary.EntityLabelsFilename ) )
+                  {
+                    Settings.GameBinary.EntityLabelsFilename = "map_entities.asm";
+                  }
                 }
               }
             }
@@ -1637,12 +1814,16 @@ namespace RetroDevStudio.Formats
       var buf = new GR.Memory.ByteBuffer();
       int addrBase = BaseAddress;
 
-      // ========== HEADER (45 bytes, 0x2D) ==========
-      buf.AppendU8( 6 );    // +$00 marker_stride (bytes per marker record: tag, x, y, value, enabled, triggered)
+      // ========== HEADER (52 bytes, 0x34) ==========
+      buf.AppendU8( 7 );    // +$00 marker_stride (bytes per marker record: tag, x, y, value1, value2, enabled, triggered)
       buf.AppendU8( (byte)Tiles.Count );  // +$01
       buf.AppendU8( (byte)Maps.Count );   // +$02
       // 21 x 2-byte offset placeholders (+$03 .. +$2C)
       for ( int i = 0; i < 21; ++i )
+        buf.AppendU16( 0 );
+      buf.AppendU8( 7 );    // +$2D entity_stride (bytes per entity record: tag, x, y, tile, value1, value2, enabled)
+      // 3 x 2-byte entity offset placeholders (+$2E .. +$33)
+      for ( int i = 0; i < 3; ++i )
         buf.AppendU16( 0 );
 
       // Header offset positions (byte offset within header for each pointer)
@@ -1667,6 +1848,9 @@ namespace RetroDevStudio.Formats
       const int HDR_MAP_PASSABLE_HI   = 0x27;
       const int HDR_MAP_MARKERS_LO    = 0x29;
       const int HDR_MAP_MARKERS_HI    = 0x2B;
+      const int HDR_MAP_ENTITY_COUNT  = 0x2E;
+      const int HDR_MAP_ENTITIES_LO   = 0x30;
+      const int HDR_MAP_ENTITIES_HI   = 0x32;
 
       // ========== TILE ARRAYS ==========
 
@@ -1761,6 +1945,7 @@ namespace RetroDevStudio.Formats
       int[] exportWidths = new int[Maps.Count];
       int[] exportHeights = new int[Maps.Count];
       int[] markerCounts = new int[Maps.Count];
+      int[] entityCounts = new int[Maps.Count];
       for ( int m = 0; m < Maps.Count; ++m )
       {
         var map = Maps[m];
@@ -1784,6 +1969,7 @@ namespace RetroDevStudio.Formats
         exportWidths[m] = ew;
         exportHeights[m] = eh;
         markerCounts[m] = ExportMarkers ? map.Markers.Count : 0;
+        entityCounts[m] = map.Entities.Count;
       }
 
       // map_width[]
@@ -1816,6 +2002,11 @@ namespace RetroDevStudio.Formats
       for ( int m = 0; m < Maps.Count; ++m )
         buf.AppendU8( (byte)markerCounts[m] );
 
+      // map_entity_count[]
+      buf.SetU16At( HDR_MAP_ENTITY_COUNT, (ushort)( buf.Length + addrBase ) );
+      for ( int m = 0; m < Maps.Count; ++m )
+        buf.AppendU8( (byte)entityCounts[m] );
+
       // ========== MAP DATA LOOKUP TABLES (placeholders) ==========
 
       int mapCharGridLoPos = (int)buf.Length;
@@ -1844,6 +2035,13 @@ namespace RetroDevStudio.Formats
       for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
       int mapMarkersHiPos = (int)buf.Length;
       buf.SetU16At( HDR_MAP_MARKERS_HI, (ushort)( buf.Length + addrBase ) );
+      for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
+
+      int mapEntitiesLoPos = (int)buf.Length;
+      buf.SetU16At( HDR_MAP_ENTITIES_LO, (ushort)( buf.Length + addrBase ) );
+      for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
+      int mapEntitiesHiPos = (int)buf.Length;
+      buf.SetU16At( HDR_MAP_ENTITIES_HI, (ushort)( buf.Length + addrBase ) );
       for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
 
       // ========== PER-MAP VARIABLE DATA ==========
@@ -1950,12 +2148,17 @@ namespace RetroDevStudio.Formats
           }
         }
 
-        // Write markers
+        // Write markers — sorted by TagID (ascending), so lower-numbered types
+        // come first and higher-numbered types come last. This lets the engine
+        // rely on grouping for early-out scans or bucket-by-tag dispatch.
         if ( ExportMarkers )
         {
           int markersAddr = (int)buf.Length + addrBase;
           buf.SetU8At( mapMarkersLoPos + m, (byte)( markersAddr & 0xFF ) );
           buf.SetU8At( mapMarkersHiPos + m, (byte)( ( markersAddr >> 8 ) & 0xFF ) );
+
+          // Precompute (marker, tagId) pairs once, then sort.
+          var markerPairs = new List<KeyValuePair<Marker, byte>>( map.Markers.Count );
           foreach ( var marker in map.Markers )
           {
             byte tagId = 0;
@@ -1967,17 +2170,285 @@ namespace RetroDevStudio.Formats
                 break;
               }
             }
+            markerPairs.Add( new KeyValuePair<Marker, byte>( marker, tagId ) );
+          }
+          markerPairs.Sort( ( a, b ) => a.Value.CompareTo( b.Value ) );
+
+          foreach ( var pair in markerPairs )
+          {
+            var marker = pair.Key;
+            byte tagId = pair.Value;
             buf.AppendU8( tagId );
-            buf.AppendU8( (byte)( marker.X * map.TileSpacingX ) );
-            buf.AppendU8( (byte)( marker.Y * map.TileSpacingY ) );
-            buf.AppendU8( marker.Value );
+            buf.AppendU8( (byte)marker.X );
+            buf.AppendU8( (byte)marker.Y );
+            buf.AppendU8( marker.Value1 );
+            buf.AppendU8( marker.Value2 );
             buf.AppendU8( (byte)( marker.Enabled ? 1 : 0 ) );
             buf.AppendU8( (byte)( marker.Triggered ? 1 : 0 ) );
+          }
+        }
+
+        // Write entities — sorted by TagID (ascending), matching marker sort.
+        if ( map.Entities.Count > 0 )
+        {
+          int entitiesAddr = (int)buf.Length + addrBase;
+          buf.SetU8At( mapEntitiesLoPos + m, (byte)( entitiesAddr & 0xFF ) );
+          buf.SetU8At( mapEntitiesHiPos + m, (byte)( ( entitiesAddr >> 8 ) & 0xFF ) );
+
+          // Precompute (entity, tagId, tileIndex) once so we can sort + emit
+          // without re-doing the EntityType lookup per field.
+          var entityTriples = new List<KeyValuePair<Entity, ushort>>( map.Entities.Count );
+          foreach ( var entity in map.Entities )
+          {
+            byte tagId = 0;
+            byte tileIdx = 0;
+            foreach ( var et in EntityTypes )
+            {
+              if ( et.ID == entity.Type )
+              {
+                tagId = (byte)et.TagID;
+                tileIdx = (byte)et.TileIndex;
+                break;
+              }
+            }
+            // Pack (tagId, tileIdx) as ushort so one .Sort call does what we need.
+            entityTriples.Add( new KeyValuePair<Entity, ushort>( entity, (ushort)( ( tagId << 8 ) | tileIdx ) ) );
+          }
+          entityTriples.Sort( ( a, b ) => ( a.Value >> 8 ).CompareTo( b.Value >> 8 ) );
+
+          foreach ( var pair in entityTriples )
+          {
+            var entity = pair.Key;
+            byte tagId   = (byte)( pair.Value >> 8 );
+            byte tileIdx = (byte)( pair.Value & 0xff );
+            buf.AppendU8( tagId );
+            buf.AppendU8( (byte)entity.X );
+            buf.AppendU8( (byte)entity.Y );
+            buf.AppendU8( tileIdx );
+            buf.AppendU8( entity.Value1 );
+            buf.AppendU8( entity.Value2 );
+            buf.AppendU8( (byte)( entity.Enabled ? 1 : 0 ) );
           }
         }
       }
 
       return buf;
+    }
+
+
+
+    /// <summary>
+    /// Generates a KickAssembler-style constants file that matches the exact byte
+    /// layout used by <see cref="ExportAsGameBinary"/>. Intended to be saved next
+    /// to the exported .bin so runtime code can include symbolic offsets instead
+    /// of magic numbers. <paramref name="UserPrefix"/> is inserted verbatim at
+    /// the very top of the file (e.g. for includes or namespace declarations).
+    /// </summary>
+    public static string GenerateGameBinaryHeaderAsm( string UserPrefix = null )
+    {
+      var sb = new StringBuilder();
+      if ( !string.IsNullOrEmpty( UserPrefix ) )
+      {
+        sb.AppendLine( UserPrefix );
+        if ( !UserPrefix.EndsWith( "\n" ) )
+        {
+          sb.AppendLine();
+        }
+      }
+      sb.AppendLine( "// Auto-generated by C64Studio on game-binary export." );
+      sb.AppendLine( "// Constants mirror the byte layout of the accompanying .bin file." );
+      sb.AppendLine( "// Do not edit by hand — regenerated on every export." );
+      sb.AppendLine( "//" );
+      sb.AppendLine( "// All MAP_HEADER_* values are byte OFFSETS into the header, not stored" );
+      sb.AppendLine( "// values. To read the stride at runtime: LDA MAP_HEADER + MAP_HEADER_MARKER_STRIDE" );
+      sb.AppendLine( "// To step between marker records at compile time, use MAP_MARKER_SIZE." );
+      sb.AppendLine();
+      sb.AppendLine( "// ====== Game binary header (45 bytes) ======" );
+      sb.AppendLine( "// Direct byte values at the start of the header:" );
+      sb.AppendLine( ".const MAP_HEADER_MARKER_STRIDE                  = $00  // byte: marker record size" );
+      sb.AppendLine( ".const MAP_HEADER_TILECOUNT                      = $01  // byte: number of tiles" );
+      sb.AppendLine( ".const MAP_HEADER_MAPCOUNT                       = $02  // byte: number of maps" );
+      sb.AppendLine();
+      sb.AppendLine( "// Pointer tables (16-bit each) — absolute addresses into the data section:" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILES_WIDTH             = $03" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILES_HEIGHT            = $05" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILES_FLAGS             = $07" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILE_CHAR_OFFSET_LO     = $09" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILE_CHAR_OFFSET_HI     = $0B" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILE_COLOR_OFFSET_LO    = $0D" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILE_COLOR_OFFSET_HI    = $0F" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_WIDTH               = $11" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_HEIGHT              = $13" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_BG_COLOR            = $15" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_MC1_COLOR           = $17" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_MC2_COLOR           = $19" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_MARKER_COUNT        = $1B" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_CHAR_GRID_LO        = $1D" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_CHAR_GRID_HI        = $1F" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_COLOR_GRID_LO       = $21" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_COLOR_GRID_HI       = $23" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_PASSABLE_LO         = $25" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_PASSABLE_HI         = $27" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_MARKERS_LO          = $29" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_MARKERS_HI          = $2B" );
+      sb.AppendLine();
+      sb.AppendLine( "// Entity section (v23):" );
+      sb.AppendLine( ".const MAP_HEADER_ENTITY_STRIDE                  = $2D  // byte: entity record size" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_ENTITY_COUNT        = $2E" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_ENTITIES_LO         = $30" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_ENTITIES_HI         = $32" );
+      sb.AppendLine( ".const MAP_HEADER_SIZE                           = $34  // total header length" );
+      sb.AppendLine();
+      sb.AppendLine( "// ====== Marker record layout (7 bytes per marker) ======" );
+      sb.AppendLine( "// Byte offsets within a single marker record." );
+      sb.AppendLine( "// Use MAP_MARKER_SIZE to advance between records." );
+      sb.AppendLine( ".const MAP_MARKER_TAG                            = $00" );
+      sb.AppendLine( ".const MAP_MARKER_X                              = $01" );
+      sb.AppendLine( ".const MAP_MARKER_Y                              = $02" );
+      sb.AppendLine( ".const MAP_MARKER_VALUE1                         = $03" );
+      sb.AppendLine( ".const MAP_MARKER_VALUE2                         = $04" );
+      sb.AppendLine( ".const MAP_MARKER_ENABLED                        = $05" );
+      sb.AppendLine( ".const MAP_MARKER_TRIGGERED                      = $06" );
+      sb.AppendLine( ".const MAP_MARKER_SIZE                           = $07  // bytes per marker" );
+      sb.AppendLine();
+      sb.AppendLine( "// ====== Entity record layout (7 bytes per entity) ======" );
+      sb.AppendLine( "// Byte offsets within a single entity record." );
+      sb.AppendLine( "// Use MAP_ENTITY_SIZE to advance between records." );
+      sb.AppendLine( ".const MAP_ENTITY_TAG                            = $00" );
+      sb.AppendLine( ".const MAP_ENTITY_X                              = $01" );
+      sb.AppendLine( ".const MAP_ENTITY_Y                              = $02" );
+      sb.AppendLine( ".const MAP_ENTITY_TILE                           = $03" );
+      sb.AppendLine( ".const MAP_ENTITY_VALUE1                         = $04" );
+      sb.AppendLine( ".const MAP_ENTITY_VALUE2                         = $05" );
+      sb.AppendLine( ".const MAP_ENTITY_ENABLED                        = $06" );
+      sb.AppendLine( ".const MAP_ENTITY_SIZE                           = $07  // bytes per entity" );
+      return sb.ToString();
+    }
+
+
+
+    /// <summary>
+    /// Generates a KickAssembler constants file mapping marker-type export
+    /// symbols to their tag IDs. <paramref name="UserPrefix"/> is inserted
+    /// verbatim at the top of the file (e.g. for includes).
+    /// </summary>
+    public string GenerateMarkerLabelsAsm( string UserPrefix = null )
+    {
+      var sb = new StringBuilder();
+      if ( !string.IsNullOrEmpty( UserPrefix ) )
+      {
+        sb.AppendLine( UserPrefix );
+        if ( !UserPrefix.EndsWith( "\n" ) )
+        {
+          sb.AppendLine();
+        }
+      }
+      sb.AppendLine( "// Auto-generated by C64Studio on game-binary export." );
+      sb.AppendLine( "// Maps marker-type ExportSymbols to their TagIDs." );
+      sb.AppendLine( "// Do not edit by hand — regenerated on every export." );
+      sb.AppendLine();
+
+      // Order by TagID for readability and stable diffs across exports.
+      var ordered = new List<MarkerType>( MarkerTypes );
+      ordered.Sort( ( a, b ) => a.TagID.CompareTo( b.TagID ) );
+
+      int emitted = 0;
+      foreach ( var mt in ordered )
+      {
+        if ( string.IsNullOrEmpty( mt.ExportSymbol ) )
+        {
+          continue;
+        }
+        sb.AppendLine( ".const MARKER_" + mt.ExportSymbol.PadRight( 32 )
+                     + " = $" + ( mt.TagID & 0xff ).ToString( "X2" )
+                     + "  // " + mt.Name );
+        ++emitted;
+      }
+      if ( emitted == 0 )
+      {
+        sb.AppendLine( "// (no marker types defined an ExportSymbol)" );
+      }
+
+      // Also emit the unassigned ones as commented hints so users see what's missing.
+      bool headerWritten = false;
+      foreach ( var mt in ordered )
+      {
+        if ( !string.IsNullOrEmpty( mt.ExportSymbol ) )
+        {
+          continue;
+        }
+        if ( !headerWritten )
+        {
+          sb.AppendLine();
+          sb.AppendLine( "// Marker types without an ExportSymbol (set one in the Markers tab):" );
+          headerWritten = true;
+        }
+        sb.AppendLine( "// " + mt.Name + " -> tag $" + ( mt.TagID & 0xff ).ToString( "X2" ) );
+      }
+
+      return sb.ToString();
+    }
+
+
+
+    /// <summary>
+    /// Generates a KickAssembler constants file mapping entity-type export
+    /// symbols to their tag IDs. <paramref name="UserPrefix"/> is inserted
+    /// verbatim at the top of the file (e.g. for includes).
+    /// </summary>
+    public string GenerateEntityLabelsAsm( string UserPrefix = null )
+    {
+      var sb = new StringBuilder();
+      if ( !string.IsNullOrEmpty( UserPrefix ) )
+      {
+        sb.AppendLine( UserPrefix );
+        if ( !UserPrefix.EndsWith( "\n" ) )
+        {
+          sb.AppendLine();
+        }
+      }
+      sb.AppendLine( "// Auto-generated by C64Studio on game-binary export." );
+      sb.AppendLine( "// Maps entity-type ExportSymbols to their TagIDs." );
+      sb.AppendLine( "// Do not edit by hand — regenerated on every export." );
+      sb.AppendLine();
+
+      var ordered = new List<EntityType>( EntityTypes );
+      ordered.Sort( ( a, b ) => a.TagID.CompareTo( b.TagID ) );
+
+      int emitted = 0;
+      foreach ( var et in ordered )
+      {
+        if ( string.IsNullOrEmpty( et.ExportSymbol ) )
+        {
+          continue;
+        }
+        sb.AppendLine( ".const ENTITY_" + et.ExportSymbol.PadRight( 32 )
+                     + " = $" + ( et.TagID & 0xff ).ToString( "X2" )
+                     + "  // " + et.Name );
+        ++emitted;
+      }
+      if ( emitted == 0 )
+      {
+        sb.AppendLine( "// (no entity types defined an ExportSymbol)" );
+      }
+
+      bool headerWritten = false;
+      foreach ( var et in ordered )
+      {
+        if ( !string.IsNullOrEmpty( et.ExportSymbol ) )
+        {
+          continue;
+        }
+        if ( !headerWritten )
+        {
+          sb.AppendLine();
+          sb.AppendLine( "// Entity types without an ExportSymbol (set one in the Entities tab):" );
+          headerWritten = true;
+        }
+        sb.AppendLine( "// " + et.Name + " -> tag $" + ( et.TagID & 0xff ).ToString( "X2" ) );
+      }
+
+      return sb.ToString();
     }
 
 
@@ -2597,11 +3068,6 @@ namespace RetroDevStudio.Formats
 
       foreach ( var markerType in MarkerTypes )
       {
-        if ( string.IsNullOrEmpty( markerType.ExportSymbol ) )
-        {
-          continue;
-        }
-        
         bool isUsed = false;
         foreach ( var map in Maps )
         {
@@ -2618,7 +3084,7 @@ namespace RetroDevStudio.Formats
         if ( !isUsed ) continue;
 
         sb.Append( LabelPrefix );
-        sb.AppendLine( "MAPS_MARKERS_COUNT_" + markerType.ExportSymbol );
+        sb.AppendLine( "MAPS_MARKERS_COUNT_" + ( "TAG" + markerType.TagID.ToString( "D3" ) ) );
         
         // Count Table
         StringBuilder sbData = new StringBuilder();
@@ -2648,7 +3114,7 @@ namespace RetroDevStudio.Formats
         // Table Low
         sb.AppendLine();
         sb.Append( LabelPrefix );
-        sb.AppendLine( "MAPS_MARKERS_TABLE_LOW_" + markerType.ExportSymbol );
+        sb.AppendLine( "MAPS_MARKERS_TABLE_LOW_" + ( "TAG" + markerType.TagID.ToString( "D3" ) ) );
         sbData = new StringBuilder();
         sbData.Append( DataByteDirective + " " );
         for ( int i = 0; i < Maps.Count; ++i )
@@ -2670,7 +3136,7 @@ namespace RetroDevStudio.Formats
           }
           else
           {
-            sbData.Append( "<" + LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + "_MARKERS_" + markerType.ExportSymbol );
+            sbData.Append( "<" + LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + "_MARKERS_" + ( "TAG" + markerType.TagID.ToString( "D3" ) ) );
           }
         }
         sb.AppendLine( sbData.ToString() );
@@ -2678,7 +3144,7 @@ namespace RetroDevStudio.Formats
         // Table High
         sb.AppendLine();
         sb.Append( LabelPrefix );
-        sb.AppendLine( "MAPS_MARKERS_TABLE_HIGH_" + markerType.ExportSymbol );
+        sb.AppendLine( "MAPS_MARKERS_TABLE_HIGH_" + ( "TAG" + markerType.TagID.ToString( "D3" ) ) );
         sbData = new StringBuilder();
         sbData.Append( DataByteDirective + " " );
         for ( int i = 0; i < Maps.Count; ++i )
@@ -2700,7 +3166,7 @@ namespace RetroDevStudio.Formats
           }
           else
           {
-            sbData.Append( ">" + LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + "_MARKERS_" + markerType.ExportSymbol );
+            sbData.Append( ">" + LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + "_MARKERS_" + ( "TAG" + markerType.TagID.ToString( "D3" ) ) );
           }
         }
         sb.AppendLine( sbData.ToString() );
@@ -2714,8 +3180,6 @@ namespace RetroDevStudio.Formats
 
         foreach ( var markerType in MarkerTypes )
         {
-          if ( string.IsNullOrEmpty( markerType.ExportSymbol ) ) continue;
-
           bool isUsedGlobally = false;
           foreach ( var m in Maps )
           {
@@ -2743,7 +3207,7 @@ namespace RetroDevStudio.Formats
           if ( countInMap > 0 )
           {
              sb.Append( LabelPrefix );
-             sb.AppendLine( "MAP_" + ( mapIndex + 1 ).ToString( "D2" ) + "_MARKERS_" + markerType.ExportSymbol );
+             sb.AppendLine( "MAP_" + ( mapIndex + 1 ).ToString( "D2" ) + "_MARKERS_" + ( "TAG" + markerType.TagID.ToString( "D3" ) ) );
              
              foreach ( var marker in map.Markers )
              {

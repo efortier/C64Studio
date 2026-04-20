@@ -34,6 +34,7 @@
       this.labelInfo = new System.Windows.Forms.Label();
       this.pictureBox1 = new System.Windows.Forms.PictureBox();
       this.pictureBox2 = new System.Windows.Forms.PictureBox();
+      this.labelBuildDate = new System.Windows.Forms.Label();
       ((System.ComponentModel.ISupportInitialize)(this.pictureLogo)).BeginInit();
       ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
       ((System.ComponentModel.ISupportInitialize)(this.pictureBox2)).BeginInit();
@@ -94,14 +95,25 @@
       this.pictureBox2.SizeMode = System.Windows.Forms.PictureBoxSizeMode.AutoSize;
       this.pictureBox2.TabIndex = 3;
       this.pictureBox2.TabStop = false;
-      // 
+      //
+      // labelBuildDate
+      //
+      this.labelBuildDate.AutoSize = false;
+      this.labelBuildDate.Location = new System.Drawing.Point(357, 378);
+      this.labelBuildDate.Name = "labelBuildDate";
+      this.labelBuildDate.Size = new System.Drawing.Size(202, 13);
+      this.labelBuildDate.TabIndex = 4;
+      this.labelBuildDate.Text = "";
+      this.labelBuildDate.TextAlign = System.Drawing.ContentAlignment.BottomRight;
+      //
       // FormAbout
-      // 
+      //
       this.AcceptButton = this.btnOK;
       this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
       this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
       this.CancelButton = this.btnOK;
       this.ClientSize = new System.Drawing.Size(567, 396);
+      this.Controls.Add(this.labelBuildDate);
       this.Controls.Add(this.pictureBox2);
       this.Controls.Add(this.pictureBox1);
       this.Controls.Add(this.labelInfo);
@@ -130,5 +142,6 @@
     private System.Windows.Forms.Label labelInfo;
     private System.Windows.Forms.PictureBox pictureBox1;
     private System.Windows.Forms.PictureBox pictureBox2;
+    private System.Windows.Forms.Label labelBuildDate;
   }
 }

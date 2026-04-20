@@ -43,6 +43,30 @@ namespace RetroDevStudio.Controls
       this.labelExportFilename = new System.Windows.Forms.Label();
       this.editExportFilename = new System.Windows.Forms.TextBox();
       this.checkGenerateDefFile = new System.Windows.Forms.CheckBox();
+      this.checkExportHeaderAsm = new System.Windows.Forms.CheckBox();
+      this.labelHeaderAsmDirectory = new System.Windows.Forms.Label();
+      this.editHeaderAsmDirectory = new System.Windows.Forms.TextBox();
+      this.btnBrowseHeaderAsmDirectory = new System.Windows.Forms.Button();
+      this.labelHeaderAsmFilename = new System.Windows.Forms.Label();
+      this.editHeaderAsmFilename = new System.Windows.Forms.TextBox();
+      this.labelHeaderAsmPrefix = new System.Windows.Forms.Label();
+      this.editHeaderAsmPrefix = new System.Windows.Forms.TextBox();
+      this.checkExportMarkerLabels = new System.Windows.Forms.CheckBox();
+      this.labelMarkerLabelsDirectory = new System.Windows.Forms.Label();
+      this.editMarkerLabelsDirectory = new System.Windows.Forms.TextBox();
+      this.btnBrowseMarkerLabelsDirectory = new System.Windows.Forms.Button();
+      this.labelMarkerLabelsFilename = new System.Windows.Forms.Label();
+      this.editMarkerLabelsFilename = new System.Windows.Forms.TextBox();
+      this.labelMarkerLabelsPrefix = new System.Windows.Forms.Label();
+      this.editMarkerLabelsPrefix = new System.Windows.Forms.TextBox();
+      this.checkExportEntityLabels = new System.Windows.Forms.CheckBox();
+      this.labelEntityLabelsDirectory = new System.Windows.Forms.Label();
+      this.editEntityLabelsDirectory = new System.Windows.Forms.TextBox();
+      this.btnBrowseEntityLabelsDirectory = new System.Windows.Forms.Button();
+      this.labelEntityLabelsFilename = new System.Windows.Forms.Label();
+      this.editEntityLabelsFilename = new System.Windows.Forms.TextBox();
+      this.labelEntityLabelsPrefix = new System.Windows.Forms.Label();
+      this.editEntityLabelsPrefix = new System.Windows.Forms.TextBox();
       this.groupCharset = new System.Windows.Forms.GroupBox();
       this.checkExportCharset = new System.Windows.Forms.CheckBox();
       this.labelCharsetExportDirectory = new System.Windows.Forms.Label();
@@ -199,6 +223,240 @@ namespace RetroDevStudio.Controls
       this.checkGenerateDefFile.UseVisualStyleBackColor = true;
       this.checkGenerateDefFile.CheckedChanged += new System.EventHandler(this.checkGenerateDefFile_CheckedChanged);
       //
+      // checkExportHeaderAsm
+      //
+      this.checkExportHeaderAsm.AutoSize = true;
+      this.checkExportHeaderAsm.Checked = false;
+      this.checkExportHeaderAsm.CheckState = System.Windows.Forms.CheckState.Unchecked;
+      this.checkExportHeaderAsm.Location = new System.Drawing.Point(3, 228);
+      this.checkExportHeaderAsm.Name = "checkExportHeaderAsm";
+      this.checkExportHeaderAsm.Size = new System.Drawing.Size(200, 17);
+      this.checkExportHeaderAsm.TabIndex = 15;
+      this.checkExportHeaderAsm.Text = "Generate map_header.asm sidecar file";
+      this.checkExportHeaderAsm.UseVisualStyleBackColor = true;
+      this.checkExportHeaderAsm.CheckedChanged += new System.EventHandler(this.checkExportHeaderAsm_CheckedChanged);
+      //
+      // labelHeaderAsmDirectory
+      //
+      this.labelHeaderAsmDirectory.AutoSize = true;
+      this.labelHeaderAsmDirectory.Location = new System.Drawing.Point(20, 252);
+      this.labelHeaderAsmDirectory.Name = "labelHeaderAsmDirectory";
+      this.labelHeaderAsmDirectory.Size = new System.Drawing.Size(52, 13);
+      this.labelHeaderAsmDirectory.TabIndex = 16;
+      this.labelHeaderAsmDirectory.Text = "Directory:";
+      //
+      // editHeaderAsmDirectory
+      //
+      this.editHeaderAsmDirectory.Enabled = false;
+      this.editHeaderAsmDirectory.Location = new System.Drawing.Point(78, 249);
+      this.editHeaderAsmDirectory.Name = "editHeaderAsmDirectory";
+      this.editHeaderAsmDirectory.Size = new System.Drawing.Size(195, 20);
+      this.editHeaderAsmDirectory.TabIndex = 17;
+      //
+      // btnBrowseHeaderAsmDirectory
+      //
+      this.btnBrowseHeaderAsmDirectory.Enabled = false;
+      this.btnBrowseHeaderAsmDirectory.Location = new System.Drawing.Point(279, 247);
+      this.btnBrowseHeaderAsmDirectory.Name = "btnBrowseHeaderAsmDirectory";
+      this.btnBrowseHeaderAsmDirectory.Size = new System.Drawing.Size(30, 23);
+      this.btnBrowseHeaderAsmDirectory.TabIndex = 18;
+      this.btnBrowseHeaderAsmDirectory.Text = "...";
+      this.btnBrowseHeaderAsmDirectory.UseVisualStyleBackColor = true;
+      this.btnBrowseHeaderAsmDirectory.Click += new System.EventHandler(this.btnBrowseHeaderAsmDirectory_Click);
+      //
+      // labelHeaderAsmFilename
+      //
+      this.labelHeaderAsmFilename.AutoSize = true;
+      this.labelHeaderAsmFilename.Location = new System.Drawing.Point(20, 278);
+      this.labelHeaderAsmFilename.Name = "labelHeaderAsmFilename";
+      this.labelHeaderAsmFilename.Size = new System.Drawing.Size(52, 13);
+      this.labelHeaderAsmFilename.TabIndex = 19;
+      this.labelHeaderAsmFilename.Text = "Filename:";
+      //
+      // editHeaderAsmFilename
+      //
+      this.editHeaderAsmFilename.Enabled = false;
+      this.editHeaderAsmFilename.Location = new System.Drawing.Point(78, 275);
+      this.editHeaderAsmFilename.Name = "editHeaderAsmFilename";
+      this.editHeaderAsmFilename.Size = new System.Drawing.Size(195, 20);
+      this.editHeaderAsmFilename.TabIndex = 20;
+      //
+      // labelHeaderAsmPrefix
+      //
+      this.labelHeaderAsmPrefix.AutoSize = true;
+      this.labelHeaderAsmPrefix.Location = new System.Drawing.Point(325, 231);
+      this.labelHeaderAsmPrefix.Name = "labelHeaderAsmPrefix";
+      this.labelHeaderAsmPrefix.Size = new System.Drawing.Size(62, 13);
+      this.labelHeaderAsmPrefix.TabIndex = 27;
+      this.labelHeaderAsmPrefix.Text = "Prefix text:";
+      //
+      // editHeaderAsmPrefix
+      //
+      this.editHeaderAsmPrefix.Enabled = false;
+      this.editHeaderAsmPrefix.Location = new System.Drawing.Point(325, 249);
+      this.editHeaderAsmPrefix.Multiline = true;
+      this.editHeaderAsmPrefix.Name = "editHeaderAsmPrefix";
+      this.editHeaderAsmPrefix.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+      this.editHeaderAsmPrefix.Size = new System.Drawing.Size(280, 46);
+      this.editHeaderAsmPrefix.TabIndex = 28;
+      this.editHeaderAsmPrefix.Font = new System.Drawing.Font("Courier New", 8.25F);
+      //
+      // checkExportMarkerLabels
+      //
+      this.checkExportMarkerLabels.AutoSize = true;
+      this.checkExportMarkerLabels.Checked = false;
+      this.checkExportMarkerLabels.CheckState = System.Windows.Forms.CheckState.Unchecked;
+      this.checkExportMarkerLabels.Location = new System.Drawing.Point(3, 305);
+      this.checkExportMarkerLabels.Name = "checkExportMarkerLabels";
+      this.checkExportMarkerLabels.Size = new System.Drawing.Size(220, 17);
+      this.checkExportMarkerLabels.TabIndex = 21;
+      this.checkExportMarkerLabels.Text = "Generate marker labels sidecar file";
+      this.checkExportMarkerLabels.UseVisualStyleBackColor = true;
+      this.checkExportMarkerLabels.CheckedChanged += new System.EventHandler(this.checkExportMarkerLabels_CheckedChanged);
+      //
+      // labelMarkerLabelsDirectory
+      //
+      this.labelMarkerLabelsDirectory.AutoSize = true;
+      this.labelMarkerLabelsDirectory.Location = new System.Drawing.Point(20, 329);
+      this.labelMarkerLabelsDirectory.Name = "labelMarkerLabelsDirectory";
+      this.labelMarkerLabelsDirectory.Size = new System.Drawing.Size(52, 13);
+      this.labelMarkerLabelsDirectory.TabIndex = 22;
+      this.labelMarkerLabelsDirectory.Text = "Directory:";
+      //
+      // editMarkerLabelsDirectory
+      //
+      this.editMarkerLabelsDirectory.Enabled = false;
+      this.editMarkerLabelsDirectory.Location = new System.Drawing.Point(78, 326);
+      this.editMarkerLabelsDirectory.Name = "editMarkerLabelsDirectory";
+      this.editMarkerLabelsDirectory.Size = new System.Drawing.Size(195, 20);
+      this.editMarkerLabelsDirectory.TabIndex = 23;
+      //
+      // btnBrowseMarkerLabelsDirectory
+      //
+      this.btnBrowseMarkerLabelsDirectory.Enabled = false;
+      this.btnBrowseMarkerLabelsDirectory.Location = new System.Drawing.Point(279, 324);
+      this.btnBrowseMarkerLabelsDirectory.Name = "btnBrowseMarkerLabelsDirectory";
+      this.btnBrowseMarkerLabelsDirectory.Size = new System.Drawing.Size(30, 23);
+      this.btnBrowseMarkerLabelsDirectory.TabIndex = 24;
+      this.btnBrowseMarkerLabelsDirectory.Text = "...";
+      this.btnBrowseMarkerLabelsDirectory.UseVisualStyleBackColor = true;
+      this.btnBrowseMarkerLabelsDirectory.Click += new System.EventHandler(this.btnBrowseMarkerLabelsDirectory_Click);
+      //
+      // labelMarkerLabelsFilename
+      //
+      this.labelMarkerLabelsFilename.AutoSize = true;
+      this.labelMarkerLabelsFilename.Location = new System.Drawing.Point(20, 355);
+      this.labelMarkerLabelsFilename.Name = "labelMarkerLabelsFilename";
+      this.labelMarkerLabelsFilename.Size = new System.Drawing.Size(52, 13);
+      this.labelMarkerLabelsFilename.TabIndex = 25;
+      this.labelMarkerLabelsFilename.Text = "Filename:";
+      //
+      // editMarkerLabelsFilename
+      //
+      this.editMarkerLabelsFilename.Enabled = false;
+      this.editMarkerLabelsFilename.Location = new System.Drawing.Point(78, 352);
+      this.editMarkerLabelsFilename.Name = "editMarkerLabelsFilename";
+      this.editMarkerLabelsFilename.Size = new System.Drawing.Size(195, 20);
+      this.editMarkerLabelsFilename.TabIndex = 26;
+      //
+      // labelMarkerLabelsPrefix
+      //
+      this.labelMarkerLabelsPrefix.AutoSize = true;
+      this.labelMarkerLabelsPrefix.Location = new System.Drawing.Point(325, 308);
+      this.labelMarkerLabelsPrefix.Name = "labelMarkerLabelsPrefix";
+      this.labelMarkerLabelsPrefix.Size = new System.Drawing.Size(62, 13);
+      this.labelMarkerLabelsPrefix.TabIndex = 29;
+      this.labelMarkerLabelsPrefix.Text = "Prefix text:";
+      //
+      // editMarkerLabelsPrefix
+      //
+      this.editMarkerLabelsPrefix.Enabled = false;
+      this.editMarkerLabelsPrefix.Location = new System.Drawing.Point(325, 326);
+      this.editMarkerLabelsPrefix.Multiline = true;
+      this.editMarkerLabelsPrefix.Name = "editMarkerLabelsPrefix";
+      this.editMarkerLabelsPrefix.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+      this.editMarkerLabelsPrefix.Size = new System.Drawing.Size(280, 46);
+      this.editMarkerLabelsPrefix.TabIndex = 30;
+      this.editMarkerLabelsPrefix.Font = new System.Drawing.Font("Courier New", 8.25F);
+      //
+      // checkExportEntityLabels
+      //
+      this.checkExportEntityLabels.AutoSize = true;
+      this.checkExportEntityLabels.Checked = false;
+      this.checkExportEntityLabels.CheckState = System.Windows.Forms.CheckState.Unchecked;
+      this.checkExportEntityLabels.Location = new System.Drawing.Point(3, 380);
+      this.checkExportEntityLabels.Name = "checkExportEntityLabels";
+      this.checkExportEntityLabels.Size = new System.Drawing.Size(220, 17);
+      this.checkExportEntityLabels.TabIndex = 31;
+      this.checkExportEntityLabels.Text = "Generate entity labels sidecar file";
+      this.checkExportEntityLabels.UseVisualStyleBackColor = true;
+      this.checkExportEntityLabels.CheckedChanged += new System.EventHandler(this.checkExportEntityLabels_CheckedChanged);
+      //
+      // labelEntityLabelsDirectory
+      //
+      this.labelEntityLabelsDirectory.AutoSize = true;
+      this.labelEntityLabelsDirectory.Location = new System.Drawing.Point(20, 404);
+      this.labelEntityLabelsDirectory.Name = "labelEntityLabelsDirectory";
+      this.labelEntityLabelsDirectory.Size = new System.Drawing.Size(52, 13);
+      this.labelEntityLabelsDirectory.TabIndex = 32;
+      this.labelEntityLabelsDirectory.Text = "Directory:";
+      //
+      // editEntityLabelsDirectory
+      //
+      this.editEntityLabelsDirectory.Enabled = false;
+      this.editEntityLabelsDirectory.Location = new System.Drawing.Point(78, 401);
+      this.editEntityLabelsDirectory.Name = "editEntityLabelsDirectory";
+      this.editEntityLabelsDirectory.Size = new System.Drawing.Size(195, 20);
+      this.editEntityLabelsDirectory.TabIndex = 33;
+      //
+      // btnBrowseEntityLabelsDirectory
+      //
+      this.btnBrowseEntityLabelsDirectory.Enabled = false;
+      this.btnBrowseEntityLabelsDirectory.Location = new System.Drawing.Point(279, 399);
+      this.btnBrowseEntityLabelsDirectory.Name = "btnBrowseEntityLabelsDirectory";
+      this.btnBrowseEntityLabelsDirectory.Size = new System.Drawing.Size(30, 23);
+      this.btnBrowseEntityLabelsDirectory.TabIndex = 34;
+      this.btnBrowseEntityLabelsDirectory.Text = "...";
+      this.btnBrowseEntityLabelsDirectory.UseVisualStyleBackColor = true;
+      this.btnBrowseEntityLabelsDirectory.Click += new System.EventHandler(this.btnBrowseEntityLabelsDirectory_Click);
+      //
+      // labelEntityLabelsFilename
+      //
+      this.labelEntityLabelsFilename.AutoSize = true;
+      this.labelEntityLabelsFilename.Location = new System.Drawing.Point(20, 430);
+      this.labelEntityLabelsFilename.Name = "labelEntityLabelsFilename";
+      this.labelEntityLabelsFilename.Size = new System.Drawing.Size(52, 13);
+      this.labelEntityLabelsFilename.TabIndex = 35;
+      this.labelEntityLabelsFilename.Text = "Filename:";
+      //
+      // editEntityLabelsFilename
+      //
+      this.editEntityLabelsFilename.Enabled = false;
+      this.editEntityLabelsFilename.Location = new System.Drawing.Point(78, 427);
+      this.editEntityLabelsFilename.Name = "editEntityLabelsFilename";
+      this.editEntityLabelsFilename.Size = new System.Drawing.Size(195, 20);
+      this.editEntityLabelsFilename.TabIndex = 36;
+      //
+      // labelEntityLabelsPrefix
+      //
+      this.labelEntityLabelsPrefix.AutoSize = true;
+      this.labelEntityLabelsPrefix.Location = new System.Drawing.Point(325, 383);
+      this.labelEntityLabelsPrefix.Name = "labelEntityLabelsPrefix";
+      this.labelEntityLabelsPrefix.Size = new System.Drawing.Size(62, 13);
+      this.labelEntityLabelsPrefix.TabIndex = 37;
+      this.labelEntityLabelsPrefix.Text = "Prefix text:";
+      //
+      // editEntityLabelsPrefix
+      //
+      this.editEntityLabelsPrefix.Enabled = false;
+      this.editEntityLabelsPrefix.Location = new System.Drawing.Point(325, 401);
+      this.editEntityLabelsPrefix.Multiline = true;
+      this.editEntityLabelsPrefix.Name = "editEntityLabelsPrefix";
+      this.editEntityLabelsPrefix.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+      this.editEntityLabelsPrefix.Size = new System.Drawing.Size(280, 46);
+      this.editEntityLabelsPrefix.TabIndex = 38;
+      this.editEntityLabelsPrefix.Font = new System.Drawing.Font("Courier New", 8.25F);
+      //
       // groupCharset
       //
       this.groupCharset.Controls.Add(this.checkExportCharset);
@@ -209,7 +467,7 @@ namespace RetroDevStudio.Controls
       this.groupCharset.Controls.Add(this.editCharsetExportFilename);
       this.groupCharset.Controls.Add(this.checkCharsetPrefixLoadAddress);
       this.groupCharset.Controls.Add(this.editCharsetPrefixLoadAddress);
-      this.groupCharset.Location = new System.Drawing.Point(3, 235);
+      this.groupCharset.Location = new System.Drawing.Point(3, 457);
       this.groupCharset.Name = "groupCharset";
       this.groupCharset.Size = new System.Drawing.Size(316, 148);
       this.groupCharset.TabIndex = 14;
@@ -297,6 +555,30 @@ namespace RetroDevStudio.Controls
       this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
       this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
       this.Controls.Add(this.groupCharset);
+      this.Controls.Add(this.editMarkerLabelsPrefix);
+      this.Controls.Add(this.labelMarkerLabelsPrefix);
+      this.Controls.Add(this.editMarkerLabelsFilename);
+      this.Controls.Add(this.labelMarkerLabelsFilename);
+      this.Controls.Add(this.btnBrowseMarkerLabelsDirectory);
+      this.Controls.Add(this.editMarkerLabelsDirectory);
+      this.Controls.Add(this.labelMarkerLabelsDirectory);
+      this.Controls.Add(this.checkExportMarkerLabels);
+      this.Controls.Add(this.editEntityLabelsPrefix);
+      this.Controls.Add(this.labelEntityLabelsPrefix);
+      this.Controls.Add(this.editEntityLabelsFilename);
+      this.Controls.Add(this.labelEntityLabelsFilename);
+      this.Controls.Add(this.btnBrowseEntityLabelsDirectory);
+      this.Controls.Add(this.editEntityLabelsDirectory);
+      this.Controls.Add(this.labelEntityLabelsDirectory);
+      this.Controls.Add(this.checkExportEntityLabels);
+      this.Controls.Add(this.editHeaderAsmPrefix);
+      this.Controls.Add(this.labelHeaderAsmPrefix);
+      this.Controls.Add(this.editHeaderAsmFilename);
+      this.Controls.Add(this.labelHeaderAsmFilename);
+      this.Controls.Add(this.btnBrowseHeaderAsmDirectory);
+      this.Controls.Add(this.editHeaderAsmDirectory);
+      this.Controls.Add(this.labelHeaderAsmDirectory);
+      this.Controls.Add(this.checkExportHeaderAsm);
       this.Controls.Add(this.checkGenerateDefFile);
       this.Controls.Add(this.editExportFilename);
       this.Controls.Add(this.labelExportFilename);
@@ -312,7 +594,7 @@ namespace RetroDevStudio.Controls
       this.Controls.Add(this.checkExportColors);
       this.Controls.Add(this.checkExportMarkers);
       this.Name = "ExportMapAsGameBinary";
-      this.Size = new System.Drawing.Size(322, 392);
+      this.Size = new System.Drawing.Size(620, 615);
       this.groupCharset.ResumeLayout(false);
       this.groupCharset.PerformLayout();
       this.ResumeLayout(false);
@@ -336,6 +618,30 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.Label labelExportFilename;
     private System.Windows.Forms.TextBox editExportFilename;
     private System.Windows.Forms.CheckBox checkGenerateDefFile;
+    private System.Windows.Forms.CheckBox checkExportHeaderAsm;
+    private System.Windows.Forms.Label labelHeaderAsmDirectory;
+    private System.Windows.Forms.TextBox editHeaderAsmDirectory;
+    private System.Windows.Forms.Button btnBrowseHeaderAsmDirectory;
+    private System.Windows.Forms.Label labelHeaderAsmFilename;
+    private System.Windows.Forms.TextBox editHeaderAsmFilename;
+    private System.Windows.Forms.Label labelHeaderAsmPrefix;
+    private System.Windows.Forms.TextBox editHeaderAsmPrefix;
+    private System.Windows.Forms.CheckBox checkExportMarkerLabels;
+    private System.Windows.Forms.Label labelMarkerLabelsDirectory;
+    private System.Windows.Forms.TextBox editMarkerLabelsDirectory;
+    private System.Windows.Forms.Button btnBrowseMarkerLabelsDirectory;
+    private System.Windows.Forms.Label labelMarkerLabelsFilename;
+    private System.Windows.Forms.TextBox editMarkerLabelsFilename;
+    private System.Windows.Forms.Label labelMarkerLabelsPrefix;
+    private System.Windows.Forms.TextBox editMarkerLabelsPrefix;
+    private System.Windows.Forms.CheckBox checkExportEntityLabels;
+    private System.Windows.Forms.Label labelEntityLabelsDirectory;
+    private System.Windows.Forms.TextBox editEntityLabelsDirectory;
+    private System.Windows.Forms.Button btnBrowseEntityLabelsDirectory;
+    private System.Windows.Forms.Label labelEntityLabelsFilename;
+    private System.Windows.Forms.TextBox editEntityLabelsFilename;
+    private System.Windows.Forms.Label labelEntityLabelsPrefix;
+    private System.Windows.Forms.TextBox editEntityLabelsPrefix;
     private System.Windows.Forms.GroupBox groupCharset;
     private System.Windows.Forms.CheckBox checkExportCharset;
     private System.Windows.Forms.Label labelCharsetExportDirectory;

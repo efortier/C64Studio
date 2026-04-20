@@ -27,7 +27,8 @@ namespace RetroDevStudio.Documents
       FILLED_RECTANGLE,
       FILL,
       SELECT,
-      MARKER
+      MARKER,
+      ENTITY
     };
 
 
@@ -117,6 +118,11 @@ namespace RetroDevStudio.Documents
       m_IsSaveable = true;
       InitializeComponent();
       SuspendLayout();
+
+      // Flat dark tab theme for tabMapEditor (map / tiles / character set /
+      // export / import / markers / entities). Replaces the default 3D Krypton
+      // look with a flat underline-selected style sourced from DarkTheme.
+      RetroDevStudio.CustomRenderer.DarkTheme.ApplyFlatDarkStyle( tabMapEditor );
 
       characterEditor.Core = Core;
 
@@ -1097,7 +1103,12 @@ namespace RetroDevStudio.Documents
       ||   ( trueY + offsetY < 0 )
       ||   ( trueY + offsetY >= m_CurrentMap.Tiles.Height ) )
       {
-        return;
+        // Marker tool can place off-map (for global/non-level markers), so let
+        // the click through. Tile-editing tools still require an in-bounds click.
+        if ( m_ToolMode != ToolMode.MARKER )
+        {
+          return;
+        }
       }
 
       if ( sourceX < 0 )
@@ -1530,36 +1541,97 @@ namespace RetroDevStudio.Documents
              {
                m_MouseButtonReleased = false;
 
+               int placeX = trueX + offsetX;
+               int placeY = trueY + offsetY;
+
+               // Markers can live anywhere addressable by an u8 — including
+               // outside the map, for global/non-level markers.
+               if ( ( placeX < 0 )
+               ||   ( placeY < 0 )
+               ||   ( placeX > 255 )
+               ||   ( placeY > 255 ) )
+               {
+                 break;
+               }
 
                if ( m_CurrentMap.SelectedMarkerType != -1 )
                {
                  var type = m_MapProject.MarkerTypes.FirstOrDefault( t => t.ID == m_CurrentMap.SelectedMarkerType );
                  if ( type != null )
                  {
-                   // Remove existing marker at same spot? Or allow multiples?
-                   // For now allow overlapping, but users can keep clean.
-                   // Actually unique loc is better for simplicity.
-                   var existingMarker = m_CurrentMap.Markers.FirstOrDefault( m => m.X == trueX + offsetX && m.Y == trueY + offsetY );
+                   // Unique-per-tile: replace any marker already at this position.
+                   var existingMarker = m_CurrentMap.Markers.FirstOrDefault( m => m.X == placeX && m.Y == placeY );
                    if ( existingMarker != null )
                    {
-                     // Replace type, value, enabled, triggered
                      existingMarker.Type = type.ID;
                      existingMarker.Name = type.Name + " " + ( m_CurrentMap.Markers.Count + 1 );
-                     existingMarker.Value = (byte)editMarkerValue.Value;
+                     existingMarker.Value1 = (byte)editMarkerValue1.Value;
+                     existingMarker.Value2 = (byte)editMarkerValue2.Value;
                      existingMarker.Enabled = checkMarkerDefaultEnabled.Checked;
                      existingMarker.Triggered = checkMarkerDefaultTriggered.Checked;
                    }
                    else
                    {
                      var marker = new MapProject.Marker();
-                     marker.X = trueX + offsetX;
-                     marker.Y = trueY + offsetY;
+                     marker.X = placeX;
+                     marker.Y = placeY;
                      marker.Type = type.ID;
                      marker.Name = type.Name + " " + ( m_CurrentMap.Markers.Count + 1 );
-                     marker.Value = (byte)editMarkerValue.Value;
+                     marker.Value1 = (byte)editMarkerValue1.Value;
+                     marker.Value2 = (byte)editMarkerValue2.Value;
                      marker.Enabled = checkMarkerDefaultEnabled.Checked;
                      marker.Triggered = checkMarkerDefaultTriggered.Checked;
                      m_CurrentMap.Markers.Add( marker );
+                   }
+                   RedrawMap();
+                   pictureEditor.Invalidate();
+                   Modified = true;
+                 }
+               }
+             }
+             break;
+
+          case ToolMode.ENTITY:
+             if ( m_MouseButtonReleased )
+             {
+               m_MouseButtonReleased = false;
+
+               int placeX = trueX + offsetX;
+               int placeY = trueY + offsetY;
+
+               // Entities are in-map only (unlike markers which may float in 0..255).
+               if ( ( placeX < 0 )
+               ||   ( placeY < 0 )
+               ||   ( placeX >= m_CurrentMap.Tiles.Width )
+               ||   ( placeY >= m_CurrentMap.Tiles.Height ) )
+               {
+                 break;
+               }
+
+               if ( m_CurrentMap.SelectedEntityType != -1 )
+               {
+                 var type = m_MapProject.EntityTypes.FirstOrDefault( t => t.ID == m_CurrentMap.SelectedEntityType );
+                 if ( type != null )
+                 {
+                   // Unique-per-tile: replace any entity already at this position.
+                   var existing = m_CurrentMap.Entities.FirstOrDefault( en => en.X == placeX && en.Y == placeY );
+                   if ( existing != null )
+                   {
+                     existing.Type = type.ID;
+                     existing.Value1 = (byte)editEntityValue1Default.Value;
+                     existing.Value2 = (byte)editEntityValue2Default.Value;
+                     existing.Enabled = checkEntityDefaultEnabled.Checked;
+                   }
+                   else
+                   {
+                     var entity = new MapProject.Entity();
+                     entity.X = placeX;
+                     entity.Y = placeY;
+                     entity.Type = type.ID;
+                     entity.Value1 = (byte)editEntityValue1Default.Value;
+                     entity.Value2 = (byte)editEntityValue2Default.Value;
+                     entity.Enabled = checkEntityDefaultEnabled.Checked;
+                     m_CurrentMap.Entities.Add( entity );
                    }
                    RedrawMap();
                    pictureEditor.Invalidate();
@@ -1573,20 +1645,73 @@ namespace RetroDevStudio.Documents
 
       if ( ( Buttons & MouseButtons.Right ) != 0 )
       {
-        if ( m_ToolMode == ToolMode.MARKER )
+        if ( m_ToolMode == ToolMode.ENTITY )
         {
-           var markerToRemove = m_CurrentMap.Markers.FirstOrDefault( m => m.X == trueX + offsetX && m.Y == trueY + offsetY );
-           if ( markerToRemove != null )
+           int clickX = trueX + offsetX;
+           int clickY = trueY + offsetY;
+           if ( ( clickX >= 0 )
+           &&   ( clickY >= 0 )
+           &&   ( clickX < m_CurrentMap.Tiles.Width )
+           &&   ( clickY < m_CurrentMap.Tiles.Height ) )
            {
-             // Load this marker's state into the edit fields before removing, so the user
-             // can inspect and reuse it.
-             editMarkerValue.Value = markerToRemove.Value;
-             checkMarkerDefaultEnabled.Checked = markerToRemove.Enabled;
-             checkMarkerDefaultTriggered.Checked = markerToRemove.Triggered;
-             m_CurrentMap.Markers.Remove( markerToRemove );
-             RedrawMap();
-             pictureEditor.Invalidate();
-             Modified = true;
+             var entityToRemove = m_CurrentMap.Entities.FirstOrDefault( en => en.X == clickX && en.Y == clickY );
+             if ( entityToRemove != null )
+             {
+               // Pre-populate the placement defaults from the removed entity so
+               // a follow-up left-click drops a new one with the same settings.
+               editEntityValue1Default.Value = entityToRemove.Value1;
+               editEntityValue2Default.Value = entityToRemove.Value2;
+               checkEntityDefaultEnabled.Checked = entityToRemove.Enabled;
+
+               int typeIndex = m_MapProject.EntityTypes.FindIndex( t => t.ID == entityToRemove.Type );
+               if ( typeIndex != -1 )
+               {
+                 comboEntityTypes.SelectedIndex = typeIndex + 1;
+               }
+
+               m_CurrentMap.Entities.Remove( entityToRemove );
+               RedrawMap();
+               pictureEditor.Invalidate();
+               Modified = true;
+             }
+           }
+        }
+        else if ( m_ToolMode == ToolMode.MARKER )
+        {
+           int clickX = trueX + offsetX;
+           int clickY = trueY + offsetY;
+           if ( ( clickX < 0 )
+           ||   ( clickY < 0 )
+           ||   ( clickX > 255 )
+           ||   ( clickY > 255 ) )
+           {
+             // outside the 0..255 marker coordinate range — do nothing
+           }
+           else
+           {
+             var markerToRemove = m_CurrentMap.Markers.FirstOrDefault( m => m.X == clickX && m.Y == clickY );
+             if ( markerToRemove != null )
+             {
+               // Load this marker's state into the edit fields before removing, so the user
+               // can inspect and reuse it. This includes the marker type in the combo, so
+               // a subsequent left-click puts the same kind of marker back.
+               editMarkerValue1.Value = markerToRemove.Value1;
+               editMarkerValue2.Value = markerToRemove.Value2;
+               checkMarkerDefaultEnabled.Checked = markerToRemove.Enabled;
+               checkMarkerDefaultTriggered.Checked = markerToRemove.Triggered;
+
+               int typeIndex = m_MapProject.MarkerTypes.FindIndex( t => t.ID == markerToRemove.Type );
+               if ( typeIndex != -1 )
+               {
+                 // +1 because index 0 of the combo is the "None" placeholder.
+                 comboMarkerTypes.SelectedIndex = typeIndex + 1;
+               }
+
+               m_CurrentMap.Markers.Remove( markerToRemove );
+               RedrawMap();
+               pictureEditor.Invalidate();
+               Modified = true;
+             }
            }
         }
         else if ( string.IsNullOrEmpty( m_MapProject.RightClickAction ) )
@@ -1890,6 +2015,49 @@ namespace RetroDevStudio.Documents
           }
         }
       }
+      // ====== Entities overlay (drawn on top of the tile layer) ======
+      // Toggleable via the "Show Entities" checkbox; reuses the tile renderer
+      // so multi-cell entity tiles render at full size on the entity's anchor.
+      if ( ( checkShowEntities != null )
+      &&   ( checkShowEntities.Checked ) )
+      {
+        var alternativeSettings = new Types.AlternativeColorSettings()
+        {
+          BackgroundColor = ( m_CurrentMap.AlternativeBackgroundColor != -1 ) ? m_CurrentMap.AlternativeBackgroundColor : m_MapProject.BackgroundColor,
+          MultiColor1     = ( m_CurrentMap.AlternativeMultiColor1 != -1 ) ? m_CurrentMap.AlternativeMultiColor1 : m_MapProject.MultiColor1,
+          MultiColor2     = ( m_CurrentMap.AlternativeMultiColor2 != -1 ) ? m_CurrentMap.AlternativeMultiColor2 : m_MapProject.MultiColor2,
+          BGColor4        = ( m_CurrentMap.AlternativeBGColor4 != -1 ) ? m_CurrentMap.AlternativeBGColor4 : m_MapProject.BGColor4,
+          CharMode        = ( m_CurrentMap.AlternativeMode != TextCharMode.UNKNOWN ) ? m_CurrentMap.AlternativeMode : Lookup.TextCharModeFromTextMode( m_MapProject.Mode )
+        };
+
+        foreach ( var entity in m_CurrentMap.Entities )
+        {
+          var type = m_MapProject.EntityTypes.FirstOrDefault( t => t.ID == entity.Type );
+          if ( type == null ) continue;
+          if ( ( type.TileIndex < 0 ) || ( type.TileIndex >= m_MapProject.Tiles.Count ) ) continue;
+
+          int ex = entity.X - offsetX;
+          int ey = entity.Y - offsetY;
+          if ( ( ex < x1 - offsetX ) || ( ex > x2 - offsetX )
+          ||   ( ey < y1 - offsetY ) || ( ey > y2 - offsetY ) ) continue;
+
+          var tile = m_MapProject.Tiles[type.TileIndex];
+          for ( int j = 0; j < tile.Chars.Height; ++j )
+          {
+            for ( int i = 0; i < tile.Chars.Width; ++i )
+            {
+              alternativeSettings.CustomColor = tile.Chars[i, j].Color;
+              Displayer.CharacterDisplayer.DisplayChar( m_MapProject.Charset,
+                                                        tile.Chars[i, j].Character,
+                                                        pictureEditor.DisplayPage,
+                                                        renderOffsetX + ( ex * m_CurrentMap.TileSpacingX + i ) * 8,
+                                                        renderOffsetY + ( ey * m_CurrentMap.TileSpacingY + j ) * 8,
+                                                        alternativeSettings );
+            }
+          }
+        }
+      }
+
       pictureEditor.DisplayPage.DrawTo( m_Image, 0, 0, 0, 0, pictureEditor.DisplayPage.Width, pictureEditor.DisplayPage.Height );
       pictureEditor.Invalidate();
     }
@@ -2152,6 +2320,27 @@ namespace RetroDevStudio.Documents
       }
       comboTiles.Invalidate();
       RefreshMarkerTypes();
+      RefreshEntityTypes();
+      RefreshEntityTileIndexRange();
+    }
+
+    /// <summary>
+    /// Keeps the EntityTypes editor's TileIndex NumericUpDown range in sync with
+    /// the current tile count so an EntityType can't reference a missing tile.
+    /// Also clamps the existing value defensively if the count shrank.
+    /// </summary>
+    private void RefreshEntityTileIndexRange()
+    {
+      if ( editEntityTileIndex == null )
+      {
+        return;
+      }
+      int maxIndex = Math.Max( 0, m_MapProject.Tiles.Count - 1 );
+      editEntityTileIndex.Maximum = maxIndex;
+      if ( editEntityTileIndex.Value > maxIndex )
+      {
+        editEntityTileIndex.Value = maxIndex;
+      }
     }
 
 
@@ -2563,7 +2752,7 @@ namespace RetroDevStudio.Documents
             }
           }
         }
-        if ( tabMapEditor.SelectedTab == tabTiles )
+        if ( tabMapEditor.SelectedPage == tabTiles )
         {
           bool modified = false;
           if ( listTileInfo.SelectedIndices.Count > 0 )
@@ -2620,13 +2809,139 @@ namespace RetroDevStudio.Documents
       ShiftMap( 0, 1 );
     }
 
+    private void btnRemoveOverlappingTiles_Click( DecentForms.ControlBase sender )
+    {
+      RemoveOverlappingTiles();
+    }
+
+
+
+    /// <summary>
+    /// Walks the map in reading order (left-to-right, top-to-bottom). For each
+    /// non-empty tile, determines the tile's footprint in map cells, and clears
+    /// (sets to 0) any non-empty cell inside that footprint other than the anchor.
+    /// Cleanup for multi-cell tiles whose footprints overlap later placements.
+    /// </summary>
+    private void RemoveOverlappingTiles()
+    {
+      if ( m_CurrentMap == null )
+      {
+        return;
+      }
+
+      int w = m_CurrentMap.Tiles.Width;
+      int h = m_CurrentMap.Tiles.Height;
+      int spacingX = Math.Max( 1, m_CurrentMap.TileSpacingX );
+      int spacingY = Math.Max( 1, m_CurrentMap.TileSpacingY );
+
+      // Scan once first so we only record an undo (and fire Modified) when
+      // there's actually something to change.
+      int clearedCount = 0;
+      for ( int y = 0; y < h; ++y )
+      {
+        for ( int x = 0; x < w; ++x )
+        {
+          int tileIndex = m_CurrentMap.Tiles[x, y];
+          if ( ( tileIndex <= 0 )
+          ||   ( tileIndex >= m_MapProject.Tiles.Count ) )
+          {
+            continue;
+          }
+
+          var tile = m_MapProject.Tiles[tileIndex];
+          int cellsWide = Math.Max( 1, ( tile.Chars.Width  + spacingX - 1 ) / spacingX );
+          int cellsTall = Math.Max( 1, ( tile.Chars.Height + spacingY - 1 ) / spacingY );
+
+          for ( int dy = 0; dy < cellsTall; ++dy )
+          {
+            for ( int dx = 0; dx < cellsWide; ++dx )
+            {
+              if ( ( dx == 0 ) && ( dy == 0 ) )
+              {
+                continue;
+              }
+              int nx = x + dx;
+              int ny = y + dy;
+              if ( ( nx >= w ) || ( ny >= h ) )
+              {
+                continue;
+              }
+              if ( m_CurrentMap.Tiles[nx, ny] != 0 )
+              {
+                ++clearedCount;
+              }
+            }
+          }
+        }
+      }
+
+      if ( clearedCount == 0 )
+      {
+        Core.Notification.MessageBox( "Remove overlapping tiles",
+          "No overlapping tiles were found." );
+        return;
+      }
+
+      // Snapshot for undo, then perform the actual clearing. Using the same
+      // scan order — the second pass sees the same tiles as the first because
+      // the anchor cells are never cleared.
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange(
+        this, m_CurrentMap, 0, 0, w, h ) );
+
+      for ( int y = 0; y < h; ++y )
+      {
+        for ( int x = 0; x < w; ++x )
+        {
+          int tileIndex = m_CurrentMap.Tiles[x, y];
+          if ( ( tileIndex <= 0 )
+          ||   ( tileIndex >= m_MapProject.Tiles.Count ) )
+          {
+            continue;
+          }
+
+          var tile = m_MapProject.Tiles[tileIndex];
+          int cellsWide = Math.Max( 1, ( tile.Chars.Width  + spacingX - 1 ) / spacingX );
+          int cellsTall = Math.Max( 1, ( tile.Chars.Height + spacingY - 1 ) / spacingY );
+
+          for ( int dy = 0; dy < cellsTall; ++dy )
+          {
+            for ( int dx = 0; dx < cellsWide; ++dx )
+            {
+              if ( ( dx == 0 ) && ( dy == 0 ) )
+              {
+                continue;
+              }
+              int nx = x + dx;
+              int ny = y + dy;
+              if ( ( nx >= w ) || ( ny >= h ) )
+              {
+                continue;
+              }
+              if ( m_CurrentMap.Tiles[nx, ny] != 0 )
+              {
+                m_CurrentMap.Tiles[nx, ny] = 0;
+              }
+            }
+          }
+        }
+      }
+
+      SetModified();
+      UpdateArea( 0, 0, w, h );
+      Core.Notification.MessageBox( "Remove overlapping tiles",
+        "Cleared " + clearedCount + " overlapping tile" + ( clearedCount == 1 ? "" : "s" ) + "." );
+    }
+
     private void ShiftMap( int DX, int DY )
     {
       if ( m_CurrentMap == null )
       {
         return;
       }
+      // Snapshot tiles and markers in one undo group so Ctrl+Z rewinds both at once.
       DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height ) );
+      DocumentInfo.UndoManager.AddGroupedUndoTask( new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
+      DocumentInfo.UndoManager.AddGroupedUndoTask( new Undo.UndoMapEntitiesChange( this, m_CurrentMap ) );
 
       int    w = m_CurrentMap.Tiles.Width;
       int    h = m_CurrentMap.Tiles.Height;
@@ -2702,6 +3017,54 @@ namespace RetroDevStudio.Documents
             }
          }
       }
+
+      // Shift markers that were placed inside the map area. Off-map markers
+      // (global / non-level meta-markers) are left alone. A marker whose new
+      // position leaves the 0..255 u8 range is dropped — same semantics as a
+      // tile that shifts off the edge.
+      var shiftedMarkers = new List<MapProject.Marker>();
+      foreach ( var marker in m_CurrentMap.Markers )
+      {
+        bool isInsideMap = ( marker.X >= 0 )
+                        && ( marker.Y >= 0 )
+                        && ( marker.X < w )
+                        && ( marker.Y < h );
+        if ( !isInsideMap )
+        {
+          shiftedMarkers.Add( marker );
+          continue;
+        }
+
+        int newX = marker.X + DX;
+        int newY = marker.Y + DY;
+        if ( ( newX < 0 ) || ( newX > 255 ) || ( newY < 0 ) || ( newY > 255 ) )
+        {
+          // shifted off the addressable range — drop
+          continue;
+        }
+        marker.X = newX;
+        marker.Y = newY;
+        shiftedMarkers.Add( marker );
+      }
+      m_CurrentMap.Markers = shiftedMarkers;
+
+      // Shift entities too. Entities are strictly in-map, so anything that
+      // shifts out of the map bounds is dropped.
+      var shiftedEntities = new List<MapProject.Entity>();
+      foreach ( var entity in m_CurrentMap.Entities )
+      {
+        int newX = entity.X + DX;
+        int newY = entity.Y + DY;
+        if ( ( newX < 0 ) || ( newY < 0 )
+        ||   ( newX >= w ) || ( newY >= h ) )
+        {
+          continue;
+        }
+        entity.X = newX;
+        entity.Y = newY;
+        shiftedEntities.Add( entity );
+      }
+      m_CurrentMap.Entities = shiftedEntities;
 
       SetModified();
       RedrawMap();
@@ -3194,6 +3557,16 @@ namespace RetroDevStudio.Documents
   }
   UpdateMarkerControlsState();
 
+  if ( m_MapProject.EntityTypes.Count > 0 )
+  {
+    int idx = m_MapProject.EntityTypes.FindIndex( t => t.ID == m_CurrentMap.SelectedEntityType );
+    comboEntityTypes.SelectedIndex = ( idx >= 0 ) ? idx + 1 : 0;
+  }
+  else
+  {
+    comboEntityTypes.SelectedIndex = 0;
+  }
+
       RecalcTileUsageInCurrentMap();
 
       AdjustScrollbars();
@@ -3536,11 +3909,13 @@ namespace RetroDevStudio.Documents
 
       // Unterschied!
       bool  firstUndo = true;
+      bool  sizeChanged = false;
       if ( ( w != m_CurrentMap.Tiles.Width )
       ||   ( h != m_CurrentMap.Tiles.Height ) )
       {
         DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapSizeChange( this, m_CurrentMap, m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height ) );
         firstUndo = false;
+        sizeChanged = true;
       }
       if ( ( tw != m_CurrentMap.TileSpacingX )
       ||   ( th != m_CurrentMap.TileSpacingY )
@@ -3560,6 +3935,23 @@ namespace RetroDevStudio.Documents
 
       m_CurrentMap.TileSpacingX = tw;
       m_CurrentMap.TileSpacingY = th;
+
+      // If the map is shrinking, snapshot + drop any entities that fall outside
+      // the new bounds. Entities are strictly in-map content, so entities whose
+      // coords sit past the new width/height are removed as a cascade.
+      if ( sizeChanged )
+      {
+        bool anyOutOfBounds = m_CurrentMap.Entities.Any(
+          en => ( en.X >= w ) || ( en.Y >= h ) );
+        if ( anyOutOfBounds )
+        {
+          DocumentInfo.UndoManager.AddGroupedUndoTask(
+            new Undo.UndoMapEntitiesChange( this, m_CurrentMap ) );
+          m_CurrentMap.Entities.RemoveAll(
+            en => ( en.X >= w ) || ( en.Y >= h ) );
+        }
+      }
+
       m_CurrentMap.Tiles.Resize( w, h );
       m_CurrentMap.Name = editMapName.Text;
 
@@ -3687,7 +4079,7 @@ namespace RetroDevStudio.Documents
 
     private void tabMapEditor_SelectedIndexChanged( object sender, EventArgs e )
     {
-      if ( tabMapEditor.SelectedTab == tabEditor )
+      if ( tabMapEditor.SelectedPage == tabEditor )
       {
         RefreshMapTileList();
       }
@@ -5538,6 +5930,7 @@ namespace RetroDevStudio.Documents
       var newType = new MapProject.MarkerType();
       newType.Name = name;
       newType.Color = comboMarkerColor.SelectedIndex;
+      newType.ExportSymbol = editMarkerExportSymbol.Text ?? "";
       newType.TagID = (int)editMarkerTagID.Value;
       newType.ID = 0;
       if ( m_MapProject.MarkerTypes.Count > 0 )
@@ -5554,31 +5947,118 @@ namespace RetroDevStudio.Documents
     private void btnUpdateMarkerType_Click( DecentForms.ControlBase Sender )
     {
        if ( listMarkerTypes.SelectedIndex == -1 ) return;
-       
+       if ( ( listMarkerTypes.SelectedIndex < 0 )
+       ||   ( listMarkerTypes.SelectedIndex >= m_MapProject.MarkerTypes.Count ) )
+       {
+         return;
+       }
+
        var type = m_MapProject.MarkerTypes[listMarkerTypes.SelectedIndex];
+       int newTagID = (int)editMarkerTagID.Value;
+
+       // Warn if another marker type already uses this TagID — TagID is the
+       // runtime identifier for every marker instance.
+       var duplicate = m_MapProject.MarkerTypes.FirstOrDefault(
+         t => ( t != type ) && ( t.TagID == newTagID ) );
+       if ( duplicate != null )
+       {
+         var result = System.Windows.Forms.MessageBox.Show(
+           "Tag ID " + newTagID + " is already used by marker type '" + duplicate.Name + "'.\r\n\r\n"
+           + "Runtime code distinguishes marker types by TagID, so duplicates will collide.\r\n\r\n"
+           + "Save anyway?",
+           "Duplicate Tag ID",
+           System.Windows.Forms.MessageBoxButtons.YesNo,
+           System.Windows.Forms.MessageBoxIcon.Warning );
+         if ( result != System.Windows.Forms.DialogResult.Yes )
+         {
+           return;
+         }
+       }
+
+       int savedSelection = listMarkerTypes.SelectedIndex;
+
        type.Name = editMarkerName.Text;
        type.Color = comboMarkerColor.SelectedIndex;
-       type.ExportSymbol = editMarkerExportSymbol.Text;
-       type.TagID = (int)editMarkerTagID.Value;
-       
+       type.ExportSymbol = editMarkerExportSymbol.Text ?? "";
+       type.TagID = newTagID;
+
        RefreshMarkerTypes();
-       listMarkerTypes.SelectedIndex = listMarkerTypes.SelectedIndex; // Restore selection
+       if ( ( savedSelection >= 0 )
+       &&   ( savedSelection < listMarkerTypes.Items.Count ) )
+       {
+         listMarkerTypes.SelectedIndex = savedSelection;
+       }
        SetModified();
     }
 
     private void btnDeleteMarkerType_Click( DecentForms.ControlBase Sender )
     {
        if ( listMarkerTypes.SelectedIndex == -1 ) return;
-       
-       // TODO: Check if used?
-       m_MapProject.MarkerTypes.RemoveAt( listMarkerTypes.SelectedIndex );
+       if ( ( listMarkerTypes.SelectedIndex < 0 )
+       ||   ( listMarkerTypes.SelectedIndex >= m_MapProject.MarkerTypes.Count ) )
+       {
+         return;
+       }
+
+       var type = m_MapProject.MarkerTypes[listMarkerTypes.SelectedIndex];
+
+       // H3: confirm + cascade-delete any markers of this type across all maps.
+       int instanceCount = 0;
+       int mapsTouched = 0;
+       foreach ( var m in m_MapProject.Maps )
+       {
+         int inThisMap = m.Markers.Count( mk => mk.Type == type.ID );
+         if ( inThisMap > 0 )
+         {
+           instanceCount += inThisMap;
+           ++mapsTouched;
+         }
+       }
+
+       string message;
+       if ( instanceCount == 0 )
+       {
+         message = "Are you sure you want to delete marker type '" + type.Name + "'?";
+       }
+       else
+       {
+         message = "Are you sure you want to delete marker type '" + type.Name + "'?\r\n\r\n"
+                 + "This will also delete " + instanceCount + " marker"
+                 + ( instanceCount == 1 ? "" : "s" )
+                 + " of this type across " + mapsTouched + " map"
+                 + ( mapsTouched == 1 ? "" : "s" ) + ".";
+       }
+
+       var confirm = System.Windows.Forms.MessageBox.Show(
+         message,
+         "Delete marker type",
+         System.Windows.Forms.MessageBoxButtons.YesNo,
+         System.Windows.Forms.MessageBoxIcon.Warning );
+       if ( confirm != System.Windows.Forms.DialogResult.Yes )
+       {
+         return;
+       }
+
+       // Cascade-delete instances first, then the type itself.
+       foreach ( var m in m_MapProject.Maps )
+       {
+         m.Markers.RemoveAll( mk => mk.Type == type.ID );
+         if ( m.SelectedMarkerType == type.ID )
+         {
+           m.SelectedMarkerType = -1;
+         }
+       }
+       m_MapProject.MarkerTypes.Remove( type );
        RefreshMarkerTypes();
+       pictureEditor.Invalidate();
+       RedrawMap();
        SetModified();
     }
 
     private void listMarkerTypes_SelectedIndexChanged( object sender, EventArgs e )
     {
-       if ( listMarkerTypes.SelectedIndex == -1 )
+       if ( ( listMarkerTypes.SelectedIndex < 0 )
+       ||   ( listMarkerTypes.SelectedIndex >= m_MapProject.MarkerTypes.Count ) )
        {
          btnUpdateMarkerType.Enabled = false;
          btnDeleteMarkerType.Enabled = false;
@@ -5586,16 +6066,17 @@ namespace RetroDevStudio.Documents
        }
        btnUpdateMarkerType.Enabled = true;
        btnDeleteMarkerType.Enabled = true;
-       
+
        var type = m_MapProject.MarkerTypes[listMarkerTypes.SelectedIndex];
        editMarkerName.Text = type.Name;
        comboMarkerColor.SelectedIndex = type.Color;
-       editMarkerExportSymbol.Text = type.ExportSymbol;
+       editMarkerExportSymbol.Text = type.ExportSymbol ?? "";
        editMarkerTagID.Value = type.TagID;
     }
 
     private void editMarkerExportSymbol_KeyPress( object sender, KeyPressEventArgs e )
     {
+       // Restrict ExportSymbol to assembler-safe characters only.
        if ( ( !char.IsLetterOrDigit( e.KeyChar ) )
        &&   ( e.KeyChar != '_' )
        &&   ( !char.IsControl( e.KeyChar ) ) )
@@ -5618,12 +6099,17 @@ namespace RetroDevStudio.Documents
     private void comboMarkerTypes_SelectedIndexChanged( object sender, EventArgs e )
     {
       if ( m_CurrentMap == null ) return;
-      
+
       int newSelectedMarkerType = -1;
-      
-      if ( comboMarkerTypes.SelectedIndex != 0 )
+
+      // M4: defend against the combo and MarkerTypes list being briefly out of sync
+      // (e.g. right after a type is deleted or while Refresh repopulates).
+      int markerTypeIdx = comboMarkerTypes.SelectedIndex - 1;
+      if ( ( comboMarkerTypes.SelectedIndex > 0 )
+      &&   ( markerTypeIdx >= 0 )
+      &&   ( markerTypeIdx < m_MapProject.MarkerTypes.Count ) )
       {
-         var type = m_MapProject.MarkerTypes[comboMarkerTypes.SelectedIndex - 1];
+         var type = m_MapProject.MarkerTypes[markerTypeIdx];
          newSelectedMarkerType = type.ID;
          
          if ( m_CurrentMap.SelectedMarkerType != newSelectedMarkerType )
@@ -5751,6 +6237,247 @@ namespace RetroDevStudio.Documents
        e.Graphics.DrawRectangle( System.Drawing.Pens.Black, e.Bounds.X + 2, e.Bounds.Y + 2, e.Bounds.Width - 5, e.Bounds.Height - 5 );
        
        e.DrawFocusRectangle();
+    }
+
+
+
+    // ================================================================
+    // Entity handlers (mirror marker handlers — project-level types on the
+    // Entities tab + per-map placement via the Entity tool).
+    // ================================================================
+
+    private void RefreshEntityTypes()
+    {
+      int savedListIndex = listEntityTypes.SelectedIndex;
+      int savedComboIndex = comboEntityTypes.SelectedIndex;
+
+      listEntityTypes.Items.Clear();
+      comboEntityTypes.Items.Clear();
+      comboEntityTypes.Items.Add( "None" );
+      foreach ( var type in m_MapProject.EntityTypes )
+      {
+        listEntityTypes.Items.Add( type.Name );
+        comboEntityTypes.Items.Add( type.Name );
+      }
+
+      if ( ( savedListIndex >= 0 ) && ( savedListIndex < listEntityTypes.Items.Count ) )
+      {
+        listEntityTypes.SelectedIndex = savedListIndex;
+      }
+
+      // Restore combo: match by current map's SelectedEntityType ID if we have one.
+      if ( ( m_CurrentMap != null )
+      &&   ( m_CurrentMap.SelectedEntityType != -1 ) )
+      {
+        int idx = m_MapProject.EntityTypes.FindIndex( t => t.ID == m_CurrentMap.SelectedEntityType );
+        comboEntityTypes.SelectedIndex = ( idx >= 0 ) ? idx + 1 : 0;
+      }
+      else if ( ( savedComboIndex >= 0 ) && ( savedComboIndex < comboEntityTypes.Items.Count ) )
+      {
+        comboEntityTypes.SelectedIndex = savedComboIndex;
+      }
+      else
+      {
+        comboEntityTypes.SelectedIndex = 0;
+      }
+    }
+
+    private void btnAddEntityType_Click( DecentForms.ControlBase Sender )
+    {
+      string name = editEntityName.Text;
+      if ( string.IsNullOrEmpty( name ) )
+      {
+        name = "Entity " + ( m_MapProject.EntityTypes.Count + 1 );
+      }
+
+      var newType = new MapProject.EntityType();
+      newType.Name = name;
+      newType.ExportSymbol = editEntityExportSymbol.Text ?? "";
+      newType.TileIndex = (int)editEntityTileIndex.Value;
+      newType.TagID = (int)editEntityTagID.Value;
+      newType.ID = 0;
+      if ( m_MapProject.EntityTypes.Count > 0 )
+      {
+        newType.ID = m_MapProject.EntityTypes.Max( t => t.ID ) + 1;
+      }
+      m_MapProject.EntityTypes.Add( newType );
+      RefreshEntityTypes();
+
+      listEntityTypes.SelectedIndex = listEntityTypes.Items.Count - 1;
+      SetModified();
+    }
+
+    private void btnUpdateEntityType_Click( DecentForms.ControlBase Sender )
+    {
+      if ( ( listEntityTypes.SelectedIndex < 0 )
+      ||   ( listEntityTypes.SelectedIndex >= m_MapProject.EntityTypes.Count ) )
+      {
+        return;
+      }
+
+      var type = m_MapProject.EntityTypes[listEntityTypes.SelectedIndex];
+      int newTagID = (int)editEntityTagID.Value;
+
+      // Warn if another entity type already uses this TagID.
+      var duplicate = m_MapProject.EntityTypes.FirstOrDefault(
+        t => ( t != type ) && ( t.TagID == newTagID ) );
+      if ( duplicate != null )
+      {
+        var result = System.Windows.Forms.MessageBox.Show(
+          "Tag ID " + newTagID + " is already used by entity type '" + duplicate.Name + "'.\r\n\r\n"
+          + "Runtime code distinguishes entity types by TagID, so duplicates will collide.\r\n\r\n"
+          + "Save anyway?",
+          "Duplicate Tag ID",
+          System.Windows.Forms.MessageBoxButtons.YesNo,
+          System.Windows.Forms.MessageBoxIcon.Warning );
+        if ( result != System.Windows.Forms.DialogResult.Yes )
+        {
+          return;
+        }
+      }
+
+      int savedSelection = listEntityTypes.SelectedIndex;
+
+      type.Name = editEntityName.Text;
+      type.ExportSymbol = editEntityExportSymbol.Text ?? "";
+      type.TileIndex = (int)editEntityTileIndex.Value;
+      type.TagID = newTagID;
+
+      RefreshEntityTypes();
+      if ( ( savedSelection >= 0 )
+      &&   ( savedSelection < listEntityTypes.Items.Count ) )
+      {
+        listEntityTypes.SelectedIndex = savedSelection;
+      }
+      SetModified();
+    }
+
+    private void btnDeleteEntityType_Click( DecentForms.ControlBase Sender )
+    {
+      if ( ( listEntityTypes.SelectedIndex < 0 )
+      ||   ( listEntityTypes.SelectedIndex >= m_MapProject.EntityTypes.Count ) )
+      {
+        return;
+      }
+
+      var type = m_MapProject.EntityTypes[listEntityTypes.SelectedIndex];
+
+      // Count instances across all maps.
+      int instanceCount = 0;
+      int mapsTouched = 0;
+      foreach ( var m in m_MapProject.Maps )
+      {
+        int inThisMap = m.Entities.Count( en => en.Type == type.ID );
+        if ( inThisMap > 0 )
+        {
+          instanceCount += inThisMap;
+          ++mapsTouched;
+        }
+      }
+
+      string message;
+      if ( instanceCount == 0 )
+      {
+        message = "Are you sure you want to delete entity type '" + type.Name + "'?";
+      }
+      else
+      {
+        message = "Are you sure you want to delete entity type '" + type.Name + "'?\r\n\r\n"
+                + "This will also delete " + instanceCount + " entit"
+                + ( instanceCount == 1 ? "y" : "ies" )
+                + " of this type across " + mapsTouched + " map"
+                + ( mapsTouched == 1 ? "" : "s" ) + ".";
+      }
+
+      var confirm = System.Windows.Forms.MessageBox.Show(
+        message,
+        "Delete entity type",
+        System.Windows.Forms.MessageBoxButtons.YesNo,
+        System.Windows.Forms.MessageBoxIcon.Warning );
+      if ( confirm != System.Windows.Forms.DialogResult.Yes )
+      {
+        return;
+      }
+
+      // Cascade-delete instances first.
+      foreach ( var m in m_MapProject.Maps )
+      {
+        m.Entities.RemoveAll( en => en.Type == type.ID );
+        if ( m.SelectedEntityType == type.ID )
+        {
+          m.SelectedEntityType = -1;
+        }
+      }
+      m_MapProject.EntityTypes.Remove( type );
+      RefreshEntityTypes();
+      pictureEditor.Invalidate();
+      RedrawMap();
+      SetModified();
+    }
+
+    private void listEntityTypes_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      if ( ( listEntityTypes.SelectedIndex < 0 )
+      ||   ( listEntityTypes.SelectedIndex >= m_MapProject.EntityTypes.Count ) )
+      {
+        btnUpdateEntityType.Enabled = false;
+        btnDeleteEntityType.Enabled = false;
+        return;
+      }
+      btnUpdateEntityType.Enabled = true;
+      btnDeleteEntityType.Enabled = true;
+
+      var type = m_MapProject.EntityTypes[listEntityTypes.SelectedIndex];
+      editEntityName.Text = type.Name;
+      editEntityExportSymbol.Text = type.ExportSymbol ?? "";
+      editEntityTileIndex.Value = Math.Max( editEntityTileIndex.Minimum,
+                                             Math.Min( editEntityTileIndex.Maximum, type.TileIndex ) );
+      editEntityTagID.Value = type.TagID;
+    }
+
+    private void editEntityExportSymbol_KeyPress( object sender, KeyPressEventArgs e )
+    {
+      // Restrict to assembler-safe characters only.
+      if ( ( !char.IsLetterOrDigit( e.KeyChar ) )
+      &&   ( e.KeyChar != '_' )
+      &&   ( !char.IsControl( e.KeyChar ) ) )
+      {
+        e.Handled = true;
+      }
+    }
+
+    private void btnToolEntity_CheckedChanged( DecentForms.ControlBase Sender )
+    {
+      if ( btnToolEntity.Checked )
+      {
+        m_ToolMode = ToolMode.ENTITY;
+      }
+      pictureEditor.Invalidate();
+    }
+
+    private void comboEntityTypes_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      if ( m_CurrentMap == null ) return;
+
+      int newSelectedEntityType = -1;
+      int entityTypeIdx = comboEntityTypes.SelectedIndex - 1;
+      if ( ( comboEntityTypes.SelectedIndex > 0 )
+      &&   ( entityTypeIdx >= 0 )
+      &&   ( entityTypeIdx < m_MapProject.EntityTypes.Count ) )
+      {
+        newSelectedEntityType = m_MapProject.EntityTypes[entityTypeIdx].ID;
+      }
+      if ( m_CurrentMap.SelectedEntityType != newSelectedEntityType )
+      {
+        m_CurrentMap.SelectedEntityType = newSelectedEntityType;
+        SetModified();
+      }
+    }
+
+    private void checkShowEntities_CheckedChanged( object sender, EventArgs e )
+    {
+      pictureEditor.Invalidate();
+      RedrawMap();
     }
 
     private void keepMapCharacterAspectRatioToolStripMenuItem_Click( object sender, EventArgs e )
