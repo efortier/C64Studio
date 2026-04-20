@@ -124,6 +124,30 @@ namespace RetroDevStudio.Documents
       // look with a flat underline-selected style sourced from DarkTheme.
       RetroDevStudio.CustomRenderer.DarkTheme.ApplyFlatDarkStyle( tabMapEditor );
 
+      // Krypton's MaterialDark uses a bright grey for disabled combo backgrounds,
+      // which reads as white on our dark surfaces. Push every Krypton combo in
+      // this form into the same dark disabled style the SID editor uses.
+      foreach ( var combo in FindAllKryptonCombos( this ) )
+      {
+        RetroDevStudio.CustomRenderer.DarkTheme.StyleDisabledComboDark( combo );
+      }
+
+      // Dark scrollbars on the listbox / multiline textbox that show them.
+      // KryptonTextBox's scrollbar lives on its inner TextBox, so pass that.
+      RetroDevStudio.CustomRenderer.DarkTheme.ApplyDarkScrollBarsTo( comboTiles );
+      RetroDevStudio.CustomRenderer.DarkTheme.ApplyDarkScrollBarsTo( editMapExtraData.TextBox );
+
+      // Owner-draw hookup for color combos. Has to happen here (not in the
+      // .Designer.cs) because VS's CodeDom serializer can't handle property
+      // chains like "control.InnerSubControl.Property = value" — it refuses
+      // to load the form designer when InitializeComponent contains them.
+      WireOwnerDrawCombo( comboMapBGColor,            comboAlternativeColor_DrawItem );
+      WireOwnerDrawCombo( comboMapMultiColor1,        comboAlternativeColor_DrawItem );
+      WireOwnerDrawCombo( comboMapMultiColor2,        comboAlternativeColor_DrawItem );
+      WireOwnerDrawCombo( comboMapAlternativeBGColor4, comboAlternativeColor_DrawItem );
+      WireOwnerDrawCombo( comboDesignerBackground,    comboColor_DrawItem );
+      WireOwnerDrawCombo( comboMarkerColorOverride,   comboMarkerColorOverride_DrawItem );
+
       characterEditor.Core = Core;
 
       GR.Image.DPIHandler.ResizeControlsForDPI( this );
@@ -2809,6 +2833,47 @@ namespace RetroDevStudio.Documents
       ShiftMap( 0, 1 );
     }
 
+
+
+    /// <summary>
+    /// Enables owner-drawn items on a <see cref="Krypton.Toolkit.KryptonComboBox"/>
+    /// by reaching through its inner WinForms <see cref="ComboBox"/>. Kept out
+    /// of the designer file because the CodeDom serializer refuses to load a
+    /// form whose InitializeComponent contains chained sub-control accesses
+    /// like "this.kcb.ComboBox.DrawMode = ...".
+    /// </summary>
+    private static void WireOwnerDrawCombo( Krypton.Toolkit.KryptonComboBox kcb, DrawItemEventHandler handler )
+    {
+      if ( ( kcb == null ) || ( kcb.ComboBox == null ) )
+      {
+        return;
+      }
+      kcb.ComboBox.DrawMode = DrawMode.OwnerDrawFixed;
+      kcb.ComboBox.DrawItem += handler;
+    }
+
+
+
+    /// <summary>
+    /// Recursively walks the control tree under <paramref name="root"/> and
+    /// yields every <see cref="Krypton.Toolkit.KryptonComboBox"/> found. Used
+    /// during form construction to apply dark disabled-state styling.
+    /// </summary>
+    private static IEnumerable<Krypton.Toolkit.KryptonComboBox> FindAllKryptonCombos( Control root )
+    {
+      if ( root is Krypton.Toolkit.KryptonComboBox combo )
+      {
+        yield return combo;
+      }
+      foreach ( Control child in root.Controls )
+      {
+        foreach ( var descendant in FindAllKryptonCombos( child ) )
+        {
+          yield return descendant;
+        }
+      }
+    }
+
     private void btnRemoveOverlappingTiles_Click( DecentForms.ControlBase sender )
     {
       RemoveOverlappingTiles();
@@ -4874,6 +4939,10 @@ namespace RetroDevStudio.Documents
     private void comboAlternativeColor_DrawItem( object sender, DrawItemEventArgs e )
     {
       ComboBox combo = (ComboBox)sender;
+      // Since these combos are now KryptonComboBox, the event sender is the
+      // INNER ComboBox. Its Parent is the KryptonComboBox wrapper we compare
+      // against by reference below.
+      var owner = combo.Parent as Krypton.Toolkit.KryptonComboBox;
 
       if ( Core?.Theming != null )
         Core.Theming.DrawThemedBackground( e, combo );
@@ -4884,11 +4953,11 @@ namespace RetroDevStudio.Documents
       int colorToUse = e.Index - 1;
       if ( colorToUse == -1 )
       {
-        if ( combo == comboMapMultiColor1 )
+        if ( owner == comboMapMultiColor1 )
         {
           colorToUse = m_MapProject.Charset.Colors.MultiColor1;
         }
-        else if ( combo == comboMapMultiColor2 )
+        else if ( owner == comboMapMultiColor2 )
         {
           colorToUse = m_MapProject.Charset.Colors.MultiColor2;
         }

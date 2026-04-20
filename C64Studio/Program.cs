@@ -110,6 +110,11 @@ namespace RetroDevStudio
         {
           GlobalPaletteMode = Krypton.Toolkit.PaletteMode.MaterialDark,
         };
+
+        // Tell the OS we want dark app chrome (scrollbars, context menus, etc).
+        // Per-control SetWindowTheme calls still need to happen on specific
+        // controls — this is just the app-wide opt-in.
+        RetroDevStudio.CustomRenderer.DarkTheme.EnableDarkModeForApp();
 #endif
 
         Application.Run( new MainForm( args ) );

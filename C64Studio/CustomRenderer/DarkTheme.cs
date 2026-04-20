@@ -1,4 +1,7 @@
+using System;
 using System.Drawing;
+using System.Runtime.InteropServices;
+using System.Windows.Forms;
 using Krypton.Navigator;
 using Krypton.Toolkit;
 
@@ -67,10 +70,10 @@ namespace RetroDevStudio.CustomRenderer
         return;
       }
 
-      // BarTabOnly removes the "page frame" that makes the standard BarTabGroup
-      // mode look like a 90s WinForms TabControl. We just want the strip of tabs
-      // with the page content below, no surrounding box.
-      nav.NavigatorMode = NavigatorMode.BarTabOnly;
+      // BarTabGroup shows the tab strip and the page content area ("group").
+      // BarTabOnly only draws the tabs — pages would be hidden — so we stay
+      // on BarTabGroup and just flatten the group's border below.
+      nav.NavigatorMode = NavigatorMode.BarTabGroup;
 
       // LowProfile is Krypton's flattest built-in tab shape — minimal padding,
       // minimal depth. We override the actual per-state colors below, so this
@@ -118,6 +121,129 @@ namespace RetroDevStudio.CustomRenderer
       nav.StateCommon.Back.Color1 = tabBg;
       nav.StateCommon.Back.Color2 = tabBg;
       nav.StateCommon.Border.DrawBorders = PaletteDrawBorders.None;
+    }
+
+
+
+    /// <summary>
+    /// Krypton's MaterialDark palette paints disabled KryptonComboBoxes with a
+    /// light-gray background that reads as bright white on our dark surfaces.
+    /// This override forces the disabled state to stay dark — matches what
+    /// SIDSoundEditor does. Safe to call on any KryptonComboBox; idempotent.
+    /// </summary>
+    public static void StyleDisabledComboDark( KryptonComboBox combo )
+    {
+      if ( combo == null )
+      {
+        return;
+      }
+      combo.StateDisabled.ComboBox.Back.Color1    = BgInput;
+      combo.StateDisabled.ComboBox.Border.Color1  = Border;
+      combo.StateDisabled.ComboBox.Content.Color1 = FgMuted;
+    }
+
+
+
+    // ================================================================
+    // Windows dark-mode scrollbar plumbing
+    //
+    // Windows 10 1903+ and Windows 11 ship a dark scrollbar theme that isn't
+    // exposed through a public API. The standard unblock is:
+    //   1) uxtheme.dll ordinal #135 (SetPreferredAppMode) once per process to
+    //      tell the OS we opt into dark app chrome,
+    //   2) uxtheme.dll!SetWindowTheme(hwnd, "DarkMode_Explorer", null) per
+    //      control that has a scrollbar.
+    // We wrap both in try/catch so older Windows (or Wine) fall back quietly.
+    // ================================================================
+
+    [DllImport( "uxtheme.dll", CharSet = CharSet.Unicode )]
+    private static extern int SetWindowTheme( IntPtr hwnd, string subAppName, string subIdList );
+
+    [DllImport( "uxtheme.dll", EntryPoint = "#135", CharSet = CharSet.Unicode )]
+    private static extern int Uxtheme_SetPreferredAppMode( int preferredAppMode );
+
+    private const int APP_MODE_DEFAULT = 0;
+    private const int APP_MODE_ALLOW_DARK = 1;
+
+    private static bool s_DarkModeEnabled = false;
+
+
+
+    /// <summary>
+    /// Opts the process into Windows dark-mode app chrome. Call once at app
+    /// startup, before any forms are shown. No-op on pre-1903 Windows.
+    /// </summary>
+    public static void EnableDarkModeForApp()
+    {
+      if ( s_DarkModeEnabled )
+      {
+        return;
+      }
+      try
+      {
+        Uxtheme_SetPreferredAppMode( APP_MODE_ALLOW_DARK );
+        s_DarkModeEnabled = true;
+      }
+      catch ( Exception )
+      {
+        // Older OS / Wine / missing uxtheme — silently skip.
+      }
+    }
+
+
+
+    /// <summary>
+    /// Applies the Win32 "DarkMode_Explorer" theme to a control, which makes
+    /// its scrollbar (ListBox, multiline TextBox, TreeView, etc.) render dark
+    /// on Windows 10 1903+. If the handle isn't created yet, defers the call
+    /// until <see cref="Control.HandleCreated"/> fires.
+    /// </summary>
+    public static void ApplyDarkScrollBarsTo( Control control )
+    {
+      if ( control == null )
+      {
+        return;
+      }
+
+      void apply()
+      {
+        try
+        {
+          SetWindowTheme( control.Handle, "DarkMode_Explorer", null );
+        }
+        catch ( Exception )
+        {
+          // Don't blow up UI construction if the OS doesn't support it.
+        }
+      }
+
+      if ( control.IsHandleCreated )
+      {
+        apply();
+      }
+      else
+      {
+        control.HandleCreated += ( s, e ) => apply();
+      }
+    }
+
+
+
+    /// <summary>
+    /// Darkens an owner-drawn <see cref="ComboBox"/> (the kind C64Studio uses
+    /// for color swatches). The DrawItem handler already paints each item, so
+    /// the only remaining bright pixels are the control's chrome — dropdown
+    /// button and border. FlatStyle.Flat lets BackColor/ForeColor paint those.
+    /// </summary>
+    public static void StyleOwnerDrawComboDark( ComboBox combo )
+    {
+      if ( combo == null )
+      {
+        return;
+      }
+      combo.FlatStyle = FlatStyle.Flat;
+      combo.BackColor = BgInput;
+      combo.ForeColor = FgText;
     }
   }
 }
