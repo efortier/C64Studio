@@ -245,6 +245,7 @@ namespace RetroDevStudio.Dialogs
       m_ComboPreset.Items.Add( "Off (clear)" );
       m_ComboPreset.Items.Add( "C64 soft" );
       m_ComboPreset.Items.Add( "Sharp CRT" );
+      m_ComboPreset.Items.Add( "CRT Rich" );
       m_ComboPreset.SelectedIndex = 0;
     }
 
@@ -416,6 +417,18 @@ namespace RetroDevStudio.Dialogs
         {
           BuildBlurPanel( hb );
         }
+        else if ( filter is GammaAdjustFilter gf )
+        {
+          BuildGammaPanel( gf );
+        }
+        else if ( filter is ColorTemperatureFilter ct )
+        {
+          BuildColorTempPanel( ct );
+        }
+        else if ( filter is BarrelDistortionFilter bd )
+        {
+          BuildBarrelPanel( bd );
+        }
         else
         {
           var label = new KryptonLabel
@@ -510,6 +523,43 @@ namespace RetroDevStudio.Dialogs
     {
       int y = 8;
       y = AddSlider( "Strength (%)", 0, 100, () => f.Strength, v => f.Strength = v, y );
+      // Taps slider steps by 1 but the filter clamps to odd on apply, so
+      // even values just fall back to the next-lower odd count. That's
+      // simpler than making the slider step-by-2 and easier to explain.
+      y = AddSlider( "Taps (odd)",   3, 15,  () => f.Taps,     v => f.Taps     = v, y );
+      // Sigma slider is stored as σ × 10 — 5..30 maps to σ 0.5..3.0. The
+      // *10 trick avoids a float slider; the filter divides by 10 on use.
+      y = AddSlider( "Blur σ × 10",  5, 30,  () => f.Sigma,    v => f.Sigma    = v, y );
+    }
+
+
+
+    private void BuildGammaPanel( GammaAdjustFilter f )
+    {
+      int y = 8;
+      // Gamma slider is stored as γ × 100 — 50..300 maps to γ 0.5..3.0.
+      // 100 = identity, 220 ≈ typical CRT response.
+      y = AddSlider( "Gamma × 100",    50,   300, () => f.Gamma,      v => f.Gamma      = v, y );
+      y = AddSlider( "Brightness (%)", -100, 100, () => f.Brightness, v => f.Brightness = v, y );
+      y = AddSlider( "Contrast (%)",   -100, 100, () => f.Contrast,   v => f.Contrast   = v, y );
+    }
+
+
+
+    private void BuildColorTempPanel( ColorTemperatureFilter f )
+    {
+      int y = 8;
+      y = AddSlider( "Temperature",    -100, 100, () => f.Temperature, v => f.Temperature = v, y );
+      y = AddSlider( "Tint",           -100, 100, () => f.Tint,        v => f.Tint        = v, y );
+    }
+
+
+
+    private void BuildBarrelPanel( BarrelDistortionFilter f )
+    {
+      int y = 8;
+      y = AddSlider( "Curvature (%)", 0, 100, () => f.Curvature, v => f.Curvature = v, y );
+      y = AddSlider( "Vignette (%)",  0, 100, () => f.Vignette,  v => f.Vignette  = v, y );
     }
 
 
@@ -541,6 +591,21 @@ namespace RetroDevStudio.Dialogs
           m_Pipeline.Filters.Add( new HorizontalBlurFilter { Strength = 25, Enabled = true } );
           m_Pipeline.Filters.Add( new ScanlineFilter       { Intensity = 40, Period = 4, Offset = 0, Enabled = true } );
           m_Pipeline.Filters.Add( new PhosphorMaskFilter   { RBoost = 20, GBoost = 20, BBoost = 20, Dim = 25, Enabled = true } );
+          break;
+
+        case 3:
+          // CRT Rich: everything chained in physically-motivated order —
+          // scene-referred color first, then the beam effects (blur +
+          // scanline + phosphor), then the glass curvature last so
+          // everything else warps with it. Values are a starting point
+          // drawn roughly from Retro-Crisis / Guest Advanced parameter
+          // ranges; expect to tune per-map for taste.
+          m_Pipeline.Filters.Add( new ColorTemperatureFilter { Temperature = 15, Tint = 0,              Enabled = true } );
+          m_Pipeline.Filters.Add( new GammaAdjustFilter      { Gamma = 110, Brightness = 0, Contrast = 10, Enabled = true } );
+          m_Pipeline.Filters.Add( new HorizontalBlurFilter   { Strength = 80, Taps = 11, Sigma = 20,    Enabled = true } );
+          m_Pipeline.Filters.Add( new ScanlineFilter         { Intensity = 45, Period = 2, Offset = 0,  Enabled = true } );
+          m_Pipeline.Filters.Add( new PhosphorMaskFilter     { RBoost = 15, GBoost = 15, BBoost = 15, Dim = 15, Enabled = true } );
+          m_Pipeline.Filters.Add( new BarrelDistortionFilter { Curvature = 20, Vignette = 25,           Enabled = true } );
           break;
       }
       RefreshList();

@@ -109,6 +109,9 @@ namespace RetroDevStudio.CustomRenderer.DisplayFilters
       TouchType( typeof( ScanlineFilter ) );
       TouchType( typeof( PhosphorMaskFilter ) );
       TouchType( typeof( HorizontalBlurFilter ) );
+      TouchType( typeof( GammaAdjustFilter ) );
+      TouchType( typeof( ColorTemperatureFilter ) );
+      TouchType( typeof( BarrelDistortionFilter ) );
     }
 
 
