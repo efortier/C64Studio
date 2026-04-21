@@ -112,6 +112,7 @@
     public const ushort    SETTINGS_CODE_FORMATTING       = 0x2025;
     public const ushort    SETTINGS_MAP_EDITOR            = 0x2026;
     public const ushort    SETTINGS_THEME_MODE            = 0x2027;
+    public const ushort    SETTINGS_DISPLAY_FILTERS       = 0x2028;
   }
 
 }

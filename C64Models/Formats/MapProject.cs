@@ -46,6 +46,7 @@ namespace RetroDevStudio.Formats
       public byte       Value1 = 0;
       public byte       Value2 = 0;
       public bool       Enabled = true;
+      public bool       Triggered = false;
     };
 
     public class EntityType
@@ -388,6 +389,9 @@ namespace RetroDevStudio.Formats
           chunkEntity.AppendU8( entity.Value1 );
           chunkEntity.AppendU8( entity.Value2 );
           chunkEntity.AppendU8( (byte)( entity.Enabled ? 1 : 0 ) );
+          // Triggered was added later — old files without this byte get the
+          // default false on load (see entity reader for the position check).
+          chunkEntity.AppendU8( (byte)( entity.Triggered ? 1 : 0 ) );
           chunkMap.Append( chunkEntity.ToBuffer() );
         }
 
@@ -771,6 +775,15 @@ namespace RetroDevStudio.Formats
                               else
                               {
                                 entity.Enabled = true;
+                              }
+                              // Triggered was appended later; absent in older files.
+                              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+                              {
+                                entity.Triggered = ( mapChunkReader.ReadUInt8() != 0 );
+                              }
+                              else
+                              {
+                                entity.Triggered = false;
                               }
                               map.Entities.Add( entity );
                             }
@@ -1821,7 +1834,7 @@ namespace RetroDevStudio.Formats
       // 21 x 2-byte offset placeholders (+$03 .. +$2C)
       for ( int i = 0; i < 21; ++i )
         buf.AppendU16( 0 );
-      buf.AppendU8( 7 );    // +$2D entity_stride (bytes per entity record: tag, x, y, tile, value1, value2, enabled)
+      buf.AppendU8( 8 );    // +$2D entity_stride (bytes per entity record: tag, x, y, tile, value1, value2, enabled, triggered)
       // 3 x 2-byte entity offset placeholders (+$2E .. +$33)
       for ( int i = 0; i < 3; ++i )
         buf.AppendU16( 0 );
@@ -2228,6 +2241,7 @@ namespace RetroDevStudio.Formats
             buf.AppendU8( entity.Value1 );
             buf.AppendU8( entity.Value2 );
             buf.AppendU8( (byte)( entity.Enabled ? 1 : 0 ) );
+            buf.AppendU8( (byte)( entity.Triggered ? 1 : 0 ) );
           }
         }
       }
@@ -2311,7 +2325,7 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( ".const MAP_MARKER_TRIGGERED                      = $06" );
       sb.AppendLine( ".const MAP_MARKER_SIZE                           = $07  // bytes per marker" );
       sb.AppendLine();
-      sb.AppendLine( "// ====== Entity record layout (7 bytes per entity) ======" );
+      sb.AppendLine( "// ====== Entity record layout (8 bytes per entity) ======" );
       sb.AppendLine( "// Byte offsets within a single entity record." );
       sb.AppendLine( "// Use MAP_ENTITY_SIZE to advance between records." );
       sb.AppendLine( ".const MAP_ENTITY_TAG                            = $00" );
@@ -2321,7 +2335,8 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( ".const MAP_ENTITY_VALUE1                         = $04" );
       sb.AppendLine( ".const MAP_ENTITY_VALUE2                         = $05" );
       sb.AppendLine( ".const MAP_ENTITY_ENABLED                        = $06" );
-      sb.AppendLine( ".const MAP_ENTITY_SIZE                           = $07  // bytes per entity" );
+      sb.AppendLine( ".const MAP_ENTITY_TRIGGERED                      = $07" );
+      sb.AppendLine( ".const MAP_ENTITY_SIZE                           = $08  // bytes per entity" );
       return sb.ToString();
     }
 

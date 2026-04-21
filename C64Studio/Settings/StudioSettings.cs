@@ -242,6 +242,14 @@ namespace RetroDevStudio
 
     public Dictionary<PaletteType,List<Palette>>  Palettes = new Dictionary<PaletteType, List<Palette>>();
 
+    /// <summary>
+    /// Ordered pipeline of display-time filters (scanlines, phosphor mask,
+    /// etc.). Applied after the map is fully composited; starts empty so
+    /// existing users see no visual change until they configure one.
+    /// </summary>
+    public RetroDevStudio.CustomRenderer.DisplayFilters.FilterPipeline  DisplayFilters =
+        new RetroDevStudio.CustomRenderer.DisplayFilters.FilterPipeline();
+
     public GR.Collections.Set<Types.ErrorCode>  IgnoredWarnings = new GR.Collections.Set<RetroDevStudio.Types.ErrorCode>();
     public GR.Collections.Set<Types.ErrorCode>  TreatWarningsAsErrors = new GR.Collections.Set<RetroDevStudio.Types.ErrorCode>();
     public GR.Collections.Set<Parser.AssemblerSettings.Hacks>  EnabledC64StudioHacks = new GR.Collections.Set<Parser.AssemblerSettings.Hacks>();
@@ -708,6 +716,10 @@ namespace RetroDevStudio
       GR.IO.FileChunk chunkThemeMode = new GR.IO.FileChunk( FileChunkConstants.SETTINGS_THEME_MODE );
       chunkThemeMode.AppendU8( (byte)CurrentThemeMode );
       SettingsData.Append( chunkThemeMode.ToBuffer() );
+
+      GR.IO.FileChunk chunkDisplayFilters = new GR.IO.FileChunk( FileChunkConstants.SETTINGS_DISPLAY_FILTERS );
+      chunkDisplayFilters.Append( DisplayFilters.SaveToBuffer() );
+      SettingsData.Append( chunkDisplayFilters.ToBuffer() );
 
       GR.IO.FileChunk chunkRunEmu = new GR.IO.FileChunk( FileChunkConstants.SETTINGS_RUN_EMULATOR );
       chunkRunEmu.AppendU8( (byte)( TrueDriveEnabled ? 1 : 0 ) );
@@ -1266,6 +1278,14 @@ namespace RetroDevStudio
               GR.IO.IReader binIn = chunkData.MemoryReader();
 
               CurrentThemeMode = (Types.ThemeMode)binIn.ReadUInt8();
+            }
+            break;
+          case FileChunkConstants.SETTINGS_DISPLAY_FILTERS:
+            {
+              // chunkData IS the pipeline's own serialized form — no outer
+              // ByteBuffer wrapper was added on save, so just hand the chunk
+              // directly to FilterPipeline.LoadFromBuffer.
+              DisplayFilters.LoadFromBuffer( chunkData );
             }
             break;
           case FileChunkConstants.SETTINGS_RUN_EMULATOR:

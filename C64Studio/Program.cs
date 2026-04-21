@@ -15,10 +15,11 @@ namespace RetroDevStudio
 
 #if !NET35
     // Held in a static to keep the Krypton global palette alive for the life
-    // of the app. MaterialDark is the only Krypton shipping palette whose
-    // checkbox glyphs render dark-on-dark at runtime (the other *DarkMode
-    // palettes reuse a light CheckBoxStrip bitmap) — see SIDSoundEditor for
-    // the longer discussion.
+    // of the app. Office2010BlackDarkMode was chosen (over MaterialDark) for
+    // better control-border visibility — MaterialDark draws very low-contrast
+    // outlines that made buttons/combos hard to distinguish on dark surfaces.
+    // The MapEditor ships a temporary palette-picker combo so other palettes
+    // can be compared at runtime.
     private static Krypton.Toolkit.KryptonManager s_KryptonManager;
 #endif
 
@@ -108,7 +109,7 @@ namespace RetroDevStudio
         // Must happen before any form that hosts Krypton controls is constructed.
         s_KryptonManager = new Krypton.Toolkit.KryptonManager
         {
-          GlobalPaletteMode = Krypton.Toolkit.PaletteMode.MaterialDark,
+          GlobalPaletteMode = Krypton.Toolkit.PaletteMode.Office2010BlackDarkMode,
         };
 
         // Tell the OS we want dark app chrome (scrollbars, context menus, etc).

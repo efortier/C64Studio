@@ -50,6 +50,10 @@ namespace RetroDevStudio.Documents
     private const int                   MapZoomMinPercent = 50;
     private const int                   MapZoomMaxPercent = 400;
     private const int                   MapZoomStepPercent = 25;
+    // Finer step for the mouse wheel — the +/- buttons jump in 25% blocks
+    // which is great for quick fit-to-view, but the wheel feels smoother with
+    // a smaller increment so the user can fine-tune the zoom level.
+    private const int                   MapZoomWheelStepPercent = 5;
     private const int                   MapTileListItemHeight = 44;
     private const int                   MapTilePreviewPadding = 2;
 
@@ -136,6 +140,11 @@ namespace RetroDevStudio.Documents
       // KryptonTextBox's scrollbar lives on its inner TextBox, so pass that.
       RetroDevStudio.CustomRenderer.DarkTheme.ApplyDarkScrollBarsTo( comboTiles );
       RetroDevStudio.CustomRenderer.DarkTheme.ApplyDarkScrollBarsTo( editMapExtraData.TextBox );
+
+      // Temporary palette-test dropdown. Lists every Krypton PaletteMode and
+      // flips the global palette on selection. Parked in the toolbar for now;
+      // can be moved later once we pick the final palette.
+      AddPaletteTestCombo();
 
       // Owner-draw hookup for color combos. Has to happen here (not in the
       // .Designer.cs) because VS's CodeDom serializer can't handle property
@@ -598,30 +607,33 @@ namespace RetroDevStudio.Documents
         }*/
       }
 
+      // Dim the whole map when in MARKER placement mode so the marker
+      // overlays pop. Both modes share the slider (dimSlider) and
+      // m_CurrentMap.MarkerDimOpacity, but ENTITY-mode dimming happens
+      // earlier in RedrawMap — there we can dim the tile layer BEFORE the
+      // entity overlays are drawn so the entity icons stay un-dimmed.
+      if ( ( m_CurrentMap != null )
+      &&   ( m_ToolMode == ToolMode.MARKER )
+      &&   ( m_CurrentMap.MarkerDimOpacity < 100 ) )
+      {
+        // Manual dimming because Box doesn't blend
+        int opacity = m_CurrentMap.MarkerDimOpacity;
+        for ( int y = 0; y < targetHeight; ++y )
+        {
+          for ( int x = 0; x < targetWidth; ++x )
+          {
+            uint pixel = TargetBuffer.GetPixel( x, y );
+            uint r = ( pixel & 0xff ) * (uint)opacity / 100;
+            uint g = ( ( pixel >> 8 ) & 0xff ) * (uint)opacity / 100;
+            uint b = ( ( pixel >> 16 ) & 0xff ) * (uint)opacity / 100;
+            TargetBuffer.SetPixel( x, y, ( 0xff000000 | ( b << 16 ) | ( g << 8 ) | r ) );
+          }
+        }
+      }
+
       if ( ( m_CurrentMap != null )
       &&   ( m_ToolMode == ToolMode.MARKER ) )
       {
-        if ( m_ToolMode == ToolMode.MARKER )
-        {
-           // Dim map
-           if ( m_CurrentMap.MarkerDimOpacity < 100 )
-           {
-              // Manual dimming because Box doesn't blend
-              int opacity = m_CurrentMap.MarkerDimOpacity;
-              for ( int y = 0; y < targetHeight; ++y )
-              {
-                for ( int x = 0; x < targetWidth; ++x )
-                {
-                   uint pixel = TargetBuffer.GetPixel( x, y );
-                   uint r = ( pixel & 0xff ) * (uint)opacity / 100;
-                   uint g = ( ( pixel >> 8 ) & 0xff ) * (uint)opacity / 100;
-                   uint b = ( ( pixel >> 16 ) & 0xff ) * (uint)opacity / 100;
-                   TargetBuffer.SetPixel( x, y, ( 0xff000000 | ( b << 16 ) | ( g << 8 ) | r ) );
-                }
-              }
-           }
-        }
-      
         foreach ( var marker in m_CurrentMap.Markers )
         {
           int sourceX = renderOffsetX + ( marker.X - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
@@ -671,11 +683,12 @@ namespace RetroDevStudio.Documents
       }
 
 
-      if ( ( m_CurrentMap == null )
-      ||   ( m_ToolMode != ToolMode.SELECT ) )
+      // Selection rendering only runs in SELECT mode, but the display-filter
+      // pipeline below needs to run in ALL modes — so this is a guarded block,
+      // not the early-return it used to be.
+      if ( ( m_CurrentMap != null )
+      &&   ( m_ToolMode == ToolMode.SELECT ) )
       {
-        return;
-      }
 
       // draw selection
       uint    selectionColor = Core.Settings.FGColor( ColorableElement.SELECTION_FRAME );
@@ -770,17 +783,79 @@ namespace RetroDevStudio.Documents
                                 selectionColor );
       }
 
+      } // end of SELECT-mode selection-rendering guard
 
+      // CRT display-filter pipeline runs LAST so it sees the fully composited
+      // map (tiles + entities + grid + markers + selection). Filters operate
+      // in target-pixel space, so we also convert the map's source-pixel
+      // region into target pixels and hand the filter chain a context that
+      // lets each filter pin its effect to the scaled map rather than the
+      // whole TargetBuffer (otherwise scanlines would paint over chrome).
+      var pipeline = ( Core != null ) && ( Core.Settings != null )
+                     ? Core.Settings.DisplayFilters : null;
+      // Session-only bypass: the "Filter enabled" checkbox on the Map tab is
+      // a quick kill-switch. When unchecked, we skip the pipeline entirely
+      // even if individual filters are configured and marked Enabled in the
+      // settings dialog. Not persisted across app restarts.
+      bool filtersAllowed = ( checkFilterEnabled != null )
+                            && checkFilterEnabled.Checked;
+      if ( ( filtersAllowed )
+      &&   ( pipeline != null )
+      &&   ( pipeline.HasAnyEnabled )
+      &&   ( m_CurrentMap != null ) )
+      {
+        int filterOffsetX = m_CurEditorOffsetX;
+        int filterOffsetY = m_CurEditorOffsetY;
+        long sourceMapPixelWidth  = (long)( m_CurrentMap.Tiles.Width  - filterOffsetX ) * m_CurrentMap.TileSpacingX * 8;
+        long sourceMapPixelHeight = (long)( m_CurrentMap.Tiles.Height - filterOffsetY ) * m_CurrentMap.TileSpacingY * 8;
+        int  sourceMapEndX = renderOffsetX + (int)sourceMapPixelWidth;
+        int  sourceMapEndY = renderOffsetY + (int)sourceMapPixelHeight;
+
+        int  targetMapX    = Math.Max( 0, Math.Min( targetWidth,  ScaleCoordCeil( renderOffsetX, sourceWidth,  targetWidth  ) ) );
+        int  targetMapY    = Math.Max( 0, Math.Min( targetHeight, ScaleCoordCeil( renderOffsetY, sourceHeight, targetHeight ) ) );
+        int  targetMapEndX = Math.Max( 0, Math.Min( targetWidth,  ScaleCoordCeil( sourceMapEndX, sourceWidth,  targetWidth  ) ) );
+        int  targetMapEndY = Math.Max( 0, Math.Min( targetHeight, ScaleCoordCeil( sourceMapEndY, sourceHeight, targetHeight ) ) );
+
+        var ctx = new CustomRenderer.DisplayFilters.FilterContext
+        {
+          RenderOffsetX  = targetMapX,
+          RenderOffsetY  = targetMapY,
+          MapPixelWidth  = Math.Max( 0, targetMapEndX - targetMapX ),
+          MapPixelHeight = Math.Max( 0, targetMapEndY - targetMapY ),
+          // The "source" for filter purposes is the unscaled map, not the
+          // DisplayPage — that's what drives scanline alignment and column
+          // phase at any zoom level.
+          SourceWidth  = (int)sourceMapPixelWidth,
+          SourceHeight = (int)sourceMapPixelHeight,
+        };
+        pipeline.Apply( TargetBuffer, ctx );
+      }
     }
 
 
 
     void pictureEditor_MouseWheel( object sender, MouseEventArgs e )
     {
+      // Ctrl+wheel zooms (matches the common IDE/browser convention). Plain
+      // wheel scrolls vertically, Shift+wheel scrolls horizontally. Delta is
+      // 120 per detent on a standard wheel.
+      if ( ( Control.ModifierKeys & Keys.Control ) != 0 )
+      {
+        int notches = e.Delta / 120;
+        if ( notches == 0 )
+        {
+          return;
+        }
+        // SetMapZoomPercent clamps to [MapZoomMinPercent, MapZoomMaxPercent]
+        // so no extra bounds check is needed here.
+        SetMapZoomPercent( m_MapZoomPercent + notches * MapZoomWheelStepPercent );
+        return;
+      }
+
       int numberOfLinesToMove = e.Delta * SystemInformation.MouseWheelScrollLines / 120;
 
       DecentForms.ScrollBar scrollbarToUse = mapVScroll;
-      if ( Control.ModifierKeys == Keys.Shift )
+      if ( ( Control.ModifierKeys & Keys.Shift ) != 0 )
       {
         scrollbarToUse = mapHScroll;
       }
@@ -1637,6 +1712,12 @@ namespace RetroDevStudio.Documents
                  var type = m_MapProject.EntityTypes.FirstOrDefault( t => t.ID == m_CurrentMap.SelectedEntityType );
                  if ( type != null )
                  {
+                   // Snapshot the entity list before mutating so Ctrl+Z restores
+                   // the exact state (covers both "replaced" and "added" cases
+                   // below without branching the undo logic).
+                   DocumentInfo.UndoManager.AddUndoTask(
+                     new Undo.UndoMapEntitiesChange( this, m_CurrentMap ) );
+
                    // Unique-per-tile: replace any entity already at this position.
                    var existing = m_CurrentMap.Entities.FirstOrDefault( en => en.X == placeX && en.Y == placeY );
                    if ( existing != null )
@@ -1645,6 +1726,7 @@ namespace RetroDevStudio.Documents
                      existing.Value1 = (byte)editEntityValue1Default.Value;
                      existing.Value2 = (byte)editEntityValue2Default.Value;
                      existing.Enabled = checkEntityDefaultEnabled.Checked;
+                     existing.Triggered = checkEntityDefaultTriggered.Checked;
                    }
                    else
                    {
@@ -1655,6 +1737,7 @@ namespace RetroDevStudio.Documents
                      entity.Value1 = (byte)editEntityValue1Default.Value;
                      entity.Value2 = (byte)editEntityValue2Default.Value;
                      entity.Enabled = checkEntityDefaultEnabled.Checked;
+                     entity.Triggered = checkEntityDefaultTriggered.Checked;
                      m_CurrentMap.Entities.Add( entity );
                    }
                    RedrawMap();
@@ -1681,11 +1764,16 @@ namespace RetroDevStudio.Documents
              var entityToRemove = m_CurrentMap.Entities.FirstOrDefault( en => en.X == clickX && en.Y == clickY );
              if ( entityToRemove != null )
              {
+               // Snapshot the list before removing so Ctrl+Z puts it back.
+               DocumentInfo.UndoManager.AddUndoTask(
+                 new Undo.UndoMapEntitiesChange( this, m_CurrentMap ) );
+
                // Pre-populate the placement defaults from the removed entity so
                // a follow-up left-click drops a new one with the same settings.
                editEntityValue1Default.Value = entityToRemove.Value1;
                editEntityValue2Default.Value = entityToRemove.Value2;
                checkEntityDefaultEnabled.Checked = entityToRemove.Enabled;
+               checkEntityDefaultTriggered.Checked = entityToRemove.Triggered;
 
                int typeIndex = m_MapProject.EntityTypes.FindIndex( t => t.ID == entityToRemove.Type );
                if ( typeIndex != -1 )
@@ -2039,6 +2127,31 @@ namespace RetroDevStudio.Documents
           }
         }
       }
+      // Dim the map tiles BEFORE drawing entity overlays so that entities
+      // render un-dimmed on top (the user wants the placement indicators to
+      // pop against a muted background). MARKER-mode dimming still happens in
+      // PictureEditor_PostPaint — there's nothing drawn on top of that one
+      // that we need to protect. Working at source resolution here is also
+      // cheaper than iterating the scaled TargetBuffer.
+      if ( ( m_ToolMode == ToolMode.ENTITY )
+      &&   ( m_CurrentMap.MarkerDimOpacity < 100 ) )
+      {
+        int opacity = m_CurrentMap.MarkerDimOpacity;
+        int dimEndX = Math.Min( pictureEditor.DisplayPage.Width, renderOffsetX + fillWidth );
+        int dimEndY = Math.Min( pictureEditor.DisplayPage.Height, renderOffsetY + fillHeight );
+        for ( int y = Math.Max( 0, renderOffsetY ); y < dimEndY; ++y )
+        {
+          for ( int x = Math.Max( 0, renderOffsetX ); x < dimEndX; ++x )
+          {
+            uint pixel = pictureEditor.DisplayPage.GetPixel( x, y );
+            uint r = ( pixel & 0xff ) * (uint)opacity / 100;
+            uint g = ( ( pixel >> 8 ) & 0xff ) * (uint)opacity / 100;
+            uint b = ( ( pixel >> 16 ) & 0xff ) * (uint)opacity / 100;
+            pictureEditor.DisplayPage.SetPixel( x, y, ( 0xff000000 | ( b << 16 ) | ( g << 8 ) | r ) );
+          }
+        }
+      }
+
       // ====== Entities overlay (drawn on top of the tile layer) ======
       // Toggleable via the "Show Entities" checkbox; reuses the tile renderer
       // so multi-cell entity tiles render at full size on the entity's anchor.
@@ -2813,22 +2926,22 @@ namespace RetroDevStudio.Documents
       }
     }
 
-    private void btnShiftLeft_Click( DecentForms.ControlBase sender )
+    private void btnShiftLeft_Click( object sender, EventArgs e )
     {
       ShiftMap( -1, 0 );
     }
 
-    private void btnShiftRight_Click( DecentForms.ControlBase sender )
+    private void btnShiftRight_Click( object sender, EventArgs e )
     {
       ShiftMap( 1, 0 );
     }
 
-    private void btnShiftUp_Click( DecentForms.ControlBase sender )
+    private void btnShiftUp_Click( object sender, EventArgs e )
     {
       ShiftMap( 0, -1 );
     }
 
-    private void btnShiftDown_Click( DecentForms.ControlBase sender )
+    private void btnShiftDown_Click( object sender, EventArgs e )
     {
       ShiftMap( 0, 1 );
     }
@@ -2859,6 +2972,54 @@ namespace RetroDevStudio.Documents
     /// yields every <see cref="Krypton.Toolkit.KryptonComboBox"/> found. Used
     /// during form construction to apply dark disabled-state styling.
     /// </summary>
+    /// <summary>
+    /// Drops a KryptonComboBox at the bottom of the Map Controls panel listing
+    /// every Krypton PaletteMode. Selecting one flips GlobalPaletteMode live so
+    /// we can compare looks without rebuilding. Temporary scaffolding — slated
+    /// for removal once the palette choice is finalized.
+    /// </summary>
+    private void AddPaletteTestCombo()
+    {
+      var label = new System.Windows.Forms.Label
+      {
+        Text = "Palette tester (TEMP):",
+        AutoSize = true,
+        Location = new System.Drawing.Point( 10, groupBox1.Height - 48 ),
+        Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left,
+        ForeColor = RetroDevStudio.CustomRenderer.DarkTheme.StatusWarn,
+        Name = "labelPaletteTest",
+      };
+      groupBox1.Controls.Add( label );
+      label.BringToFront();
+
+      int comboWidth = System.Math.Max( 200, groupBox1.ClientSize.Width - 20 );
+      var combo = new Krypton.Toolkit.KryptonComboBox
+      {
+        DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList,
+        Size = new System.Drawing.Size( comboWidth, 24 ),
+        Location = new System.Drawing.Point( 10, groupBox1.Height - 30 ),
+        Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right,
+        Name = "comboPaletteTest",
+      };
+      foreach ( Krypton.Toolkit.PaletteMode mode in System.Enum.GetValues( typeof( Krypton.Toolkit.PaletteMode ) ) )
+      {
+        combo.Items.Add( mode );
+      }
+      combo.SelectedItem = Krypton.Toolkit.PaletteMode.Office2010BlackDarkMode;
+      combo.SelectedIndexChanged += ( s, e ) =>
+      {
+        if ( combo.SelectedItem is Krypton.Toolkit.PaletteMode picked )
+        {
+          // GlobalPaletteMode is an instance property; any KryptonManager
+          // instance writes the shared global state.
+          new Krypton.Toolkit.KryptonManager().GlobalPaletteMode = picked;
+        }
+      };
+      groupBox1.Controls.Add( combo );
+      combo.BringToFront();
+      RetroDevStudio.CustomRenderer.DarkTheme.StyleDisabledComboDark( combo );
+    }
+
     private static IEnumerable<Krypton.Toolkit.KryptonComboBox> FindAllKryptonCombos( Control root )
     {
       if ( root is Krypton.Toolkit.KryptonComboBox combo )
@@ -2874,7 +3035,7 @@ namespace RetroDevStudio.Documents
       }
     }
 
-    private void btnRemoveOverlappingTiles_Click( DecentForms.ControlBase sender )
+    private void btnRemoveOverlappingTiles_Click( object sender, EventArgs e )
     {
       RemoveOverlappingTiles();
     }
@@ -3888,7 +4049,7 @@ namespace RetroDevStudio.Documents
 
 
 
-    private void btnMapAdd_Click( DecentForms.ControlBase Sender )
+    private void btnMapAdd_Click( object sender, EventArgs e )
     {
       int w = GR.Convert.ToI32( editMapWidth.Text );
       int h = GR.Convert.ToI32( editMapHeight.Text );
@@ -3943,7 +4104,7 @@ namespace RetroDevStudio.Documents
 
 
 
-    private void btnMapApply_Click( DecentForms.ControlBase Sender )
+    private void btnMapApply_Click( object sender, EventArgs e )
     {
       if ( m_CurrentMap == null )
       {
@@ -4362,7 +4523,7 @@ namespace RetroDevStudio.Documents
 
 
 
-    private void btnMapDelete_Click( DecentForms.ControlBase Sender )
+    private void btnMapDelete_Click( object sender, EventArgs e )
     {
       if ( m_CurrentMap == null )
       {
@@ -4446,6 +4607,35 @@ namespace RetroDevStudio.Documents
                 ++map.Tiles[x, y];
               }
             }
+          }
+        }
+      }
+
+      // Entity types reference tiles by index — apply the same shift to
+      // their TileIndex so entity overlays keep pointing at the same tile
+      // after the reorder.
+      foreach ( var entityType in m_MapProject.EntityTypes )
+      {
+        int tileIndex = entityType.TileIndex;
+        if ( tileIndex == FromIndex )
+        {
+          entityType.TileIndex = ToIndex;
+        }
+        else if ( FromIndex < ToIndex )
+        {
+          if ( ( tileIndex > FromIndex )
+          &&   ( tileIndex <= ToIndex ) )
+          {
+            --entityType.TileIndex;
+          }
+        }
+        else
+        {
+          // FromIndex > ToIndex
+          if ( ( tileIndex >= ToIndex )
+          &&   ( tileIndex < FromIndex ) )
+          {
+            ++entityType.TileIndex;
           }
         }
       }
@@ -4647,6 +4837,21 @@ namespace RetroDevStudio.Documents
           }
         }
       }
+
+      // Entity types reference tiles by index — keep them pointing at the
+      // same visual tile after the swap so entity overlays don't silently
+      // start rendering a different tile.
+      foreach ( var entityType in m_MapProject.EntityTypes )
+      {
+        if ( entityType.TileIndex == Index1 )
+        {
+          entityType.TileIndex = Index2;
+        }
+        else if ( entityType.TileIndex == Index2 )
+        {
+          entityType.TileIndex = Index1;
+        }
+      }
       RedrawMap();
       SetModified();
     }
@@ -4842,11 +5047,82 @@ namespace RetroDevStudio.Documents
 
 
 
-    private void btnToolEdit_CheckedChanged( DecentForms.ControlBase Sender )
+    // KryptonCheckButton doesn't auto-group like RadioButton does. When one
+    // tool button is checked on, we uncheck the siblings so they behave as a
+    // mutually-exclusive set. Guard against recursion because setting Checked
+    // re-fires CheckedChanged on each sibling.
+    private bool m_UncheckingToolSiblings = false;
+
+    private void UncheckOtherToolButtons( Krypton.Toolkit.KryptonCheckButton keeper )
     {
+      if ( m_UncheckingToolSiblings ) return;
+      m_UncheckingToolSiblings = true;
+      try
+      {
+        var buttons = new Krypton.Toolkit.KryptonCheckButton[]
+        {
+          btnToolEdit, btnToolRect, btnToolQuad, btnToolFill,
+          btnToolSelect, btnToolMarker, btnToolEntity,
+        };
+        foreach ( var b in buttons )
+        {
+          if ( ( b != keeper ) && b.Checked )
+          {
+            b.Checked = false;
+          }
+        }
+      }
+      finally
+      {
+        m_UncheckingToolSiblings = false;
+      }
+    }
+
+    /// <summary>
+    /// Tool buttons are meant to behave like a radio group — one tool is
+    /// always active and clicking the active tool's button again should be a
+    /// no-op. KryptonCheckButton, however, flips Checked on every click, so
+    /// without this guard the second click leaves the button (and the group)
+    /// with nothing selected. If Checked just went false AND we weren't the
+    /// ones turning it off (via UncheckOtherToolButtons), flip it back on
+    /// and the re-entrant CheckedChanged runs the full activation path.
+    /// </summary>
+    private bool KeepActiveIfUnchecking( Krypton.Toolkit.KryptonCheckButton btn )
+    {
+      if ( !btn.Checked )
+      {
+        if ( !m_UncheckingToolSiblings )
+        {
+          btn.Checked = true;
+        }
+        return true;
+      }
+      return false;
+    }
+
+    /// <summary>
+    /// Called at the end of each tool activation so the map image reflects the
+    /// new mode. In particular the ENTITY-mode dim is baked into DisplayPage
+    /// by RedrawMap — without this, switching TO or AWAY FROM the entity tool
+    /// leaves the previous frame on screen until some other event triggers a
+    /// rebuild. Also refreshes marker-controls state since it depends on which
+    /// tool is active (comboMarkerTypes, dimSlider, etc.).
+    /// </summary>
+    private void AfterToolChange()
+    {
+      UpdateMarkerControlsState();
+      RedrawMap();
+      pictureEditor.Invalidate();
+    }
+
+    private void btnToolEdit_CheckedChanged( object sender, EventArgs e )
+    {
+      if ( KeepActiveIfUnchecking( btnToolEdit ) ) return;
       HideSelection();
       RemoveFloatingSelection();
       m_ToolMode = ToolMode.SINGLE_TILE;
+      UncheckOtherToolButtons( btnToolEdit );
+      AfterToolChange();
     }
 
 
@@ -4868,41 +5144,53 @@ namespace RetroDevStudio.Documents
 
 
 
-    private void btnToolRect_CheckedChanged( DecentForms.ControlBase Sender )
+    private void btnToolRect_CheckedChanged( object sender, EventArgs e )
     {
+      if ( KeepActiveIfUnchecking( btnToolRect ) ) return;
       HideSelection();
       RemoveFloatingSelection();
       m_ToolMode = ToolMode.RECTANGLE;
+      UncheckOtherToolButtons( btnToolRect );
+      AfterToolChange();
     }
 
 
 
-    private void btnToolQuad_CheckedChanged( DecentForms.ControlBase Sender )
+    private void btnToolQuad_CheckedChanged( object sender, EventArgs e )
     {
+      if ( KeepActiveIfUnchecking( btnToolQuad ) ) return;
       HideSelection();
       RemoveFloatingSelection();
       m_ToolMode = ToolMode.FILLED_RECTANGLE;
+      UncheckOtherToolButtons( btnToolQuad );
+      AfterToolChange();
     }
 
 
 
-    private void btnToolFill_CheckedChanged( DecentForms.ControlBase Sender )
+    private void btnToolFill_CheckedChanged( object sender, EventArgs e )
     {
+      if ( KeepActiveIfUnchecking( btnToolFill ) ) return;
       HideSelection();
       RemoveFloatingSelection();
       m_ToolMode = ToolMode.FILL;
+      UncheckOtherToolButtons( btnToolFill );
+      AfterToolChange();
     }
 
 
 
-    private void btnToolSelect_CheckedChanged( DecentForms.ControlBase Sender )
+    private void btnToolSelect_CheckedChanged( object sender, EventArgs e )
     {
+      if ( KeepActiveIfUnchecking( btnToolSelect ) ) return;
       m_ToolMode = ToolMode.SELECT;
+      UncheckOtherToolButtons( btnToolSelect );
+      AfterToolChange();
     }
 
 
 
-    private void btnMapCopy_Click( DecentForms.ControlBase Sender )
+    private void btnMapCopy_Click( object sender, EventArgs e )
     {
       if ( m_CurrentMap == null )
       {
@@ -5341,14 +5629,14 @@ namespace RetroDevStudio.Documents
 
 
 
-    private void btnZoomIn_Click( DecentForms.ControlBase Sender )
+    private void btnZoomIn_Click( object sender, EventArgs e )
     {
       SetMapZoomPercent( m_MapZoomPercent + MapZoomStepPercent );
     }
 
 
 
-    private void btnZoomOut_Click( DecentForms.ControlBase Sender )
+    private void btnZoomOut_Click( object sender, EventArgs e )
     {
       SetMapZoomPercent( m_MapZoomPercent - MapZoomStepPercent );
     }
@@ -5432,7 +5720,59 @@ namespace RetroDevStudio.Documents
 
 
 
-    private void btnCopyImage_Click( DecentForms.ControlBase Sender )
+    // Modeless dialog reference — kept so a second click on the toolbar
+    // button re-focuses the existing dialog instead of opening a new one.
+    private Dialogs.DlgDisplayFilters  m_DisplayFiltersDialog;
+
+
+
+    private void checkFilterEnabled_CheckedChanged( object sender, EventArgs e )
+    {
+      // Session-only bypass toggle: does NOT persist, does NOT mutate the
+      // per-filter Enabled flags. Just repaints so the PostPaint gate picks
+      // up the new checkbox state.
+      pictureEditor.Invalidate();
+    }
+
+
+
+    private void btnDisplayFilters_Click( object sender, EventArgs e )
+    {
+      // Re-focus if already open. Checking IsDisposed first because the form
+      // nulls its handles on close, and WinForms raises an exception if you
+      // call Focus() on a disposed form.
+      if ( ( m_DisplayFiltersDialog != null )
+      &&   ( !m_DisplayFiltersDialog.IsDisposed ) )
+      {
+        m_DisplayFiltersDialog.Activate();
+        return;
+      }
+
+      var pipeline = ( Core != null ) && ( Core.Settings != null )
+                     ? Core.Settings.DisplayFilters : null;
+      if ( pipeline == null )
+      {
+        return;
+      }
+
+      m_DisplayFiltersDialog = new Dialogs.DlgDisplayFilters(
+          pipeline,
+          () =>
+          {
+            // Callback fires on any pipeline edit in the dialog. Filters
+            // run in PostPaint so all we need to trigger is a repaint; no
+            // RedrawMap needed since the underlying DisplayPage hasn't
+            // changed.
+            pictureEditor.Invalidate();
+          },
+          Core );
+      m_DisplayFiltersDialog.FormClosed += ( s, args ) => m_DisplayFiltersDialog = null;
+      m_DisplayFiltersDialog.Show( this.FindForm() );
+    }
+
+
+
+    private void btnCopyImage_Click( object sender, EventArgs e )
     {
       if ( m_CurrentMap == null )
       {
@@ -5568,7 +5908,7 @@ namespace RetroDevStudio.Documents
 
 
 
-    private void btnMoveMapDown_Click( DecentForms.ControlBase Sender )
+    private void btnMoveMapDown_Click( object sender, EventArgs e )
     {
       if ( ( comboMaps.SelectedIndex == -1 )
       ||   ( comboMaps.Items.Count < 2 )
@@ -5586,7 +5926,7 @@ namespace RetroDevStudio.Documents
 
     
 
-    private void btnMoveMapUp_Click( DecentForms.ControlBase Sender )
+    private void btnMoveMapUp_Click( object sender, EventArgs e )
     {
       if ( ( comboMaps.SelectedIndex <= 0 )
       ||   ( comboMaps.Items.Count < 2 ) )
@@ -6155,14 +6495,12 @@ namespace RetroDevStudio.Documents
     }
 
 
-    private void btnToolMarker_CheckedChanged( DecentForms.ControlBase Sender )
+    private void btnToolMarker_CheckedChanged( object sender, EventArgs e )
     {
-       if ( btnToolMarker.Checked )
-       {
-         m_ToolMode = ToolMode.MARKER;
-       }
-       UpdateMarkerControlsState();
-       pictureEditor.Invalidate();
+      if ( KeepActiveIfUnchecking( btnToolMarker ) ) return;
+      m_ToolMode = ToolMode.MARKER;
+      UncheckOtherToolButtons( btnToolMarker );
+      AfterToolChange();
     }
 
     private void comboMarkerTypes_SelectedIndexChanged( object sender, EventArgs e )
@@ -6212,7 +6550,7 @@ namespace RetroDevStudio.Documents
       // Ensures the control always holds a valid byte (0-255) via its Min/Max.
     }
 
-    private void btnClearMarkers_Click( DecentForms.ControlBase Sender )
+    private void btnClearMarkers_Click( object sender, EventArgs e )
     {
        if ( m_CurrentMap == null ) return;
        
@@ -6222,7 +6560,7 @@ namespace RetroDevStudio.Documents
        Modified = true;
     }
 
-    private void btnClearMarkerType_Click( DecentForms.ControlBase Sender )
+    private void btnClearMarkerType_Click( object sender, EventArgs e )
     {
        if ( m_CurrentMap == null ) return;
        if ( m_CurrentMap.SelectedMarkerType == -1 ) return;
@@ -6267,6 +6605,12 @@ namespace RetroDevStudio.Documents
       {
         m_CurrentMap.MarkerDimOpacity = dimSlider.Value;
         SetModified();
+        // ENTITY-mode dim is baked into DisplayPage inside RedrawMap, so a
+        // pure Invalidate wouldn't re-apply the new opacity — we need a full
+        // tile re-paint. (MARKER-mode dim happens in PictureEditor_PostPaint,
+        // where Invalidate alone would be enough, but unifying the path keeps
+        // the handler simple and the cost is a single tile render per drag.)
+        RedrawMap();
         pictureEditor.Invalidate();
       }
     }
@@ -6278,7 +6622,8 @@ namespace RetroDevStudio.Documents
        comboMarkerColorOverride.Enabled = enabled;
        btnClearMarkers.Enabled = enabled;
        btnClearMarkerType.Enabled = enabled;
-       dimSlider.Enabled = enabled;
+       // The dim slider is shared between marker and entity placement modes.
+       dimSlider.Enabled = enabled || btnToolEntity.Checked;
     }
     private void comboMarkerColorOverride_DrawItem( object sender, DrawItemEventArgs e )
     {
@@ -6418,6 +6763,11 @@ namespace RetroDevStudio.Documents
       {
         listEntityTypes.SelectedIndex = savedSelection;
       }
+      // The Map tab renders entities using the current EntityType.TileIndex,
+      // so a change here has to invalidate the cached map image — otherwise
+      // switching back to the Map tab shows the entity with its old tile.
+      RedrawMap();
+      pictureEditor.Invalidate();
       SetModified();
     }
 
@@ -6515,13 +6865,12 @@ namespace RetroDevStudio.Documents
       }
     }
 
-    private void btnToolEntity_CheckedChanged( DecentForms.ControlBase Sender )
+    private void btnToolEntity_CheckedChanged( object sender, EventArgs e )
     {
-      if ( btnToolEntity.Checked )
-      {
-        m_ToolMode = ToolMode.ENTITY;
-      }
-      pictureEditor.Invalidate();
+      if ( KeepActiveIfUnchecking( btnToolEntity ) ) return;
+      m_ToolMode = ToolMode.ENTITY;
+      UncheckOtherToolButtons( btnToolEntity );
+      AfterToolChange();
     }
 
     private void comboEntityTypes_SelectedIndexChanged( object sender, EventArgs e )
@@ -6661,6 +7010,10 @@ namespace RetroDevStudio.Documents
       }
     }
 
-  }
+        private void dimSlider_ValueChanged(object sender, EventArgs e)
+        {
+
+        }
+    }
 } // namespace RetroDevStudio.Documents
 

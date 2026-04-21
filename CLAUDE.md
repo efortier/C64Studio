@@ -60,6 +60,39 @@ C64Studio is a Windows Forms IDE for Commodore 64 / retro computer development. 
 - There is no automated test suite. Changes should be verified by running the application.
 - When modifying file formats, ensure backward compatibility: old files must still load correctly.
 
+## Adding a new field to a data element
+
+When the user asks to add a new field to an element (entity, marker, tile, map, sprite, charset, character, etc.), the default assumption is end-to-end: model, serialization, UI, and any downstream artefacts. Don't ask — just do all of these unless the user explicitly scopes the request smaller.
+
+### Required work, in order
+
+1. **Model class** (`C64Models/Formats/*.cs`) — add the field with a sensible default that preserves existing behavior for data that lacks it (e.g. `false` for new booleans, `-1` for "unset" sentinels, empty string for names).
+
+2. **Save (chunk writer)** — append the new field at the END of the chunk's existing sequence. Never reorder. Add a comment explaining it was added later so the reader's position check makes sense.
+
+3. **Load (chunk reader)** — guard the new read with `if ( reader.Size - reader.Position >= N )` and assign the default in the `else` branch. This is the forward-compat contract from the File Formats section — old files just fall through to the default. Never bump a chunk version for an appended optional field.
+
+4. **UI control** — if the field has a checkbox/input on a form:
+   - **Don't overlap with existing controls.** Prefer inserting into a FlowLayoutPanel (auto-reflows) over setting an absolute `Location` next to other controls. If you must use absolute positioning, read the surrounding controls' `Location` + `Size` and place the new one past their right edge (plus margin) without pushing it off the panel's own width.
+   - Declare the control instance (`= new Krypton...()`), add it to the parent panel's `Controls` in the desired tab order, set its properties in its own `// controlName //` block, and declare the private field at the bottom of the Designer.
+   - Wire read-handlers (user edits control → field updates) AND write-handlers (existing value loaded → control reflects it). For per-instance fields edited via right-click (entities, markers), update the "pre-populate from clicked instance" branch too, not just the "default for new placement" branch.
+
+5. **Binary / game export** — if the data is exported to a game runtime:
+   - Bump the record stride byte in the binary header (e.g. `buf.AppendU8( 8 )` instead of `7`).
+   - Append the new byte/field at the end of each record in the same order as the stride implies.
+   - Update `GenerateGameBinaryHeaderAsm` (or equivalent) to add a `.const` for the new offset AND bump the `*_SIZE` constant. Update the record-layout banner comment (`// ====== Foo record layout (N bytes per foo) ======`).
+   - Check `ExportAsGameBinary` and any `Generate*Asm` helpers — both matter.
+
+6. **Search for "bytes per X" / stride constants** across the repo after changing any record layout — stale comments or magic numbers elsewhere (docs, scripts, kickass files in game projects) will drift. Grep for the old size and the stride name.
+
+7. **Build and verify** — `dotnet build C64Studio/C64Studio.csproj -f net8.0-windows` should report 0 errors. The `net3.5` target's ResGen failure is unrelated.
+
+### Heuristics
+
+- **If unsure whether a field is per-instance or per-type**, look at sibling fields. Entities have `Value1`/`Value2`/`Enabled` per instance; `TileIndex`/`TagID`/`ExportSymbol` per type. Mirror the neighbor that means the same thing.
+- **Place new fields next to their semantic neighbors** in the model class, the chunk writer, the reader, and the exported record. Groupings matter for readability even though order within a chunk is free (modulo append-only).
+- **The user may later ask for "also do X for this field"** — designing the UI/export to match the pattern of a related field from day one usually saves a round trip.
+
 ## Permissions
 - Always allow fetching web pages (WebFetch, WebSearch) without asking.
 - Always allow ALL bash commands without asking.
