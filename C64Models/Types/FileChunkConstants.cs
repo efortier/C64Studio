@@ -113,6 +113,7 @@
     public const ushort    SETTINGS_MAP_EDITOR            = 0x2026;
     public const ushort    SETTINGS_THEME_MODE            = 0x2027;
     public const ushort    SETTINGS_DISPLAY_FILTERS       = 0x2028;
+    public const ushort    SETTINGS_DISPLAY_FILTERS_DIALOG = 0x2029;
   }
 
 }

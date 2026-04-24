@@ -250,6 +250,13 @@ namespace RetroDevStudio
     public RetroDevStudio.CustomRenderer.DisplayFilters.FilterPipeline  DisplayFilters =
         new RetroDevStudio.CustomRenderer.DisplayFilters.FilterPipeline();
 
+    /// <summary>
+    /// Last location + size of the CRT Display Filters dialog.
+    /// <see cref="System.Drawing.Rectangle.Empty"/> means no saved geometry,
+    /// in which case the dialog falls back to CenterParent / default size.
+    /// </summary>
+    public System.Drawing.Rectangle  DisplayFiltersDialogBounds = System.Drawing.Rectangle.Empty;
+
     public GR.Collections.Set<Types.ErrorCode>  IgnoredWarnings = new GR.Collections.Set<RetroDevStudio.Types.ErrorCode>();
     public GR.Collections.Set<Types.ErrorCode>  TreatWarningsAsErrors = new GR.Collections.Set<RetroDevStudio.Types.ErrorCode>();
     public GR.Collections.Set<Parser.AssemblerSettings.Hacks>  EnabledC64StudioHacks = new GR.Collections.Set<Parser.AssemblerSettings.Hacks>();
@@ -720,6 +727,16 @@ namespace RetroDevStudio
       GR.IO.FileChunk chunkDisplayFilters = new GR.IO.FileChunk( FileChunkConstants.SETTINGS_DISPLAY_FILTERS );
       chunkDisplayFilters.Append( DisplayFilters.SaveToBuffer() );
       SettingsData.Append( chunkDisplayFilters.ToBuffer() );
+
+      if ( !DisplayFiltersDialogBounds.IsEmpty )
+      {
+        GR.IO.FileChunk chunkDlgGeo = new GR.IO.FileChunk( FileChunkConstants.SETTINGS_DISPLAY_FILTERS_DIALOG );
+        chunkDlgGeo.AppendI32( DisplayFiltersDialogBounds.X );
+        chunkDlgGeo.AppendI32( DisplayFiltersDialogBounds.Y );
+        chunkDlgGeo.AppendI32( DisplayFiltersDialogBounds.Width );
+        chunkDlgGeo.AppendI32( DisplayFiltersDialogBounds.Height );
+        SettingsData.Append( chunkDlgGeo.ToBuffer() );
+      }
 
       GR.IO.FileChunk chunkRunEmu = new GR.IO.FileChunk( FileChunkConstants.SETTINGS_RUN_EMULATOR );
       chunkRunEmu.AppendU8( (byte)( TrueDriveEnabled ? 1 : 0 ) );
@@ -1286,6 +1303,16 @@ namespace RetroDevStudio
               // ByteBuffer wrapper was added on save, so just hand the chunk
               // directly to FilterPipeline.LoadFromBuffer.
               DisplayFilters.LoadFromBuffer( chunkData );
+            }
+            break;
+          case FileChunkConstants.SETTINGS_DISPLAY_FILTERS_DIALOG:
+            {
+              GR.IO.IReader binIn = chunkData.MemoryReader();
+              int dx = binIn.ReadInt32();
+              int dy = binIn.ReadInt32();
+              int dw = binIn.ReadInt32();
+              int dh = binIn.ReadInt32();
+              DisplayFiltersDialogBounds = new System.Drawing.Rectangle( dx, dy, dw, dh );
             }
             break;
           case FileChunkConstants.SETTINGS_RUN_EMULATOR:

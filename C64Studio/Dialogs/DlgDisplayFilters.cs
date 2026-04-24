@@ -19,15 +19,27 @@ namespace RetroDevStudio.Dialogs
   /// parameter panel is rebuilt from scratch every time the selected filter
   /// changes, and driving that through the Forms designer would be more
   /// awkward than just constructing each filter's editor inline.
+  ///
+  /// The filter list is a <see cref="ListView"/> with CheckBoxes rather than
+  /// a <see cref="CheckedListBox"/> because ListView distinguishes
+  /// "click on checkbox" from "click on row text" — clicking text selects
+  /// the row without toggling the enable flag, and the checkbox is a
+  /// dedicated click target. CheckedListBox toggles on any click which was
+  /// confusing when the only intent was to view a filter's parameters.
+  ///
+  /// Dialog geometry (location + size) is persisted in
+  /// <see cref="StudioSettings.DisplayFiltersDialogBounds"/> so the dialog
+  /// reopens where the user last left it.
   /// </summary>
   public class DlgDisplayFilters : Form
   {
     private readonly FilterPipeline   m_Pipeline;
     private readonly FilterPipeline   m_OriginalSnapshot;
     private readonly Action           m_OnPipelineChanged;
+    private readonly StudioCore       m_Core;
 
     // Left pane
-    private CheckedListBox            m_ListFilters;
+    private ListView                  m_ListFilters;
     private KryptonButton             m_BtnMoveUp;
     private KryptonButton             m_BtnMoveDown;
     private KryptonButton             m_BtnRemove;
@@ -44,10 +56,24 @@ namespace RetroDevStudio.Dialogs
     private KryptonButton             m_BtnRevert;
     private KryptonButton             m_BtnClose;
 
-    // Suppression flag so we don't loop when programmatically rebuilding the
-    // checked-list. Without this, ItemCheck fires during RefreshList and
-    // wrecks the user's selection.
+    // Guards against reentry while we programmatically mutate the list
+    // (RefreshList sets Items and CheckedState, which both fire events).
     private bool                      m_SuppressListEvents = false;
+
+    // ListView with CheckBoxes has a well-known quirk: a rapid second click
+    // anywhere on an item — including the label area of a DIFFERENT row —
+    // is treated as a double-click and toggles that row's checkbox. We want
+    // strict "only clicks on the checkbox itself toggle it", so we track
+    // each MouseDown's hit-test location and cancel ItemCheck if the click
+    // didn't land on the state image. Space-bar toggles are preserved via
+    // the KeyDown hook.
+    private bool                      m_AllowNextItemCheck = false;
+
+    // True once RestoreGeometry has finished setting initial bounds. Before
+    // this flag flips, OnMove/OnResize events (which fire during Show with
+    // Location still at (0,0)) would otherwise clobber the previously
+    // saved position with zeros.
+    private bool                      m_GeometryInitialized = false;
 
 
 
@@ -58,12 +84,11 @@ namespace RetroDevStudio.Dialogs
       m_Pipeline          = pipeline;
       m_OnPipelineChanged = onPipelineChanged;
       m_OriginalSnapshot  = pipeline.Clone();
+      m_Core              = core;
 
       Text            = "CRT Display Filters";
-      StartPosition   = FormStartPosition.CenterParent;
       FormBorderStyle = FormBorderStyle.Sizable;
       MinimumSize     = new Size( 640, 420 );
-      Size            = new Size( 720, 460 );
       ShowInTaskbar   = false;
 
       BuildUI();
@@ -72,10 +97,16 @@ namespace RetroDevStudio.Dialogs
       RefreshList();
       RefreshParamPanel();
 
+      RestoreGeometry();
+
       if ( core != null )
       {
         core.Theming.ApplyTheme( this );
       }
+
+      // ListView scrollbars need the DarkMode_Explorer theme opt-in to
+      // render dark; without this they stay bright even after ApplyTheme.
+      RetroDevStudio.CustomRenderer.DarkTheme.ApplyDarkScrollBarsTo( m_ListFilters );
     }
 
 
@@ -88,15 +119,56 @@ namespace RetroDevStudio.Dialogs
     {
       // --- left side: pipeline list + add/remove/reorder ---
 
-      m_ListFilters = new CheckedListBox
+      m_ListFilters = new ListView
       {
-        Location        = new Point( 12, 12 ),
-        Size            = new Size( 260, 300 ),
-        IntegralHeight  = false,
-        CheckOnClick    = true,
+        Location      = new Point( 12, 12 ),
+        Size          = new Size( 260, 300 ),
+        View          = View.Details,
+        CheckBoxes    = true,
+        FullRowSelect = true,
+        MultiSelect   = false,
+        HideSelection = false,
+        HeaderStyle   = ColumnHeaderStyle.None,
+        GridLines     = false,
       };
-      m_ListFilters.SelectedIndexChanged += OnListSelectionChanged;
-      m_ListFilters.ItemCheck            += OnListItemCheck;
+      // Single column wide enough to cover the list — headers are hidden so
+      // the user just sees the filter names.
+      m_ListFilters.Columns.Add( "Filter", m_ListFilters.ClientSize.Width - 4 );
+      m_ListFilters.ItemSelectionChanged += ( s, e ) => OnListSelectionChanged();
+      // MouseDown fires once per click, before the ListView decides this is
+      // a double-click-on-item (which would auto-toggle the checkbox).
+      // Check the hit location so we can veto the toggle if it wasn't on
+      // the state image.
+      m_ListFilters.MouseDown += ( s, e ) =>
+      {
+        var hit = m_ListFilters.HitTest( e.Location );
+        m_AllowNextItemCheck = ( hit.Location == ListViewHitTestLocations.StateImage );
+      };
+      // Keyboard toggle (space bar) should still work — it bypasses MouseDown.
+      m_ListFilters.KeyDown += ( s, e ) =>
+      {
+        if ( e.KeyCode == Keys.Space )
+        {
+          m_AllowNextItemCheck = true;
+        }
+      };
+      m_ListFilters.ItemCheck += ( s, e ) =>
+      {
+        if ( m_SuppressListEvents )
+        {
+          return;
+        }
+        if ( !m_AllowNextItemCheck )
+        {
+          // Cancel the toggle — the gesture wasn't on the checkbox. Setting
+          // NewValue equal to CurrentValue means "no change", and ItemChecked
+          // won't fire either.
+          e.NewValue = e.CurrentValue;
+        }
+        // Reset so the next user gesture starts fresh.
+        m_AllowNextItemCheck = false;
+      };
+      m_ListFilters.ItemChecked += ( s, e ) => OnListItemChecked( e.Item );
       Controls.Add( m_ListFilters );
 
       m_BtnMoveUp = new KryptonButton
@@ -252,29 +324,147 @@ namespace RetroDevStudio.Dialogs
 
 
     // ================================================================
+    // Geometry persistence
+    // ================================================================
+
+    private void RestoreGeometry()
+    {
+      try
+      {
+        var saved = ( m_Core != null ) && ( m_Core.Settings != null )
+                    ? m_Core.Settings.DisplayFiltersDialogBounds
+                    : Rectangle.Empty;
+        if ( saved.IsEmpty )
+        {
+          StartPosition = FormStartPosition.CenterParent;
+          Size          = new Size( 720, 460 );
+          return;
+        }
+        // Guard against a monitor disappearing between sessions. Clamp the
+        // origin to the current working area so the dialog never opens off
+        // screen.
+        StartPosition = FormStartPosition.Manual;
+        var screen    = Screen.FromPoint( new Point( saved.X, saved.Y ) ).WorkingArea;
+        int x = Math.Max( screen.Left, Math.Min( screen.Right  - 200, saved.X ) );
+        int y = Math.Max( screen.Top,  Math.Min( screen.Bottom - 200, saved.Y ) );
+        int w = Math.Max( MinimumSize.Width,  Math.Min( screen.Width,  saved.Width ) );
+        int h = Math.Max( MinimumSize.Height, Math.Min( screen.Height, saved.Height ) );
+        Location = new Point( x, y );
+        Size     = new Size( w, h );
+      }
+      finally
+      {
+        // Flip the gate ONLY after any Location/Size assignments above have
+        // settled and any OnMove/OnResize events they triggered have fired
+        // (and been rejected by the guard below). From here on, user moves
+        // and resizes will be persisted.
+        m_GeometryInitialized = true;
+      }
+    }
+
+
+
+    private void SaveGeometry()
+    {
+      if ( ( m_Core == null )
+      ||   ( m_Core.Settings == null ) )
+      {
+        return;
+      }
+      // Saving the normal bounds rather than Current Bounds means
+      // maximized/minimized states don't stomp the last "free" position.
+      var bounds = ( WindowState == FormWindowState.Normal )
+                   ? new Rectangle( Location, Size )
+                   : RestoreBounds;
+      if ( ( bounds.Width  > 0 )
+      &&   ( bounds.Height > 0 ) )
+      {
+        m_Core.Settings.DisplayFiltersDialogBounds = bounds;
+      }
+    }
+
+
+
+    protected override void OnMove( EventArgs e )
+    {
+      base.OnMove( e );
+      // RestoreGeometry sets the gate after applying the initial bounds, so
+      // the pre-show OnMove events that fire while Location is still (0,0)
+      // don't overwrite the saved position with zeros.
+      if ( m_GeometryInitialized )
+      {
+        SaveGeometry();
+      }
+    }
+
+
+
+    protected override void OnResize( EventArgs e )
+    {
+      base.OnResize( e );
+      if ( m_GeometryInitialized )
+      {
+        SaveGeometry();
+      }
+      // Keep the single column matching the list width on resize. This
+      // runs always, even before geometry is initialized, so the initial
+      // column width is correct too.
+      if ( ( m_ListFilters != null )
+      &&   ( m_ListFilters.Columns.Count > 0 ) )
+      {
+        m_ListFilters.Columns[0].Width = m_ListFilters.ClientSize.Width - 4;
+      }
+    }
+
+
+
+    protected override void OnFormClosed( FormClosedEventArgs e )
+    {
+      if ( m_GeometryInitialized )
+      {
+        SaveGeometry();
+      }
+      base.OnFormClosed( e );
+    }
+
+
+
+    // ================================================================
     // Pipeline list management
     // ================================================================
+
+    private int SelectedListIndex
+    {
+      get
+      {
+        return ( m_ListFilters.SelectedIndices.Count > 0 )
+               ? m_ListFilters.SelectedIndices[0] : -1;
+      }
+    }
+
+
 
     private void RefreshList()
     {
       m_SuppressListEvents = true;
       try
       {
-        int prevIndex = m_ListFilters.SelectedIndex;
+        int prevIndex = SelectedListIndex;
         m_ListFilters.Items.Clear();
         foreach ( var f in m_Pipeline.Filters )
         {
-          int idx = m_ListFilters.Items.Add( f.Name );
-          m_ListFilters.SetItemChecked( idx, f.Enabled );
+          var item = new ListViewItem( f.Name );
+          item.Checked = f.Enabled;
+          m_ListFilters.Items.Add( item );
         }
         if ( ( prevIndex >= 0 )
         &&   ( prevIndex < m_ListFilters.Items.Count ) )
         {
-          m_ListFilters.SelectedIndex = prevIndex;
+          m_ListFilters.Items[prevIndex].Selected = true;
         }
         else if ( m_ListFilters.Items.Count > 0 )
         {
-          m_ListFilters.SelectedIndex = 0;
+          m_ListFilters.Items[0].Selected = true;
         }
       }
       finally
@@ -288,7 +478,7 @@ namespace RetroDevStudio.Dialogs
 
     private void UpdateButtonEnableStates()
     {
-      int sel = m_ListFilters.SelectedIndex;
+      int sel = SelectedListIndex;
       bool has = ( sel >= 0 );
       m_BtnRemove.Enabled   = has;
       m_BtnMoveUp.Enabled   = has && ( sel > 0 );
@@ -298,7 +488,7 @@ namespace RetroDevStudio.Dialogs
 
 
 
-    private void OnListSelectionChanged( object sender, EventArgs e )
+    private void OnListSelectionChanged()
     {
       if ( m_SuppressListEvents )
       {
@@ -310,18 +500,19 @@ namespace RetroDevStudio.Dialogs
 
 
 
-    private void OnListItemCheck( object sender, ItemCheckEventArgs e )
+    private void OnListItemChecked( ListViewItem item )
     {
       if ( m_SuppressListEvents )
       {
         return;
       }
-      if ( ( e.Index < 0 )
-      ||   ( e.Index >= m_Pipeline.Filters.Count ) )
+      int idx = item.Index;
+      if ( ( idx < 0 )
+      ||   ( idx >= m_Pipeline.Filters.Count ) )
       {
         return;
       }
-      m_Pipeline.Filters[e.Index].Enabled = ( e.NewValue == CheckState.Checked );
+      m_Pipeline.Filters[idx].Enabled = item.Checked;
       NotifyChanged();
     }
 
@@ -329,7 +520,7 @@ namespace RetroDevStudio.Dialogs
 
     private void MoveSelected( int delta )
     {
-      int idx = m_ListFilters.SelectedIndex;
+      int idx = SelectedListIndex;
       int newIdx = idx + delta;
       if ( ( idx < 0 )
       ||   ( newIdx < 0 )
@@ -341,7 +532,7 @@ namespace RetroDevStudio.Dialogs
       m_Pipeline.Filters[idx] = m_Pipeline.Filters[newIdx];
       m_Pipeline.Filters[newIdx] = tmp;
       RefreshList();
-      m_ListFilters.SelectedIndex = newIdx;
+      m_ListFilters.Items[newIdx].Selected = true;
       NotifyChanged();
     }
 
@@ -349,7 +540,7 @@ namespace RetroDevStudio.Dialogs
 
     private void RemoveSelected()
     {
-      int idx = m_ListFilters.SelectedIndex;
+      int idx = SelectedListIndex;
       if ( ( idx < 0 )
       ||   ( idx >= m_Pipeline.Filters.Count ) )
       {
@@ -374,7 +565,12 @@ namespace RetroDevStudio.Dialogs
       filter.Enabled = true;
       m_Pipeline.Filters.Add( filter );
       RefreshList();
-      m_ListFilters.SelectedIndex = m_Pipeline.Filters.Count - 1;
+      int newIdx = m_Pipeline.Filters.Count - 1;
+      if ( ( newIdx >= 0 )
+      &&   ( newIdx < m_ListFilters.Items.Count ) )
+      {
+        m_ListFilters.Items[newIdx].Selected = true;
+      }
       RefreshParamPanel();
       NotifyChanged();
     }
@@ -395,7 +591,7 @@ namespace RetroDevStudio.Dialogs
       try
       {
         m_PanelParams.Controls.Clear();
-        int idx = m_ListFilters.SelectedIndex;
+        int idx = SelectedListIndex;
         if ( ( idx < 0 )
         ||   ( idx >= m_Pipeline.Filters.Count ) )
         {
@@ -449,13 +645,12 @@ namespace RetroDevStudio.Dialogs
 
 
     /// <summary>
-    /// Adds a labeled slider that edits an int getter/setter. The caller
-    /// provides a getter + setter pair so we can live-update the filter's
-    /// field without reflection. Returns the y for the next row so callers
-    /// can stack them.
+    /// Adds a labeled slider + value label + reset-to-default button. Caller
+    /// provides the default value that the reset button restores. Returns
+    /// the y for the next row so callers can stack them.
     /// </summary>
     private int AddSlider( string labelText,
-                           int min, int max,
+                           int min, int max, int defaultValue,
                            Func<int> get,
                            Action<int> set,
                            int y )
@@ -468,18 +663,22 @@ namespace RetroDevStudio.Dialogs
       label.Values.Text = labelText;
       m_PanelParams.Controls.Add( label );
 
-      var value = new KryptonLabel
+      // Declare these in outer scope so the lambdas can reach them.
+      KryptonTrackBar slider;
+      KryptonLabel    value;
+
+      value = new KryptonLabel
       {
-        Location  = new Point( 340, y ),
-        Size      = new Size( 48, 20 ),
+        Location = new Point( 332, y ),
+        Size     = new Size( 40, 20 ),
       };
       value.Values.Text = get().ToString();
       m_PanelParams.Controls.Add( value );
 
-      var slider = new KryptonTrackBar
+      slider = new KryptonTrackBar
       {
         Location      = new Point( 132, y - 2 ),
-        Size          = new Size( 200, 30 ),
+        Size          = new Size( 196, 30 ),
         Minimum       = min,
         Maximum       = max,
         TickFrequency = Math.Max( 1, ( max - min ) / 10 ),
@@ -493,6 +692,27 @@ namespace RetroDevStudio.Dialogs
       };
       m_PanelParams.Controls.Add( slider );
 
+      var resetBtn = new KryptonButton
+      {
+        Location = new Point( 374, y - 1 ),
+        Size     = new Size( 22, 22 ),
+      };
+      resetBtn.Values.Text = "↺";
+      // KryptonButton picks up the global palette automatically, so no
+      // per-control Theming call is needed for the reset glyph to render
+      // in dark mode.
+      var tip = new ToolTip();
+      tip.SetToolTip( resetBtn, "Reset to " + defaultValue );
+      resetBtn.Click += ( s, e ) =>
+      {
+        int clamped = Math.Max( min, Math.Min( max, defaultValue ) );
+        slider.Value      = clamped;
+        value.Values.Text = clamped.ToString();
+        set( clamped );
+        NotifyChanged();
+      };
+      m_PanelParams.Controls.Add( resetBtn );
+
       return y + 32;
     }
 
@@ -500,10 +720,12 @@ namespace RetroDevStudio.Dialogs
 
     private void BuildScanlinePanel( ScanlineFilter f )
     {
+      // Defaults mirror the ScanlineFilter field initializers so the reset
+      // button returns to the filter's "fresh construction" state.
       int y = 8;
-      y = AddSlider( "Intensity (%)", 0, 100, () => f.Intensity, v => f.Intensity = v, y );
-      y = AddSlider( "Period (px)",   2, 16,  () => f.Period,    v => f.Period    = v, y );
-      y = AddSlider( "Row offset",    0, 15,  () => f.Offset,    v => f.Offset    = v, y );
+      y = AddSlider( "Intensity (%)", 0, 100, 25, () => f.Intensity, v => f.Intensity = v, y );
+      y = AddSlider( "Period (px)",   2, 16,  2,  () => f.Period,    v => f.Period    = v, y );
+      y = AddSlider( "Row offset",    0, 15,  0,  () => f.Offset,    v => f.Offset    = v, y );
     }
 
 
@@ -511,10 +733,10 @@ namespace RetroDevStudio.Dialogs
     private void BuildPhosphorPanel( PhosphorMaskFilter f )
     {
       int y = 8;
-      y = AddSlider( "R boost (%)",   0, 50, () => f.RBoost, v => f.RBoost = v, y );
-      y = AddSlider( "G boost (%)",   0, 50, () => f.GBoost, v => f.GBoost = v, y );
-      y = AddSlider( "B boost (%)",   0, 50, () => f.BBoost, v => f.BBoost = v, y );
-      y = AddSlider( "Non-phase dim (%)", 0, 50, () => f.Dim, v => f.Dim = v, y );
+      y = AddSlider( "R boost (%)",       0, 50, 15, () => f.RBoost, v => f.RBoost = v, y );
+      y = AddSlider( "G boost (%)",       0, 50, 15, () => f.GBoost, v => f.GBoost = v, y );
+      y = AddSlider( "B boost (%)",       0, 50, 15, () => f.BBoost, v => f.BBoost = v, y );
+      y = AddSlider( "Non-phase dim (%)", 0, 50, 20, () => f.Dim,    v => f.Dim    = v, y );
     }
 
 
@@ -522,14 +744,14 @@ namespace RetroDevStudio.Dialogs
     private void BuildBlurPanel( HorizontalBlurFilter f )
     {
       int y = 8;
-      y = AddSlider( "Strength (%)", 0, 100, () => f.Strength, v => f.Strength = v, y );
+      y = AddSlider( "Strength (%)", 0, 100, 50, () => f.Strength, v => f.Strength = v, y );
       // Taps slider steps by 1 but the filter clamps to odd on apply, so
       // even values just fall back to the next-lower odd count. That's
       // simpler than making the slider step-by-2 and easier to explain.
-      y = AddSlider( "Taps (odd)",   3, 15,  () => f.Taps,     v => f.Taps     = v, y );
+      y = AddSlider( "Taps (odd)",   3, 15,  7,  () => f.Taps,     v => f.Taps     = v, y );
       // Sigma slider is stored as σ × 10 — 5..30 maps to σ 0.5..3.0. The
       // *10 trick avoids a float slider; the filter divides by 10 on use.
-      y = AddSlider( "Blur σ × 10",  5, 30,  () => f.Sigma,    v => f.Sigma    = v, y );
+      y = AddSlider( "Blur σ × 10",  5, 30,  12, () => f.Sigma,    v => f.Sigma    = v, y );
     }
 
 
@@ -537,11 +759,9 @@ namespace RetroDevStudio.Dialogs
     private void BuildGammaPanel( GammaAdjustFilter f )
     {
       int y = 8;
-      // Gamma slider is stored as γ × 100 — 50..300 maps to γ 0.5..3.0.
-      // 100 = identity, 220 ≈ typical CRT response.
-      y = AddSlider( "Gamma × 100",    50,   300, () => f.Gamma,      v => f.Gamma      = v, y );
-      y = AddSlider( "Brightness (%)", -100, 100, () => f.Brightness, v => f.Brightness = v, y );
-      y = AddSlider( "Contrast (%)",   -100, 100, () => f.Contrast,   v => f.Contrast   = v, y );
+      y = AddSlider( "Gamma × 100",    50,   300, 100, () => f.Gamma,      v => f.Gamma      = v, y );
+      y = AddSlider( "Brightness (%)", -100, 100, 0,   () => f.Brightness, v => f.Brightness = v, y );
+      y = AddSlider( "Contrast (%)",   -100, 100, 0,   () => f.Contrast,   v => f.Contrast   = v, y );
     }
 
 
@@ -549,8 +769,8 @@ namespace RetroDevStudio.Dialogs
     private void BuildColorTempPanel( ColorTemperatureFilter f )
     {
       int y = 8;
-      y = AddSlider( "Temperature",    -100, 100, () => f.Temperature, v => f.Temperature = v, y );
-      y = AddSlider( "Tint",           -100, 100, () => f.Tint,        v => f.Tint        = v, y );
+      y = AddSlider( "Temperature", -100, 100, 0, () => f.Temperature, v => f.Temperature = v, y );
+      y = AddSlider( "Tint",        -100, 100, 0, () => f.Tint,        v => f.Tint        = v, y );
     }
 
 
@@ -558,8 +778,8 @@ namespace RetroDevStudio.Dialogs
     private void BuildBarrelPanel( BarrelDistortionFilter f )
     {
       int y = 8;
-      y = AddSlider( "Curvature (%)", 0, 100, () => f.Curvature, v => f.Curvature = v, y );
-      y = AddSlider( "Vignette (%)",  0, 100, () => f.Vignette,  v => f.Vignette  = v, y );
+      y = AddSlider( "Curvature (%)", 0, 100, 25, () => f.Curvature, v => f.Curvature = v, y );
+      y = AddSlider( "Vignette (%)",  0, 100, 20, () => f.Vignette,  v => f.Vignette  = v, y );
     }
 
 

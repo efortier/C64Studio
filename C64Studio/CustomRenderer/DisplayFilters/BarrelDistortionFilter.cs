@@ -10,18 +10,35 @@ namespace RetroDevStudio.CustomRenderer.DisplayFilters
   /// envelope. Straight lines near the edges of the image bow outward the
   /// way they do on a real curved tube.
   ///
-  /// Math is the standard inverse Brown-Conrady first-order approximation:
-  /// for each TARGET pixel (u, v) normalized to [-1,+1] we pull from SOURCE
-  /// coordinates (u / (1 + k·r²), v / (1 + k·r²)). Higher <see cref="Curvature"/>
-  /// means more bow; a <see cref="Vignette"/> knob fades the corners to black
-  /// so the unused rim doesn't draw attention.
-  ///
-  /// Sampling is bilinear — without it, integer-floored reads would alias
-  /// into blocky moiré as the radial factor crosses pixel boundaries.
-  ///
+  /// <para>
+  /// The forward mapping (source → output) is the standard visual-FX form
+  /// <c>r_out = r_src · (1 + k·r_src²)</c>. That's positive-k with
+  /// multiplicative factor, which by convention in CRT / game shaders
+  /// pushes content outward at the corners — the same direction used by
+  /// Prideout's barrel shader and OpenXcom's CRT-simple. (Note: the optics
+  /// literature calls this "pincushion" under its sign convention; the
+  /// visual-FX community calls it "barrel" because the resulting image
+  /// looks bulged like a barrel. We use the visual-FX convention.)
+  /// </para>
+  /// <para>
+  /// Rendering inverts this: for each TARGET pixel (u, v) we need the
+  /// SOURCE (u_src, v_src) that forward-maps to (u, v). Since the forward
+  /// is a cubic in r_src with no clean closed form, we use two Newton
+  /// iterations starting from the first-order approximation
+  /// u_src ≈ u / (1 + k·r²_out). Two iterations get within 0.1 pixel even
+  /// at maximum curvature — more than adequate for a live preview.
+  /// </para>
+  /// <para>
+  /// Higher <see cref="Curvature"/> means more bow; a <see cref="Vignette"/>
+  /// knob fades the corners to black so the unused rim doesn't draw
+  /// attention. Sampling is bilinear — without it, integer-floored reads
+  /// alias into blocky moiré as the radial factor crosses pixel boundaries.
+  /// </para>
+  /// <para>
   /// Order in the pipeline: this filter is typically LAST, so it distorts
   /// the fully composited image (scanlines, phosphor, etc. all curve with
   /// the glass, just like a real CRT).
+  /// </para>
   /// </summary>
   public class BarrelDistortionFilter : DisplayFilterBase
   {
@@ -115,10 +132,26 @@ namespace RetroDevStudio.CustomRenderer.DisplayFilters
             double v = ( y - centerY ) / halfH;
             double r2 = u * u + v * v;
 
-            // Inverse barrel: pull from closer to center as r² grows.
-            double factor = 1.0 + k * r2;
-            double uSrc = u / factor;
-            double vSrc = v / factor;
+            // Inverse of forward mapping  r_out = r_src · (1 + k·r_src²).
+            // Start with the first-order approximation then refine with two
+            // Newton iterations. We express the inverse as a scalar shrink
+            // factor sh = r_src / r_out so both u and v scale by the same
+            // number and the direction vector is preserved. Without the
+            // refinement, at max curvature the actual source position
+            // drifts several pixels from where a true forward warp would
+            // pull it, which shows up as diagonal creep in the corners.
+            double sh = 1.0 / ( 1.0 + k * r2 );
+            for ( int iter = 0; iter < 2; ++iter )
+            {
+              // We want  sh · (1 + k · sh² · r2) = 1.
+              // Newton step on  f(sh)  = sh + k·sh³·r2 - 1
+              //                 f'(sh) = 1 + 3·k·sh²·r2
+              double fsh  = sh + k * sh * sh * sh * r2 - 1.0;
+              double dfsh = 1.0 + 3.0 * k * sh * sh * r2;
+              sh -= fsh / dfsh;
+            }
+            double uSrc = u * sh;
+            double vSrc = v * sh;
 
             // Back to target-pixel coordinates in the map's frame.
             double srcX = centerX + uSrc * halfW;

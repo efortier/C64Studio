@@ -378,6 +378,7 @@ namespace RetroDevStudio.Controls
       int markerStride = buf.ByteAt( 0 );
       int tileCount = buf.ByteAt( 1 );
       int mapCount = buf.ByteAt( 2 );
+      int entityStride = buf.ByteAt( 0x2D );
 
       var sb = new StringBuilder();
       sb.AppendLine( "Exported " + buf.Length + " bytes to " + targetPath );
@@ -389,7 +390,7 @@ namespace RetroDevStudio.Controls
       sb.AppendLine( RetroDevStudio.Formats.MapProject.GenerateGameBinaryHeaderAsm() );
 
       // --- HEADER ---
-      sb.AppendLine( "--- HEADER (45 bytes) ---" );
+      sb.AppendLine( "--- HEADER (52 bytes) ---" );
       sb.AppendLine( Addr( baseAddr, 0x00 ) + ": " + HexByte( buf.ByteAt( 0 ) ).PadRight( 24 ) + "marker_stride = " + markerStride );
       sb.AppendLine( Addr( baseAddr, 0x01 ) + ": " + HexByte( buf.ByteAt( 1 ) ).PadRight( 24 ) + "tile_count = " + tileCount );
       sb.AppendLine( Addr( baseAddr, 0x02 ) + ": " + HexByte( buf.ByteAt( 2 ) ).PadRight( 24 ) + "map_count = " + mapCount );
@@ -424,6 +425,24 @@ namespace RetroDevStudio.Controls
         ushort val = buf.UInt16At( hdrOff );
         string resolved = ( val != 0 ) ? " -> $" + val.ToString( "X4" ) : " -> (disabled)";
         sb.AppendLine( Addr( baseAddr, hdrOff ) + ": " + HexBytes( buf, hdrOff, 2 ).PadRight( 24 ) + hdrNames[i] + resolved );
+      }
+
+      // Entity section (v23+) — one stride byte followed by three 2-byte
+      // offset pointers, mirroring the marker section layout. Always printed
+      // so the .def dump reflects the full 52-byte header even when a map
+      // has no entity types defined yet.
+      sb.AppendLine( Addr( baseAddr, 0x2D ) + ": " + HexByte( buf.ByteAt( 0x2D ) ).PadRight( 24 ) + "entity_stride = " + entityStride );
+      string[] entHdrNames = {
+        "offset_map_entity_count",
+        "offset_map_entities_lo",
+        "offset_map_entities_hi",
+      };
+      for ( int i = 0; i < 3; ++i )
+      {
+        int hdrOff = 0x2E + i * 2;
+        ushort val = buf.UInt16At( hdrOff );
+        string resolved = ( val != 0 ) ? " -> $" + val.ToString( "X4" ) : " -> (disabled)";
+        sb.AppendLine( Addr( baseAddr, hdrOff ) + ": " + HexBytes( buf, hdrOff, 2 ).PadRight( 24 ) + entHdrNames[i] + resolved );
       }
       sb.AppendLine();
 
@@ -498,6 +517,12 @@ namespace RetroDevStudio.Controls
       AppendArraySection( sb, buf, ba, 0x27, mapCount, "map_passable_hi", 1 );
       AppendArraySection( sb, buf, ba, 0x29, mapCount, "map_markers_lo", 1 );
       AppendArraySection( sb, buf, ba, 0x2B, mapCount, "map_markers_hi", 1 );
+      // Entity lookup tables — AppendArraySection quietly skips any whose
+      // header pointer is zero, so these just drop out cleanly when a
+      // project has no entities.
+      AppendArraySection( sb, buf, ba, 0x2E, mapCount, "map_entity_count", 1 );
+      AppendArraySection( sb, buf, ba, 0x30, mapCount, "map_entities_lo", 1 );
+      AppendArraySection( sb, buf, ba, 0x32, mapCount, "map_entities_hi", 1 );
       sb.AppendLine();
 
       // --- PER-MAP VARIABLE DATA ---
@@ -514,6 +539,15 @@ namespace RetroDevStudio.Controls
         int mapWidthFilePos    = buf.UInt16At( 0x11 ) - ba;
         int mapHeightFilePos   = buf.UInt16At( 0x13 ) - ba;
         int markerCountFilePos = buf.UInt16At( 0x1B ) - ba;
+        // Entity lookup arrays — zero offset means the project has no
+        // entities, in which case we skip every entity-related read below
+        // via the per-map address check.
+        ushort entityCountAddr = buf.UInt16At( 0x2E );
+        ushort entitiesLoAddr  = buf.UInt16At( 0x30 );
+        ushort entitiesHiAddr  = buf.UInt16At( 0x32 );
+        int entityCountFilePos = ( entityCountAddr != 0 ) ? entityCountAddr - ba : -1;
+        int entitiesLoFilePos  = ( entitiesLoAddr  != 0 ) ? entitiesLoAddr  - ba : -1;
+        int entitiesHiFilePos  = ( entitiesHiAddr  != 0 ) ? entitiesHiAddr  - ba : -1;
 
         for ( int m = 0; m < mapCount; ++m )
         {
@@ -569,6 +603,42 @@ namespace RetroDevStudio.Controls
                   line += " enabled=" + buf.ByteAt( mFilePos + 5 );
                 if ( markerStride >= 7 )
                   line += " triggered=" + buf.ByteAt( mFilePos + 6 );
+                sb.AppendLine( line );
+              }
+            }
+          }
+
+          // Entities — mirrors the marker dump above. The count, lo, and hi
+          // header pointers may all be zero when the project has no
+          // entities, in which case entityCountFilePos / entitiesLoFilePos /
+          // entitiesHiFilePos are -1 and we skip entirely.
+          if ( ( entityCountFilePos >= 0 )
+          &&   ( entitiesLoFilePos  >= 0 )
+          &&   ( entitiesHiFilePos  >= 0 ) )
+          {
+            int entitiesAddr = buf.ByteAt( entitiesLoFilePos + m ) | ( buf.ByteAt( entitiesHiFilePos + m ) << 8 );
+            int ec = buf.ByteAt( entityCountFilePos + m );
+            if ( entitiesAddr != 0 && ec > 0 )
+            {
+              sb.AppendLine( "$" + entitiesAddr.ToString( "X4" ) + ": entities (" + ec + " x " + entityStride + " bytes = " + ( ec * entityStride ) + " bytes)" );
+              for ( int ek = 0; ek < ec; ++ek )
+              {
+                int eAddr = entitiesAddr + ek * entityStride;
+                int eFilePos = eAddr - ba;
+                // Current layout (stride 8): tag, x, y, tile, value1, value2, enabled, triggered
+                string line = "  $" + eAddr.ToString( "X4" ) + ": tag=" + HexByte( buf.ByteAt( eFilePos ) )
+                            + " x=" + buf.ByteAt( eFilePos + 1 )
+                            + " y=" + buf.ByteAt( eFilePos + 2 );
+                if ( entityStride >= 4 )
+                  line += " tile=" + buf.ByteAt( eFilePos + 3 );
+                if ( entityStride >= 5 )
+                  line += " value1=" + HexByte( buf.ByteAt( eFilePos + 4 ) );
+                if ( entityStride >= 6 )
+                  line += " value2=" + HexByte( buf.ByteAt( eFilePos + 5 ) );
+                if ( entityStride >= 7 )
+                  line += " enabled=" + buf.ByteAt( eFilePos + 6 );
+                if ( entityStride >= 8 )
+                  line += " triggered=" + buf.ByteAt( eFilePos + 7 );
                 sb.AppendLine( line );
               }
             }
