@@ -69,6 +69,22 @@ namespace RetroDevStudio.Documents
 
     private ToolMode                    m_ToolMode = ToolMode.SINGLE_TILE;
 
+    // Right-click selection: the marker or entity whose fields are currently
+    // mirrored in the toolbar value controls. Assigning to either causes the
+    // map to redraw with a highlight box and the respective "Delete ✕"
+    // toolbar button to enable. Only one thing can be selected at a time,
+    // and switching tool modes or current maps clears the selection so it
+    // can't drift out of context.
+    private Formats.MapProject.Marker   m_SelectedMarker = null;
+    private Formats.MapProject.Entity   m_SelectedEntity = null;
+
+    // Guards against spurious control-change callbacks firing while we are
+    // programmatically copying a selected instance's fields INTO the
+    // toolbar controls. Without it, the ValueChanged handlers would
+    // immediately write those same values back into the instance — cheap
+    // but it inflates the undo log and can reorder triggers.
+    private bool                        m_PopulatingFromSelection = false;
+
     private bool[,]                     m_SelectedTiles = new bool[20, 12];
 
     private bool                        m_MouseButtonReleased = false;
@@ -679,6 +695,56 @@ namespace RetroDevStudio.Documents
                TargetBuffer.Rectangle( targetX + 1, targetY + 1, targetW - 2, targetH - 2, 0xff000000 );
              }
           }
+        }
+      }
+
+      // Selection highlight — draw on top of everything else so the user
+      // can see which marker or entity the toolbar controls are editing.
+      // Bright yellow double-thickness outline at the cell boundary.
+      if ( m_CurrentMap != null )
+      {
+        const uint highlightColor = 0xfff9e2af;   // Catppuccin yellow
+        // Shared computation: given a map-cell (mx, my), compute a 1-cell
+        // target-pixel rectangle and draw a 2-pixel-thick outline.
+        System.Action<int, int> drawHighlightAt = ( int mx, int my ) =>
+        {
+          int sourceX = renderOffsetX + ( mx - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
+          int sourceY = renderOffsetY + ( my - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
+          int sourceW = m_CurrentMap.TileSpacingX * 8;
+          int sourceH = m_CurrentMap.TileSpacingY * 8;
+          if ( ( sourceX + sourceW <= 0 )
+          ||   ( sourceY + sourceH <= 0 )
+          ||   ( sourceX >= sourceWidth )
+          ||   ( sourceY >= sourceHeight ) )
+          {
+            return;
+          }
+          int tx = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX, sourceWidth, targetWidth ) ) );
+          int ty = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( sourceY, sourceHeight, targetHeight ) ) );
+          int tx2 = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX + sourceW, sourceWidth, targetWidth ) - 1 ) );
+          int ty2 = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( sourceY + sourceH, sourceHeight, targetHeight ) - 1 ) );
+          int tw = Math.Max( 1, tx2 - tx + 1 );
+          int th = Math.Max( 1, ty2 - ty + 1 );
+          // Two nested rectangles for a 2-pixel-thick outline. FastImage's
+          // Rectangle draws a 1-pixel border only, so we inset and redraw.
+          TargetBuffer.Rectangle( tx,     ty,     tw,     th,     highlightColor );
+          if ( ( tw > 2 ) && ( th > 2 ) )
+          {
+            TargetBuffer.Rectangle( tx + 1, ty + 1, tw - 2, th - 2, highlightColor );
+          }
+        };
+
+        if ( ( m_SelectedMarker != null )
+        &&   ( m_ToolMode == ToolMode.MARKER )
+        &&   ( m_CurrentMap.Markers.Contains( m_SelectedMarker ) ) )
+        {
+          drawHighlightAt( m_SelectedMarker.X, m_SelectedMarker.Y );
+        }
+        if ( ( m_SelectedEntity != null )
+        &&   ( m_ToolMode == ToolMode.ENTITY )
+        &&   ( m_CurrentMap.Entities.Contains( m_SelectedEntity ) ) )
+        {
+          drawHighlightAt( m_SelectedEntity.X, m_SelectedEntity.Y );
         }
       }
 
@@ -1761,30 +1827,21 @@ namespace RetroDevStudio.Documents
            &&   ( clickX < m_CurrentMap.Tiles.Width )
            &&   ( clickY < m_CurrentMap.Tiles.Height ) )
            {
-             var entityToRemove = m_CurrentMap.Entities.FirstOrDefault( en => en.X == clickX && en.Y == clickY );
-             if ( entityToRemove != null )
+             var entityHit = m_CurrentMap.Entities.FirstOrDefault( en => en.X == clickX && en.Y == clickY );
+             if ( entityHit != null )
              {
-               // Snapshot the list before removing so Ctrl+Z puts it back.
-               DocumentInfo.UndoManager.AddUndoTask(
-                 new Undo.UndoMapEntitiesChange( this, m_CurrentMap ) );
-
-               // Pre-populate the placement defaults from the removed entity so
-               // a follow-up left-click drops a new one with the same settings.
-               editEntityValue1Default.Value = entityToRemove.Value1;
-               editEntityValue2Default.Value = entityToRemove.Value2;
-               checkEntityDefaultEnabled.Checked = entityToRemove.Enabled;
-               checkEntityDefaultTriggered.Checked = entityToRemove.Triggered;
-
-               int typeIndex = m_MapProject.EntityTypes.FindIndex( t => t.ID == entityToRemove.Type );
-               if ( typeIndex != -1 )
-               {
-                 comboEntityTypes.SelectedIndex = typeIndex + 1;
-               }
-
-               m_CurrentMap.Entities.Remove( entityToRemove );
-               RedrawMap();
-               pictureEditor.Invalidate();
-               Modified = true;
+               // SELECT — not remove. The toolbar controls now mirror this
+               // entity's state, and further slider/checkbox/combo changes
+               // will write straight into it until selection is cleared.
+               // Deletion is a separate gesture via the "Delete ✕" button.
+               SelectEntity( entityHit );
+             }
+             else
+             {
+               // Right-click on empty tile in ENTITY mode — drop any
+               // existing selection so the toolbar reverts to "defaults
+               // for next placement" mode.
+               SelectEntity( null );
              }
            }
         }
@@ -1801,28 +1858,14 @@ namespace RetroDevStudio.Documents
            }
            else
            {
-             var markerToRemove = m_CurrentMap.Markers.FirstOrDefault( m => m.X == clickX && m.Y == clickY );
-             if ( markerToRemove != null )
+             var markerHit = m_CurrentMap.Markers.FirstOrDefault( m => m.X == clickX && m.Y == clickY );
+             if ( markerHit != null )
              {
-               // Load this marker's state into the edit fields before removing, so the user
-               // can inspect and reuse it. This includes the marker type in the combo, so
-               // a subsequent left-click puts the same kind of marker back.
-               editMarkerValue1.Value = markerToRemove.Value1;
-               editMarkerValue2.Value = markerToRemove.Value2;
-               checkMarkerDefaultEnabled.Checked = markerToRemove.Enabled;
-               checkMarkerDefaultTriggered.Checked = markerToRemove.Triggered;
-
-               int typeIndex = m_MapProject.MarkerTypes.FindIndex( t => t.ID == markerToRemove.Type );
-               if ( typeIndex != -1 )
-               {
-                 // +1 because index 0 of the combo is the "None" placeholder.
-                 comboMarkerTypes.SelectedIndex = typeIndex + 1;
-               }
-
-               m_CurrentMap.Markers.Remove( markerToRemove );
-               RedrawMap();
-               pictureEditor.Invalidate();
-               Modified = true;
+               SelectMarker( markerHit );
+             }
+             else
+             {
+               SelectMarker( null );
              }
            }
         }
@@ -3729,6 +3772,11 @@ namespace RetroDevStudio.Documents
 
     private void comboMaps_SelectedIndexChanged( object sender, EventArgs e )
     {
+      // Any current marker/entity selection belongs to the OLD m_CurrentMap,
+      // so clear it before we swap the map reference. Otherwise the Delete
+      // button could act on a marker that's no longer in the visible map.
+      ClearMarkerEntitySelection();
+
       m_CurrentMap = null;
 
       btnMapApply.Enabled = ( comboMaps.SelectedIndex != -1 );
@@ -5110,6 +5158,11 @@ namespace RetroDevStudio.Documents
     /// </summary>
     private void AfterToolChange()
     {
+      // A marker or entity selection is only meaningful while we're in the
+      // matching tool mode; switching away makes the Delete button useless
+      // and the highlight stale. Drop both selections unconditionally so
+      // the toolbar controls revert to "defaults for new placement".
+      ClearMarkerEntitySelection();
       UpdateMarkerControlsState();
       RedrawMap();
       pictureEditor.Invalidate();
@@ -6518,7 +6571,7 @@ namespace RetroDevStudio.Documents
       {
          var type = m_MapProject.MarkerTypes[markerTypeIdx];
          newSelectedMarkerType = type.ID;
-         
+
          if ( m_CurrentMap.SelectedMarkerType != newSelectedMarkerType )
          {
            m_CurrentMap.SelectedMarkerType = newSelectedMarkerType;
@@ -6531,6 +6584,19 @@ namespace RetroDevStudio.Documents
            // Just sync UI
            comboMarkerColorOverride.SelectedIndex = type.Color;
            comboMarkerColorOverride.Enabled = btnToolMarker.Checked;
+         }
+
+         // When a specific marker is selected, change the combo = retype
+         // that marker. Guarded by m_PopulatingFromSelection so reading a
+         // marker into the toolbar doesn't immediately rewrite its type.
+         if ( ( !m_PopulatingFromSelection )
+         &&   ( m_SelectedMarker != null )
+         &&   ( m_SelectedMarker.Type != newSelectedMarkerType ) )
+         {
+           DocumentInfo.UndoManager.AddUndoTask(
+             new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
+           m_SelectedMarker.Type = newSelectedMarkerType;
+           pictureEditor.Invalidate();
          }
       }
       else
@@ -6546,8 +6612,174 @@ namespace RetroDevStudio.Documents
 
     private void editMarkerValue_ValueChanged( object sender, EventArgs e )
     {
-      // Intentionally no-op: the value is read from the control when placing markers.
-      // Ensures the control always holds a valid byte (0-255) via its Min/Max.
+      // When a marker is selected (right-clicked), treat these controls as a
+      // live property editor for that marker. When nothing's selected, they
+      // behave as the "next placement" defaults — the left-click handler
+      // reads them at placement time, so we don't need to do anything here.
+      if ( m_PopulatingFromSelection ) return;
+      if ( m_SelectedMarker == null ) return;
+
+      byte newV1 = (byte)editMarkerValue1.Value;
+      byte newV2 = (byte)editMarkerValue2.Value;
+      if ( ( m_SelectedMarker.Value1 == newV1 )
+      &&   ( m_SelectedMarker.Value2 == newV2 ) )
+      {
+        return;
+      }
+      DocumentInfo.UndoManager.AddUndoTask(
+        new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
+      m_SelectedMarker.Value1 = newV1;
+      m_SelectedMarker.Value2 = newV2;
+      SetModified();
+      pictureEditor.Invalidate();
+    }
+
+
+
+    private void checkMarkerDefaultEnabled_CheckedChanged( object sender, EventArgs e )
+    {
+      if ( m_PopulatingFromSelection ) return;
+      if ( m_SelectedMarker == null ) return;
+      if ( m_SelectedMarker.Enabled == checkMarkerDefaultEnabled.Checked ) return;
+
+      DocumentInfo.UndoManager.AddUndoTask(
+        new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
+      m_SelectedMarker.Enabled = checkMarkerDefaultEnabled.Checked;
+      SetModified();
+      pictureEditor.Invalidate();
+    }
+
+
+
+    private void checkMarkerDefaultTriggered_CheckedChanged( object sender, EventArgs e )
+    {
+      if ( m_PopulatingFromSelection ) return;
+      if ( m_SelectedMarker == null ) return;
+      if ( m_SelectedMarker.Triggered == checkMarkerDefaultTriggered.Checked ) return;
+
+      DocumentInfo.UndoManager.AddUndoTask(
+        new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
+      m_SelectedMarker.Triggered = checkMarkerDefaultTriggered.Checked;
+      SetModified();
+      pictureEditor.Invalidate();
+    }
+
+
+
+    private void editEntityValue_ValueChanged( object sender, EventArgs e )
+    {
+      if ( m_PopulatingFromSelection ) return;
+      if ( m_SelectedEntity == null ) return;
+
+      byte newV1 = (byte)editEntityValue1Default.Value;
+      byte newV2 = (byte)editEntityValue2Default.Value;
+      if ( ( m_SelectedEntity.Value1 == newV1 )
+      &&   ( m_SelectedEntity.Value2 == newV2 ) )
+      {
+        return;
+      }
+      DocumentInfo.UndoManager.AddUndoTask(
+        new Undo.UndoMapEntitiesChange( this, m_CurrentMap ) );
+      m_SelectedEntity.Value1 = newV1;
+      m_SelectedEntity.Value2 = newV2;
+      SetModified();
+      RedrawMap();
+      pictureEditor.Invalidate();
+    }
+
+
+
+    private void checkEntityDefaultEnabled_CheckedChanged( object sender, EventArgs e )
+    {
+      if ( m_PopulatingFromSelection ) return;
+      if ( m_SelectedEntity == null ) return;
+      if ( m_SelectedEntity.Enabled == checkEntityDefaultEnabled.Checked ) return;
+
+      DocumentInfo.UndoManager.AddUndoTask(
+        new Undo.UndoMapEntitiesChange( this, m_CurrentMap ) );
+      m_SelectedEntity.Enabled = checkEntityDefaultEnabled.Checked;
+      SetModified();
+      RedrawMap();
+      pictureEditor.Invalidate();
+    }
+
+
+
+    private void checkEntityDefaultTriggered_CheckedChanged( object sender, EventArgs e )
+    {
+      if ( m_PopulatingFromSelection ) return;
+      if ( m_SelectedEntity == null ) return;
+      if ( m_SelectedEntity.Triggered == checkEntityDefaultTriggered.Checked ) return;
+
+      DocumentInfo.UndoManager.AddUndoTask(
+        new Undo.UndoMapEntitiesChange( this, m_CurrentMap ) );
+      m_SelectedEntity.Triggered = checkEntityDefaultTriggered.Checked;
+      SetModified();
+      RedrawMap();
+      pictureEditor.Invalidate();
+    }
+
+
+
+    private void btnDeleteSelectedMarker_Click( object sender, EventArgs e )
+    {
+      if ( m_CurrentMap == null ) return;
+      if ( m_SelectedMarker == null ) return;
+      if ( !m_CurrentMap.Markers.Contains( m_SelectedMarker ) )
+      {
+        // Stale selection (e.g. map changed under us). Just clear it.
+        SelectMarker( null );
+        return;
+      }
+
+      var type = m_MapProject.MarkerTypes.FirstOrDefault( t => t.ID == m_SelectedMarker.Type );
+      string typeName = ( type != null ) ? type.Name : "(unknown)";
+      var result = System.Windows.Forms.MessageBox.Show(
+        "Delete the selected marker at (" + m_SelectedMarker.X + ", " + m_SelectedMarker.Y
+          + ") of type '" + typeName + "'?",
+        "Delete marker",
+        System.Windows.Forms.MessageBoxButtons.YesNo,
+        System.Windows.Forms.MessageBoxIcon.Warning );
+      if ( result != System.Windows.Forms.DialogResult.Yes ) return;
+
+      DocumentInfo.UndoManager.AddUndoTask(
+        new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
+      m_CurrentMap.Markers.Remove( m_SelectedMarker );
+      SelectMarker( null );
+      SetModified();
+      RedrawMap();
+      pictureEditor.Invalidate();
+    }
+
+
+
+    private void btnDeleteSelectedEntity_Click( object sender, EventArgs e )
+    {
+      if ( m_CurrentMap == null ) return;
+      if ( m_SelectedEntity == null ) return;
+      if ( !m_CurrentMap.Entities.Contains( m_SelectedEntity ) )
+      {
+        SelectEntity( null );
+        return;
+      }
+
+      var type = m_MapProject.EntityTypes.FirstOrDefault( t => t.ID == m_SelectedEntity.Type );
+      string typeName = ( type != null ) ? type.Name : "(unknown)";
+      var result = System.Windows.Forms.MessageBox.Show(
+        "Delete the selected entity at (" + m_SelectedEntity.X + ", " + m_SelectedEntity.Y
+          + ") of type '" + typeName + "'?",
+        "Delete entity",
+        System.Windows.Forms.MessageBoxButtons.YesNo,
+        System.Windows.Forms.MessageBoxIcon.Warning );
+      if ( result != System.Windows.Forms.DialogResult.Yes ) return;
+
+      DocumentInfo.UndoManager.AddUndoTask(
+        new Undo.UndoMapEntitiesChange( this, m_CurrentMap ) );
+      m_CurrentMap.Entities.Remove( m_SelectedEntity );
+      SelectEntity( null );
+      SetModified();
+      RedrawMap();
+      pictureEditor.Invalidate();
     }
 
     private void btnClearMarkers_Click( object sender, EventArgs e )
@@ -6624,6 +6856,132 @@ namespace RetroDevStudio.Documents
        btnClearMarkerType.Enabled = enabled;
        // The dim slider is shared between marker and entity placement modes.
        dimSlider.Enabled = enabled || btnToolEntity.Checked;
+       UpdateDeleteSelectedButtonsEnabled();
+    }
+
+
+
+    /// <summary>
+    /// Sync the "Delete ✕" toolbar buttons' Enabled state with the current
+    /// selection. Called whenever <see cref="m_SelectedMarker"/> or
+    /// <see cref="m_SelectedEntity"/> changes, AND whenever the tool mode
+    /// changes (since switching away from MARKER/ENTITY also clears that
+    /// side's selection). Cheap enough to call eagerly.
+    /// </summary>
+    private void UpdateDeleteSelectedButtonsEnabled()
+    {
+      if ( btnDeleteSelectedMarker != null )
+      {
+        btnDeleteSelectedMarker.Enabled =
+          ( m_ToolMode == ToolMode.MARKER )
+          && ( m_SelectedMarker != null );
+      }
+      if ( btnDeleteSelectedEntity != null )
+      {
+        btnDeleteSelectedEntity.Enabled =
+          ( m_ToolMode == ToolMode.ENTITY )
+          && ( m_SelectedEntity != null );
+      }
+    }
+
+
+
+    /// <summary>
+    /// Clear both marker and entity selection and refresh the delete
+    /// buttons. Used on map change and tool change; separated out because
+    /// it's repeated in several spots.
+    /// </summary>
+    private void ClearMarkerEntitySelection()
+    {
+      bool hadSomething = ( m_SelectedMarker != null ) || ( m_SelectedEntity != null );
+      m_SelectedMarker = null;
+      m_SelectedEntity = null;
+      UpdateDeleteSelectedButtonsEnabled();
+      if ( hadSomething )
+      {
+        pictureEditor.Invalidate();
+      }
+    }
+
+
+
+    /// <summary>
+    /// Select a marker (or null to deselect). When a marker is selected the
+    /// toolbar's marker-related controls are populated from it, and further
+    /// changes to those controls write back into the marker instance via
+    /// the ValueChanged/CheckedChanged/SelectedIndexChanged handlers.
+    /// Wrapped in <see cref="m_PopulatingFromSelection"/> so the populate
+    /// step doesn't immediately fire those same handlers with the values
+    /// we just copied in (a no-op but it pollutes undo history).
+    /// </summary>
+    private void SelectMarker( Formats.MapProject.Marker marker )
+    {
+      m_SelectedMarker = marker;
+      // Selecting a marker kicks out any entity selection — only one side
+      // can be active in the UI at a time.
+      m_SelectedEntity = null;
+
+      if ( marker != null )
+      {
+        m_PopulatingFromSelection = true;
+        try
+        {
+          editMarkerValue1.Value = marker.Value1;
+          editMarkerValue2.Value = marker.Value2;
+          checkMarkerDefaultEnabled.Checked = marker.Enabled;
+          checkMarkerDefaultTriggered.Checked = marker.Triggered;
+
+          int typeIndex = m_MapProject.MarkerTypes.FindIndex( t => t.ID == marker.Type );
+          if ( typeIndex != -1 )
+          {
+            // +1 because index 0 of the combo is the "None" placeholder.
+            comboMarkerTypes.SelectedIndex = typeIndex + 1;
+          }
+        }
+        finally
+        {
+          m_PopulatingFromSelection = false;
+        }
+      }
+      UpdateDeleteSelectedButtonsEnabled();
+      pictureEditor.Invalidate();
+    }
+
+
+
+    /// <summary>
+    /// Select an entity (or null to deselect). Mirrors <see cref="SelectMarker"/>;
+    /// entity selection clears any marker selection for the same
+    /// one-thing-active-at-a-time rule.
+    /// </summary>
+    private void SelectEntity( Formats.MapProject.Entity entity )
+    {
+      m_SelectedEntity = entity;
+      m_SelectedMarker = null;
+
+      if ( entity != null )
+      {
+        m_PopulatingFromSelection = true;
+        try
+        {
+          editEntityValue1Default.Value = entity.Value1;
+          editEntityValue2Default.Value = entity.Value2;
+          checkEntityDefaultEnabled.Checked = entity.Enabled;
+          checkEntityDefaultTriggered.Checked = entity.Triggered;
+
+          int typeIndex = m_MapProject.EntityTypes.FindIndex( t => t.ID == entity.Type );
+          if ( typeIndex != -1 )
+          {
+            comboEntityTypes.SelectedIndex = typeIndex + 1;
+          }
+        }
+        finally
+        {
+          m_PopulatingFromSelection = false;
+        }
+      }
+      UpdateDeleteSelectedButtonsEnabled();
+      pictureEditor.Invalidate();
     }
     private void comboMarkerColorOverride_DrawItem( object sender, DrawItemEventArgs e )
     {
@@ -6889,6 +7247,21 @@ namespace RetroDevStudio.Documents
       {
         m_CurrentMap.SelectedEntityType = newSelectedEntityType;
         SetModified();
+      }
+
+      // When a specific entity is selected, change the combo = retype that
+      // entity. Guarded by m_PopulatingFromSelection so right-clicking to
+      // select doesn't immediately rewrite the same type back.
+      if ( ( !m_PopulatingFromSelection )
+      &&   ( m_SelectedEntity != null )
+      &&   ( newSelectedEntityType >= 0 )
+      &&   ( m_SelectedEntity.Type != newSelectedEntityType ) )
+      {
+        DocumentInfo.UndoManager.AddUndoTask(
+          new Undo.UndoMapEntitiesChange( this, m_CurrentMap ) );
+        m_SelectedEntity.Type = newSelectedEntityType;
+        RedrawMap();
+        pictureEditor.Invalidate();
       }
     }
 

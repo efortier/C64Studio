@@ -83,6 +83,8 @@
             this.checkEntityDefaultEnabled = new Krypton.Toolkit.KryptonCheckBox();
             this.checkEntityDefaultTriggered = new Krypton.Toolkit.KryptonCheckBox();
             this.checkShowEntities = new Krypton.Toolkit.KryptonCheckBox();
+            this.btnDeleteSelectedEntity = new Krypton.Toolkit.KryptonButton();
+            this.btnDeleteSelectedMarker = new Krypton.Toolkit.KryptonButton();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.dimSlider = new Krypton.Toolkit.KryptonTrackBar();
             this.btnClearMarkers = new Krypton.Toolkit.KryptonButton();
@@ -426,9 +428,10 @@
             this.checkMarkerDefaultEnabled.TabIndex = 12;
             this.checkMarkerDefaultEnabled.Text = "Enabled (default)";
             this.checkMarkerDefaultEnabled.UseVisualStyleBackColor = true;
-            // 
+            this.checkMarkerDefaultEnabled.CheckedChanged += new System.EventHandler(this.checkMarkerDefaultEnabled_CheckedChanged);
+            //
             // checkMarkerDefaultTriggered
-            // 
+            //
             this.checkMarkerDefaultTriggered.AutoSize = true;
             this.checkMarkerDefaultTriggered.Location = new System.Drawing.Point(174, 182);
             this.checkMarkerDefaultTriggered.Name = "checkMarkerDefaultTriggered";
@@ -436,6 +439,7 @@
             this.checkMarkerDefaultTriggered.TabIndex = 13;
             this.checkMarkerDefaultTriggered.Text = "Triggered (default)";
             this.checkMarkerDefaultTriggered.UseVisualStyleBackColor = true;
+            this.checkMarkerDefaultTriggered.CheckedChanged += new System.EventHandler(this.checkMarkerDefaultTriggered_CheckedChanged);
             // 
             // comboMarkerColor
             // 
@@ -725,6 +729,7 @@
             this.flowLayoutPanel2.Controls.Add(this.editEntityValue2Default);
             this.flowLayoutPanel2.Controls.Add(this.checkEntityDefaultEnabled);
             this.flowLayoutPanel2.Controls.Add(this.checkEntityDefaultTriggered);
+            this.flowLayoutPanel2.Controls.Add(this.btnDeleteSelectedEntity);
             this.flowLayoutPanel2.Controls.Add(this.checkShowEntities);
             this.flowLayoutPanel2.Location = new System.Drawing.Point(177, 42);
             this.flowLayoutPanel2.Name = "flowLayoutPanel2";
@@ -788,7 +793,8 @@
             0,
             0,
             0});
-            // 
+            this.editEntityValue1Default.ValueChanged += new System.EventHandler(this.editEntityValue_ValueChanged);
+            //
             // labelEntityValue2
             // 
             this.labelEntityValue2.AutoSize = true;
@@ -825,6 +831,7 @@
             0,
             0,
             0});
+            this.editEntityValue2Default.ValueChanged += new System.EventHandler(this.editEntityValue_ValueChanged);
             //
             // checkEntityDefaultEnabled
             //
@@ -837,6 +844,7 @@
             this.checkEntityDefaultEnabled.Size = new System.Drawing.Size(83, 22);
             this.checkEntityDefaultEnabled.TabIndex = 46;
             this.checkEntityDefaultEnabled.Values.Text = "Enabled";
+            this.checkEntityDefaultEnabled.CheckedChanged += new System.EventHandler(this.checkEntityDefaultEnabled_CheckedChanged);
             //
             // checkEntityDefaultTriggered
             //
@@ -849,6 +857,20 @@
             this.checkEntityDefaultTriggered.Size = new System.Drawing.Size(83, 22);
             this.checkEntityDefaultTriggered.TabIndex = 48;
             this.checkEntityDefaultTriggered.Values.Text = "Triggered";
+            this.checkEntityDefaultTriggered.CheckedChanged += new System.EventHandler(this.checkEntityDefaultTriggered_CheckedChanged);
+            //
+            // btnDeleteSelectedEntity
+            //
+            this.btnDeleteSelectedEntity.Enabled = false;
+            this.btnDeleteSelectedEntity.Location = new System.Drawing.Point(590, 3);
+            this.btnDeleteSelectedEntity.Margin = new System.Windows.Forms.Padding(3, 3, 3, 0);
+            this.btnDeleteSelectedEntity.Name = "btnDeleteSelectedEntity";
+            this.btnDeleteSelectedEntity.Size = new System.Drawing.Size(26, 24);
+            this.btnDeleteSelectedEntity.TabIndex = 49;
+            this.btnDeleteSelectedEntity.Values.Text = "✕";
+            this.btnDeleteSelectedEntity.StateCommon.Content.ShortText.Color1 = System.Drawing.Color.FromArgb(243, 139, 168);
+            this.toolTip1.SetToolTip(this.btnDeleteSelectedEntity, "Delete the currently selected entity (right-click one on the map to select it)");
+            this.btnDeleteSelectedEntity.Click += new System.EventHandler(this.btnDeleteSelectedEntity_Click);
             //
             // checkShowEntities
             // 
@@ -1406,6 +1428,7 @@
             this.flowLayoutPanel1.Controls.Add(this.editMarkerValue1);
             this.flowLayoutPanel1.Controls.Add(this.labelMarkerValue2);
             this.flowLayoutPanel1.Controls.Add(this.editMarkerValue2);
+            this.flowLayoutPanel1.Controls.Add(this.btnDeleteSelectedMarker);
             this.flowLayoutPanel1.Controls.Add(this.comboMarkerColorOverride);
             this.flowLayoutPanel1.Controls.Add(this.labelEditInfo);
             this.flowLayoutPanel1.Location = new System.Drawing.Point(177, 10);
@@ -1564,7 +1587,20 @@
             0,
             0});
             this.editMarkerValue2.ValueChanged += new System.EventHandler(this.editMarkerValue_ValueChanged);
-            // 
+            //
+            // btnDeleteSelectedMarker
+            //
+            this.btnDeleteSelectedMarker.Enabled = false;
+            this.btnDeleteSelectedMarker.Location = new System.Drawing.Point(556, 3);
+            this.btnDeleteSelectedMarker.Margin = new System.Windows.Forms.Padding(3, 3, 3, 0);
+            this.btnDeleteSelectedMarker.Name = "btnDeleteSelectedMarker";
+            this.btnDeleteSelectedMarker.Size = new System.Drawing.Size(26, 24);
+            this.btnDeleteSelectedMarker.TabIndex = 34;
+            this.btnDeleteSelectedMarker.Values.Text = "✕";
+            this.btnDeleteSelectedMarker.StateCommon.Content.ShortText.Color1 = System.Drawing.Color.FromArgb(243, 139, 168);
+            this.toolTip1.SetToolTip(this.btnDeleteSelectedMarker, "Delete the currently selected marker (right-click one on the map to select it)");
+            this.btnDeleteSelectedMarker.Click += new System.EventHandler(this.btnDeleteSelectedMarker_Click);
+            //
             // comboMarkerColorOverride
             // 
             this.comboMarkerColorOverride.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
@@ -2729,6 +2765,8 @@
         private Krypton.Toolkit.KryptonNumericUpDown editEntityValue2Default;
         private Krypton.Toolkit.KryptonCheckBox checkEntityDefaultEnabled;
         private Krypton.Toolkit.KryptonCheckBox checkEntityDefaultTriggered;
+        private Krypton.Toolkit.KryptonButton btnDeleteSelectedEntity;
+        private Krypton.Toolkit.KryptonButton btnDeleteSelectedMarker;
         private Krypton.Toolkit.KryptonCheckBox checkShowEntities;
     private DecentForms.Button btnSetNextTileChar;
     private DecentForms.Button btnTileClone;
