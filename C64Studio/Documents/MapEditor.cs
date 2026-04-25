@@ -56,8 +56,17 @@ namespace RetroDevStudio.Documents
     private const int                   MapZoomWheelStepPercent = 5;
     private const int                   MapTileListItemHeight = 44;
     private const int                   MapTilePreviewPadding = 2;
+    // Square edge length (in pixels) of the tile thumbnail rendered into
+    // each listTileInfo row on the Tiles tab. Drives both the row height
+    // (via the placeholder ImageList entry) and the per-row blit size.
+    private const int                   MapTileListThumbnailSize = 32;
 
     private GR.Image.MemoryImage        m_Image = new GR.Image.MemoryImage( MapDisplayBaseWidth, MapDisplayBaseHeight, GR.Drawing.PixelFormat.Format32bppRgb );
+
+    // Placeholder bitmap held by listTileInfo's SmallImageList. Never
+    // drawn (DrawItemImage takes over) but must remain alive while the
+    // editor exists — see the constructor for the gory details.
+    private System.Drawing.Bitmap       m_TileThumbPlaceholder;
 
     private int                         m_MapZoomPercent = 100;
 
@@ -185,6 +194,32 @@ namespace RetroDevStudio.Documents
       GR.Image.DPIHandler.ResizeControlsForDPI( this );
 
       comboTiles.ItemHeight = MapTileListItemHeight;
+
+      // listTileInfo (Tiles tab) gets a per-row tile thumbnail rendered
+      // through the CSListView.DrawItemImage hook. The control reserves
+      // image-space only when its SmallImageList has at least one entry
+      // of the expected size, so we install a transparent placeholder
+      // bitmap sized to MapTileListThumbnailSize × MapTileListThumbnailSize.
+      // The placeholder is never actually drawn — DrawItemImage paints
+      // over it with the live, palette-correct tile preview built by
+      // listTileInfo_DrawItemImage (same approach comboTiles uses).
+      //
+      // The placeholder Bitmap MUST outlive the ImageList: ImageList.Images
+      // .Add keeps the source reference, not a copy, and the ListView
+      // queries that source's Size when its handle is realized. Disposing
+      // the placeholder before then triggers an ArgumentException out of
+      // System.Drawing.Image.get_Size. We keep it in a field so it lives
+      // for the editor's lifetime.
+      m_TileThumbPlaceholder = new System.Drawing.Bitmap(
+        MapTileListThumbnailSize, MapTileListThumbnailSize );
+      var tileImgList = new System.Windows.Forms.ImageList
+      {
+        ImageSize  = new System.Drawing.Size( MapTileListThumbnailSize, MapTileListThumbnailSize ),
+        ColorDepth = System.Windows.Forms.ColorDepth.Depth32Bit,
+      };
+      tileImgList.Images.Add( m_TileThumbPlaceholder );
+      listTileInfo.SmallImageList = tileImgList;
+      listTileInfo.DrawItemImage += listTileInfo_DrawItemImage;
 
       characterEditor.UndoManager = DocumentInfo.UndoManager;
       characterEditor.Core = Core;
@@ -2481,6 +2516,11 @@ namespace RetroDevStudio.Documents
           item.SubItems.Add( tile.Chars.Width.ToString() + "x" + tile.Chars.Height.ToString() );
           item.SubItems.Add( "?" );
           item.Tag = tile;
+          // ImageIndex = 0 picks up the SmallImageList placeholder, which
+          // is what triggers CSListView.DrawItemImage; the actual tile
+          // preview is rendered there from item.Tag rather than from the
+          // ImageList itself.
+          item.ImageIndex = 0;
 
           listTileInfo.Items.Add( item );
         }
@@ -3984,6 +4024,7 @@ namespace RetroDevStudio.Documents
       item.SubItems.Add( Tile.Chars.Width.ToString() + "x" + Tile.Chars.Height.ToString() );
       item.SubItems.Add( "0" );
       item.Tag = Tile;
+      item.ImageIndex = 0;
 
       listTileInfo.Items.Insert( TileIndex, item );
 
@@ -4401,6 +4442,64 @@ namespace RetroDevStudio.Documents
         return;
       }
       m_CurrentEditorTile = ( (GR.Generic.Tupel<string, Formats.MapProject.Tile>)comboTiles.SelectedItem ).second;
+    }
+
+
+
+    /// <summary>
+    /// Per-row tile thumbnail painter for listTileInfo on the Tiles tab.
+    /// Mirrors the comboTiles owner-draw pattern: build a FastImage at
+    /// the tile's native character resolution, render every char into it
+    /// using the project's palette, then blit it into the row's reserved
+    /// image slot at MapTileListThumbnailSize × MapTileListThumbnailSize.
+    /// The reserved slot is sized via the SmallImageList placeholder.
+    /// </summary>
+    private void listTileInfo_DrawItemImage( System.Drawing.Graphics g, int x, int y,
+                                             ListViewItem item, ListViewItem.ListViewSubItem subItem )
+    {
+      if ( g == null )
+      {
+        return;
+      }
+      var tile = item?.Tag as Formats.MapProject.Tile;
+      if ( ( tile == null )
+      ||   ( tile.Chars.Width <= 0 )
+      ||   ( tile.Chars.Height <= 0 ) )
+      {
+        return;
+      }
+
+      int rowH = listTileInfo.SmallImageList?.ImageSize.Height ?? MapTileListThumbnailSize;
+      int previewSize = Math.Max( 1, rowH - MapTilePreviewPadding * 2 );
+      var previewRect = new System.Drawing.Rectangle(
+        x,
+        y + ( rowH - previewSize ) / 2,
+        previewSize,
+        previewSize );
+
+      using ( var memImage = new GR.Image.FastImage(
+        tile.Chars.Width * 8, tile.Chars.Height * 8,
+        GR.Drawing.PixelFormat.Format32bppRgb ) )
+      {
+        PaletteManager.ApplyPalette( memImage );
+        for ( int j = 0; j < tile.Chars.Height; ++j )
+        {
+          for ( int i = 0; i < tile.Chars.Width; ++i )
+          {
+            var ch = tile.Chars[i, j];
+            DrawCharImage( memImage, i * 8, j * 8, ch.Character, ch.Color );
+          }
+        }
+        IntPtr hdc = g.GetHdc();
+        try
+        {
+          memImage.DrawToHDC( hdc, previewRect );
+        }
+        finally
+        {
+          g.ReleaseHdc();
+        }
+      }
     }
 
     private void tabMapEditor_SelectedIndexChanged( object sender, EventArgs e )
@@ -5096,6 +5195,7 @@ namespace RetroDevStudio.Documents
         item.SubItems.Add( tile.Chars.Width.ToString() + "x" + tile.Chars.Height.ToString() );
         item.SubItems.Add( "0" );
         item.Tag = tile;
+        item.ImageIndex = 0;
 
         listTileInfo.Items.Add( item );
       }
@@ -5487,6 +5587,14 @@ namespace RetroDevStudio.Documents
       if ( comboTiles.SelectedIndex == TileIndex )
       {
         comboTiles.Invalidate();
+      }
+      // Refresh just the modified row's thumbnail in the Tiles tab list.
+      // RedrawItems is cheaper than a full Invalidate and avoids visible
+      // flicker when the user paints quickly in the character editor.
+      if ( ( TileIndex >= 0 )
+      &&   ( TileIndex < listTileInfo.Items.Count ) )
+      {
+        listTileInfo.RedrawItems( TileIndex, TileIndex, false );
       }
       RedrawMap();
     }
