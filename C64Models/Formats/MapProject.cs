@@ -76,6 +76,17 @@ namespace RetroDevStudio.Formats
     public class Map
     {
       public GR.Game.Layer<int> Tiles = new GR.Game.Layer<int>();
+      /// <summary>
+      /// Per-cell C64 color override applied at placement time. -1 means
+      /// "no override" — the cell renders and exports using the tile's
+      /// own per-character colors (the default since this layer was added).
+      /// 0..15 means "paint the entire tile in this single C64 color"
+      /// for both the editor preview and the exported color grid; the
+      /// underlying tile definition is unchanged.
+      ///
+      /// Same dimensions as <see cref="Tiles"/>; resized in tandem.
+      /// </summary>
+      public GR.Game.Layer<int> TileColorOverrides = new GR.Game.Layer<int>();
       public string             Name = "";
       public int                TileSpacingX = 2;
       public int                TileSpacingY = 2;
@@ -355,6 +366,42 @@ namespace RetroDevStudio.Formats
           }
         }
         chunkMap.Append( chunkMapData.ToBuffer() );
+
+        // Per-cell color override layer. Saved as a sparse chunk: skip
+        // entirely if every cell is -1 (the default for a fresh map),
+        // since most maps won't use this feature and there's no point
+        // bloating the file. The reader treats an absent chunk as
+        // "all default" and resizes the override layer to match Tiles.
+        bool anyOverride = false;
+        if ( ( map.TileColorOverrides.Width == map.Tiles.Width )
+        &&   ( map.TileColorOverrides.Height == map.Tiles.Height ) )
+        {
+          for ( int j = 0; j < map.Tiles.Height && !anyOverride; ++j )
+          {
+            for ( int i = 0; i < map.Tiles.Width; ++i )
+            {
+              if ( map.TileColorOverrides[i, j] != -1 )
+              {
+                anyOverride = true;
+                break;
+              }
+            }
+          }
+        }
+        if ( anyOverride )
+        {
+          GR.IO.FileChunk chunkOverrides = new GR.IO.FileChunk( FileChunkConstants.MAP_TILE_COLOR_OVERRIDES );
+          chunkOverrides.AppendI32( map.Tiles.Width );
+          chunkOverrides.AppendI32( map.Tiles.Height );
+          for ( int j = 0; j < map.Tiles.Height; ++j )
+          {
+            for ( int i = 0; i < map.Tiles.Width; ++i )
+            {
+              chunkOverrides.AppendI32( map.TileColorOverrides[i, j] );
+            }
+          }
+          chunkMap.Append( chunkOverrides.ToBuffer() );
+        }
 
         if ( map.ExtraDataText.Length > 0 )
         {
@@ -678,11 +725,23 @@ namespace RetroDevStudio.Formats
                               int h = mapChunkReader.ReadInt32();
 
                               map.Tiles.Resize( w, h );
+                              // Keep the override layer in lockstep with
+                              // Tiles. Default to -1 (no override) for
+                              // every cell — the optional MAP_TILE_COLOR_
+                              // OVERRIDES chunk below may overwrite these.
+                              map.TileColorOverrides.Resize( w, h );
+                              for ( int yy = 0; yy < h; ++yy )
+                              {
+                                for ( int xx = 0; xx < w; ++xx )
+                                {
+                                  map.TileColorOverrides[xx, yy] = -1;
+                                }
+                              }
 
                               // Optimization: Read entire block at once
                               GR.Memory.ByteBuffer  inputBuffer = new GR.Memory.ByteBuffer();
                               mapChunkReader.ReadBlock( inputBuffer, (uint)( w * h * 4 ) );
-                              
+
                               for ( int j = 0; j < h; ++j )
                               {
                                 for ( int i = 0; i < w; ++i )
@@ -692,6 +751,29 @@ namespace RetroDevStudio.Formats
                                                        | ( inputBuffer.ByteAt( offset + 1 ) << 8 )
                                                        | ( inputBuffer.ByteAt( offset + 2 ) << 16 )
                                                        | ( inputBuffer.ByteAt( offset + 3 ) << 24 ) );
+                                }
+                              }
+                            }
+                            break;
+                          case FileChunkConstants.MAP_TILE_COLOR_OVERRIDES:
+                            {
+                              // Optional chunk — only present when at
+                              // least one cell has a non-default override.
+                              // Old project files don't include it; the
+                              // MAP_DATA loader above already initialized
+                              // the layer to all -1 in that case.
+                              int w = mapChunkReader.ReadInt32();
+                              int h = mapChunkReader.ReadInt32();
+                              if ( ( map.TileColorOverrides.Width != w )
+                              ||   ( map.TileColorOverrides.Height != h ) )
+                              {
+                                map.TileColorOverrides.Resize( w, h );
+                              }
+                              for ( int j = 0; j < h; ++j )
+                              {
+                                for ( int i = 0; i < w; ++i )
+                                {
+                                  map.TileColorOverrides[i, j] = mapChunkReader.ReadInt32();
                                 }
                               }
                             }
@@ -2078,6 +2160,16 @@ namespace RetroDevStudio.Formats
             &&   ( tileIndex != Settings.Assembly.EmptyTileIndex || !Settings.Assembly.EmptyTileCompressionEnabled ) )
             {
               var tile = Tiles[tileIndex];
+              // Per-cell color override: if set (>=0), every character of
+              // this tile placement gets that single color in the exported
+              // grid. Otherwise we fall back to the tile's per-character
+              // colors as before.
+              int cellOverride = -1;
+              if ( ( tx < map.TileColorOverrides.Width )
+              &&   ( ty < map.TileColorOverrides.Height ) )
+              {
+                cellOverride = map.TileColorOverrides[tx, ty];
+              }
               for ( int cy = 0; cy < tile.Chars.Height; ++cy )
               {
                 for ( int cx = 0; cx < tile.Chars.Width; ++cx )
@@ -2088,7 +2180,9 @@ namespace RetroDevStudio.Formats
                   {
                     int off = finalX + finalY * ew;
                     charGrid[off] = tile.Chars[cx, cy].Character;
-                    colorGrid[off] = tile.Chars[cx, cy].Color;
+                    colorGrid[off] = ( cellOverride >= 0 )
+                                     ? (byte)cellOverride
+                                     : tile.Chars[cx, cy].Color;
                   }
                 }
               }

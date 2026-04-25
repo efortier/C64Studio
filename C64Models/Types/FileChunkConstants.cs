@@ -41,6 +41,7 @@
     public const ushort    MAP_MARKERS                    = 0x132C;
     public const ushort    MAP_ENTITY_TYPES               = 0x132D;
     public const ushort    MAP_ENTITIES                   = 0x132E;
+    public const ushort    MAP_TILE_COLOR_OVERRIDES       = 0x132F;
 
     public const ushort    SOURCE_ASM                     = 0x1330;
     public const ushort    SOURCE_BASIC                   = 0x1331;

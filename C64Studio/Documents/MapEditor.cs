@@ -94,6 +94,13 @@ namespace RetroDevStudio.Documents
     // takes over.
     private System.Drawing.Point        m_SelectedTilePos = new System.Drawing.Point( -1, -1 );
 
+    // -1 = "Default" (use the tile's intrinsic char colors when placing).
+    // 0..15 = paint all of the placed tile's characters in this single C64
+    // color. Driven by comboTilePlacementColor on the editor toolbar; read
+    // by every tile-placement code path and written into the current map's
+    // TileColorOverrides[x, y] for each cell that gets a new tile.
+    private int                         m_TilePlacementColorOverride = -1;
+
     // Guards against spurious control-change callbacks firing while we are
     // programmatically copying a selected instance's fields INTO the
     // toolbar controls. Without it, the ValueChanged handlers would
@@ -188,6 +195,7 @@ namespace RetroDevStudio.Documents
       WireOwnerDrawCombo( comboMapAlternativeBGColor4, comboAlternativeColor_DrawItem );
       WireOwnerDrawCombo( comboDesignerBackground,    comboColor_DrawItem );
       WireOwnerDrawCombo( comboMarkerColorOverride,   comboMarkerColorOverride_DrawItem );
+      WireOwnerDrawCombo( comboTilePlacementColor,    comboTilePlacementColor_DrawItem );
 
       characterEditor.Core = Core;
 
@@ -219,6 +227,11 @@ namespace RetroDevStudio.Documents
       };
       tileImgList.Images.Add( m_TileThumbPlaceholder );
       listTileInfo.SmallImageList = tileImgList;
+      // Column layout: # | Preview | Name | Size | Used. The preview lives
+      // in column 1 — between the index and name — so the user's eye
+      // tracks index → thumbnail → name left-to-right. CSListView's
+      // default of column 0 would overlap the index text with the image.
+      listTileInfo.ImageColumnIndex = 1;
       listTileInfo.DrawItemImage += listTileInfo_DrawItemImage;
 
       characterEditor.UndoManager = DocumentInfo.UndoManager;
@@ -303,6 +316,11 @@ namespace RetroDevStudio.Documents
       comboMarkerColor.SelectedIndex = 0;
       comboMarkerColorOverride.SelectedIndex = 0;
 
+      // "Default" + 16 C64 colors for the tile placement color override.
+      // Default index 0 means no override; placing leaves the tile's
+      // intrinsic char colors alone.
+      RefreshTilePlacementColorCombo();
+      comboTilePlacementColor.SelectedIndex = 0;
 
       comboExportOrientation.SelectedIndex = 0;
       comboExportData.SelectedIndex = 0;
@@ -1206,6 +1224,7 @@ namespace RetroDevStudio.Documents
           if ( selectionChar.first )
           {
             m_CurrentMap.Tiles[m_MousePos.X + m_CurEditorOffsetX + i, m_MousePos.Y + m_CurEditorOffsetY + j] = selectionChar.second;
+            ApplyPlacementColorOverride( m_MousePos.X + m_CurEditorOffsetX + i, m_MousePos.Y + m_CurEditorOffsetY + j );
 
             DrawTile( ( m_MousePos.X + i ) * 8 * m_CurrentMap.TileSpacingX,
                       ( m_MousePos.Y + j ) * 8 * m_CurrentMap.TileSpacingY,
@@ -1252,8 +1271,9 @@ namespace RetroDevStudio.Documents
 
         if ( m_CurrentMap.Tiles[point.X, point.Y] != m_CurrentEditorTile.Index )
         {
-          DrawTile( point.X, point.Y, m_CurrentEditorTile.Index );
+          DrawTile( point.X, point.Y, m_CurrentEditorTile.Index, m_TilePlacementColorOverride );
           m_CurrentMap.Tiles[point.X, point.Y] = m_CurrentEditorTile.Index;
+          ApplyPlacementColorOverride( point.X, point.Y );
 
           if ( ( point.X > 0 )
           &&   ( m_CurrentMap.Tiles[point.X - 1, point.Y] == tileToFill ) )
@@ -1395,10 +1415,12 @@ namespace RetroDevStudio.Documents
               {
                 for ( int x = p1.X; x <= p2.X; ++x )
                 {
-                  DrawTile( x - m_CurEditorOffsetX, p1.Y - m_CurEditorOffsetY, m_CurrentEditorTile.Index );
-                  DrawTile( x - m_CurEditorOffsetX, p2.Y - m_CurEditorOffsetY, m_CurrentEditorTile.Index );
+                  DrawTile( x - m_CurEditorOffsetX, p1.Y - m_CurEditorOffsetY, m_CurrentEditorTile.Index, m_TilePlacementColorOverride );
+                  DrawTile( x - m_CurEditorOffsetX, p2.Y - m_CurEditorOffsetY, m_CurrentEditorTile.Index, m_TilePlacementColorOverride );
                   m_CurrentMap.Tiles[x, p1.Y] = m_CurrentEditorTile.Index;
                   m_CurrentMap.Tiles[x, p2.Y] = m_CurrentEditorTile.Index;
+                  ApplyPlacementColorOverride( x, p1.Y );
+                  ApplyPlacementColorOverride( x, p2.Y );
 
                   pictureEditor.DisplayPage.DrawTo( m_Image,
                                   renderOffsetX + ( x - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
@@ -1415,10 +1437,12 @@ namespace RetroDevStudio.Documents
                 }
                 for ( int y = p1.Y + 1; y <= p2.Y - 1; ++y )
                 {
-                  DrawTile( p1.X - m_CurEditorOffsetX, y - m_CurEditorOffsetY, m_CurrentEditorTile.Index );
-                  DrawTile( p2.X - m_CurEditorOffsetX, y - m_CurEditorOffsetY, m_CurrentEditorTile.Index );
+                  DrawTile( p1.X - m_CurEditorOffsetX, y - m_CurEditorOffsetY, m_CurrentEditorTile.Index, m_TilePlacementColorOverride );
+                  DrawTile( p2.X - m_CurEditorOffsetX, y - m_CurEditorOffsetY, m_CurrentEditorTile.Index, m_TilePlacementColorOverride );
                   m_CurrentMap.Tiles[p1.X, y] = m_CurrentEditorTile.Index;
                   m_CurrentMap.Tiles[p2.X, y] = m_CurrentEditorTile.Index;
+                  ApplyPlacementColorOverride( p1.X, y );
+                  ApplyPlacementColorOverride( p2.X, y );
 
                   pictureEditor.DisplayPage.DrawTo( m_Image,
                                   renderOffsetX + ( p1.X - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
@@ -1440,8 +1464,9 @@ namespace RetroDevStudio.Documents
                 {
                   for ( int x = p1.X; x <= p2.X; ++x )
                   {
-                    DrawTile( x - m_CurEditorOffsetX, y - m_CurEditorOffsetY, m_CurrentEditorTile.Index );
+                    DrawTile( x - m_CurEditorOffsetX, y - m_CurEditorOffsetY, m_CurrentEditorTile.Index, m_TilePlacementColorOverride );
                     m_CurrentMap.Tiles[x, y] = m_CurrentEditorTile.Index;
+                    ApplyPlacementColorOverride( x, y );
                     pictureEditor.DisplayPage.DrawTo( m_Image,
                                     renderOffsetX + ( x - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
                                     renderOffsetY + ( y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
@@ -1610,7 +1635,8 @@ namespace RetroDevStudio.Documents
                 m_LastPaintedPos = currentPos;
               }
 
-              if ( m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY] != tileIndex )
+              if ( ( m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY] != tileIndex )
+              ||   ( m_CurrentMap.TileColorOverrides[trueX + offsetX, trueY + offsetY] != m_TilePlacementColorOverride ) )
               {
                 if ( m_MouseButtonReleased )
                 {
@@ -1618,10 +1644,11 @@ namespace RetroDevStudio.Documents
                   DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height ) );
                 }
                 m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY] = tileIndex;
+                ApplyPlacementColorOverride( trueX + offsetX, trueY + offsetY );
                 SetModified();
                 //RecalcTileUsageInCurrentMap();
 
-                DrawTile( trueX, trueY, tileIndex );
+                DrawTile( trueX, trueY, tileIndex, m_TilePlacementColorOverride );
                 // copy to image cache
                 pictureEditor.DisplayPage.DrawTo( m_Image,
                                 trueX * 8 * m_CurrentMap.TileSpacingX,
@@ -1983,8 +2010,9 @@ namespace RetroDevStudio.Documents
           }
           if ( tileToUse != null )
           {
-            DrawTile( trueX, trueY, tileToUse.Index );
+            DrawTile( trueX, trueY, tileToUse.Index, m_TilePlacementColorOverride );
             m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY] = tileToUse.Index;
+            ApplyPlacementColorOverride( trueX + offsetX, trueY + offsetY );
 
             pictureEditor.DisplayPage.DrawTo( m_Image,
                             trueX * 8 * m_CurrentMap.TileSpacingX,
@@ -2090,7 +2118,7 @@ namespace RetroDevStudio.Documents
       characterEditor.CharacterMapUsageText = "Usage in maps: " + mapUsageCount;
     }
 
-    private void DrawTile( int trueX, int trueY, int TileIndex )
+    private void DrawTile( int trueX, int trueY, int TileIndex, int colorOverride = -1 )
     {
       if ( ( TileIndex < 0 )
       ||   ( TileIndex >= m_MapProject.Tiles.Count ) )
@@ -2103,11 +2131,18 @@ namespace RetroDevStudio.Documents
       {
         for ( int i = 0; i < m_MapProject.Tiles[TileIndex].Chars.Width; ++i )
         {
+          // Per-cell color override: when colorOverride >= 0 every char of
+          // the tile renders in that single color, matching how the
+          // exported color grid will look. Default colorOverride = -1
+          // keeps the tile's intrinsic per-character colors.
+          byte colorToUse = ( colorOverride >= 0 )
+                            ? (byte)colorOverride
+                            : m_MapProject.Tiles[TileIndex].Chars[i, j].Color;
           DrawCharImage( pictureEditor.DisplayPage,
                          renderOffsetX + ( trueX * m_CurrentMap.TileSpacingX + i ) * 8,
                          renderOffsetY + ( trueY * m_CurrentMap.TileSpacingY + j ) * 8,
                          m_MapProject.Tiles[TileIndex].Chars[i, j].Character,
-                         m_MapProject.Tiles[TileIndex].Chars[i, j].Color );
+                         colorToUse );
         }
       }
     }
@@ -2224,11 +2259,24 @@ namespace RetroDevStudio.Documents
               CharMode        = ( m_CurrentMap.AlternativeMode != TextCharMode.UNKNOWN ) ? m_CurrentMap.AlternativeMode : Lookup.TextCharModeFromTextMode( m_MapProject.Mode )
             };
 
+            // Per-cell color override pulled from the map's TileColorOverrides
+            // layer. -1 = use the tile's own per-character colors (the
+            // historical default). Anything 0..15 paints every char of
+            // this placement in that single C64 color.
+            int cellOverride = -1;
+            if ( ( x < m_CurrentMap.TileColorOverrides.Width )
+            &&   ( y < m_CurrentMap.TileColorOverrides.Height ) )
+            {
+              cellOverride = m_CurrentMap.TileColorOverrides[x, y];
+            }
+
             for ( int j = 0; j < tile.Chars.Height; ++j )
             {
               for ( int i = 0; i < tile.Chars.Width; ++i )
               {
-                alternativeSettings.CustomColor = tile.Chars[i, j].Color;
+                alternativeSettings.CustomColor = ( cellOverride >= 0 )
+                                                  ? cellOverride
+                                                  : tile.Chars[i, j].Color;
                 Displayer.CharacterDisplayer.DisplayChar( m_MapProject.Charset,
                                                           tile.Chars[i, j].Character,
                                                           pictureEditor.DisplayPage,
@@ -2511,7 +2559,11 @@ namespace RetroDevStudio.Documents
 
           ListViewItem item = new ListViewItem();
 
+          // Column layout: # | Preview (image only) | Name | Size | Used.
+          // Index 1 is the image-only column — empty text, the thumbnail
+          // is painted by listTileInfo_DrawItemImage.
           item.Text = tile.Index.ToString();
+          item.SubItems.Add( "" );
           item.SubItems.Add( tile.Name );
           item.SubItems.Add( tile.Chars.Width.ToString() + "x" + tile.Chars.Height.ToString() );
           item.SubItems.Add( "?" );
@@ -4000,10 +4052,12 @@ namespace RetroDevStudio.Documents
       foreach ( ListViewItem item in listTileInfo.Items )
       {
         Formats.MapProject.Tile tile = (Formats.MapProject.Tile)item.Tag;
-        if ( ( tile.Index >= 0 ) 
+        if ( ( tile.Index >= 0 )
         &&   ( tile.Index < _TileUsage.Count ) )
         {
-          item.SubItems[3].Text = _TileUsage[tile.Index].ToString();
+          // SubItem 4 = "Used" column (after the new Preview column at 2
+          // shifted Size and Used down to 3 and 4 respectively).
+          item.SubItems[4].Text = _TileUsage[tile.Index].ToString();
         }
       }
       listTileInfo.EndUpdate();
@@ -4020,6 +4074,8 @@ namespace RetroDevStudio.Documents
       ListViewItem item = new ListViewItem();
 
       item.Text = Tile.Index.ToString();
+      // Preview column — empty text; thumbnail painted by DrawItemImage.
+      item.SubItems.Add( "" );
       item.SubItems.Add( Tile.Name );
       item.SubItems.Add( Tile.Chars.Width.ToString() + "x" + Tile.Chars.Height.ToString() );
       item.SubItems.Add( "0" );
@@ -4210,11 +4266,64 @@ namespace RetroDevStudio.Documents
       map.TileSpacingX = tw;
       map.TileSpacingY = th;
       map.Tiles.Resize( w, h );
+      // Keep the per-cell color-override layer the same shape as Tiles
+      // and initialize it to "no override" everywhere. -1 means the cell
+      // renders/exports using the placed tile's intrinsic colors.
+      map.TileColorOverrides.Resize( w, h );
+      ResetColorOverrides( map.TileColorOverrides );
       map.Name = editMapName.Text;
 
       DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapAdd( this, m_MapProject, m_MapProject.Maps.Count ) );
 
       AddMap( m_MapProject.Maps.Count, map );
+    }
+
+
+
+    /// <summary>
+    /// Set every cell in <paramref name="overrides"/> to -1 (no override).
+    /// Used right after a fresh Resize to give the layer the same
+    /// "everything default" baseline a brand-new Map gets.
+    /// </summary>
+    private static void ResetColorOverrides( GR.Game.Layer<int> overrides )
+    {
+      for ( int y = 0; y < overrides.Height; ++y )
+      {
+        for ( int x = 0; x < overrides.Width; ++x )
+        {
+          overrides[x, y] = -1;
+        }
+      }
+    }
+
+
+
+    /// <summary>
+    /// Resize the override layer while keeping existing cells' values and
+    /// initializing any newly-exposed cells to -1. <see cref="GR.Game.Layer{int}.Resize"/>
+    /// preserves overlap but the new region defaults to <c>0</c>, which
+    /// would mean "override to color 0 (black)" rather than "no override".
+    /// </summary>
+    private static void ResizeColorOverridesPreservingDefaults(
+      GR.Game.Layer<int> overrides, int newWidth, int newHeight )
+    {
+      int oldW = overrides.Width;
+      int oldH = overrides.Height;
+      overrides.Resize( newWidth, newHeight );
+      // Cells that were inside the old footprint keep whatever the user
+      // had set (-1 or a real color). Cells outside the old footprint are
+      // freshly exposed and get the proper -1 sentinel.
+      for ( int y = 0; y < newHeight; ++y )
+      {
+        for ( int x = 0; x < newWidth; ++x )
+        {
+          if ( ( x >= oldW )
+          ||   ( y >= oldH ) )
+          {
+            overrides[x, y] = -1;
+          }
+        }
+      }
     }
 
 
@@ -4320,6 +4429,11 @@ namespace RetroDevStudio.Documents
       }
 
       m_CurrentMap.Tiles.Resize( w, h );
+      // Keep TileColorOverrides shape in sync with Tiles. Layer.Resize
+      // preserves existing cell values within the overlap; new cells get
+      // the layer's default-int (0), but we explicitly set them to -1
+      // (no override) to match the rest of the layer's semantics.
+      ResizeColorOverridesPreservingDefaults( m_CurrentMap.TileColorOverrides, w, h );
       m_CurrentMap.Name = editMapName.Text;
 
       m_SelectedTiles = new bool[w, h];
@@ -4615,7 +4729,8 @@ namespace RetroDevStudio.Documents
 
         m_CurrentEditedTile.Name = editTileName.Text;
 
-        listTileInfo.SelectedItems[0].SubItems[1].Text = m_CurrentEditedTile.Name;
+        // SubItem 2 = "Name" column (Preview now sits at index 1).
+        listTileInfo.SelectedItems[0].SubItems[2].Text = m_CurrentEditedTile.Name;
         GR.Generic.Tupel<string, Formats.MapProject.Tile>      comboItem = (GR.Generic.Tupel<string, Formats.MapProject.Tile>)comboTiles.Items[listTileInfo.SelectedIndices[0]];
         comboItem.first = m_CurrentEditedTile.Name;
         SetModified();
@@ -4646,7 +4761,8 @@ namespace RetroDevStudio.Documents
         }
 
         m_CurrentEditedTile.Chars.Resize( w, h );
-        listTileInfo.SelectedItems[0].SubItems[2].Text = w.ToString() + "x" + h.ToString();
+        // SubItem 3 = "Size" column (Preview column shifted Size from 2 to 3).
+        listTileInfo.SelectedItems[0].SubItems[3].Text = w.ToString() + "x" + h.ToString();
         listTileInfo_SelectedIndexChanged( null, null );
         SetModified();
       }
@@ -4994,15 +5110,18 @@ namespace RetroDevStudio.Documents
       m_MapProject.Tiles[Index1].Index = Index1;
       m_MapProject.Tiles[Index2].Index = Index2;
 
-      // swap in list
-      listTileInfo.Items[Index1].SubItems[1].Text = tile2.Name;
-      listTileInfo.Items[Index1].SubItems[2].Text = tile2.Chars.Width.ToString() + "x" + tile2.Chars.Height.ToString();
-      listTileInfo.Items[Index1].SubItems[3].Text = "0";
+      // swap in list — SubItem indices: 0=#, 1=Preview (empty),
+      // 2=Name, 3=Size, 4=Used. The preview column is image-only so we
+      // leave its text alone; the row repaint picks up the new tile
+      // via Tag.
+      listTileInfo.Items[Index1].SubItems[2].Text = tile2.Name;
+      listTileInfo.Items[Index1].SubItems[3].Text = tile2.Chars.Width.ToString() + "x" + tile2.Chars.Height.ToString();
+      listTileInfo.Items[Index1].SubItems[4].Text = "0";
       listTileInfo.Items[Index1].Tag = tile2;
 
-      listTileInfo.Items[Index2].SubItems[1].Text = tile1.Name;
-      listTileInfo.Items[Index2].SubItems[2].Text = tile1.Chars.Width.ToString() + "x" + tile1.Chars.Height.ToString();
-      listTileInfo.Items[Index2].SubItems[3].Text = "0";
+      listTileInfo.Items[Index2].SubItems[2].Text = tile1.Name;
+      listTileInfo.Items[Index2].SubItems[3].Text = tile1.Chars.Width.ToString() + "x" + tile1.Chars.Height.ToString();
+      listTileInfo.Items[Index2].SubItems[4].Text = "0";
       listTileInfo.Items[Index2].Tag = tile1;
 
       // swap in tile combo
@@ -5191,6 +5310,8 @@ namespace RetroDevStudio.Documents
         ListViewItem item = new ListViewItem();
 
         item.Text = tile.Index.ToString();
+        // Preview column — empty text; thumbnail painted by DrawItemImage.
+        item.SubItems.Add( "" );
         item.SubItems.Add( tile.Name );
         item.SubItems.Add( tile.Chars.Width.ToString() + "x" + tile.Chars.Height.ToString() );
         item.SubItems.Add( "0" );
@@ -5202,6 +5323,8 @@ namespace RetroDevStudio.Documents
 
       var map = new Formats.MapProject.Map();
       map.Tiles.Resize( cpProject.MapWidth, cpProject.MapHeight );
+      map.TileColorOverrides.Resize( cpProject.MapWidth, cpProject.MapHeight );
+      ResetColorOverrides( map.TileColorOverrides );
       for ( int j = 0; j < cpProject.MapHeight; ++j )
       {
         for ( int i = 0; i < cpProject.MapWidth; ++i )
@@ -5408,11 +5531,20 @@ namespace RetroDevStudio.Documents
       newMap.Name = m_CurrentMap.Name;
       newMap.Tiles = new GR.Game.Layer<int>();
       newMap.Tiles.Resize( m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height );
+      // Color override layer is per-cell, so it duplicates alongside Tiles.
+      // The new map should look identical to the source when the user
+      // duplicates — including any per-cell color tweaks they made.
+      newMap.TileColorOverrides = new GR.Game.Layer<int>();
+      newMap.TileColorOverrides.Resize( m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height );
       for ( int i = 0; i < m_CurrentMap.Tiles.Width; ++i )
       {
         for ( int j = 0; j < m_CurrentMap.Tiles.Height; ++j )
         {
           newMap.Tiles[i,j] =  m_CurrentMap.Tiles[i,j];
+          int srcOverride = ( ( i < m_CurrentMap.TileColorOverrides.Width )
+                              && ( j < m_CurrentMap.TileColorOverrides.Height ) )
+                            ? m_CurrentMap.TileColorOverrides[i,j] : -1;
+          newMap.TileColorOverrides[i,j] = srcOverride;
         }
       }
       newMap.TileSpacingX = m_CurrentMap.TileSpacingX;
@@ -6046,11 +6178,22 @@ namespace RetroDevStudio.Documents
             CharMode        = ( m_CurrentMap.AlternativeMode != TextCharMode.UNKNOWN ) ? m_CurrentMap.AlternativeMode : Lookup.TextCharModeFromTextMode( m_MapProject.Mode )
           };
 
+          // Honor the per-cell color override for the exported image too,
+          // so "Copy map to clipboard as image" produces what the editor
+          // shows on screen.
+          int cellOverrideCpy = -1;
+          if ( ( x < m_CurrentMap.TileColorOverrides.Width )
+          &&   ( y < m_CurrentMap.TileColorOverrides.Height ) )
+          {
+            cellOverrideCpy = m_CurrentMap.TileColorOverrides[x, y];
+          }
           for ( int j = 0; j < tile.Chars.Height; ++j )
           {
             for ( int i = 0; i < tile.Chars.Width; ++i )
             {
-              alternativeSettings.CustomColor = tile.Chars[i, j].Color;
+              alternativeSettings.CustomColor = ( cellOverrideCpy >= 0 )
+                                                ? cellOverrideCpy
+                                                : tile.Chars[i, j].Color;
               Displayer.CharacterDisplayer.DisplayChar( m_MapProject.Charset,
                                                         tile.Chars[i, j].Character,
                                                         fullImage,
@@ -6570,6 +6713,15 @@ namespace RetroDevStudio.Documents
       DocumentInfo.UndoManager.AddUndoTask(
         new Undo.UndoMapTilesChange( this, m_CurrentMap, x, y, undoW, undoH ) );
       m_CurrentMap.Tiles[x, y] = 0;
+      // Clearing a cell to "empty" means dropping any per-cell color
+      // override along with the tile — otherwise the override would
+      // silently linger and tint whatever the user paints over the
+      // empty cell next.
+      if ( ( x < m_CurrentMap.TileColorOverrides.Width )
+      &&   ( y < m_CurrentMap.TileColorOverrides.Height ) )
+      {
+        m_CurrentMap.TileColorOverrides[x, y] = -1;
+      }
       // Full RedrawMap, not DrawTile — DrawTile only repaints as many
       // characters as the NEW tile occupies, so deleting a 2x2 tile and
       // replacing it with a 1x1 tile-0 leaves three stale 8x8 quadrants
@@ -7263,20 +7415,142 @@ namespace RetroDevStudio.Documents
          e.DrawBackground();
 
        int colorIndex = e.Index;
-       
+
        // Assuming items are just index 0..15 or equivalent strings
        // Or grab from item? The list was populated with "00", "01"...
        // But we just want the color.
-       
+
        uint color = m_MapProject.Charset.Colors.Palette.ColorValues[colorIndex];
-       
+
        using ( var brush = new System.Drawing.SolidBrush( System.Drawing.Color.FromArgb( (int)color ) ) )
        {
          e.Graphics.FillRectangle( brush, e.Bounds.X + 2, e.Bounds.Y + 2, e.Bounds.Width - 4, e.Bounds.Height - 4 );
        }
        e.Graphics.DrawRectangle( System.Drawing.Pens.Black, e.Bounds.X + 2, e.Bounds.Y + 2, e.Bounds.Width - 5, e.Bounds.Height - 5 );
-       
+
        e.DrawFocusRectangle();
+    }
+
+
+
+    /// <summary>
+    /// Populate the tile-placement color combo with "Default" + 16 C64
+    /// colors. Only repopulates when the count is wrong so we don't churn
+    /// items every project load — the colors come from the project's
+    /// palette so palette swaps still need to refresh, but adding/removing
+    /// colors at runtime isn't a thing.
+    /// </summary>
+    private void RefreshTilePlacementColorCombo()
+    {
+      if ( comboTilePlacementColor == null )
+      {
+        return;
+      }
+      // Combo holds 17 items: [0] = "Default" sentinel, [1..16] map to
+      // C64 color indices 0..15. Owner-draw renders a swatch for the
+      // color rows and the literal text for the Default row.
+      const int ExpectedCount = 17;
+      if ( comboTilePlacementColor.Items.Count == ExpectedCount )
+      {
+        comboTilePlacementColor.Invalidate();
+        return;
+      }
+      int prev = comboTilePlacementColor.SelectedIndex;
+      comboTilePlacementColor.BeginUpdate();
+      comboTilePlacementColor.Items.Clear();
+      comboTilePlacementColor.Items.Add( "Default" );
+      for ( int i = 0; i < 16; ++i )
+      {
+        comboTilePlacementColor.Items.Add( i.ToString( "00" ) );
+      }
+      comboTilePlacementColor.EndUpdate();
+      comboTilePlacementColor.SelectedIndex = ( prev >= 0 && prev < ExpectedCount )
+                                              ? prev : 0;
+    }
+
+
+
+    private void comboTilePlacementColor_DrawItem( object sender, DrawItemEventArgs e )
+    {
+      ComboBox combo = (ComboBox)sender;
+      if ( e.Index < 0 ) return;
+
+      if ( Core?.Theming != null )
+        Core.Theming.DrawThemedBackground( e, combo );
+      else
+        e.DrawBackground();
+
+      if ( e.Index == 0 )
+      {
+        // "Default" row — no swatch, just the literal label.
+        using ( var brush = new System.Drawing.SolidBrush( combo.ForeColor ) )
+        {
+          e.Graphics.DrawString( "Default", combo.Font, brush,
+                                 e.Bounds.X + 4, e.Bounds.Y + 3 );
+        }
+      }
+      else
+      {
+        // Color rows: combo index 1..16 → palette index 0..15. Draw a
+        // wide-ish swatch with a thin black border, leaving room on the
+        // right for the numeric "00".."15" label so the user can read the
+        // index alongside the color.
+        int colorIndex = e.Index - 1;
+        uint color = m_MapProject.Charset.Colors.Palette.ColorValues[colorIndex];
+
+        int swatchW = e.Bounds.Height - 4;
+        using ( var brush = new System.Drawing.SolidBrush( System.Drawing.Color.FromArgb( (int)color ) ) )
+        {
+          e.Graphics.FillRectangle( brush, e.Bounds.X + 2, e.Bounds.Y + 2, swatchW, e.Bounds.Height - 4 );
+        }
+        e.Graphics.DrawRectangle( System.Drawing.Pens.Black, e.Bounds.X + 2, e.Bounds.Y + 2, swatchW, e.Bounds.Height - 5 );
+        using ( var brush = new System.Drawing.SolidBrush( combo.ForeColor ) )
+        {
+          e.Graphics.DrawString( colorIndex.ToString( "00" ), combo.Font, brush,
+                                 e.Bounds.X + swatchW + 6, e.Bounds.Y + 3 );
+        }
+      }
+
+      e.DrawFocusRectangle();
+    }
+
+
+
+    private void comboTilePlacementColor_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      // Combo index 0 is "Default" → no override; subsequent indices map
+      // 1:1 to C64 color indices via "combo - 1".
+      if ( comboTilePlacementColor.SelectedIndex <= 0 )
+      {
+        m_TilePlacementColorOverride = -1;
+      }
+      else
+      {
+        m_TilePlacementColorOverride = comboTilePlacementColor.SelectedIndex - 1;
+      }
+    }
+
+
+
+    /// <summary>
+    /// Stamp the current placement color override into a single map cell's
+    /// TileColorOverrides slot. Called by every tile-placement code path
+    /// right after writing the tile index, so the per-cell override always
+    /// reflects whatever the toolbar combo had selected at the moment of
+    /// placement (-1 = leave the tile's intrinsic colors alone, 0..15 =
+    /// paint everything in this single C64 color).
+    /// </summary>
+    private void ApplyPlacementColorOverride( int cellX, int cellY )
+    {
+      if ( m_CurrentMap == null ) return;
+      if ( ( cellX < 0 )
+      ||   ( cellY < 0 )
+      ||   ( cellX >= m_CurrentMap.TileColorOverrides.Width )
+      ||   ( cellY >= m_CurrentMap.TileColorOverrides.Height ) )
+      {
+        return;
+      }
+      m_CurrentMap.TileColorOverrides[cellX, cellY] = m_TilePlacementColorOverride;
     }
 
 

@@ -15,6 +15,17 @@ namespace RetroDevStudio.Controls
     public uint SelectedTextColor { get; set; }
     public uint SelectedTextBGColor { get; set; }
 
+    /// <summary>
+    /// Sub-item column where the SmallImageList icon (or DrawItemImage
+    /// payload) is rendered. Defaults to 0 — the first user-content
+    /// column — matching the original CSListView behavior. Set higher
+    /// to put the image alongside a different column; e.g. listTileInfo
+    /// on the Tiles tab uses 2 so the numeric Nr. column stays free
+    /// for the tile index. Other consumers that don't touch this
+    /// property are unaffected.
+    /// </summary>
+    public int ImageColumnIndex { get; set; } = 0;
+
     public delegate void DrawItemImageHandler( Graphics G, int X, int Y, ListViewItem Item, ListViewItem.ListViewSubItem SubItem );
 
 
@@ -51,12 +62,19 @@ namespace RetroDevStudio.Controls
       {
         trimming = ( (CSListViewSubItem)e.SubItem ).Trimming;
       }
-      bool firstItem = ( e.Item.SubItems.IndexOf( e.SubItem ) == 0 );
+      int subItemIndex = e.Item.SubItems.IndexOf( e.SubItem );
+      bool firstItem = ( subItemIndex == 0 );
       bool realFirstItem = firstItem;
       if ( CheckBoxes )
       {
-        firstItem = ( e.Item.SubItems.IndexOf( e.SubItem ) == 1 );
+        firstItem = ( subItemIndex == 1 );
       }
+      // Whether THIS sub-item is the column the image renders into. Decoupled
+      // from firstItem so consumers can place the image alongside any column
+      // (see ImageColumnIndex). The first-column bounds quirk below stays
+      // tied to firstItem because that's about column-0 sub-item bounds being
+      // unreliable, which has nothing to do with where images go.
+      bool isImageColumn = ( subItemIndex == ImageColumnIndex );
 
       // the file path
       var itemBounds = e.SubItem.Bounds;
@@ -82,7 +100,7 @@ namespace RetroDevStudio.Controls
                                                     itemBounds.Location.Y + ( itemBounds.Height - checkBoxSize.Height ) / 2 ),
                                          e.Item.Checked ? CheckBoxState.CheckedNormal : CheckBoxState.UncheckedNormal );
         }
-        if ( ( firstItem )
+        if ( ( isImageColumn )
         &&   ( e.Item.ImageList != null )
         &&   ( e.Item.ImageIndex >= 0 )
         &&   ( e.Item.ImageIndex < e.Item.ImageList.Images.Count ) )
@@ -116,7 +134,7 @@ namespace RetroDevStudio.Controls
                                          e.Item.Checked ? CheckBoxState.CheckedNormal : CheckBoxState.UncheckedNormal );
         }
 
-        if ( ( firstItem )
+        if ( ( isImageColumn )
         &&   ( e.Item.ImageList != null )
         &&   ( e.Item.ImageIndex >= 0 )
         &&   ( e.Item.ImageIndex < e.Item.ImageList.Images.Count ) )

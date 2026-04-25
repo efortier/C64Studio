@@ -148,6 +148,7 @@
             this.labelMarkerValue2 = new System.Windows.Forms.Label();
             this.editMarkerValue2 = new Krypton.Toolkit.KryptonNumericUpDown();
             this.comboMarkerColorOverride = new Krypton.Toolkit.KryptonComboBox();
+            this.comboTilePlacementColor = new Krypton.Toolkit.KryptonComboBox();
             this.labelEditInfo = new System.Windows.Forms.Label();
             this.comboTiles = new System.Windows.Forms.ListBox();
             this.mapHScroll = new DecentForms.HScrollBar();
@@ -169,6 +170,7 @@
             this.columnHeader5 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeader6 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeader7 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.columnHeaderTilePreview = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.listTileInfo = new RetroDevStudio.Controls.CSListView();
             this.columnHeader4 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeader1 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
@@ -258,6 +260,7 @@
             this.flowLayoutPanel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.comboMarkerTypes)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.comboMarkerColorOverride)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.comboTilePlacementColor)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tabMapEditor)).BeginInit();
             this.tabMapEditor.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.tabTiles)).BeginInit();
@@ -1423,6 +1426,7 @@
             this.flowLayoutPanel1.Controls.Add(this.btnToolFill);
             this.flowLayoutPanel1.Controls.Add(this.btnToolSelect);
             this.flowLayoutPanel1.Controls.Add(this.btnToolMarker);
+            this.flowLayoutPanel1.Controls.Add(this.comboTilePlacementColor);
             this.flowLayoutPanel1.Controls.Add(this.comboMarkerTypes);
             this.flowLayoutPanel1.Controls.Add(this.labelMarkerValue1);
             this.flowLayoutPanel1.Controls.Add(this.editMarkerValue1);
@@ -1602,7 +1606,7 @@
             this.btnDeleteSelectedMarker.Click += new System.EventHandler(this.btnDeleteSelectedMarker_Click);
             //
             // comboMarkerColorOverride
-            // 
+            //
             this.comboMarkerColorOverride.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboMarkerColorOverride.DropDownWidth = 48;
             this.comboMarkerColorOverride.Location = new System.Drawing.Point(559, 3);
@@ -1610,6 +1614,18 @@
             this.comboMarkerColorOverride.Size = new System.Drawing.Size(48, 22);
             this.comboMarkerColorOverride.TabIndex = 4;
             this.comboMarkerColorOverride.SelectedIndexChanged += new System.EventHandler(this.comboMarkerColorOverride_SelectedIndexChanged);
+            //
+            // comboTilePlacementColor
+            //
+            // First entry is "Default" (no override). The remaining 16 entries
+            // are owner-drawn color swatches matching C64 colors 0..15.
+            this.comboTilePlacementColor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboTilePlacementColor.DropDownWidth = 110;
+            this.comboTilePlacementColor.Name = "comboTilePlacementColor";
+            this.comboTilePlacementColor.Size = new System.Drawing.Size(80, 22);
+            this.comboTilePlacementColor.TabIndex = 49;
+            this.toolTip1.SetToolTip(this.comboTilePlacementColor, "Color override for newly placed tiles. \"Default\" leaves the tile's own colors alone; any other choice paints all of the placed tile's characters in that color (visible in the editor and exported in the color grid).");
+            this.comboTilePlacementColor.SelectedIndexChanged += new System.EventHandler(this.comboTilePlacementColor_SelectedIndexChanged);
             // 
             // labelEditInfo
             // 
@@ -1935,6 +1951,7 @@
             | System.Windows.Forms.AnchorStyles.Left)));
             this.listTileInfo.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
             this.columnHeader4,
+            this.columnHeaderTilePreview,
             this.columnHeader1,
             this.columnHeader2,
             this.columnHeader3});
@@ -1955,23 +1972,32 @@
             this.listTileInfo.DragEnter += new System.Windows.Forms.DragEventHandler(this.listTileInfo_DragEnter);
             this.listTileInfo.DragOver += new System.Windows.Forms.DragEventHandler(this.listTileInfo_DragOver);
             // 
-            // columnHeader4
-            // 
-            this.columnHeader4.Text = "Nr.";
+            // columnHeader4 — tile index "Nr." (column 0)
+            //
+            this.columnHeader4.Text = "#";
             this.columnHeader4.Width = 35;
-            // 
-            // columnHeader1
-            // 
+            //
+            // columnHeader1 — tile name (column 1)
+            //
             this.columnHeader1.Text = "Name";
             this.columnHeader1.Width = 200;
-            // 
-            // columnHeader2
-            // 
-            this.columnHeader2.Text = "Info";
-            // 
-            // columnHeader3
-            // 
-            this.columnHeader3.Text = "Used No.";
+            //
+            // columnHeaderTilePreview — image-only column (column 2). Width
+            // matches MapTileListThumbnailSize (32) plus a few px of padding
+            // so the per-row preview blit fits cleanly.
+            //
+            this.columnHeaderTilePreview.Text = "Preview";
+            this.columnHeaderTilePreview.Width = 44;
+            //
+            // columnHeader2 — tile dimensions like "2x2" (column 3)
+            //
+            this.columnHeader2.Text = "Size";
+            this.columnHeader2.Width = 50;
+            //
+            // columnHeader3 — usage count across all maps (column 4)
+            //
+            this.columnHeader3.Text = "Used";
+            this.columnHeader3.Width = 60;
             // 
             // editTileName
             // 
@@ -2649,6 +2675,7 @@
             this.flowLayoutPanel1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.comboMarkerTypes)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.comboMarkerColorOverride)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.comboTilePlacementColor)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.tabMapEditor)).EndInit();
             this.tabMapEditor.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.tabTiles)).EndInit();
@@ -2727,6 +2754,7 @@
     private System.Windows.Forms.ColumnHeader columnHeader2;
     private System.Windows.Forms.ColumnHeader columnHeader3;
     private System.Windows.Forms.ColumnHeader columnHeader4;
+    private System.Windows.Forms.ColumnHeader columnHeaderTilePreview;
     private DecentForms.Button btnGetTileCount;
     private RetroDevStudio.Controls.CSListView listTileChars;
     private System.Windows.Forms.ColumnHeader columnHeader5;
@@ -2757,6 +2785,7 @@
         private System.Windows.Forms.CheckBox checkMarkerDefaultEnabled;
         private System.Windows.Forms.CheckBox checkMarkerDefaultTriggered;
         private Krypton.Toolkit.KryptonComboBox comboMarkerColorOverride;
+        private Krypton.Toolkit.KryptonComboBox comboTilePlacementColor;
         private Krypton.Toolkit.KryptonCheckButton btnToolEntity;
         private Krypton.Toolkit.KryptonComboBox comboEntityTypes;
         private System.Windows.Forms.Label labelEntityValue1;
