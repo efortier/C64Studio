@@ -78,6 +78,13 @@ namespace RetroDevStudio.Documents
     private Formats.MapProject.Marker   m_SelectedMarker = null;
     private Formats.MapProject.Entity   m_SelectedEntity = null;
 
+    // Single-tile right-click selection in tile-painting modes. Pressing
+    // Delete with this set replaces that map cell with tile 0. (-1, -1) =
+    // no current selection. Cleared on map change and on switching to
+    // MARKER / ENTITY / SELECT mode where a different selection metaphor
+    // takes over.
+    private System.Drawing.Point        m_SelectedTilePos = new System.Drawing.Point( -1, -1 );
+
     // Guards against spurious control-change callbacks firing while we are
     // programmatically copying a selected instance's fields INTO the
     // toolbar controls. Without it, the ValueChanged handlers would
@@ -699,19 +706,24 @@ namespace RetroDevStudio.Documents
       }
 
       // Selection highlight — draw on top of everything else so the user
-      // can see which marker or entity the toolbar controls are editing.
-      // Bright yellow double-thickness outline at the cell boundary.
+      // can see which marker, entity, or tile the toolbar controls are
+      // editing. Bright yellow double-thickness outline drawn AT THE FULL
+      // FOOTPRINT of the selected thing — for entities and tiles that's
+      // the multi-cell tile size, for markers it's always 1×1.
       if ( m_CurrentMap != null )
       {
         const uint highlightColor = 0xfff9e2af;   // Catppuccin yellow
-        // Shared computation: given a map-cell (mx, my), compute a 1-cell
-        // target-pixel rectangle and draw a 2-pixel-thick outline.
-        System.Action<int, int> drawHighlightAt = ( int mx, int my ) =>
+        // Shared computation: given a map-cell (mx, my) and a footprint in
+        // cells (cw × ch), draw a 2-pixel-thick rectangle outline at the
+        // corresponding TargetBuffer pixels.
+        System.Action<int, int, int, int> drawHighlightAt = ( int mx, int my, int cw, int ch ) =>
         {
+          if ( cw < 1 ) cw = 1;
+          if ( ch < 1 ) ch = 1;
           int sourceX = renderOffsetX + ( mx - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
           int sourceY = renderOffsetY + ( my - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
-          int sourceW = m_CurrentMap.TileSpacingX * 8;
-          int sourceH = m_CurrentMap.TileSpacingY * 8;
+          int sourceW = cw * m_CurrentMap.TileSpacingX * 8;
+          int sourceH = ch * m_CurrentMap.TileSpacingY * 8;
           if ( ( sourceX + sourceW <= 0 )
           ||   ( sourceY + sourceH <= 0 )
           ||   ( sourceX >= sourceWidth )
@@ -738,13 +750,47 @@ namespace RetroDevStudio.Documents
         &&   ( m_ToolMode == ToolMode.MARKER )
         &&   ( m_CurrentMap.Markers.Contains( m_SelectedMarker ) ) )
         {
-          drawHighlightAt( m_SelectedMarker.X, m_SelectedMarker.Y );
+          // Markers are point placements — always 1 cell.
+          drawHighlightAt( m_SelectedMarker.X, m_SelectedMarker.Y, 1, 1 );
         }
         if ( ( m_SelectedEntity != null )
         &&   ( m_ToolMode == ToolMode.ENTITY )
         &&   ( m_CurrentMap.Entities.Contains( m_SelectedEntity ) ) )
         {
-          drawHighlightAt( m_SelectedEntity.X, m_SelectedEntity.Y );
+          // Entity outline = footprint of the entity's referenced tile, so
+          // a multi-character entity sprite gets boxed at full size rather
+          // than just the anchor cell.
+          int cw = 1, ch = 1;
+          var etype = m_MapProject.EntityTypes.FirstOrDefault( t => t.ID == m_SelectedEntity.Type );
+          if ( ( etype != null )
+          &&   ( etype.TileIndex >= 0 )
+          &&   ( etype.TileIndex < m_MapProject.Tiles.Count ) )
+          {
+            GetTileCellFootprint( m_MapProject.Tiles[etype.TileIndex], out cw, out ch );
+          }
+          drawHighlightAt( m_SelectedEntity.X, m_SelectedEntity.Y, cw, ch );
+        }
+        // Tile right-click selection — only relevant in tile-painting
+        // modes. SELECT/MARKER/ENTITY have their own selection metaphors
+        // and would just confuse the eye if a tile cursor also showed.
+        if ( ( m_SelectedTilePos.X >= 0 )
+        &&   ( m_SelectedTilePos.Y >= 0 )
+        &&   ( m_SelectedTilePos.X < m_CurrentMap.Tiles.Width )
+        &&   ( m_SelectedTilePos.Y < m_CurrentMap.Tiles.Height )
+        &&   ( m_ToolMode != ToolMode.MARKER )
+        &&   ( m_ToolMode != ToolMode.ENTITY )
+        &&   ( m_ToolMode != ToolMode.SELECT ) )
+        {
+          // Use the actual tile at that map cell to size the outline so a
+          // 2x2 tile shows a 2-cell-wide highlight.
+          int cw = 1, ch = 1;
+          int idx = m_CurrentMap.Tiles[m_SelectedTilePos.X, m_SelectedTilePos.Y];
+          if ( ( idx >= 0 )
+          &&   ( idx < m_MapProject.Tiles.Count ) )
+          {
+            GetTileCellFootprint( m_MapProject.Tiles[idx], out cw, out ch );
+          }
+          drawHighlightAt( m_SelectedTilePos.X, m_SelectedTilePos.Y, cw, ch );
         }
       }
 
@@ -1871,7 +1917,9 @@ namespace RetroDevStudio.Documents
         }
         else if ( string.IsNullOrEmpty( m_MapProject.RightClickAction ) )
         {
-          int tileIndex = m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY];
+          int cellX = trueX + offsetX;
+          int cellY = trueY + offsetY;
+          int tileIndex = m_CurrentMap.Tiles[cellX, cellY];
           if ( tileIndex < m_MapProject.Tiles.Count )
           {
             m_CurrentEditorTile = m_MapProject.Tiles[tileIndex];
@@ -1880,6 +1928,10 @@ namespace RetroDevStudio.Documents
             {
               comboTiles.SelectedIndex = tileIndex;
             }
+            // Remember which cell got picked so the user can press Delete
+            // to clear it. The PostPaint highlight uses the same field.
+            m_SelectedTilePos = new System.Drawing.Point( cellX, cellY );
+            pictureEditor.Invalidate();
           }
         }
         else
@@ -6337,7 +6389,112 @@ namespace RetroDevStudio.Documents
           return true;
         }
       }
+      else if ( keyData == Keys.Delete )
+      {
+        // Don't steal Delete from text editors / numeric inputs. The
+        // COPY_PASTE focus-reason returns true exactly when focus is on a
+        // TextBox child of tabEditor — i.e., somewhere we want the OS
+        // default Delete behavior. So only handle our key when that check
+        // is false.
+        if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
+        {
+          if ( TryDeleteRightClickedTile() )
+          {
+            return true;
+          }
+        }
+      }
       return base.ProcessCmdKey( ref msg, keyData );
+    }
+
+
+
+    /// <summary>
+    /// Replace the currently right-click-selected map cell with tile 0
+    /// (treated as the empty/background tile by convention). Returns true
+    /// if a delete actually happened so <see cref="ProcessCmdKey"/> can
+    /// swallow the key. Cleared selection or wrong-tool-mode → false and
+    /// the key falls through to whatever else might want it.
+    /// </summary>
+    private bool TryDeleteRightClickedTile()
+    {
+      if ( m_CurrentMap == null ) return false;
+      if ( ( m_SelectedTilePos.X < 0 )
+      ||   ( m_SelectedTilePos.Y < 0 )
+      ||   ( m_SelectedTilePos.X >= m_CurrentMap.Tiles.Width )
+      ||   ( m_SelectedTilePos.Y >= m_CurrentMap.Tiles.Height ) )
+      {
+        return false;
+      }
+      // Same tool-mode gate the highlight uses — Delete in MARKER/ENTITY/
+      // SELECT mode would be ambiguous (the user might be expecting it to
+      // act on the marker/entity selection or the tile rectangle), so we
+      // bail and let those modes wire their own Delete if they ever need
+      // one.
+      if ( ( m_ToolMode == ToolMode.MARKER )
+      ||   ( m_ToolMode == ToolMode.ENTITY )
+      ||   ( m_ToolMode == ToolMode.SELECT ) )
+      {
+        return false;
+      }
+
+      int x = m_SelectedTilePos.X;
+      int y = m_SelectedTilePos.Y;
+      // Already empty? Nothing to undo, but consume the key so it doesn't
+      // beep — the selection IS valid, just the action is a no-op.
+      if ( m_CurrentMap.Tiles[x, y] == 0 )
+      {
+        return true;
+      }
+
+      // Snapshot a region big enough to cover the OLD tile's footprint —
+      // a 2x2-char tile spans 1+ map cells, and undo needs to know about
+      // every cell whose appearance changes. Using the tile-cell footprint
+      // here also keeps Ctrl+Z bringing back ALL the characters, not just
+      // the upper-left one.
+      int oldIndex = m_CurrentMap.Tiles[x, y];
+      int undoW = 1, undoH = 1;
+      if ( ( oldIndex >= 0 )
+      &&   ( oldIndex < m_MapProject.Tiles.Count ) )
+      {
+        GetTileCellFootprint( m_MapProject.Tiles[oldIndex], out undoW, out undoH );
+      }
+      DocumentInfo.UndoManager.AddUndoTask(
+        new Undo.UndoMapTilesChange( this, m_CurrentMap, x, y, undoW, undoH ) );
+      m_CurrentMap.Tiles[x, y] = 0;
+      // Full RedrawMap, not DrawTile — DrawTile only repaints as many
+      // characters as the NEW tile occupies, so deleting a 2x2 tile and
+      // replacing it with a 1x1 tile-0 leaves three stale 8x8 quadrants
+      // showing the old pixels. RedrawMap rebuilds the whole DisplayPage
+      // from scratch using the current Tiles[,] grid, which always
+      // reflects truth.
+      RedrawMap();
+      pictureEditor.Invalidate();
+      SetModified();
+      return true;
+    }
+
+
+
+    /// <summary>
+    /// How many map cells a tile occupies. A 2x2-char tile on a map with
+    /// TileSpacingX=TileSpacingY=2 fits in a single 1x1 cell; a 4x2-char
+    /// tile on the same map covers 2x1 cells; etc. Used by the selection
+    /// highlight and by undo-region computation when deleting.
+    /// </summary>
+    private void GetTileCellFootprint( Formats.MapProject.Tile tile, out int cellsWide, out int cellsTall )
+    {
+      cellsWide = 1;
+      cellsTall = 1;
+      if ( ( tile == null )
+      ||   ( m_CurrentMap == null ) )
+      {
+        return;
+      }
+      int spacingX = Math.Max( 1, m_CurrentMap.TileSpacingX );
+      int spacingY = Math.Max( 1, m_CurrentMap.TileSpacingY );
+      cellsWide = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Width  / (float)spacingX ) );
+      cellsTall = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Height / (float)spacingY ) );
     }
 
 
@@ -6887,15 +7044,18 @@ namespace RetroDevStudio.Documents
 
 
     /// <summary>
-    /// Clear both marker and entity selection and refresh the delete
-    /// buttons. Used on map change and tool change; separated out because
-    /// it's repeated in several spots.
+    /// Clear marker, entity, AND tile-cursor selection and refresh the
+    /// delete buttons. Used on map change and tool change; separated out
+    /// because it's repeated in several spots.
     /// </summary>
     private void ClearMarkerEntitySelection()
     {
-      bool hadSomething = ( m_SelectedMarker != null ) || ( m_SelectedEntity != null );
+      bool hadSomething = ( m_SelectedMarker != null )
+                          || ( m_SelectedEntity != null )
+                          || ( m_SelectedTilePos.X >= 0 );
       m_SelectedMarker = null;
       m_SelectedEntity = null;
+      m_SelectedTilePos = new System.Drawing.Point( -1, -1 );
       UpdateDeleteSelectedButtonsEnabled();
       if ( hadSomething )
       {
