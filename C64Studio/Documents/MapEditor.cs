@@ -2541,10 +2541,15 @@ namespace RetroDevStudio.Documents
       {
         listTileIndex = listTileInfo.SelectedIndices[0];
       }
-      int listCharIndex = -1;
-      if ( listTileChars.SelectedIndices.Count > 0 )
+      // Snapshot every selected index, not just the first — listTileChars
+      // is multi-select and the rebuild below blows the whole selection
+      // away. Restoring just SelectedIndices[0] would silently collapse
+      // a Ctrl-click multi-selection to a single row when the user takes
+      // a quick detour to the Map tab.
+      var listCharIndices = new System.Collections.Generic.List<int>();
+      foreach ( int idx in listTileChars.SelectedIndices )
       {
-        listCharIndex = listTileChars.SelectedIndices[0];
+        listCharIndices.Add( idx );
       }
 
       comboTiles.BeginUpdate();
@@ -2634,12 +2639,24 @@ namespace RetroDevStudio.Documents
         listTileInfo.SelectedIndices.Add( listTileIndex );
         listTileInfo.EnsureVisible( listTileIndex );
 
-        if ( ( listCharIndex >= 0 )
-        &&   ( listCharIndex < listTileChars.Items.Count ) )
+        // Restore the FULL multi-selection, filtering out any indices
+        // that no longer fit inside the rebuilt list.
+        if ( ( listCharIndices.Count > 0 )
+        &&   ( listTileChars.Items.Count > 0 ) )
         {
           listTileChars.SelectedIndices.Clear();
-          listTileChars.SelectedIndices.Add( listCharIndex );
-          listTileChars.EnsureVisible( listCharIndex );
+          foreach ( int idx in listCharIndices )
+          {
+            if ( ( idx >= 0 )
+            &&   ( idx < listTileChars.Items.Count ) )
+            {
+              listTileChars.SelectedIndices.Add( idx );
+            }
+          }
+          if ( listTileChars.SelectedIndices.Count > 0 )
+          {
+            listTileChars.EnsureVisible( listTileChars.SelectedIndices[0] );
+          }
         }
       }
       comboTiles.Invalidate();
@@ -3600,30 +3617,53 @@ namespace RetroDevStudio.Documents
         int col = X / m_MapProject.ColorSwatchSize;
         int row = Y / m_MapProject.ColorSwatchSize;
         int colorIndex = col + row * itemsPerRow;
-        
+
         if ( ( colorIndex >= 0 )
         &&   ( colorIndex < 16 ) )
         {
           m_CurrentColor = (byte)colorIndex;
           RedrawColorChooser();
 
-          if ( ( m_CurrentTileChar != null )
-          &&   ( m_CurrentTileChar.Color != m_CurrentColor )
-          &&   ( listTileInfo.SelectedIndices.Count > 0 )
+          // Multi-select aware: every selected character row in
+          // listTileChars takes the new color, not just the focused one.
+          // We collect the rows that actually need a change first so a
+          // click on a color that's already assigned to every selected
+          // row stays a no-op (no undo entry, no redraw).
+          if ( ( listTileInfo.SelectedIndices.Count > 0 )
           &&   ( listTileChars.SelectedItems.Count > 0 ) )
           {
-            DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
+            var rowsToChange = new System.Collections.Generic.List<ListViewItem>();
+            foreach ( ListViewItem item in listTileChars.SelectedItems )
+            {
+              var tc = item.Tag as Formats.MapProject.TileChar;
+              if ( ( tc != null )
+              &&   ( tc.Color != m_CurrentColor ) )
+              {
+                rowsToChange.Add( item );
+              }
+            }
+            if ( rowsToChange.Count > 0 )
+            {
+              // One undo entry covers every per-character change because
+              // UndoMapTileModified snapshots the entire tile. Pushing it
+              // before the mutation matches the rest of this editor.
+              DocumentInfo.UndoManager.AddUndoTask(
+                new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
 
-          m_CurrentTileChar.Color = m_CurrentColor;
-
-          listTileChars.SelectedItems[0].SubItems[2].Text = m_CurrentColor.ToString();
-          RedrawTile();
-          RedrawMap();
-          SetModified();
+              foreach ( var item in rowsToChange )
+              {
+                var tc = (Formats.MapProject.TileChar)item.Tag;
+                tc.Color = m_CurrentColor;
+                item.SubItems[2].Text = m_CurrentColor.ToString();
+              }
+              RedrawTile();
+              RedrawMap();
+              SetModified();
+            }
+          }
         }
       }
     }
-  }
 
 
 
