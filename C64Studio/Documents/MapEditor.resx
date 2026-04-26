@@ -126,60 +126,49 @@
   <metadata name="toolTip1.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
     <value>407, 17</value>
   </metadata>
-  <assembly alias="System.Drawing" name="System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
-  <data name="btnCopyMapImage.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
-    <value>
-        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
-        YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAHUSURBVDhPjZLLaxNRFIfzh+mm+BZEmofuXIkIulIXAUVr
-        TZttLWan+B8I0pURRZuYkJm0TX2Uoq0lj04yrU0zYxIzr88zoxVsMqEHftwLc/nmnu/cyOlkgfiMyqW0
-        SiKtSGQ/q3BxusREMsexay+JjKtYqoRfLdNFlzQNh1rbQjMs0lmdeGqZ49cXwiGJGYUfXY/8pkNhy+b9
-        twELH7uYA49c1WL+3S5n7i2GA+IC2O95lKsO5ZpD8bvF6/U+G60uO6aF+cvm6pPyeECn77HacKjUHdSq
-        TW5jwNNFnczbbR5n60FuPK9w89kKVzLq/25iAjD68FnzglQaLqUti8ybBt5R3ERT0kIAgC+ay6dtlxW5
-        ybz89UhuJh+VpAVYb8FX/c+6JjD/2j5gnJuojDoyOa2y17VDAYfdZNd6vKiY1KWdy7OqtPBwGa3THgLM
-        CWCUm9zmILiJZrjy4ARw4W6RXdOh2RFB+xatjo1u2My9qo90o9R8HxZN0yMhLzhyTp7y+WSRk3f8FP6t
-        YW5WG6BUCb7FZQDBKEdVmJsDQLtnE5czf48PV5ibA0DTaJOYWgoHnJXWRrnxsyPZ++kSeyBjDKuJW3lx
-        8WHIjZ9Tsj9xO0/0fonftgC3929G4LkAAAAASUVORK5CYII=
-</value>
-  </data>
   <metadata name="toolTip1.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
     <value>407, 17</value>
   </metadata>
-  <data name="btnToolEdit.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+  <assembly alias="System.Drawing" name="System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
+  <data name="btnToolEdit.Values.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>
-        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
-        YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABjSURBVDhPrYwBDoAwCMT4/6c1NZ5BYRuSNblkO6C2k+NO
-        GwnaEi9oSa5D0JvyD48A9GdQ5SUAdQwrBAGoZ2FFKgDNWJoxFIDmLI5IBeo/SQmLEwEJhCXhujL+yKdM
-        dkx2Y3YC/jO1S4CQY7AAAAAASUVORK5CYII=
+        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAO
+        vAAADrwBlbxySQAAAGNJREFUOE+tjAEOgDAIxPj/pzU1nkFhG5I1uWQ7oLaT404bCdoSL2hJrkPQm/IP
+        jwD0Z1DlJQB1DCsEAahnYUUqAM1YmjEUgOYsjkgF6j9JCYsTAQmEJeG6Mv7Ip0x2THZjdgL+M7VLgJBj
+        sAAAAABJRU5ErkJggg==
 </value>
   </data>
-  <data name="btnToolRect.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+  <data name="btnToolRect.Values.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>
-        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
-        YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAqSURBVDhPYxhU4D+JGANgU4QPYwCcEmhg1IAhYQCxGANg
-        U4QPDw/AwAAA/fpLtTv0ypwAAAAASUVORK5CYII=
+        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAO
+        vAAADrwBlbxySQAAACpJREFUOE9jGFTgP4kYA2BThA9jAJwSaGDUgCFhALEYA2BThA8PD8DAAAD9+ku1
+        O/TKnAAAAABJRU5ErkJggg==
 </value>
   </data>
-  <data name="btnToolQuad.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+  <data name="btnToolQuad.Values.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>
-        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
-        YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAA6SURBVDhP3crBCQAwDIDA7L90O4Ai9Bd64M9Z5TwGNlVg
-        UwU2VWBTBTZVYFMFNlVgUwU2VWBT9YeZCxSJg30La+osAAAAAElFTkSuQmCC
+        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAO
+        vAAADrwBlbxySQAAADpJREFUOE/dysEJADAMgMDsv3Q7gCL0F3rgz1nlPAY2VWBTBTZVYFMFNlVgUwU2
+        VWBTBTZVYFP1h5kLFImDfQtr6iwAAAAASUVORK5CYII=
 </value>
   </data>
-  <data name="btnToolFill.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+  <data name="btnToolFill.Values.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>
-        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
-        YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABcSURBVDhP3YxbCgAhDAN7/1P1ZpUUI4trsAr7swPBRzO1
-        r4l+XgGZOSZFd79aMmSGfxjuyGLEO5yhpKjIckFVRiRZEDJ43iVZWshgfktWMigvAEo+WkJmmfkHZg0k
-        xHyNY6au8QAAAABJRU5ErkJggg==
+        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAO
+        vAAADrwBlbxySQAAAFxJREFUOE/djFsKACEMA3v/U/VmlRQji2uwCvuzA8FHM7WviX5eAZk5JkV3v1oy
+        ZIZ/GO7IYsQ7nKGkqMhyQVVGJFkQMnjeJVlayGB+S1YyKC8ASj5aQmaZ+QdmDSTEfI1jpq7xAAAAAElF
+        TkSuQmCC
 </value>
   </data>
-  <data name="btnToolSelect.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+  <data name="btnToolSelect.Values.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>
-        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
-        YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAA+SURBVDhPY6AW+A/FIIBOgwA2OWR5FAF0GgSwySHLUw5I
-        NXHUBcPfBeg0CGCTQ5ZHEUCnQQCbHLL8gAEGBgDyui/RBRcpCgAAAABJRU5ErkJggg==
+        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAO
+        vAAADrwBlbxySQAAAD5JREFUOE9joBb4D8UggE6DADY5ZHkUAXQaBLDJIctTDkg1cdQFw98F6DQIYJND
+        lkcRQKdBAJscsvyAAQYGAPK6L9EFFykKAAAAAElFTkSuQmCC
 </value>
+  </data>
+  <data name="comboTilePlacementColor.ToolTip" xml:space="preserve">
+    <value>Color override for newly placed tiles. "Default" leaves the tile's own colors alone; any other choice paints all of the placed tile's characters in that color (visible in the editor and exported in the color grid).</value>
   </data>
   <metadata name="$this.TrayHeight" type="System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
     <value>25</value>

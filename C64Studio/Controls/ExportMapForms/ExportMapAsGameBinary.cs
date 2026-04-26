@@ -193,7 +193,6 @@ namespace RetroDevStudio.Controls
 
       if ( EditOutput != null )
       {
-        EditOutput.Font = new System.Drawing.Font( "Courier New", 8.25f );
         EditOutput.Text = log;
       }
       return true;

@@ -45,6 +45,11 @@
 
     public const ushort    SOURCE_ASM                     = 0x1330;
     public const ushort    SOURCE_BASIC                   = 0x1331;
+    // One sub-chunk per revision, written inside the parent MAP chunk.
+    // The body wraps a fully-formed MAP chunk for the snapshot itself, so
+    // the revision payload is exactly what the load path already knows
+    // how to parse — no parallel data model. See MapProject.Map.Revisions.
+    public const ushort    MAP_REVISION                   = 0x1332;
 
     public const ushort    CHARSET_PROJECT                = 0x1340;
     public const ushort    CHARSET_INFO                   = 0x1341;

@@ -73,6 +73,25 @@ namespace RetroDevStudio.Formats
       }
     };
 
+    /// <summary>
+    /// Read-only snapshot of a <see cref="Map"/> taken at a point in time.
+    /// Stored in <see cref="Map.Revisions"/>; the editor lets the user view
+    /// any past revision (in read-only mode), revert the live map to one,
+    /// or delete revisions they no longer want. Revisions persist in the
+    /// project file but are deliberately excluded from any "export to game
+    /// binary / asm" path — only the live map ships.
+    ///
+    /// The snapshot itself is just a <see cref="Map"/> instance whose
+    /// <see cref="Map.Revisions"/> list is empty; nesting revisions inside
+    /// snapshots would produce an unbounded chain on save.
+    /// </summary>
+    public class MapRevision
+    {
+      public string   Name = "";
+      public DateTime CreatedAt = DateTime.Now;
+      public Map      Snapshot = null;
+    };
+
     public class Map
     {
       public GR.Game.Layer<int> Tiles = new GR.Game.Layer<int>();
@@ -106,6 +125,13 @@ namespace RetroDevStudio.Formats
       /// overrides Project.Mode when set (e.g. display MC instead of hires)
       /// </summary>
       public TextCharMode       AlternativeMode = TextCharMode.UNKNOWN;
+
+      /// <summary>
+      /// Past snapshots of this map kept around as named, read-only points
+      /// the user can return to. Persisted with the project; never exported.
+      /// Always empty inside a <see cref="MapRevision.Snapshot"/> (no nesting).
+      /// </summary>
+      public List<MapRevision>  Revisions = new List<MapRevision>();
     };
 
     public class ExportSettings
@@ -219,7 +245,21 @@ namespace RetroDevStudio.Formats
     public int                          MultiColor2 = 0;
     public int                          BGColor4 = 0;
     public string                       RightClickAction = "";
+    /// <summary>
+    /// Legacy C64-palette-index canvas background (0..15). Kept for back-
+    /// compat with project files that predate <see cref="DesignerBackgroundColorARGB"/>;
+    /// new code should prefer the ARGB form. Value is irrelevant when the
+    /// ARGB form is set (its alpha is non-zero).
+    /// </summary>
     public int                          DesignerBackgroundColor = 0;
+    /// <summary>
+    /// True ARGB color for the designer canvas background. The canvas isn't
+    /// part of any export and never had to be limited to the C64 palette,
+    /// so this field lets the user pick any color via a standard color
+    /// picker. Sentinel <c>0</c> (alpha = 0) means "not set; fall back to
+    /// the legacy palette-index field." Real picks always have alpha = 0xFF.
+    /// </summary>
+    public uint                         DesignerBackgroundColorARGB = 0;
 
     /// <summary>
     /// This mode is used to display/build the tiles
@@ -228,6 +268,13 @@ namespace RetroDevStudio.Formats
     public CharsetProject               Charset = new Formats.CharsetProject();
     public bool                         ShowGrid = false;
     public bool                         ShowCharacterListGrid = false;
+    /// <summary>
+    /// Index into <see cref="Maps"/> of the map the user had selected when
+    /// the project was last saved. -1 = "no preference, just pick the first
+    /// map." Restored on load so the editor reopens on the map the user
+    /// was working on.
+    /// </summary>
+    public int                          CurrentMapIndex = -1;
     public bool                         KeepCharacterAspectRatio = false;
     public int                          CharactersPerRow = 16;
     public int                          CharacterEditorMode = 1;
@@ -278,6 +325,10 @@ namespace RetroDevStudio.Formats
       chunkProjectInfo.AppendI32( CharacterEditorMode );
       chunkProjectInfo.AppendI32( ColorSwatchSize );
       chunkProjectInfo.AppendI32( ShowCharacterListGrid ? 1 : 0 );
+      // Appended without a version bump — readers use a position check to
+      // tell old files (no value) from new (value present). See the load
+      // side at the bottom of MAP_PROJECT_INFO's case.
+      chunkProjectInfo.AppendI32( CurrentMapIndex );
       projectFile.Append( chunkProjectInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkCharset = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET );
@@ -339,119 +390,10 @@ namespace RetroDevStudio.Formats
       }
       foreach ( Map map in Maps )
       {
-        GR.IO.FileChunk chunkMap = new GR.IO.FileChunk( FileChunkConstants.MAP );
-
-        GR.IO.FileChunk chunkMapInfo = new GR.IO.FileChunk( FileChunkConstants.MAP_INFO );
-
-        chunkMapInfo.AppendString( map.Name );
-        chunkMapInfo.AppendI32( map.TileSpacingX );
-        chunkMapInfo.AppendI32( map.TileSpacingY );
-        chunkMapInfo.AppendI32( map.AlternativeMultiColor1 + 1 );
-        chunkMapInfo.AppendI32( map.AlternativeMultiColor2 + 1 );
-        chunkMapInfo.AppendI32( map.AlternativeBackgroundColor + 1 );
-        chunkMapInfo.AppendI32( map.AlternativeBGColor4 + 1 );
-        chunkMapInfo.AppendI32( (int)map.AlternativeMode + 1 );
-        chunkMapInfo.AppendI32( map.SelectedMarkerType );
-        chunkMapInfo.AppendI32( map.MarkerDimOpacity );
-        chunkMap.Append( chunkMapInfo.ToBuffer() );
-
-        GR.IO.FileChunk chunkMapData = new GR.IO.FileChunk( FileChunkConstants.MAP_DATA );
-        chunkMapData.AppendI32( map.Tiles.Width );
-        chunkMapData.AppendI32( map.Tiles.Height );
-        for ( int j = 0; j < map.Tiles.Height; ++j )
-        {
-          for ( int i = 0; i < map.Tiles.Width; ++i )
-          {
-            chunkMapData.AppendI32( map.Tiles[i, j] );
-          }
-        }
-        chunkMap.Append( chunkMapData.ToBuffer() );
-
-        // Per-cell color override layer. Saved as a sparse chunk: skip
-        // entirely if every cell is -1 (the default for a fresh map),
-        // since most maps won't use this feature and there's no point
-        // bloating the file. The reader treats an absent chunk as
-        // "all default" and resizes the override layer to match Tiles.
-        bool anyOverride = false;
-        if ( ( map.TileColorOverrides.Width == map.Tiles.Width )
-        &&   ( map.TileColorOverrides.Height == map.Tiles.Height ) )
-        {
-          for ( int j = 0; j < map.Tiles.Height && !anyOverride; ++j )
-          {
-            for ( int i = 0; i < map.Tiles.Width; ++i )
-            {
-              if ( map.TileColorOverrides[i, j] != -1 )
-              {
-                anyOverride = true;
-                break;
-              }
-            }
-          }
-        }
-        if ( anyOverride )
-        {
-          GR.IO.FileChunk chunkOverrides = new GR.IO.FileChunk( FileChunkConstants.MAP_TILE_COLOR_OVERRIDES );
-          chunkOverrides.AppendI32( map.Tiles.Width );
-          chunkOverrides.AppendI32( map.Tiles.Height );
-          for ( int j = 0; j < map.Tiles.Height; ++j )
-          {
-            for ( int i = 0; i < map.Tiles.Width; ++i )
-            {
-              chunkOverrides.AppendI32( map.TileColorOverrides[i, j] );
-            }
-          }
-          chunkMap.Append( chunkOverrides.ToBuffer() );
-        }
-
-        if ( map.ExtraDataText.Length > 0 )
-        {
-          GR.IO.FileChunk chunkMapExtraData = new GR.IO.FileChunk( FileChunkConstants.MAP_EXTRA_DATA_TEXT );
-
-          chunkMapExtraData.AppendString( map.ExtraDataText );
-
-          chunkMap.Append( chunkMapExtraData.ToBuffer() );
-        }
-        
-        foreach ( var marker in map.Markers )
-        {
-          GR.IO.FileChunk chunkMarker = new GR.IO.FileChunk( FileChunkConstants.MAP_MARKERS );
-          chunkMarker.AppendI32( marker.X );
-          chunkMarker.AppendI32( marker.Y );
-          chunkMarker.AppendI32( marker.Type );
-          chunkMarker.AppendString( marker.Name );
-          chunkMarker.AppendU8( marker.Value1 );
-          chunkMarker.AppendU8( (byte)( marker.Enabled ? 1 : 0 ) );
-          chunkMarker.AppendU8( (byte)( marker.Triggered ? 1 : 0 ) );
-          // Appended for Value2 — old files that lack this byte get the default 0.
-          chunkMarker.AppendU8( marker.Value2 );
-          chunkMap.Append( chunkMarker.ToBuffer() );
-        }
-
-        foreach ( var entity in map.Entities )
-        {
-          GR.IO.FileChunk chunkEntity = new GR.IO.FileChunk( FileChunkConstants.MAP_ENTITIES );
-          chunkEntity.AppendI32( entity.X );
-          chunkEntity.AppendI32( entity.Y );
-          chunkEntity.AppendI32( entity.Type );
-          chunkEntity.AppendU8( entity.Value1 );
-          chunkEntity.AppendU8( entity.Value2 );
-          chunkEntity.AppendU8( (byte)( entity.Enabled ? 1 : 0 ) );
-          // Triggered was added later — old files without this byte get the
-          // default false on load (see entity reader for the position check).
-          chunkEntity.AppendU8( (byte)( entity.Triggered ? 1 : 0 ) );
-          chunkMap.Append( chunkEntity.ToBuffer() );
-        }
-
-        if ( map.ExtraDataOld.Length > 0 )
-        {
-          GR.IO.FileChunk chunkMapExtraData = new GR.IO.FileChunk( FileChunkConstants.MAP_EXTRA_DATA );
-
-          chunkMapExtraData.AppendU32( map.ExtraDataOld.Length );
-          chunkMapExtraData.Append( map.ExtraDataOld );
-
-          chunkMap.Append( chunkMapExtraData.ToBuffer() );
-        }
-        chunkProjectData.Append( chunkMap.ToBuffer() );
+        // Top-level project save includes per-map revision history. Snapshot
+        // chunks recurse with IncludeRevisions=false so revisions don't
+        // nest inside revisions.
+        chunkProjectData.Append( BuildMapChunk( map, IncludeRevisions: true ).ToBuffer() );
       }
 
       projectFile.Append( chunkProjectData.ToBuffer() );
@@ -533,6 +475,12 @@ namespace RetroDevStudio.Formats
       chunkExportSettings.AppendString( Settings.GameBinary.EntityLabelsDirectory ?? "" );
       chunkExportSettings.AppendString( Settings.GameBinary.EntityLabelsFilename ?? "map_entities.asm" );
       chunkExportSettings.AppendString( Settings.GameBinary.EntityLabelsPrefix ?? "" );
+      // True ARGB designer canvas color. Appended at the end of the chunk
+      // (no version bump per the project's append-only convention). Older
+      // readers stop here and use the legacy palette-index field above.
+      // We still write the legacy field a few lines up so old apps keep
+      // loading the project with a sensible (palette-quantised) color.
+      chunkExportSettings.AppendU32( DesignerBackgroundColorARGB );
       projectFile.Append( chunkExportSettings.ToBuffer() );
       return projectFile;
     }
@@ -593,6 +541,12 @@ namespace RetroDevStudio.Formats
               if ( version >= 6 )
               {
                 ShowCharacterListGrid = ( chunkReader.ReadInt32() == 1 );
+              }
+              // Optional appended field — old files just leave it at -1
+              // (the constructor default), which means "pick the first map."
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                CurrentMapIndex = chunkReader.ReadInt32();
               }
             }
             break;
@@ -692,187 +646,8 @@ namespace RetroDevStudio.Formats
                     break;
                   case FileChunkConstants.MAP:
                     {
-                      GR.IO.FileChunk mapChunk = new GR.IO.FileChunk();
- 
                       Map map = new Map();
- 
-                      while ( mapChunk.ReadFromStream( subChunkReader ) )
-                      {
-                        GR.IO.MemoryReader mapChunkReader = mapChunk.MemoryReader();
-                        switch ( mapChunk.Type )
-                        {
-                          case FileChunkConstants.MAP_INFO:
-                            map.Name = mapChunkReader.ReadString();
-                            map.TileSpacingX = mapChunkReader.ReadInt32();
-                            map.TileSpacingY = mapChunkReader.ReadInt32();
-                            map.AlternativeMultiColor1 = mapChunkReader.ReadInt32() - 1;
-                            map.AlternativeMultiColor2 = mapChunkReader.ReadInt32() - 1;
-                            map.AlternativeBackgroundColor = mapChunkReader.ReadInt32() - 1;
-                            map.AlternativeBGColor4 = mapChunkReader.ReadInt32() - 1;
-                            map.AlternativeMode = (TextCharMode)( mapChunkReader.ReadInt32() - 1 );
-                            if ( mapChunkReader.Size - mapChunkReader.Position >= 4 )
-                            {
-                              map.SelectedMarkerType = mapChunkReader.ReadInt32();
-                            }
-                            if ( mapChunkReader.Size - mapChunkReader.Position >= 4 )
-                            {
-                              map.MarkerDimOpacity = mapChunkReader.ReadInt32();
-                            }
-                            break;
-                          case FileChunkConstants.MAP_DATA:
-                            {
-                              int w = mapChunkReader.ReadInt32();
-                              int h = mapChunkReader.ReadInt32();
-
-                              map.Tiles.Resize( w, h );
-                              // Keep the override layer in lockstep with
-                              // Tiles. Default to -1 (no override) for
-                              // every cell — the optional MAP_TILE_COLOR_
-                              // OVERRIDES chunk below may overwrite these.
-                              map.TileColorOverrides.Resize( w, h );
-                              for ( int yy = 0; yy < h; ++yy )
-                              {
-                                for ( int xx = 0; xx < w; ++xx )
-                                {
-                                  map.TileColorOverrides[xx, yy] = -1;
-                                }
-                              }
-
-                              // Optimization: Read entire block at once
-                              GR.Memory.ByteBuffer  inputBuffer = new GR.Memory.ByteBuffer();
-                              mapChunkReader.ReadBlock( inputBuffer, (uint)( w * h * 4 ) );
-
-                              for ( int j = 0; j < h; ++j )
-                              {
-                                for ( int i = 0; i < w; ++i )
-                                {
-                                  int offset = ( i + j * w ) * 4;
-                                  map.Tiles[i, j] = (int)( inputBuffer.ByteAt( offset )
-                                                       | ( inputBuffer.ByteAt( offset + 1 ) << 8 )
-                                                       | ( inputBuffer.ByteAt( offset + 2 ) << 16 )
-                                                       | ( inputBuffer.ByteAt( offset + 3 ) << 24 ) );
-                                }
-                              }
-                            }
-                            break;
-                          case FileChunkConstants.MAP_TILE_COLOR_OVERRIDES:
-                            {
-                              // Optional chunk — only present when at
-                              // least one cell has a non-default override.
-                              // Old project files don't include it; the
-                              // MAP_DATA loader above already initialized
-                              // the layer to all -1 in that case.
-                              int w = mapChunkReader.ReadInt32();
-                              int h = mapChunkReader.ReadInt32();
-                              if ( ( map.TileColorOverrides.Width != w )
-                              ||   ( map.TileColorOverrides.Height != h ) )
-                              {
-                                map.TileColorOverrides.Resize( w, h );
-                              }
-                              for ( int j = 0; j < h; ++j )
-                              {
-                                for ( int i = 0; i < w; ++i )
-                                {
-                                  map.TileColorOverrides[i, j] = mapChunkReader.ReadInt32();
-                                }
-                              }
-                            }
-                            break;
-                          case FileChunkConstants.MAP_EXTRA_DATA:
-                            {
-                              uint len = mapChunkReader.ReadUInt32();
- 
-                              mapChunkReader.ReadBlock( map.ExtraDataOld, len );
- 
-                              map.ExtraDataText = map.ExtraDataOld.ToString();
-                              map.ExtraDataOld.Clear();
-                            }
-                            break;
-                          case FileChunkConstants.MAP_EXTRA_DATA_TEXT:
-                            {
-                              map.ExtraDataText = mapChunkReader.ReadString();
-                            }
-                            break;
-                          case FileChunkConstants.MAP_MARKERS:
-                            {
-                              Marker  marker = new Marker();
-                              marker.X = mapChunkReader.ReadInt32();
-                              marker.Y = mapChunkReader.ReadInt32();
-                              marker.Type = mapChunkReader.ReadInt32();
-                              marker.Name = mapChunkReader.ReadString();
-                              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
-                              {
-                                marker.Value1 = mapChunkReader.ReadUInt8();
-                              }
-                              else
-                              {
-                                marker.Value1 = 0;
-                              }
-                              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
-                              {
-                                marker.Enabled = ( mapChunkReader.ReadUInt8() != 0 );
-                              }
-                              else
-                              {
-                                marker.Enabled = true;
-                              }
-                              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
-                              {
-                                marker.Triggered = ( mapChunkReader.ReadUInt8() != 0 );
-                              }
-                              else
-                              {
-                                marker.Triggered = false;
-                              }
-                              // Value2 was added later — absent in older files, defaults to 0.
-                              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
-                              {
-                                marker.Value2 = mapChunkReader.ReadUInt8();
-                              }
-                              else
-                              {
-                                marker.Value2 = 0;
-                              }
-                              map.Markers.Add( marker );
-                            }
-                            break;
-                          case FileChunkConstants.MAP_ENTITIES:
-                            {
-                              Entity  entity = new Entity();
-                              entity.X = mapChunkReader.ReadInt32();
-                              entity.Y = mapChunkReader.ReadInt32();
-                              entity.Type = mapChunkReader.ReadInt32();
-                              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
-                              {
-                                entity.Value1 = mapChunkReader.ReadUInt8();
-                              }
-                              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
-                              {
-                                entity.Value2 = mapChunkReader.ReadUInt8();
-                              }
-                              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
-                              {
-                                entity.Enabled = ( mapChunkReader.ReadUInt8() != 0 );
-                              }
-                              else
-                              {
-                                entity.Enabled = true;
-                              }
-                              // Triggered was appended later; absent in older files.
-                              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
-                              {
-                                entity.Triggered = ( mapChunkReader.ReadUInt8() != 0 );
-                              }
-                              else
-                              {
-                                entity.Triggered = false;
-                              }
-                              map.Entities.Add( entity );
-                            }
-                            break;
-                        }
-                      }
-
+                      ReadMapFromBody( subChunkReader, map );
                       Maps.Add( map );
                     }
                     break;
@@ -998,6 +773,14 @@ namespace RetroDevStudio.Formats
                     Settings.GameBinary.EntityLabelsFilename = "map_entities.asm";
                   }
                 }
+              }
+              // Optional appended ARGB canvas color — older project files
+              // stop here and the editor will fall back to the legacy
+              // palette-index field. Sentinel 0 (alpha = 0) also means
+              // "use legacy"; real picks always carry alpha 0xFF.
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                DesignerBackgroundColorARGB = chunkReader.ReadUInt32();
               }
             }
             break;
@@ -3341,6 +3124,393 @@ namespace RetroDevStudio.Formats
              sb.AppendLine();
           }
         }
+    }
+
+
+
+    /// <summary>
+    /// Build the parent MAP chunk for one <see cref="Map"/>. Used both by the
+    /// project-level save loop and by <see cref="CloneMap"/> (which serializes
+    /// then deserializes a map to deep-copy it). Lifting this out of the save
+    /// loop means new fields only need to be added in one place.
+    ///
+    /// <paramref name="IncludeRevisions"/> is false when building the chunk
+    /// for a snapshot (i.e. inside a MAP_REVISION wrapper); a snapshot's
+    /// Revisions list is always empty in memory, but the explicit parameter
+    /// makes that contract impossible to break by accident.
+    /// </summary>
+    public static GR.IO.FileChunk BuildMapChunk( Map map, bool IncludeRevisions )
+    {
+      GR.IO.FileChunk chunkMap = new GR.IO.FileChunk( FileChunkConstants.MAP );
+
+      GR.IO.FileChunk chunkMapInfo = new GR.IO.FileChunk( FileChunkConstants.MAP_INFO );
+
+      chunkMapInfo.AppendString( map.Name );
+      chunkMapInfo.AppendI32( map.TileSpacingX );
+      chunkMapInfo.AppendI32( map.TileSpacingY );
+      chunkMapInfo.AppendI32( map.AlternativeMultiColor1 + 1 );
+      chunkMapInfo.AppendI32( map.AlternativeMultiColor2 + 1 );
+      chunkMapInfo.AppendI32( map.AlternativeBackgroundColor + 1 );
+      chunkMapInfo.AppendI32( map.AlternativeBGColor4 + 1 );
+      chunkMapInfo.AppendI32( (int)map.AlternativeMode + 1 );
+      chunkMapInfo.AppendI32( map.SelectedMarkerType );
+      chunkMapInfo.AppendI32( map.MarkerDimOpacity );
+      chunkMap.Append( chunkMapInfo.ToBuffer() );
+
+      GR.IO.FileChunk chunkMapData = new GR.IO.FileChunk( FileChunkConstants.MAP_DATA );
+      chunkMapData.AppendI32( map.Tiles.Width );
+      chunkMapData.AppendI32( map.Tiles.Height );
+      for ( int j = 0; j < map.Tiles.Height; ++j )
+      {
+        for ( int i = 0; i < map.Tiles.Width; ++i )
+        {
+          chunkMapData.AppendI32( map.Tiles[i, j] );
+        }
+      }
+      chunkMap.Append( chunkMapData.ToBuffer() );
+
+      // Per-cell color override layer. Saved as a sparse chunk: skip
+      // entirely if every cell is -1 (the default for a fresh map),
+      // since most maps won't use this feature and there's no point
+      // bloating the file. The reader treats an absent chunk as
+      // "all default" and resizes the override layer to match Tiles.
+      bool anyOverride = false;
+      if ( ( map.TileColorOverrides.Width == map.Tiles.Width )
+      &&   ( map.TileColorOverrides.Height == map.Tiles.Height ) )
+      {
+        for ( int j = 0; j < map.Tiles.Height && !anyOverride; ++j )
+        {
+          for ( int i = 0; i < map.Tiles.Width; ++i )
+          {
+            if ( map.TileColorOverrides[i, j] != -1 )
+            {
+              anyOverride = true;
+              break;
+            }
+          }
+        }
+      }
+      if ( anyOverride )
+      {
+        GR.IO.FileChunk chunkOverrides = new GR.IO.FileChunk( FileChunkConstants.MAP_TILE_COLOR_OVERRIDES );
+        chunkOverrides.AppendI32( map.Tiles.Width );
+        chunkOverrides.AppendI32( map.Tiles.Height );
+        for ( int j = 0; j < map.Tiles.Height; ++j )
+        {
+          for ( int i = 0; i < map.Tiles.Width; ++i )
+          {
+            chunkOverrides.AppendI32( map.TileColorOverrides[i, j] );
+          }
+        }
+        chunkMap.Append( chunkOverrides.ToBuffer() );
+      }
+
+      if ( map.ExtraDataText.Length > 0 )
+      {
+        GR.IO.FileChunk chunkMapExtraData = new GR.IO.FileChunk( FileChunkConstants.MAP_EXTRA_DATA_TEXT );
+
+        chunkMapExtraData.AppendString( map.ExtraDataText );
+
+        chunkMap.Append( chunkMapExtraData.ToBuffer() );
+      }
+
+      foreach ( var marker in map.Markers )
+      {
+        GR.IO.FileChunk chunkMarker = new GR.IO.FileChunk( FileChunkConstants.MAP_MARKERS );
+        chunkMarker.AppendI32( marker.X );
+        chunkMarker.AppendI32( marker.Y );
+        chunkMarker.AppendI32( marker.Type );
+        chunkMarker.AppendString( marker.Name );
+        chunkMarker.AppendU8( marker.Value1 );
+        chunkMarker.AppendU8( (byte)( marker.Enabled ? 1 : 0 ) );
+        chunkMarker.AppendU8( (byte)( marker.Triggered ? 1 : 0 ) );
+        // Appended for Value2 — old files that lack this byte get the default 0.
+        chunkMarker.AppendU8( marker.Value2 );
+        chunkMap.Append( chunkMarker.ToBuffer() );
+      }
+
+      foreach ( var entity in map.Entities )
+      {
+        GR.IO.FileChunk chunkEntity = new GR.IO.FileChunk( FileChunkConstants.MAP_ENTITIES );
+        chunkEntity.AppendI32( entity.X );
+        chunkEntity.AppendI32( entity.Y );
+        chunkEntity.AppendI32( entity.Type );
+        chunkEntity.AppendU8( entity.Value1 );
+        chunkEntity.AppendU8( entity.Value2 );
+        chunkEntity.AppendU8( (byte)( entity.Enabled ? 1 : 0 ) );
+        // Triggered was added later — old files without this byte get the
+        // default false on load (see entity reader for the position check).
+        chunkEntity.AppendU8( (byte)( entity.Triggered ? 1 : 0 ) );
+        chunkMap.Append( chunkEntity.ToBuffer() );
+      }
+
+      if ( map.ExtraDataOld.Length > 0 )
+      {
+        GR.IO.FileChunk chunkMapExtraData = new GR.IO.FileChunk( FileChunkConstants.MAP_EXTRA_DATA );
+
+        chunkMapExtraData.AppendU32( map.ExtraDataOld.Length );
+        chunkMapExtraData.Append( map.ExtraDataOld );
+
+        chunkMap.Append( chunkMapExtraData.ToBuffer() );
+      }
+
+      // Revisions live alongside the rest of the map's content. Each
+      // MAP_REVISION sub-chunk carries a label, a creation timestamp, and
+      // a fully-serialized inner MAP chunk for the snapshot itself. We
+      // recurse with IncludeRevisions=false so a snapshot never carries
+      // its own revisions (which would be unbounded on save).
+      if ( IncludeRevisions )
+      {
+        foreach ( var revision in map.Revisions )
+        {
+          if ( revision == null || revision.Snapshot == null ) continue;
+
+          GR.IO.FileChunk chunkRev = new GR.IO.FileChunk( FileChunkConstants.MAP_REVISION );
+          chunkRev.AppendString( revision.Name ?? "" );
+          // Ticks serialized as a string (no AppendI64 available) — culture-
+          // invariant so a project file written on one machine round-trips
+          // on another with a different locale.
+          chunkRev.AppendString( revision.CreatedAt.Ticks.ToString(
+                                   System.Globalization.CultureInfo.InvariantCulture ) );
+          chunkRev.Append( BuildMapChunk( revision.Snapshot, false ).ToBuffer() );
+          chunkMap.Append( chunkRev.ToBuffer() );
+        }
+      }
+
+      return chunkMap;
+    }
+
+
+
+    /// <summary>
+    /// Inverse of <see cref="BuildMapChunk"/>: walks the body of a parent
+    /// MAP chunk and populates <paramref name="map"/> from its sub-chunks.
+    /// </summary>
+    public static void ReadMapFromBody( GR.IO.MemoryReader bodyReader, Map map )
+    {
+      GR.IO.FileChunk mapChunk = new GR.IO.FileChunk();
+
+      while ( mapChunk.ReadFromStream( bodyReader ) )
+      {
+        GR.IO.MemoryReader mapChunkReader = mapChunk.MemoryReader();
+        switch ( mapChunk.Type )
+        {
+          case FileChunkConstants.MAP_INFO:
+            map.Name = mapChunkReader.ReadString();
+            map.TileSpacingX = mapChunkReader.ReadInt32();
+            map.TileSpacingY = mapChunkReader.ReadInt32();
+            map.AlternativeMultiColor1 = mapChunkReader.ReadInt32() - 1;
+            map.AlternativeMultiColor2 = mapChunkReader.ReadInt32() - 1;
+            map.AlternativeBackgroundColor = mapChunkReader.ReadInt32() - 1;
+            map.AlternativeBGColor4 = mapChunkReader.ReadInt32() - 1;
+            map.AlternativeMode = (TextCharMode)( mapChunkReader.ReadInt32() - 1 );
+            if ( mapChunkReader.Size - mapChunkReader.Position >= 4 )
+            {
+              map.SelectedMarkerType = mapChunkReader.ReadInt32();
+            }
+            if ( mapChunkReader.Size - mapChunkReader.Position >= 4 )
+            {
+              map.MarkerDimOpacity = mapChunkReader.ReadInt32();
+            }
+            break;
+          case FileChunkConstants.MAP_DATA:
+            {
+              int w = mapChunkReader.ReadInt32();
+              int h = mapChunkReader.ReadInt32();
+
+              map.Tiles.Resize( w, h );
+              // Keep the override layer in lockstep with Tiles. Default to
+              // -1 (no override) for every cell — the optional MAP_TILE_
+              // COLOR_OVERRIDES chunk below may overwrite these.
+              map.TileColorOverrides.Resize( w, h );
+              for ( int yy = 0; yy < h; ++yy )
+              {
+                for ( int xx = 0; xx < w; ++xx )
+                {
+                  map.TileColorOverrides[xx, yy] = -1;
+                }
+              }
+
+              // Optimization: read entire block at once
+              GR.Memory.ByteBuffer  inputBuffer = new GR.Memory.ByteBuffer();
+              mapChunkReader.ReadBlock( inputBuffer, (uint)( w * h * 4 ) );
+
+              for ( int j = 0; j < h; ++j )
+              {
+                for ( int i = 0; i < w; ++i )
+                {
+                  int offset = ( i + j * w ) * 4;
+                  map.Tiles[i, j] = (int)( inputBuffer.ByteAt( offset )
+                                       | ( inputBuffer.ByteAt( offset + 1 ) << 8 )
+                                       | ( inputBuffer.ByteAt( offset + 2 ) << 16 )
+                                       | ( inputBuffer.ByteAt( offset + 3 ) << 24 ) );
+                }
+              }
+            }
+            break;
+          case FileChunkConstants.MAP_TILE_COLOR_OVERRIDES:
+            {
+              int w = mapChunkReader.ReadInt32();
+              int h = mapChunkReader.ReadInt32();
+              if ( ( map.TileColorOverrides.Width != w )
+              ||   ( map.TileColorOverrides.Height != h ) )
+              {
+                map.TileColorOverrides.Resize( w, h );
+              }
+              for ( int j = 0; j < h; ++j )
+              {
+                for ( int i = 0; i < w; ++i )
+                {
+                  map.TileColorOverrides[i, j] = mapChunkReader.ReadInt32();
+                }
+              }
+            }
+            break;
+          case FileChunkConstants.MAP_EXTRA_DATA:
+            {
+              uint len = mapChunkReader.ReadUInt32();
+
+              mapChunkReader.ReadBlock( map.ExtraDataOld, len );
+
+              map.ExtraDataText = map.ExtraDataOld.ToString();
+              map.ExtraDataOld.Clear();
+            }
+            break;
+          case FileChunkConstants.MAP_EXTRA_DATA_TEXT:
+            {
+              map.ExtraDataText = mapChunkReader.ReadString();
+            }
+            break;
+          case FileChunkConstants.MAP_MARKERS:
+            {
+              Marker  marker = new Marker();
+              marker.X = mapChunkReader.ReadInt32();
+              marker.Y = mapChunkReader.ReadInt32();
+              marker.Type = mapChunkReader.ReadInt32();
+              marker.Name = mapChunkReader.ReadString();
+              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+              {
+                marker.Value1 = mapChunkReader.ReadUInt8();
+              }
+              else
+              {
+                marker.Value1 = 0;
+              }
+              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+              {
+                marker.Enabled = ( mapChunkReader.ReadUInt8() != 0 );
+              }
+              else
+              {
+                marker.Enabled = true;
+              }
+              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+              {
+                marker.Triggered = ( mapChunkReader.ReadUInt8() != 0 );
+              }
+              else
+              {
+                marker.Triggered = false;
+              }
+              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+              {
+                marker.Value2 = mapChunkReader.ReadUInt8();
+              }
+              else
+              {
+                marker.Value2 = 0;
+              }
+              map.Markers.Add( marker );
+            }
+            break;
+          case FileChunkConstants.MAP_ENTITIES:
+            {
+              Entity  entity = new Entity();
+              entity.X = mapChunkReader.ReadInt32();
+              entity.Y = mapChunkReader.ReadInt32();
+              entity.Type = mapChunkReader.ReadInt32();
+              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+              {
+                entity.Value1 = mapChunkReader.ReadUInt8();
+              }
+              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+              {
+                entity.Value2 = mapChunkReader.ReadUInt8();
+              }
+              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+              {
+                entity.Enabled = ( mapChunkReader.ReadUInt8() != 0 );
+              }
+              else
+              {
+                entity.Enabled = true;
+              }
+              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+              {
+                entity.Triggered = ( mapChunkReader.ReadUInt8() != 0 );
+              }
+              else
+              {
+                entity.Triggered = false;
+              }
+              map.Entities.Add( entity );
+            }
+            break;
+          case FileChunkConstants.MAP_REVISION:
+            {
+              // The revision wrapper carries label + timestamp, then a
+              // fully-formed inner MAP chunk for the snapshot itself.
+              var revision = new MapRevision();
+              revision.Name = mapChunkReader.ReadString();
+              string ticksText = mapChunkReader.ReadString();
+              long ticks = 0;
+              long.TryParse( ticksText,
+                             System.Globalization.NumberStyles.Integer,
+                             System.Globalization.CultureInfo.InvariantCulture,
+                             out ticks );
+              if ( ticks <= 0 ) ticks = DateTime.Now.Ticks;
+              revision.CreatedAt = new DateTime( ticks );
+
+              // Find the inner MAP chunk and walk its body.
+              GR.IO.FileChunk innerMapChunk = new GR.IO.FileChunk();
+              if ( innerMapChunk.ReadFromStream( mapChunkReader )
+              &&   innerMapChunk.Type == FileChunkConstants.MAP )
+              {
+                var snapshot = new Map();
+                ReadMapFromBody( innerMapChunk.MemoryReader(), snapshot );
+                revision.Snapshot = snapshot;
+                map.Revisions.Add( revision );
+              }
+            }
+            break;
+        }
+      }
+    }
+
+
+
+    /// <summary>
+    /// Deep-copy a <see cref="Map"/> by round-tripping it through the chunk
+    /// serializer. Robust by construction: any future field added to the
+    /// serializer is automatically copied. The clone has an empty
+    /// <see cref="Map.Revisions"/> list (we never want history nested inside
+    /// another snapshot).
+    /// </summary>
+    public static Map CloneMap( Map source )
+    {
+      if ( source == null ) return null;
+
+      var bytes = BuildMapChunk( source, IncludeRevisions: false ).ToBuffer();
+
+      var memReader = new GR.IO.MemoryReader( bytes );
+      var outerChunk = new GR.IO.FileChunk();
+      var clone = new Map();
+      if ( outerChunk.ReadFromStream( memReader )
+      &&   outerChunk.Type == FileChunkConstants.MAP )
+      {
+        ReadMapFromBody( outerChunk.MemoryReader(), clone );
+      }
+      return clone;
     }
 
   }

@@ -108,6 +108,25 @@ namespace RetroDevStudio.Documents
     // but it inflates the undo log and can reorder triggers.
     private bool                        m_PopulatingFromSelection = false;
 
+    // === Revisions ===========================================================
+    // When the user picks a past revision from comboRevisions, we swap
+    // m_CurrentMap to point at that revision's snapshot Map and remember
+    // the live (editable) map here. Switching back to "(Current)" restores
+    // m_CurrentMap from m_LiveMap. While viewing a revision the editor is
+    // strictly read-only — m_IsViewingRevision gates every tile-modifying
+    // and metadata-modifying entry point.
+    //
+    // Both the live and snapshot Maps are real Map instances; only the
+    // m_IsViewingRevision flag determines whether edits are allowed. We
+    // never mutate snapshot data directly: revert produces a fresh deep
+    // copy onto m_LiveMap so the snapshot stays pristine for future view
+    // / revert / delete operations.
+    private Formats.MapProject.Map      m_LiveMap = null;
+    private bool                        m_IsViewingRevision = false;
+    // Set during programmatic comboRevisions repopulation so the
+    // SelectedIndexChanged handler doesn't try to swap maps mid-rebuild.
+    private bool                        m_PopulatingRevisionsCombo = false;
+
     private bool[,]                     m_SelectedTiles = new bool[20, 12];
 
     private bool                        m_MouseButtonReleased = false;
@@ -193,7 +212,6 @@ namespace RetroDevStudio.Documents
       WireOwnerDrawCombo( comboMapMultiColor1,        comboAlternativeColor_DrawItem );
       WireOwnerDrawCombo( comboMapMultiColor2,        comboAlternativeColor_DrawItem );
       WireOwnerDrawCombo( comboMapAlternativeBGColor4, comboAlternativeColor_DrawItem );
-      WireOwnerDrawCombo( comboDesignerBackground,    comboColor_DrawItem );
       WireOwnerDrawCombo( comboMarkerColorOverride,   comboMarkerColorOverride_DrawItem );
       WireOwnerDrawCombo( comboTilePlacementColor,    comboTilePlacementColor_DrawItem );
 
@@ -291,7 +309,6 @@ namespace RetroDevStudio.Documents
       comboMapAlternativeBGColor4.Items.Add( "Project" );
       for ( int i = 0; i < 16; ++i )
       {
-        comboDesignerBackground.Items.Add( i.ToString( "d2" ) );
         comboTileBackground.Items.Add( i.ToString( "d2" ) );
         comboTileMulticolor1.Items.Add( i.ToString( "d2" ) );
         comboTileMulticolor2.Items.Add( i.ToString( "d2" ) );
@@ -311,7 +328,6 @@ namespace RetroDevStudio.Documents
       comboMapMultiColor2.SelectedIndex = 0;
       comboMapMultiColor2.SelectedIndex = 0;
       comboMapBGColor.SelectedIndex = 0;
-      comboDesignerBackground.SelectedIndex = 0;
       comboMapAlternativeBGColor4.SelectedIndex = 0;
       comboMarkerColor.SelectedIndex = 0;
       comboMarkerColorOverride.SelectedIndex = 0;
@@ -327,7 +343,6 @@ namespace RetroDevStudio.Documents
       comboExportData.SelectedIndexChanged += ExportSettingsChanged;
       comboExportOrientation.SelectedIndexChanged += ExportSettingsChanged;
       comboRightClickBehavior.SelectedIndexChanged += comboRightClickBehavior_SelectedIndexChanged;
-      comboDesignerBackground.SelectedIndexChanged += comboDesignerBackground_SelectedIndexChanged;
 
       foreach ( TextMode mode in Enum.GetValues( typeof( TextMode ) ) )
       {
@@ -1529,6 +1544,14 @@ namespace RetroDevStudio.Documents
 
       if ( ( Buttons & MouseButtons.Left ) != 0 )
       {
+        // Read-only when viewing a revision: left-click can't paint, fill,
+        // place markers/entities, or drop a floating selection. Right and
+        // middle buttons (eyedropper, color-picker) still flow through.
+        if ( m_IsViewingRevision )
+        {
+          return;
+        }
+
         if ( m_FloatingSelection != null )
         {
           if ( m_MouseButtonReleased )
@@ -1649,19 +1672,29 @@ namespace RetroDevStudio.Documents
                 //RecalcTileUsageInCurrentMap();
 
                 DrawTile( trueX, trueY, tileIndex, m_TilePlacementColorOverride );
-                // copy to image cache
+                // Copy the freshly-drawn tile from DisplayPage into m_Image
+                // (the cache that Redraw() blits back over DisplayPage on
+                // grid toggles, etc.). DrawTile placed the tile at
+                // renderOffset+(...), so we MUST add renderOffset to the
+                // src/dst coords here too — otherwise we'd sample empty
+                // background pixels and the tile would silently vanish on
+                // the next Redraw(). The RECTANGLE/FILLED_RECTANGLE branch
+                // already gets this right; this branch (and a few others)
+                // were missing it, hence "drag-paint a row of tiles, then
+                // toggle the grid → only the first tile survives."
                 pictureEditor.DisplayPage.DrawTo( m_Image,
-                                trueX * 8 * m_CurrentMap.TileSpacingX,
-                                trueY * 8 * m_CurrentMap.TileSpacingY,
-                                trueX * 8 * m_CurrentMap.TileSpacingX,
-                                trueY * 8 * m_CurrentMap.TileSpacingY,
+                                renderOffsetX + trueX * 8 * m_CurrentMap.TileSpacingX,
+                                renderOffsetY + trueY * 8 * m_CurrentMap.TileSpacingY,
+                                renderOffsetX + trueX * 8 * m_CurrentMap.TileSpacingX,
+                                renderOffsetY + trueY * 8 * m_CurrentMap.TileSpacingY,
                                 m_MapProject.Tiles[tileIndex].Chars.Width * 8,
                                 m_MapProject.Tiles[tileIndex].Chars.Height * 8 );
 
-                pictureEditor.Invalidate( new System.Drawing.Rectangle( ( trueX * m_CurrentMap.TileSpacingX ) * 8,
-                                                                        ( trueY * m_CurrentMap.TileSpacingY ) * 8,
-                                                                        m_CurrentEditorTile.Chars.Width * 8,
-                                                                        m_CurrentEditorTile.Chars.Height * 8 ) );
+                pictureEditor.Invalidate( new System.Drawing.Rectangle(
+                                            renderOffsetX + ( trueX * m_CurrentMap.TileSpacingX ) * 8,
+                                            renderOffsetY + ( trueY * m_CurrentMap.TileSpacingY ) * 8,
+                                            m_CurrentEditorTile.Chars.Width * 8,
+                                            m_CurrentEditorTile.Chars.Height * 8 ) );
               }
             }
             break;
@@ -2034,7 +2067,14 @@ namespace RetroDevStudio.Documents
         }
         else
         {
-          // paint with selected tile
+          // paint with selected tile — but only when the live map is
+          // editable; right-click paint while viewing a revision would
+          // mutate the snapshot, defeating the read-only contract.
+          if ( m_IsViewingRevision )
+          {
+            return;
+          }
+
           MapProject.Tile tileToUse = null;
           foreach ( var tile in m_MapProject.Tiles )
           {
@@ -2050,11 +2090,14 @@ namespace RetroDevStudio.Documents
             m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY] = tileToUse.Index;
             ApplyPlacementColorOverride( trueX + offsetX, trueY + offsetY );
 
+            // Same renderOffset correction as the SINGLE_TILE drag-paint —
+            // DrawTile placed the tile at renderOffset+(...) so the cache
+            // copy must read/write from the same place.
             pictureEditor.DisplayPage.DrawTo( m_Image,
-                            trueX * 8 * m_CurrentMap.TileSpacingX,
-                            trueY * 8 * m_CurrentMap.TileSpacingY,
-                            trueX * 8 * m_CurrentMap.TileSpacingX,
-                            trueY * 8 * m_CurrentMap.TileSpacingY,
+                            renderOffsetX + trueX * 8 * m_CurrentMap.TileSpacingX,
+                            renderOffsetY + trueY * 8 * m_CurrentMap.TileSpacingY,
+                            renderOffsetX + trueX * 8 * m_CurrentMap.TileSpacingX,
+                            renderOffsetY + trueY * 8 * m_CurrentMap.TileSpacingY,
                             8 * m_CurrentMap.TileSpacingX, 8 * m_CurrentMap.TileSpacingY );
             pictureEditor.Invalidate( new System.Drawing.Rectangle( ( trueX + offsetX ) * 8 * m_CurrentMap.TileSpacingX,
                                                                     ( trueY + offsetY ) * 8 * m_CurrentMap.TileSpacingY,
@@ -2232,7 +2275,12 @@ namespace RetroDevStudio.Documents
       GetMapRenderOffsets( out int renderOffsetX, out int renderOffsetY );
 
       // clean background
-      pictureEditor.DisplayPage.Box( 0, 0, pictureEditor.DisplayPage.Width, pictureEditor.DisplayPage.Height, m_MapProject.Charset.Colors.Palette.ColorValues[m_MapProject.DesignerBackgroundColor] );
+      // Designer canvas color used to be a C64-palette index; it's now a
+      // free-form ARGB color picked via ColorDialog (the canvas isn't part
+      // of any export, so palette quantisation was never required).
+      // GetDesignerBackgroundARGB resolves the legacy palette field for
+      // older projects.
+      pictureEditor.DisplayPage.Box( 0, 0, pictureEditor.DisplayPage.Width, pictureEditor.DisplayPage.Height, GetDesignerBackgroundARGB() );
 
       // draw map background
       pictureEditor.DisplayPage.Box( renderOffsetX, renderOffsetY, fillWidth, fillHeight, m_MapProject.Charset.Colors.Palette.ColorValues[bgColor] );
@@ -2501,15 +2549,7 @@ namespace RetroDevStudio.Documents
 
 
       comboTileBackground.SelectedIndex   = m_MapProject.BackgroundColor;
-      if ( ( m_MapProject.DesignerBackgroundColor >= 0 )
-      &&   ( m_MapProject.DesignerBackgroundColor < 16 ) )
-      {
-        comboDesignerBackground.SelectedIndex = m_MapProject.DesignerBackgroundColor;
-      }
-      else
-      {
-        comboDesignerBackground.SelectedIndex = 0;
-      }
+      RefreshDesignerBackgroundSwatch();
       comboTileMulticolor1.SelectedIndex = m_MapProject.MultiColor1;
       comboTileMulticolor2.SelectedIndex = m_MapProject.MultiColor2;
       comboTileBGColor4.SelectedIndex = m_MapProject.BGColor4;
@@ -2535,7 +2575,16 @@ namespace RetroDevStudio.Documents
       if ( ( comboMaps.Items.Count > 0 )
       &&   ( comboMaps.SelectedIndex == -1 ) )
       {
-        comboMaps.SelectedIndex = 0;
+        // Restore the map the user had selected when this project was
+        // saved. If the persisted index is out of range (project was
+        // edited externally to remove maps, etc.) fall back to the first
+        // map rather than leaving nothing selected.
+        int target = m_MapProject.CurrentMapIndex;
+        if ( ( target < 0 ) || ( target >= comboMaps.Items.Count ) )
+        {
+          target = 0;
+        }
+        comboMaps.SelectedIndex = target;
       }
       if ( ( comboTiles.Items.Count > 0 )
       &&   ( comboTiles.SelectedIndex == -1 ) )
@@ -2741,13 +2790,77 @@ namespace RetroDevStudio.Documents
       Modified = true;
     }
 
-    private void comboDesignerBackground_SelectedIndexChanged( object sender, EventArgs e )
+    /// <summary>
+    /// Resolve the designer canvas color in ARGB. Prefers the explicit
+    /// ARGB field (alpha != 0); falls back to the legacy palette-index
+    /// field for projects saved before the picker existed. Centralised
+    /// here so the painter and the swatch UI agree on what colour to use.
+    /// </summary>
+    private uint GetDesignerBackgroundARGB()
     {
-      if ( m_MapProject.DesignerBackgroundColor != comboDesignerBackground.SelectedIndex )
+      if ( m_MapProject == null ) return 0xff000000;
+      if ( ( m_MapProject.DesignerBackgroundColorARGB & 0xff000000 ) != 0 )
       {
-        m_MapProject.DesignerBackgroundColor = comboDesignerBackground.SelectedIndex;
-        RedrawMap();
-        Modified = true;
+        return m_MapProject.DesignerBackgroundColorARGB;
+      }
+      // Legacy fallback: clamp the palette index and look it up.
+      int idx = m_MapProject.DesignerBackgroundColor;
+      var palette = m_MapProject.Charset.Colors.Palette.ColorValues;
+      if ( idx < 0 || idx >= palette.Length ) idx = 0;
+      return palette[idx];
+    }
+
+
+
+    /// <summary>
+    /// Push the resolved color onto the swatch button's BackColor (and
+    /// pick a contrasting border so light and dark colors both look
+    /// "interactive" against the dark groupbox).
+    /// </summary>
+    private void RefreshDesignerBackgroundSwatch()
+    {
+      if ( btnDesignerBackground == null ) return;
+      uint argb = GetDesignerBackgroundARGB();
+      var color = System.Drawing.Color.FromArgb( unchecked( (int)argb ) );
+      btnDesignerBackground.BackColor = color;
+      // Hover color is derived from BackColor by Krypton/WinForms; force
+      // it to match so the swatch doesn't jitter on mouseover.
+      btnDesignerBackground.FlatAppearance.MouseOverBackColor = color;
+      btnDesignerBackground.FlatAppearance.MouseDownBackColor = color;
+    }
+
+
+
+    private void btnDesignerBackground_Click( object sender, EventArgs e )
+    {
+      if ( m_MapProject == null ) return;
+
+      using ( var dlg = new System.Windows.Forms.ColorDialog() )
+      {
+        // FullOpen lets the user dial in any RGB; AllowFullOpen on its own
+        // only enables the Define-Custom-Colors button without expanding.
+        dlg.AllowFullOpen = true;
+        dlg.FullOpen      = true;
+        dlg.AnyColor      = true;
+
+        uint currentArgb = GetDesignerBackgroundARGB();
+        dlg.Color = System.Drawing.Color.FromArgb( unchecked( (int)currentArgb ) );
+
+        if ( dlg.ShowDialog( this ) != System.Windows.Forms.DialogResult.OK )
+        {
+          return;
+        }
+
+        // ColorDialog returns a Color with alpha 0xFF — exactly what we
+        // need for the "alpha != 0 means real pick" sentinel rule.
+        uint picked = unchecked( (uint)dlg.Color.ToArgb() );
+        if ( m_MapProject.DesignerBackgroundColorARGB != picked )
+        {
+          m_MapProject.DesignerBackgroundColorARGB = picked;
+          RefreshDesignerBackgroundSwatch();
+          RedrawMap();
+          Modified = true;
+        }
       }
     }
 
@@ -3220,12 +3333,23 @@ namespace RetroDevStudio.Documents
     /// </summary>
     private void AddPaletteTestCombo()
     {
+      // Position right under groupBoxRevisions at a fixed Y instead of
+      // bottom-anchoring to groupBox1. Bottom-anchoring made the palette
+      // tester collide with the static Revisions group whenever the
+      // MapEditor pane was smaller than groupBox1's design height — the
+      // bottom-anchor pulled the combo up into the Revisions footprint
+      // (or below the visible pane edge, depending on size). A fixed Y
+      // tied to groupBoxRevisions.Bottom keeps it predictably below.
+      int paletteTopY = ( groupBoxRevisions != null )
+                        ? groupBoxRevisions.Bottom + 6
+                        : groupBox1.Height - 48;
+
       var label = new System.Windows.Forms.Label
       {
         Text = "Palette tester (TEMP):",
         AutoSize = true,
-        Location = new System.Drawing.Point( 10, groupBox1.Height - 48 ),
-        Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left,
+        Location = new System.Drawing.Point( 10, paletteTopY ),
+        Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left,
         ForeColor = RetroDevStudio.CustomRenderer.DarkTheme.StatusWarn,
         Name = "labelPaletteTest",
       };
@@ -3237,8 +3361,8 @@ namespace RetroDevStudio.Documents
       {
         DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList,
         Size = new System.Drawing.Size( comboWidth, 24 ),
-        Location = new System.Drawing.Point( 10, groupBox1.Height - 30 ),
-        Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right,
+        Location = new System.Drawing.Point( 10, paletteTopY + 18 ),
+        Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right,
         Name = "comboPaletteTest",
       };
       foreach ( Krypton.Toolkit.PaletteMode mode in System.Enum.GetValues( typeof( Krypton.Toolkit.PaletteMode ) ) )
@@ -3400,7 +3524,7 @@ namespace RetroDevStudio.Documents
 
     private void ShiftMap( int DX, int DY )
     {
-      if ( m_CurrentMap == null )
+      if ( !IsMapEditable )
       {
         return;
       }
@@ -4018,7 +4142,23 @@ namespace RetroDevStudio.Documents
       // button could act on a marker that's no longer in the visible map.
       ClearMarkerEntitySelection();
 
+      // Switching maps always cancels any "viewing a revision" mode — the
+      // revisions list belongs to the previous map, not the new one. The
+      // revisions combo will be repopulated below from the new map.
+      m_IsViewingRevision = false;
+      m_LiveMap = null;
       m_CurrentMap = null;
+
+      // Persist the user's map choice so reopening the project lands them
+      // on the same map. -1 ("none selected") writes through too — falling
+      // back to "no preference" rather than the last good index keeps the
+      // saved value honest.
+      if ( ( m_MapProject != null )
+      &&   ( m_MapProject.CurrentMapIndex != comboMaps.SelectedIndex ) )
+      {
+        m_MapProject.CurrentMapIndex = comboMaps.SelectedIndex;
+        SetModified();
+      }
 
       btnMapApply.Enabled = ( comboMaps.SelectedIndex != -1 );
       btnMapDelete.Enabled = ( comboMaps.SelectedIndex != -1 );
@@ -4029,9 +4169,13 @@ namespace RetroDevStudio.Documents
         btnCopy.Enabled = false;
         btnMoveMapDown.Enabled = false;
         btnMoveMapUp.Enabled = false;
+        RefreshRevisionsCombo();
         return;
       }
       m_CurrentMap = ( (GR.Generic.Tupel<string, Formats.MapProject.Map>)comboMaps.SelectedItem ).second;
+      // The map the user just selected becomes our editable "live" map.
+      // Any revision-viewing state was already cleared above.
+      m_LiveMap = m_CurrentMap;
       btnCopy.Enabled = true;
 
       btnMoveMapDown.Enabled  = ( ( comboMaps.Items.Count >= 2 ) && ( comboMaps.SelectedIndex + 1 < comboMaps.Items.Count ) );
@@ -4083,6 +4227,12 @@ namespace RetroDevStudio.Documents
   }
 
       RecalcTileUsageInCurrentMap();
+
+      // Re-fill comboRevisions from the new map's history and re-enable
+      // edit-side controls (we always start in "(Current)" view mode after
+      // a map switch).
+      RefreshRevisionsCombo();
+      SetMapEditingControlsEnabled( true );
 
       AdjustScrollbars();
       RedrawMap();
@@ -5829,6 +5979,13 @@ namespace RetroDevStudio.Documents
 
     public void UpdateArea( int X, int Y, int Width, int Height )
     {
+      // DrawTile already adds renderOffset internally. The cache copy and
+      // Invalidate need it too — sampling the unshifted region of
+      // DisplayPage when the map is centered would copy empty background
+      // pixels into m_Image and the freshly-drawn tile would vanish on
+      // the next Redraw().
+      GetMapRenderOffsets( out int renderOffsetX, out int renderOffsetY );
+
       for ( int i = 0; i < Width; ++i )
       {
         for ( int j = 0; j < Height; ++j )
@@ -5837,16 +5994,17 @@ namespace RetroDevStudio.Documents
         }
       }
       pictureEditor.DisplayPage.DrawTo( m_Image,
-                      ( X - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
-                      ( Y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
-                      ( X - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
-                      ( Y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
+                      renderOffsetX + ( X - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
+                      renderOffsetY + ( Y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
+                      renderOffsetX + ( X - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
+                      renderOffsetY + ( Y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
                       Width * 8 * m_CurrentMap.TileSpacingX, Height * 8 * m_CurrentMap.TileSpacingY );
 
-      pictureEditor.Invalidate( new System.Drawing.Rectangle( ( X - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8,
-                                                              ( Y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8,
-                                                              Width * m_CurrentMap.TileSpacingY * 8,
-                                                              Height * m_CurrentMap.TileSpacingY * 8 ) );
+      pictureEditor.Invalidate( new System.Drawing.Rectangle(
+                                  renderOffsetX + ( X - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8,
+                                  renderOffsetY + ( Y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8,
+                                  Width * m_CurrentMap.TileSpacingY * 8,
+                                  Height * m_CurrentMap.TileSpacingY * 8 ) );
       RedrawMap();
       RecalcTileUsageInCurrentMap();
     }
@@ -6837,7 +6995,60 @@ namespace RetroDevStudio.Documents
           }
         }
       }
+      else if ( ( keyData == ( Keys.Alt | Keys.Left ) )
+      ||        ( keyData == ( Keys.Alt | Keys.Right ) )
+      ||        ( keyData == ( Keys.Alt | Keys.Up ) )
+      ||        ( keyData == ( Keys.Alt | Keys.Down ) ) )
+      {
+        // ALT+arrow reorders the selected character(s) within the
+        // character sheet — same effect as the four Move-character arrows
+        // on the Character set tab. (NOT pixel-shift; that's a different
+        // pair of buttons elsewhere in the editor.) Strict scope:
+        //  - Character set tab must be the active page; same shortcut on
+        //    other tabs would clash with arrow-key navigation there.
+        //  - At least one character must be selected — otherwise
+        //    SwapCharacter is a no-op and we'd needlessly swallow the key.
+        if ( TryMoveCharacterByAltArrow( keyData ) )
+        {
+          return true;
+        }
+      }
       return base.ProcessCmdKey( ref msg, keyData );
+    }
+
+
+
+    /// <summary>
+    /// Implementation for the ALT+arrow shortcut wired up in ProcessCmdKey.
+    /// Calls into the same <see cref="Controls.CharacterEditor.SwapCharacter"/>
+    /// the Move-character toolbar buttons drive, with the same hardcoded
+    /// row-width of 16 (matches the grid the panelCharacters list uses).
+    /// Returns true when the key was handled so the caller can swallow it;
+    /// returns false when the gates fail so it falls through to whatever
+    /// has focus.
+    /// </summary>
+    private bool TryMoveCharacterByAltArrow( Keys keyData )
+    {
+      if ( tabMapEditor == null )                       return false;
+      if ( tabMapEditor.SelectedPage != tabCharset )    return false;
+      if ( characterEditor == null )                    return false;
+      // No character selected — SwapCharacter would early-return anyway,
+      // but checking up front lets us NOT swallow the keypress so other
+      // handlers / focus chains can react to plain Alt+arrow.
+      if ( ( panelCharacters == null )
+      ||   ( panelCharacters.SelectedIndex < 0 ) )
+      {
+        return false;
+      }
+
+      switch ( keyData )
+      {
+        case Keys.Alt | Keys.Left:  characterEditor.SwapCharacter(  -1 ); return true;
+        case Keys.Alt | Keys.Right: characterEditor.SwapCharacter(   1 ); return true;
+        case Keys.Alt | Keys.Up:    characterEditor.SwapCharacter( -16 ); return true;
+        case Keys.Alt | Keys.Down:  characterEditor.SwapCharacter(  16 ); return true;
+      }
+      return false;
     }
 
 
@@ -6851,7 +7062,7 @@ namespace RetroDevStudio.Documents
     /// </summary>
     private bool TryDeleteRightClickedTile()
     {
-      if ( m_CurrentMap == null ) return false;
+      if ( !IsMapEditable ) return false;
       if ( ( m_SelectedTilePos.X < 0 )
       ||   ( m_SelectedTilePos.Y < 0 )
       ||   ( m_SelectedTilePos.X >= m_CurrentMap.Tiles.Width )
@@ -7383,23 +7594,11 @@ namespace RetroDevStudio.Documents
 
     private void btnClearMarkers_Click( object sender, EventArgs e )
     {
-       if ( m_CurrentMap == null ) return;
-       
-       m_CurrentMap.Markers.Clear();
-       pictureEditor.Invalidate();
-       RedrawMap();
-       Modified = true;
+
     }
 
     private void btnClearMarkerType_Click( object sender, EventArgs e )
     {
-       if ( m_CurrentMap == null ) return;
-       if ( m_CurrentMap.SelectedMarkerType == -1 ) return;
-       
-       m_CurrentMap.Markers.RemoveAll( m => m.Type == m_CurrentMap.SelectedMarkerType );
-       pictureEditor.Invalidate();
-       RedrawMap();
-       Modified = true;
     }
 
     private void comboMarkerColorOverride_SelectedIndexChanged( object sender, EventArgs e )
@@ -7451,8 +7650,8 @@ namespace RetroDevStudio.Documents
        bool enabled = btnToolMarker.Checked;
        comboMarkerTypes.Enabled = enabled;
        comboMarkerColorOverride.Enabled = enabled;
-       btnClearMarkers.Enabled = enabled;
-       btnClearMarkerType.Enabled = enabled;
+       clearAllMarkersToolStripMenuItem.Enabled = enabled;
+       clearMarkerTypeMenuItem.Enabled = enabled;
        // The dim slider is shared between marker and entity placement modes.
        dimSlider.Enabled = enabled || btnToolEntity.Checked;
        UpdateDeleteSelectedButtonsEnabled();
@@ -8136,6 +8335,388 @@ namespace RetroDevStudio.Documents
         private void dimSlider_ValueChanged(object sender, EventArgs e)
         {
 
+        }
+
+
+
+    // ====================================================================
+    // ===========================  Revisions  ============================
+    // ====================================================================
+    //
+    // The MapEditor lets the user keep an in-project history of named map
+    // snapshots (Map.Revisions). The dropdown on the Revisions panel shows
+    // "(Current)" plus one entry per saved revision; picking a revision
+    // swaps the editor into a strictly read-only view of that snapshot
+    // without losing the live map. Buttons let the user create, revert
+    // to, or delete revisions. Revisions are persisted with the project
+    // file but never exported to the game runtime — only the live map.
+
+
+
+    /// <summary>
+    /// Current map is editable iff there IS a current map and we aren't
+    /// viewing a snapshot. Used as a guard at every modification entry
+    /// point. Belt-and-suspenders: <see cref="SetMapEditingControlsEnabled"/>
+    /// also disables the major UI controls so the user can't even reach
+    /// these paths through the toolbar while viewing.
+    /// </summary>
+    private bool IsMapEditable
+    {
+      get { return ( m_CurrentMap != null ) && ( !m_IsViewingRevision ); }
+    }
+
+
+
+    /// <summary>
+    /// Format a revision for the dropdown. Combines the user-visible name
+    /// with a compact timestamp so two revisions with the same label can
+    /// still be told apart. Invariant culture so the formatting matches
+    /// across machines (the timestamp is round-trip-stable in the file).
+    /// </summary>
+    private string FormatRevisionLabel( Formats.MapProject.MapRevision rev, int Index )
+    {
+      string label = string.IsNullOrEmpty( rev.Name )
+                     ? ( "Revision " + ( Index + 1 ).ToString() )
+                     : rev.Name;
+      return label + "  (" + rev.CreatedAt.ToString( "yyyy-MM-dd HH:mm",
+                              System.Globalization.CultureInfo.InvariantCulture ) + ")";
+    }
+
+
+
+    /// <summary>
+    /// Rebuild comboRevisions from m_LiveMap.Revisions. The first item is
+    /// always "(Current)" so the user has a deterministic way back to the
+    /// editable map. m_PopulatingRevisionsCombo gates the change handler
+    /// during the rebuild — without it the SelectedIndex assignments
+    /// would each fire a map-swap mid-rebuild.
+    /// </summary>
+    private void RefreshRevisionsCombo()
+    {
+      if ( comboRevisions == null ) return;
+
+      m_PopulatingRevisionsCombo = true;
+      try
+      {
+        comboRevisions.BeginUpdate();
+        comboRevisions.Items.Clear();
+        comboRevisions.Items.Add( "(Current)" );
+        if ( m_LiveMap != null )
+        {
+          for ( int i = 0; i < m_LiveMap.Revisions.Count; ++i )
+          {
+            comboRevisions.Items.Add( FormatRevisionLabel( m_LiveMap.Revisions[i], i ) );
+          }
+        }
+
+        // Reflect the current view: 0 = Current, otherwise i+1 = revision i.
+        int desiredIndex = 0;
+        if ( m_IsViewingRevision
+        &&   m_LiveMap != null
+        &&   m_LiveMap.Revisions.Contains( FindRevisionContainingSnapshot( m_CurrentMap ) ) )
+        {
+          var rev = FindRevisionContainingSnapshot( m_CurrentMap );
+          int idx = m_LiveMap.Revisions.IndexOf( rev );
+          if ( idx >= 0 ) desiredIndex = idx + 1;
+        }
+        if ( desiredIndex >= comboRevisions.Items.Count ) desiredIndex = 0;
+        comboRevisions.SelectedIndex = desiredIndex;
+        comboRevisions.EndUpdate();
+      }
+      finally
+      {
+        m_PopulatingRevisionsCombo = false;
+      }
+      UpdateRevisionButtonsEnabled();
+    }
+
+
+
+    /// <summary>
+    /// Find which revision (if any) holds <paramref name="possibleSnapshot"/>
+    /// as its <see cref="Formats.MapProject.MapRevision.Snapshot"/>. Used
+    /// during combo refresh to keep the dropdown consistent with the
+    /// currently-displayed map.
+    /// </summary>
+    private Formats.MapProject.MapRevision FindRevisionContainingSnapshot(
+      Formats.MapProject.Map possibleSnapshot )
+    {
+      if ( m_LiveMap == null || possibleSnapshot == null ) return null;
+      foreach ( var rev in m_LiveMap.Revisions )
+      {
+        if ( rev != null && object.ReferenceEquals( rev.Snapshot, possibleSnapshot ) )
+        {
+          return rev;
+        }
+      }
+      return null;
+    }
+
+
+
+    /// <summary>
+    /// Toggle the major map-modifying controls. Dropdown stays usable so
+    /// the user can switch back to "(Current)" or to another revision.
+    /// </summary>
+    private void SetMapEditingControlsEnabled( bool enabled )
+    {
+      // Tools panel
+      if ( btnShiftLeft != null )            btnShiftLeft.Enabled            = enabled;
+      if ( btnShiftRight != null )           btnShiftRight.Enabled           = enabled;
+      if ( btnShiftUp != null )              btnShiftUp.Enabled              = enabled;
+      if ( btnShiftDown != null )            btnShiftDown.Enabled            = enabled;
+      if ( btnRemoveOverlappingTiles != null ) btnRemoveOverlappingTiles.Enabled = enabled;
+
+      // Map metadata
+      if ( editMapName != null )             editMapName.Enabled             = enabled;
+      if ( editMapWidth != null )            editMapWidth.Enabled            = enabled;
+      if ( editMapHeight != null )           editMapHeight.Enabled           = enabled;
+      if ( editTileSpacingW != null )        editTileSpacingW.Enabled        = enabled;
+      if ( editTileSpacingH != null )        editTileSpacingH.Enabled        = enabled;
+      if ( comboMapMultiColor1 != null )     comboMapMultiColor1.Enabled     = enabled;
+      if ( comboMapMultiColor2 != null )     comboMapMultiColor2.Enabled     = enabled;
+      if ( comboMapBGColor != null )         comboMapBGColor.Enabled         = enabled;
+      if ( comboMapAlternativeBGColor4 != null ) comboMapAlternativeBGColor4.Enabled = enabled;
+      if ( comboMapAlternativeMode != null ) comboMapAlternativeMode.Enabled = enabled;
+      if ( editMapExtraData != null )        editMapExtraData.Enabled        = enabled;
+      if ( btnMapApply != null )             btnMapApply.Enabled             = enabled;
+
+      // Tool selection / placement
+      if ( flowLayoutPanel1 != null )        flowLayoutPanel1.Enabled        = enabled;
+      // flowLayoutPanel2 holds the entity-side toolbar — entity-type combo,
+      // value spinners, the enabled/triggered checkboxes, and the
+      // delete-selected-entity button. All of these write back into the
+      // current map's entity instances, so they must be locked while
+      // viewing a revision.
+      if ( flowLayoutPanel2 != null )        flowLayoutPanel2.Enabled        = enabled;
+      if ( comboTilePlacementColor != null ) comboTilePlacementColor.Enabled = enabled;
+      if ( comboTiles != null )              comboTiles.Enabled              = enabled;
+      if (clearAllMarkersToolStripMenuItem != null ) clearAllMarkersToolStripMenuItem.Enabled         = enabled;
+      if (clearMarkerTypeMenuItem != null ) clearMarkerTypeMenuItem.Enabled      = enabled;
+    }
+
+
+
+    private void UpdateRevisionButtonsEnabled()
+    {
+      bool haveLive = ( m_LiveMap != null );
+      bool revSelected = ( comboRevisions != null )
+                      && ( comboRevisions.SelectedIndex > 0 );
+      if ( btnCreateRevision != null ) btnCreateRevision.Enabled = haveLive && !m_IsViewingRevision;
+      if ( btnRevertRevision != null ) btnRevertRevision.Enabled = revSelected;
+      if ( btnDeleteRevision != null ) btnDeleteRevision.Enabled = revSelected;
+    }
+
+
+
+    /// <summary>
+    /// React to comboRevisions changes: index 0 = view live, index N = view
+    /// the (N-1)th revision. We never mutate the snapshot — m_CurrentMap is
+    /// just retargeted, and the rest of the editor renders that read-only.
+    /// </summary>
+    private void comboRevisions_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      if ( m_PopulatingRevisionsCombo ) return;
+      if ( m_LiveMap == null )          return;
+
+      int idx = comboRevisions.SelectedIndex;
+      if ( idx <= 0 )
+      {
+        // Switch back to the live map.
+        m_CurrentMap = m_LiveMap;
+        m_IsViewingRevision = false;
+      }
+      else
+      {
+        int revIdx = idx - 1;
+        if ( revIdx < 0 || revIdx >= m_LiveMap.Revisions.Count ) return;
+        var snapshot = m_LiveMap.Revisions[revIdx].Snapshot;
+        if ( snapshot == null ) return;
+
+        m_CurrentMap = snapshot;
+        m_IsViewingRevision = true;
+      }
+
+      // Sync everything that renders or gates on m_CurrentMap.
+      SetMapEditingControlsEnabled( !m_IsViewingRevision );
+      UpdateRevisionButtonsEnabled();
+
+      // Marker/entity selection belongs to whichever map was previously
+      // active — clear it so the toolbar doesn't act on a hidden instance.
+      ClearMarkerEntitySelection();
+      AdjustScrollbars();
+      RedrawMap();
+      pictureEditor.Invalidate();
+    }
+
+
+
+    /// <summary>
+    /// Snapshot the live map and prepend it to the Revisions list. The
+    /// snapshot is a deep copy via <see cref="Formats.MapProject.CloneMap"/>,
+    /// so subsequent edits to the live map can't bleed into it. Disabled
+    /// while viewing a revision (would snapshot the snapshot).
+    /// </summary>
+    private void btnCreateRevision_Click( object sender, EventArgs e )
+    {
+      if ( m_LiveMap == null )      return;
+      if ( m_IsViewingRevision )    return;
+
+      var clone = Formats.MapProject.CloneMap( m_LiveMap );
+      var rev = new Formats.MapProject.MapRevision();
+      rev.CreatedAt = DateTime.Now;
+      rev.Name = "Revision " + ( m_LiveMap.Revisions.Count + 1 ).ToString();
+      rev.Snapshot = clone;
+      m_LiveMap.Revisions.Add( rev );
+
+      RefreshRevisionsCombo();
+      SetModified();
+    }
+
+
+
+    /// <summary>
+    /// Replace the live map's content with a deep copy of the selected
+    /// revision's snapshot, while preserving the existing revisions list
+    /// (so the user keeps their history after a revert). The user gets a
+    /// confirmation dialog because this discards any unsaved edits to the
+    /// live map.
+    /// </summary>
+    private void btnRevertRevision_Click( object sender, EventArgs e )
+    {
+      if ( m_LiveMap == null )         return;
+      if ( comboRevisions == null )    return;
+      int idx = comboRevisions.SelectedIndex - 1;
+      if ( idx < 0 || idx >= m_LiveMap.Revisions.Count ) return;
+      var rev = m_LiveMap.Revisions[idx];
+      if ( rev == null || rev.Snapshot == null ) return;
+
+      string label = string.IsNullOrEmpty( rev.Name )
+                     ? ( "Revision " + ( idx + 1 ).ToString() )
+                     : rev.Name;
+      var confirm = System.Windows.Forms.MessageBox.Show(
+        this,
+        "Revert the current map to '" + label + "'?\r\n\r\n"
+        + "Any unsaved changes to the current map will be lost. The "
+        + "revisions list is preserved.",
+        "Confirm revert",
+        System.Windows.Forms.MessageBoxButtons.OKCancel,
+        System.Windows.Forms.MessageBoxIcon.Warning,
+        System.Windows.Forms.MessageBoxDefaultButton.Button2 );
+      if ( confirm != System.Windows.Forms.DialogResult.OK ) return;
+
+      // In-place field copy so every other reference to m_LiveMap (e.g.
+      // m_MapProject.Maps[i] and the comboMaps Tupel) stays valid.
+      // Revisions list is intentionally preserved; it's metadata about
+      // m_LiveMap, not part of the snapshot's content.
+      var fresh = Formats.MapProject.CloneMap( rev.Snapshot );
+      m_LiveMap.Tiles                       = fresh.Tiles;
+      m_LiveMap.TileColorOverrides          = fresh.TileColorOverrides;
+      m_LiveMap.Name                        = fresh.Name;
+      m_LiveMap.TileSpacingX                = fresh.TileSpacingX;
+      m_LiveMap.TileSpacingY                = fresh.TileSpacingY;
+      m_LiveMap.Markers                     = fresh.Markers;
+      m_LiveMap.Entities                    = fresh.Entities;
+      m_LiveMap.ExtraDataOld                = fresh.ExtraDataOld;
+      m_LiveMap.ExtraDataText               = fresh.ExtraDataText;
+      m_LiveMap.AlternativeMultiColor1      = fresh.AlternativeMultiColor1;
+      m_LiveMap.AlternativeMultiColor2      = fresh.AlternativeMultiColor2;
+      m_LiveMap.AlternativeBackgroundColor  = fresh.AlternativeBackgroundColor;
+      m_LiveMap.AlternativeBGColor4         = fresh.AlternativeBGColor4;
+      m_LiveMap.SelectedMarkerType          = fresh.SelectedMarkerType;
+      m_LiveMap.SelectedEntityType          = fresh.SelectedEntityType;
+      m_LiveMap.MarkerDimOpacity            = fresh.MarkerDimOpacity;
+      m_LiveMap.AlternativeMode             = fresh.AlternativeMode;
+
+      // Revert always lands the user back on the live (now editable) map.
+      m_CurrentMap = m_LiveMap;
+      m_IsViewingRevision = false;
+
+      // Resync UI fields that mirror map metadata. This is the same
+      // populate sequence comboMaps_SelectedIndexChanged uses; centralising
+      // that would be nice but isn't required for v1 of this feature.
+      if ( editMapName != null )     editMapName.Text  = m_LiveMap.Name;
+      if ( editMapWidth != null )    editMapWidth.Text  = m_LiveMap.Tiles.Width.ToString();
+      if ( editMapHeight != null )   editMapHeight.Text = m_LiveMap.Tiles.Height.ToString();
+      if ( editTileSpacingW != null ) editTileSpacingW.Text = m_LiveMap.TileSpacingX.ToString();
+      if ( editTileSpacingH != null ) editTileSpacingH.Text = m_LiveMap.TileSpacingY.ToString();
+      if ( editMapExtraData != null ) editMapExtraData.Text = m_LiveMap.ExtraDataText;
+
+      ClearMarkerEntitySelection();
+      RecalcTileUsageInCurrentMap();
+      SetMapEditingControlsEnabled( true );
+      RefreshRevisionsCombo();   // resets dropdown to "(Current)"
+      AdjustScrollbars();
+      RedrawMap();
+      pictureEditor.Invalidate();
+      SetModified();
+    }
+
+
+
+    private void btnDeleteRevision_Click( object sender, EventArgs e )
+    {
+      if ( m_LiveMap == null )      return;
+      if ( comboRevisions == null ) return;
+      int idx = comboRevisions.SelectedIndex - 1;
+      if ( idx < 0 || idx >= m_LiveMap.Revisions.Count ) return;
+      var rev = m_LiveMap.Revisions[idx];
+
+      string label = string.IsNullOrEmpty( rev.Name )
+                     ? ( "Revision " + ( idx + 1 ).ToString() )
+                     : rev.Name;
+      var confirm = System.Windows.Forms.MessageBox.Show(
+        this,
+        "Delete revision '" + label + "'?\r\n\r\nThis cannot be undone.",
+        "Confirm delete",
+        System.Windows.Forms.MessageBoxButtons.OKCancel,
+        System.Windows.Forms.MessageBoxIcon.Warning,
+        System.Windows.Forms.MessageBoxDefaultButton.Button2 );
+      if ( confirm != System.Windows.Forms.DialogResult.OK ) return;
+
+      // If the user is currently viewing this revision, drop them back to
+      // the live map first so the snapshot reference becomes detachable.
+      bool wasViewing = m_IsViewingRevision
+                     && object.ReferenceEquals( m_CurrentMap, rev.Snapshot );
+      m_LiveMap.Revisions.RemoveAt( idx );
+      if ( wasViewing )
+      {
+        m_CurrentMap = m_LiveMap;
+        m_IsViewingRevision = false;
+        SetMapEditingControlsEnabled( true );
+        ClearMarkerEntitySelection();
+        AdjustScrollbars();
+        RedrawMap();
+        pictureEditor.Invalidate();
+      }
+      RefreshRevisionsCombo();
+      SetModified();
+    }
+
+        private void clearAllMarkersToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (m_CurrentMap == null) return;
+
+            m_CurrentMap.Markers.Clear();
+            pictureEditor.Invalidate();
+            RedrawMap();
+            Modified = true;
+        }
+
+        private void clearMarkerTypeMenuItem_Click(object sender, EventArgs e)
+        {
+            if (m_CurrentMap == null) return;
+            if (m_CurrentMap.SelectedMarkerType == -1) return;
+
+            m_CurrentMap.Markers.RemoveAll(m => m.Type == m_CurrentMap.SelectedMarkerType);
+            pictureEditor.Invalidate();
+            RedrawMap();
+            Modified = true;
+        }
+
+        private void createImageOfMapToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            btnCopyImage_Click(sender, e);
         }
     }
 } // namespace RetroDevStudio.Documents

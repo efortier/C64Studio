@@ -3481,7 +3481,15 @@ namespace RetroDevStudio.Controls
 
 
 
-    private void SwapCharacter( int Offset )
+    /// <summary>
+    /// Reorder the currently-selected character(s) within the character
+    /// sheet by <paramref name="Offset"/> slots. -1/+1 = move one column
+    /// left/right; -16/+16 = move one row up/down (16 = the displayed grid
+    /// width). Used by the Move-character toolbar arrows AND by the
+    /// keyboard shortcut wired up in <see cref="MapEditor.ProcessCmdKey"/>.
+    /// Public so the parent editor can drive it from a key binding.
+    /// </summary>
+    public void SwapCharacter( int Offset )
     {
       if ( panelCharacters.SelectedIndices.Count == 0 )
       {
