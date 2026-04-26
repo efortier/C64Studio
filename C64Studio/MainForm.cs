@@ -752,6 +752,13 @@ namespace RetroDevStudio
       UpdateMenuMRU();
       UpdateUndoSettings();
 
+      // Krypton palette/theme combo on the main toolbar. Populated and
+      // applied here (after settings load) so the saved value is the one
+      // visible at startup. Skipping persisted == default-construction is
+      // intentional: the load path leaves KryptonPaletteMode at its field
+      // initializer when no SETTINGS_KRYPTON_PALETTE_MODE chunk exists.
+      InitKryptonPaletteSelector();
+
       mainTools.Visible = StudioCore.Settings.ToolbarActiveMain;
       debugTools.Visible = StudioCore.Settings.ToolbarActiveDebugger;
       debugTools.Left = mainTools.Right;
@@ -1923,6 +1930,70 @@ namespace RetroDevStudio
         debugFetch.DebugRequest = requestRefresh;
 
         IdleQueue.Add( debugFetch );
+      }
+    }
+
+
+
+    /// <summary>
+    /// Populate the Krypton-palette combo on the main toolbar with all
+    /// known <see cref="Krypton.Toolkit.PaletteMode"/> values, set its
+    /// initial selection from the persisted setting, and apply that
+    /// palette to the running app. The SelectedIndexChanged handler
+    /// pushes future picks both to the live KryptonManager and back into
+    /// settings (which gets persisted on shutdown).
+    /// </summary>
+    private void InitKryptonPaletteSelector()
+    {
+      if ( mainToolPaletteSelector == null ) return;
+
+      m_PopulatingKryptonPaletteCombo = true;
+      try
+      {
+        mainToolPaletteSelector.Items.Clear();
+        foreach ( Krypton.Toolkit.PaletteMode mode in Enum.GetValues( typeof( Krypton.Toolkit.PaletteMode ) ) )
+        {
+          mainToolPaletteSelector.Items.Add( mode );
+        }
+
+        int saved = StudioCore.Settings.KryptonPaletteMode;
+        Krypton.Toolkit.PaletteMode resolved = Krypton.Toolkit.PaletteMode.Office2010BlackDarkMode;
+        if ( Enum.IsDefined( typeof( Krypton.Toolkit.PaletteMode ), saved ) )
+        {
+          resolved = (Krypton.Toolkit.PaletteMode)saved;
+        }
+        mainToolPaletteSelector.SelectedItem = resolved;
+
+        // Apply at startup so the user sees their saved palette without
+        // having to touch the combo. GlobalPaletteMode is an instance
+        // property; constructing a manager just gives us a handle on the
+        // shared global state.
+        new Krypton.Toolkit.KryptonManager().GlobalPaletteMode = resolved;
+      }
+      finally
+      {
+        m_PopulatingKryptonPaletteCombo = false;
+      }
+    }
+
+
+
+    private bool m_PopulatingKryptonPaletteCombo = false;
+
+
+
+    private void mainToolPaletteSelector_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      if ( m_PopulatingKryptonPaletteCombo ) return;
+      if ( mainToolPaletteSelector.SelectedItem is Krypton.Toolkit.PaletteMode picked )
+      {
+        new Krypton.Toolkit.KryptonManager().GlobalPaletteMode = picked;
+        StudioCore.Settings.KryptonPaletteMode = (int)picked;
+        // Persist immediately — settings normally serialise on shutdown,
+        // but writing now means a crash before exit doesn't lose the
+        // user's pick. SaveSettings is fine to call frequently here; it
+        // just rewrites the settings file.
+        SaveSettings();
       }
     }
 

@@ -246,6 +246,21 @@ namespace RetroDevStudio.Formats
     public int                          BGColor4 = 0;
     public string                       RightClickAction = "";
     /// <summary>
+    /// Name of the tile to drop when the user shift+left-clicks on the map.
+    /// Empty string = "no shift-click behavior configured" — the editor
+    /// should fall back to writing tile index 0 in that case. Stored by
+    /// name (not index) for the same reason RightClickAction is: tile
+    /// indices shift around when the user rearranges the tile list.
+    /// </summary>
+    public string                       ShiftClickBlankTile = "";
+    /// <summary>
+    /// C64 palette index (0..15) written into TileColorOverrides[x,y] when
+    /// shift+left-clicking. -1 has been reserved as "no override" elsewhere
+    /// in the codebase, so the default 0 is fine here — we always write a
+    /// real color when the gesture fires.
+    /// </summary>
+    public int                          ShiftClickBlankColor = 0;
+    /// <summary>
     /// Legacy C64-palette-index canvas background (0..15). Kept for back-
     /// compat with project files that predate <see cref="DesignerBackgroundColorARGB"/>;
     /// new code should prefer the ARGB form. Value is irrelevant when the
@@ -329,6 +344,9 @@ namespace RetroDevStudio.Formats
       // tell old files (no value) from new (value present). See the load
       // side at the bottom of MAP_PROJECT_INFO's case.
       chunkProjectInfo.AppendI32( CurrentMapIndex );
+      // Shift-click "blank" tile + color, also appended.
+      chunkProjectInfo.AppendString( ShiftClickBlankTile ?? "" );
+      chunkProjectInfo.AppendI32( ShiftClickBlankColor );
       projectFile.Append( chunkProjectInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkCharset = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET );
@@ -547,6 +565,20 @@ namespace RetroDevStudio.Formats
               if ( chunkReader.Size - chunkReader.Position >= 4 )
               {
                 CurrentMapIndex = chunkReader.ReadInt32();
+              }
+              // Shift-click blank-tile name + blank-color index. Both are
+              // optional appendages; if either is missing, defaults stick.
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                ShiftClickBlankTile = chunkReader.ReadString();
+              }
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                ShiftClickBlankColor = chunkReader.ReadInt32();
+                if ( ShiftClickBlankColor < 0 || ShiftClickBlankColor > 15 )
+                {
+                  ShiftClickBlankColor = 0;
+                }
               }
             }
             break;

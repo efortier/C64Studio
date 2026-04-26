@@ -120,6 +120,10 @@
     public const ushort    SETTINGS_THEME_MODE            = 0x2027;
     public const ushort    SETTINGS_DISPLAY_FILTERS       = 0x2028;
     public const ushort    SETTINGS_DISPLAY_FILTERS_DIALOG = 0x2029;
+    // Krypton GlobalPaletteMode persisted from the global toolbar combo
+    // (the dev-time palette tester promoted to a real setting). Stored as
+    // an int32 so the underlying enum can grow without a chunk-shape break.
+    public const ushort    SETTINGS_KRYPTON_PALETTE_MODE  = 0x202A;
   }
 
 }

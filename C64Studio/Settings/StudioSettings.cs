@@ -268,6 +268,15 @@ namespace RetroDevStudio
 
     public Types.ThemeMode    CurrentThemeMode = Types.ThemeMode.Custom;
 
+    /// <summary>
+    /// Global Krypton palette mode driven by the toolbar combo. Persisted
+    /// as int (not the enum) so a future Krypton update that adds enum
+    /// values doesn't change the on-disk shape — the load side just casts
+    /// the int back to the enum and Krypton tolerates unknown values by
+    /// falling back to its default.
+    /// </summary>
+    public int                KryptonPaletteMode = (int)Krypton.Toolkit.PaletteMode.Office2010BlackDarkMode;
+
     public GR.Collections.Map<Types.Function, Types.FunctionInfo> Functions = new GR.Collections.Map<RetroDevStudio.Types.Function, Types.FunctionInfo>();
 
     public GR.Collections.Map<ToolWindowType, ToolWindow> Tools = new GR.Collections.Map<ToolWindowType, ToolWindow>();
@@ -723,6 +732,10 @@ namespace RetroDevStudio
       GR.IO.FileChunk chunkThemeMode = new GR.IO.FileChunk( FileChunkConstants.SETTINGS_THEME_MODE );
       chunkThemeMode.AppendU8( (byte)CurrentThemeMode );
       SettingsData.Append( chunkThemeMode.ToBuffer() );
+
+      GR.IO.FileChunk chunkKryptonPalette = new GR.IO.FileChunk( FileChunkConstants.SETTINGS_KRYPTON_PALETTE_MODE );
+      chunkKryptonPalette.AppendI32( KryptonPaletteMode );
+      SettingsData.Append( chunkKryptonPalette.ToBuffer() );
 
       GR.IO.FileChunk chunkDisplayFilters = new GR.IO.FileChunk( FileChunkConstants.SETTINGS_DISPLAY_FILTERS );
       chunkDisplayFilters.Append( DisplayFilters.SaveToBuffer() );
@@ -1295,6 +1308,12 @@ namespace RetroDevStudio
               GR.IO.IReader binIn = chunkData.MemoryReader();
 
               CurrentThemeMode = (Types.ThemeMode)binIn.ReadUInt8();
+            }
+            break;
+          case FileChunkConstants.SETTINGS_KRYPTON_PALETTE_MODE:
+            {
+              GR.IO.IReader binIn = chunkData.MemoryReader();
+              KryptonPaletteMode = binIn.ReadInt32();
             }
             break;
           case FileChunkConstants.SETTINGS_DISPLAY_FILTERS:

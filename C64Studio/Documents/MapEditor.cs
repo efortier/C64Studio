@@ -195,14 +195,11 @@ namespace RetroDevStudio.Documents
       }
 
       // Dark scrollbars on the listbox / multiline textbox that show them.
-      // KryptonTextBox's scrollbar lives on its inner TextBox, so pass that.
       RetroDevStudio.CustomRenderer.DarkTheme.ApplyDarkScrollBarsTo( comboTiles );
-      RetroDevStudio.CustomRenderer.DarkTheme.ApplyDarkScrollBarsTo( editMapExtraData.TextBox );
 
-      // Temporary palette-test dropdown. Lists every Krypton PaletteMode and
-      // flips the global palette on selection. Parked in the toolbar for now;
-      // can be moved later once we pick the final palette.
-      AddPaletteTestCombo();
+      // The palette/theme dropdown that used to live here was promoted
+      // to the global application toolbar (mainToolPaletteSelector) and
+      // is persisted in StudioSettings.KryptonPaletteMode.
 
       // Owner-draw hookup for color combos. Has to happen here (not in the
       // .Designer.cs) because VS's CodeDom serializer can't handle property
@@ -214,6 +211,10 @@ namespace RetroDevStudio.Documents
       WireOwnerDrawCombo( comboMapAlternativeBGColor4, comboAlternativeColor_DrawItem );
       WireOwnerDrawCombo( comboMarkerColorOverride,   comboMarkerColorOverride_DrawItem );
       WireOwnerDrawCombo( comboTilePlacementColor,    comboTilePlacementColor_DrawItem );
+      // Blank-color dropdown (shift-click target color) reuses the same
+      // single-color drawer the other "pick a C64 palette index" combos
+      // use, so the swatch + "00".."15" label rendering matches.
+      WireOwnerDrawCombo( comboBlankColor,            comboColor_DrawItem );
 
       characterEditor.Core = Core;
 
@@ -319,6 +320,7 @@ namespace RetroDevStudio.Documents
         comboMapAlternativeBGColor4.Items.Add( i.ToString( "d2" ) );
         comboMarkerColor.Items.Add( i.ToString( "d2" ) );
         comboMarkerColorOverride.Items.Add( i.ToString( "d2" ) );
+        comboBlankColor.Items.Add( i.ToString( "d2" ) );
       }
       comboTileBackground.SelectedIndex = 0;
       comboTileMulticolor1.SelectedIndex = 0;
@@ -1570,7 +1572,26 @@ namespace RetroDevStudio.Documents
               int     tileIndex = m_CurrentEditorTile.Index;
               System.Drawing.Point currentPos = new System.Drawing.Point( trueX + offsetX, trueY + offsetY );
 
-              if ( ( checkAutoTiling.Checked )
+              // Shift+left-click overrides both the placed tile AND the
+              // color override with the user-configured "blank" pair, and
+              // skips auto-tiling — the gesture is meant to wipe a cell
+              // back to a known empty state, not extend a smart pattern.
+              // We swap m_TilePlacementColorOverride for the duration of
+              // this single placement (rather than threading a parameter
+              // through DrawTile / ApplyPlacementColorOverride / the cache
+              // copy) and restore it at the end of the case.
+              bool shiftBlankClick = ( ( Control.ModifierKeys & Keys.Shift ) == Keys.Shift )
+                                  && ( m_MapProject != null )
+                                  && ( m_MapProject.Tiles.Count > 0 );
+              int  savedPlacementColor = m_TilePlacementColorOverride;
+              if ( shiftBlankClick )
+              {
+                tileIndex = ResolveShiftClickBlankTileIndex();
+                m_TilePlacementColorOverride = m_MapProject.ShiftClickBlankColor;
+              }
+
+              if ( ( !shiftBlankClick )
+              &&   ( checkAutoTiling.Checked )
               &&   ( m_CurrentEditorTile.GroupId != 0 ) )
               {
                 if ( currentPos == m_LastPaintedPos )
@@ -1690,11 +1711,20 @@ namespace RetroDevStudio.Documents
                                 m_MapProject.Tiles[tileIndex].Chars.Width * 8,
                                 m_MapProject.Tiles[tileIndex].Chars.Height * 8 );
 
+                // Use the PLACED tile's dimensions for invalidation, not
+                // m_CurrentEditorTile's — under shift-blank-click those
+                // can differ, and a too-small invalidate rect leaves
+                // stale pixels around larger blank tiles.
+                var placedTile = m_MapProject.Tiles[tileIndex];
                 pictureEditor.Invalidate( new System.Drawing.Rectangle(
                                             renderOffsetX + ( trueX * m_CurrentMap.TileSpacingX ) * 8,
                                             renderOffsetY + ( trueY * m_CurrentMap.TileSpacingY ) * 8,
-                                            m_CurrentEditorTile.Chars.Width * 8,
-                                            m_CurrentEditorTile.Chars.Height * 8 ) );
+                                            placedTile.Chars.Width * 8,
+                                            placedTile.Chars.Height * 8 ) );
+              }
+              if ( shiftBlankClick )
+              {
+                m_TilePlacementColorOverride = savedPlacementColor;
               }
             }
             break;
@@ -2706,6 +2736,12 @@ namespace RetroDevStudio.Documents
       comboRightClickBehavior.SelectedIndexChanged += comboRightClickBehavior_SelectedIndexChanged;
       comboRightClickBehavior.EndUpdate();
 
+      // Mirror the same Default-first-then-tiles pattern for the
+      // shift-click blank tile combo. "Default" means "use tile 0" so
+      // shift-click always has SOME defined action even when the user
+      // never touched the dropdown.
+      RefreshBlankTileCombo();
+
       int restoreIndex = ( selectedTileIndex >= 0 ) ? selectedTileIndex : selectedIndex;
       if ( ( restoreIndex >= 0 )
       &&   ( restoreIndex < comboTiles.Items.Count ) )
@@ -2789,6 +2825,112 @@ namespace RetroDevStudio.Documents
       }
       Modified = true;
     }
+
+
+
+    /// <summary>
+    /// Repopulate the shift-click blank-tile dropdown from the project's
+    /// current tile list. The combo lists every tile by name; there's no
+    /// "Default" entry like comboRightClickBehavior has — shift-click is
+    /// an explicit gesture, so there's no "off" state to expose. Selection
+    /// is stored by tile NAME (not index) so reordering the tile list
+    /// doesn't silently shift the saved blank tile.
+    /// </summary>
+    private void RefreshBlankTileCombo()
+    {
+      if ( comboBlankTile == null ) return;
+
+      comboBlankTile.SelectedIndexChanged -= comboBlankTile_SelectedIndexChanged;
+      comboBlankTile.BeginUpdate();
+      comboBlankTile.Items.Clear();
+      foreach ( var tile in m_MapProject.Tiles )
+      {
+        comboBlankTile.Items.Add( tile.Index + ": " + tile.Name );
+      }
+
+      if ( comboBlankTile.Items.Count == 0 )
+      {
+        // No tiles in the project at all — nothing to select. Empty out
+        // the saved name too so we don't carry a dead reference.
+        m_MapProject.ShiftClickBlankTile = "";
+      }
+      else
+      {
+        int idx = string.IsNullOrEmpty( m_MapProject.ShiftClickBlankTile )
+                  ? -1
+                  : m_MapProject.Tiles.FindIndex( t => t.Name == m_MapProject.ShiftClickBlankTile );
+        if ( idx < 0 ) idx = 0;
+        comboBlankTile.SelectedIndex = idx;
+        // Sync the saved name back so a fresh project (empty string) or
+        // a stale name both write the resolved tile name into the model
+        // — keeps subsequent saves clean and idempotent.
+        m_MapProject.ShiftClickBlankTile = m_MapProject.Tiles[idx].Name;
+      }
+      comboBlankTile.SelectedIndexChanged += comboBlankTile_SelectedIndexChanged;
+      comboBlankTile.EndUpdate();
+
+      // Sync the color combo too; project just loaded or tiles changed.
+      if ( comboBlankColor != null )
+      {
+        int colorIdx = m_MapProject.ShiftClickBlankColor;
+        if ( colorIdx < 0 ) colorIdx = 0;
+        if ( colorIdx >= comboBlankColor.Items.Count ) colorIdx = 0;
+        if ( comboBlankColor.SelectedIndex != colorIdx )
+        {
+          comboBlankColor.SelectedIndex = colorIdx;
+        }
+      }
+    }
+
+
+
+    /// <summary>
+    /// Resolve <see cref="MapProject.ShiftClickBlankTile"/> (a tile name)
+    /// to a tile index. Empty / not-found falls back to 0 — that gives
+    /// shift-click a sensible default even when the user never touched
+    /// the dropdown OR when the named tile was deleted out from under it.
+    /// </summary>
+    private int ResolveShiftClickBlankTileIndex()
+    {
+      if ( m_MapProject == null )                              return 0;
+      if ( m_MapProject.Tiles.Count == 0 )                     return 0;
+      if ( string.IsNullOrEmpty( m_MapProject.ShiftClickBlankTile ) ) return 0;
+      int idx = m_MapProject.Tiles.FindIndex( t => t.Name == m_MapProject.ShiftClickBlankTile );
+      return ( idx >= 0 ) ? idx : 0;
+    }
+
+
+
+    private void comboBlankTile_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      if ( m_MapProject == null ) return;
+      int tileIndex = comboBlankTile.SelectedIndex;
+      if ( tileIndex < 0 || tileIndex >= m_MapProject.Tiles.Count ) return;
+
+      string newValue = m_MapProject.Tiles[tileIndex].Name;
+      if ( m_MapProject.ShiftClickBlankTile != newValue )
+      {
+        m_MapProject.ShiftClickBlankTile = newValue;
+        Modified = true;
+      }
+    }
+
+
+
+    private void comboBlankColor_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      if ( m_MapProject == null ) return;
+      int picked = comboBlankColor.SelectedIndex;
+      if ( picked < 0 ) picked = 0;
+      if ( picked > 15 ) picked = 0;
+      if ( m_MapProject.ShiftClickBlankColor != picked )
+      {
+        m_MapProject.ShiftClickBlankColor = picked;
+        Modified = true;
+      }
+    }
+
+
 
     /// <summary>
     /// Resolve the designer canvas color in ARGB. Prefers the explicit
@@ -3325,64 +3467,6 @@ namespace RetroDevStudio.Documents
     /// yields every <see cref="Krypton.Toolkit.KryptonComboBox"/> found. Used
     /// during form construction to apply dark disabled-state styling.
     /// </summary>
-    /// <summary>
-    /// Drops a KryptonComboBox at the bottom of the Map Controls panel listing
-    /// every Krypton PaletteMode. Selecting one flips GlobalPaletteMode live so
-    /// we can compare looks without rebuilding. Temporary scaffolding — slated
-    /// for removal once the palette choice is finalized.
-    /// </summary>
-    private void AddPaletteTestCombo()
-    {
-      // Position right under groupBoxRevisions at a fixed Y instead of
-      // bottom-anchoring to groupBox1. Bottom-anchoring made the palette
-      // tester collide with the static Revisions group whenever the
-      // MapEditor pane was smaller than groupBox1's design height — the
-      // bottom-anchor pulled the combo up into the Revisions footprint
-      // (or below the visible pane edge, depending on size). A fixed Y
-      // tied to groupBoxRevisions.Bottom keeps it predictably below.
-      int paletteTopY = ( groupBoxRevisions != null )
-                        ? groupBoxRevisions.Bottom + 6
-                        : groupBox1.Height - 48;
-
-      var label = new System.Windows.Forms.Label
-      {
-        Text = "Palette tester (TEMP):",
-        AutoSize = true,
-        Location = new System.Drawing.Point( 10, paletteTopY ),
-        Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left,
-        ForeColor = RetroDevStudio.CustomRenderer.DarkTheme.StatusWarn,
-        Name = "labelPaletteTest",
-      };
-      groupBox1.Controls.Add( label );
-      label.BringToFront();
-
-      int comboWidth = System.Math.Max( 200, groupBox1.ClientSize.Width - 20 );
-      var combo = new Krypton.Toolkit.KryptonComboBox
-      {
-        DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList,
-        Size = new System.Drawing.Size( comboWidth, 24 ),
-        Location = new System.Drawing.Point( 10, paletteTopY + 18 ),
-        Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right,
-        Name = "comboPaletteTest",
-      };
-      foreach ( Krypton.Toolkit.PaletteMode mode in System.Enum.GetValues( typeof( Krypton.Toolkit.PaletteMode ) ) )
-      {
-        combo.Items.Add( mode );
-      }
-      combo.SelectedItem = Krypton.Toolkit.PaletteMode.Office2010BlackDarkMode;
-      combo.SelectedIndexChanged += ( s, e ) =>
-      {
-        if ( combo.SelectedItem is Krypton.Toolkit.PaletteMode picked )
-        {
-          // GlobalPaletteMode is an instance property; any KryptonManager
-          // instance writes the shared global state.
-          new Krypton.Toolkit.KryptonManager().GlobalPaletteMode = picked;
-        }
-      };
-      groupBox1.Controls.Add( combo );
-      combo.BringToFront();
-      RetroDevStudio.CustomRenderer.DarkTheme.StyleDisabledComboDark( combo );
-    }
 
     private static IEnumerable<Krypton.Toolkit.KryptonComboBox> FindAllKryptonCombos( Control root )
     {
@@ -4189,8 +4273,8 @@ namespace RetroDevStudio.Documents
       editMapWidth.Text = m_CurrentMap.Tiles.Width.ToString();
       editMapHeight.Text = m_CurrentMap.Tiles.Height.ToString();
       comboTiles.ItemHeight = MapTileListItemHeight;
-      //editMapExtraData.Text = FormatExtraData( m_CurrentMap.ExtraData );
-      editMapExtraData.Text = m_CurrentMap.ExtraDataText;
+      // Extra data is now edited via Tools → Edit extra data... — no
+      // longer mirrored in a constantly-visible textbox here.
       comboMapMultiColor1.SelectedIndex = m_CurrentMap.AlternativeMultiColor1 + 1;
       comboMapMultiColor2.SelectedIndex = m_CurrentMap.AlternativeMultiColor2 + 1;
       comboMapBGColor.SelectedIndex = m_CurrentMap.AlternativeBackgroundColor + 1;
@@ -5521,30 +5605,26 @@ namespace RetroDevStudio.Documents
 
 
 
-    private void editMapExtraData_TextChanged( object sender, EventArgs e )
+    /// <summary>
+    /// Handler for the Tools → Edit extra data... menu item. Opens a
+    /// modal multi-line text editor seeded with the current map's
+    /// ExtraDataText. Saves on OK with an undo entry; Cancel discards.
+    /// </summary>
+    private void editExtraDataToolStripMenuItem_Click( object sender, EventArgs e )
     {
-      if ( m_CurrentMap == null )
+      if ( m_CurrentMap == null )    return;
+      if ( m_IsViewingRevision )     return;
+
+      using ( var dlg = new Dialogs.FormMapExtraData( Core, m_CurrentMap.ExtraDataText ) )
       {
-        return;
-      }
-      if ( editMapExtraData.Text != m_CurrentMap.ExtraDataText )
-      {
-        DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapValueChange( this, m_CurrentMap ) );  
+        if ( dlg.ShowDialog( this ) != System.Windows.Forms.DialogResult.OK ) return;
 
-        Modified = true;
-        m_CurrentMap.ExtraDataText = editMapExtraData.Text;
-      }
-    }
-
-
-
-    private void editMapExtraData_KeyPress( object sender, KeyPressEventArgs e )
-    {
-      if ( ( System.Windows.Forms.Control.ModifierKeys == Keys.Control )
-      &&   ( e.KeyChar == 1 ) )
-      {
-        editMapExtraData.SelectAll();
-        e.Handled = true;
+        if ( dlg.ExtraData != m_CurrentMap.ExtraDataText )
+        {
+          DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapValueChange( this, m_CurrentMap ) );
+          m_CurrentMap.ExtraDataText = dlg.ExtraData;
+          Modified = true;
+        }
       }
     }
 
@@ -8478,7 +8558,9 @@ namespace RetroDevStudio.Documents
       if ( comboMapBGColor != null )         comboMapBGColor.Enabled         = enabled;
       if ( comboMapAlternativeBGColor4 != null ) comboMapAlternativeBGColor4.Enabled = enabled;
       if ( comboMapAlternativeMode != null ) comboMapAlternativeMode.Enabled = enabled;
-      if ( editMapExtraData != null )        editMapExtraData.Enabled        = enabled;
+      // Extra data is now in a dialog opened from Tools — gate the menu
+      // item itself so the dialog can't be opened while read-only.
+      if ( editExtraDataToolStripMenuItem != null ) editExtraDataToolStripMenuItem.Enabled = enabled;
       if ( btnMapApply != null )             btnMapApply.Enabled             = enabled;
 
       // Tool selection / placement
@@ -8640,7 +8722,8 @@ namespace RetroDevStudio.Documents
       if ( editMapHeight != null )   editMapHeight.Text = m_LiveMap.Tiles.Height.ToString();
       if ( editTileSpacingW != null ) editTileSpacingW.Text = m_LiveMap.TileSpacingX.ToString();
       if ( editTileSpacingH != null ) editTileSpacingH.Text = m_LiveMap.TileSpacingY.ToString();
-      if ( editMapExtraData != null ) editMapExtraData.Text = m_LiveMap.ExtraDataText;
+      // ExtraDataText is no longer mirrored to a UI textbox — it's
+      // visible only via the Tools → Edit extra data... dialog.
 
       ClearMarkerEntitySelection();
       RecalcTileUsageInCurrentMap();

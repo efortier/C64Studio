@@ -212,6 +212,8 @@
       this.mainToolConfig = new System.Windows.Forms.ToolStripComboBox();
       this.mainToolToggleTrueDrive = new System.Windows.Forms.ToolStripButton();
       this.mainToolEmulator = new System.Windows.Forms.ToolStripComboBox();
+      this.mainToolPaletteSelector = new System.Windows.Forms.ToolStripComboBox();
+      this.toolStripSeparatorPaletteSelector = new System.Windows.Forms.ToolStripSeparator();
       this.toolStripSeparator14 = new System.Windows.Forms.ToolStripSeparator();
       this.mainToolUndo = new System.Windows.Forms.ToolStripButton();
       this.mainToolRedo = new System.Windows.Forms.ToolStripButton();
@@ -1475,7 +1477,9 @@
             this.mainToolFindReplace,
             this.mainToolPrint,
             this.btnNavigateBackward,
-            this.btnNavigateForward});
+            this.btnNavigateForward,
+            this.toolStripSeparatorPaletteSelector,
+            this.mainToolPaletteSelector});
       this.mainTools.Location = new System.Drawing.Point(0, 24);
       this.mainTools.Name = "mainTools";
       this.mainTools.Size = new System.Drawing.Size(847, 27);
@@ -1726,14 +1730,28 @@
       this.mainToolToggleTrueDrive.Size = new System.Drawing.Size(24, 24);
       this.mainToolToggleTrueDrive.Text = "Toggle True Drive";
       this.mainToolToggleTrueDrive.Click += new System.EventHandler(this.mainToolToggleTrueDrive_Click);
-      // 
+      //
       // mainToolEmulator
-      // 
+      //
       this.mainToolEmulator.AutoSize = false;
       this.mainToolEmulator.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
       this.mainToolEmulator.Name = "mainToolEmulator";
       this.mainToolEmulator.Size = new System.Drawing.Size(206, 23);
       this.mainToolEmulator.SelectedIndexChanged += new System.EventHandler(this.mainToolEmulator_SelectedIndexChanged);
+      //
+      // toolStripSeparatorPaletteSelector
+      //
+      this.toolStripSeparatorPaletteSelector.Name = "toolStripSeparatorPaletteSelector";
+      this.toolStripSeparatorPaletteSelector.Size = new System.Drawing.Size(6, 27);
+      //
+      // mainToolPaletteSelector
+      //
+      this.mainToolPaletteSelector.AutoSize = false;
+      this.mainToolPaletteSelector.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+      this.mainToolPaletteSelector.Name = "mainToolPaletteSelector";
+      this.mainToolPaletteSelector.Size = new System.Drawing.Size(180, 23);
+      this.mainToolPaletteSelector.ToolTipText = "Krypton palette / theme";
+      this.mainToolPaletteSelector.SelectedIndexChanged += new System.EventHandler(this.mainToolPaletteSelector_SelectedIndexChanged);
       // 
       // toolStripSeparator14
       // 
@@ -2125,6 +2143,8 @@
     private System.Windows.Forms.ToolStripSeparator toolStripSeparator10;
     private System.Windows.Forms.ToolStripButton mainToolToggleTrueDrive;
     private System.Windows.Forms.ToolStripComboBox mainToolEmulator;
+    private System.Windows.Forms.ToolStripComboBox mainToolPaletteSelector;
+    private System.Windows.Forms.ToolStripSeparator toolStripSeparatorPaletteSelector;
     private System.Windows.Forms.ToolStripButton mainToolOpenFile;
     private System.Windows.Forms.ToolStripButton mainToolCommentSelection;
     private System.Windows.Forms.ToolStripButton mainToolUncommentSelection;
