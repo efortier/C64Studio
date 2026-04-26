@@ -511,6 +511,12 @@ namespace RetroDevStudio.Documents
         PaletteManager.ApplyPalette( m_Image );
       }
 
+      // Recompute the integer-scale render rectangle now that DisplayPage
+      // has its new dimensions. Without this, pictureEditor.Size still
+      // reflects the previous zoom's scale and the StretchBlt would use
+      // a fractional ratio again.
+      UpdateMapAspectRatio();
+
       UpdateZoomButtons();
       AdjustScrollbars();
       RedrawMap();
@@ -678,7 +684,8 @@ namespace RetroDevStudio.Documents
 
       GetMapRenderOffsets( out int renderOffsetX, out int renderOffsetY );
 
-      if ( m_MapProject.ShowGrid )
+      if ( ( m_MapProject.ShowGrid )
+      &&   ( m_MapProject.GridOpacity > 0 ) )
       {
         if ( m_CurrentMap == null )
         {
@@ -702,16 +709,25 @@ namespace RetroDevStudio.Documents
         int     targetMapWidth = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( renderOffsetX + (int)mapPixelWidth, sourceWidth, targetWidth ) ) );
         int     targetMapHeight = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( renderOffsetY + (int)mapPixelHeight, sourceHeight, targetHeight ) ) );
 
+        // Grid alpha 0..255 derived from GridOpacity 1..100. (0 was
+        // short-circuited out above.) FastImage primitives don't blend,
+        // so each grid pixel does its own read-blend-write below; using
+        // Line() with an opaque color would just paint solid white.
+        int gridTopY    = ScaleCoordCeil( renderOffsetY, sourceHeight, targetHeight );
+        int gridBottomY = targetMapHeight;
+        int gridLeftX   = ScaleCoordCeil( renderOffsetX, sourceWidth, targetWidth );
+        int gridRightX  = targetMapWidth;
+        int gridAlpha   = ( m_MapProject.GridOpacity * 255 ) / 100;
+        if ( gridAlpha > 255 ) gridAlpha = 255;
+
         for ( int x = x1; x <= x2; ++x )
         {
           int sourceX = renderOffsetX + ( x - offsetX ) * m_CurrentMap.TileSpacingX * 8;
           int targetX = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX, sourceWidth, targetWidth ) ) );
-          
+
           if ( targetX <= targetMapWidth )
           {
-            TargetBuffer.Line( targetX, ScaleCoordCeil( renderOffsetY, sourceHeight, targetHeight ),
-                               targetX, targetMapHeight,
-                               0xffffffff );
+            BlendGridSpanVertical( TargetBuffer, targetX, gridTopY, gridBottomY, gridAlpha );
           }
         }
         for ( int y = y1; y <= y2; ++y )
@@ -721,9 +737,7 @@ namespace RetroDevStudio.Documents
 
           if ( targetY <= targetMapHeight )
           {
-            TargetBuffer.Line( ScaleCoordCeil( renderOffsetX, sourceWidth, targetWidth ), targetY,
-                               targetMapWidth, targetY,
-                               0xffffffff );
+            BlendGridSpanHorizontal( TargetBuffer, gridLeftX, gridRightX, targetY, gridAlpha );
           }
         }
         /*
@@ -1596,6 +1610,49 @@ namespace RetroDevStudio.Documents
           {
             InsertFloatingSelection();
             m_MouseButtonReleased = false;
+          }
+          return;
+        }
+
+        // Ctrl+left-click (without Shift) writes the placement-override
+        // colour into the clicked cell's TileColorOverrides — recolouring
+        // the cell without changing which tile sits there. No-op when the
+        // combo is on "Default" (m_TilePlacementColorOverride < 0): the
+        // user picked no specific colour, so there's nothing to apply.
+        // Ctrl+drag colours multiple cells under one undo entry, mirroring
+        // the existing Shift-blank-click drag pattern. Falls through to
+        // tool-mode handling only when Ctrl isn't held, so the rest of the
+        // switch stays untouched.
+        bool ctrlPaintColor = ( ( Control.ModifierKeys & Keys.Control ) == Keys.Control )
+                           && ( ( Control.ModifierKeys & Keys.Shift ) != Keys.Shift )
+                           && ( m_TilePlacementColorOverride >= 0 )
+                           && ( m_CurrentMap != null );
+        if ( ctrlPaintColor )
+        {
+          int cellX = trueX + offsetX;
+          int cellY = trueY + offsetY;
+          if ( ( cellX >= 0 )
+          &&   ( cellY >= 0 )
+          &&   ( cellX < m_CurrentMap.Tiles.Width )
+          &&   ( cellY < m_CurrentMap.Tiles.Height )
+          &&   ( cellX < m_CurrentMap.TileColorOverrides.Width )
+          &&   ( cellY < m_CurrentMap.TileColorOverrides.Height )
+          &&   ( m_CurrentMap.TileColorOverrides[cellX, cellY] != m_TilePlacementColorOverride ) )
+          {
+            // First cell of a drag stroke gets one whole-map undo entry,
+            // same as the SINGLE_TILE drag below — one Ctrl+Z rewinds the
+            // entire stroke.
+            if ( m_MouseButtonReleased )
+            {
+              m_MouseButtonReleased = false;
+              DocumentInfo.UndoManager.AddUndoTask(
+                new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0,
+                                             m_CurrentMap.Tiles.Width,
+                                             m_CurrentMap.Tiles.Height ) );
+            }
+            m_CurrentMap.TileColorOverrides[cellX, cellY] = m_TilePlacementColorOverride;
+            SetModified();
+            UpdateArea( cellX, cellY, 1, 1 );
           }
           return;
         }
@@ -2621,6 +2678,18 @@ namespace RetroDevStudio.Documents
       comboTileBGColor4.SelectedIndex = m_MapProject.BGColor4;
       comboMapProjectMode.SelectedIndex = (int)m_MapProject.Mode;
       checkShowGrid.Checked = m_MapProject.ShowGrid;
+      // Load the saved grid opacity into the slider. Detach the
+      // ValueChanged handler around the assignment so it doesn't write
+      // back into m_MapProject and dirty the just-loaded project.
+      if ( gridOpacitySlider != null )
+      {
+        int savedOpacity = m_MapProject.GridOpacity;
+        if ( savedOpacity < 0 )                   savedOpacity = 0;
+        if ( savedOpacity > gridOpacitySlider.Maximum ) savedOpacity = gridOpacitySlider.Maximum;
+        gridOpacitySlider.ValueChanged -= gridOpacitySlider_ValueChanged;
+        gridOpacitySlider.Value = savedOpacity;
+        gridOpacitySlider.ValueChanged += gridOpacitySlider_ValueChanged;
+      }
       keepMapCharacterAspectRatioToolStripMenuItem.Checked = m_MapProject.KeepCharacterAspectRatio;
       UpdateMapAspectRatio();
       ApplyExportSettingsToUI();
@@ -7142,6 +7211,22 @@ namespace RetroDevStudio.Documents
           }
         }
       }
+      else if ( keyData == Keys.G )
+      {
+        // Toggle the grid. Scoped strictly to the Map tab so other tabs'
+        // arrow / typing flow stays untouched. Skipped when focus is on
+        // a TextBox (so the user can type the letter g normally) — the
+        // COPY_PASTE focus check returns true exactly for TextBox; combo
+        // / list typeahead is intentionally overridden so the shortcut
+        // works while the tile picker has focus.
+        if ( ( tabMapEditor != null )
+        &&   ( tabMapEditor.SelectedPage == tabEditor )
+        &&   ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) ) )
+        {
+          ToggleGridShortcut();
+          return true;
+        }
+      }
       else if ( ( keyData == ( Keys.Alt | Keys.Left ) )
       ||        ( keyData == ( Keys.Alt | Keys.Right ) )
       ||        ( keyData == ( Keys.Alt | Keys.Up ) )
@@ -8377,43 +8462,48 @@ namespace RetroDevStudio.Documents
     private void UpdateMapAspectRatio()
     {
       if ( ( m_MapProject == null )
-      ||   ( pictureEditor == null ) )
+      ||   ( pictureEditor == null )
+      ||   ( pictureEditor.Parent == null ) )
       {
         return;
       }
-      if ( m_MapProject.KeepCharacterAspectRatio )
+
+      int displayW = pictureEditor.DisplayPage.Width;
+      int displayH = pictureEditor.DisplayPage.Height;
+      if ( ( displayW <= 0 )
+      ||   ( displayH <= 0 ) )
       {
-        int     availableWidth = pictureEditor.Parent.ClientSize.Width;
-        int     availableHeight = pictureEditor.Parent.ClientSize.Height;
-
-        double    aspectRatio = 1.0;
-        if ( pictureEditor.DisplayPage.Height > 0 )
-        {
-          aspectRatio = (double)pictureEditor.DisplayPage.Width / pictureEditor.DisplayPage.Height;
-        }
-
-        int     pixelWidth = availableWidth;
-        int     pixelHeight = availableHeight;
-
-        if ( pixelWidth > pixelHeight * aspectRatio )
-        {
-          pixelWidth = (int)( pixelHeight * aspectRatio );
-        }
-        else
-        {
-          pixelHeight = (int)( pixelWidth / aspectRatio );
-        }
-
-        pictureEditor.Anchor = System.Windows.Forms.AnchorStyles.None;
-        pictureEditor.Size = new System.Drawing.Size( pixelWidth, pixelHeight );
-        pictureEditor.Location = new System.Drawing.Point( ( availableWidth - pixelWidth ) / 2, ( availableHeight - pixelHeight ) / 2 );
+        return;
       }
-      else
-      {
-        pictureEditor.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
-        pictureEditor.Size = pictureEditor.Parent.ClientSize;
-        pictureEditor.Location = new System.Drawing.Point( 0, 0 );
-      }
+
+      int availableWidth  = pictureEditor.Parent.ClientSize.Width;
+      int availableHeight = pictureEditor.Parent.ClientSize.Height;
+
+      // Integer-scale rendering. pictureEditor.Size is set to the largest
+      // integer multiple of the DisplayPage that still fits the dock cell.
+      // Why: the previous logic stretched DisplayPage to fill the cell at
+      // a fractional ratio (e.g. 2.5x), which made GDI StretchBlt produce
+      // unevenly-sized output pixels — some 2 source-pixels wide, some 3.
+      // Visible as inconsistent tile widths along a row. Snapping to an
+      // integer scale guarantees every output pixel is the same size, so
+      // the editor's render matches the design preview's 2x scale (and
+      // any other clean integer multiple). The cost is letterboxing: the
+      // dock cell may have empty borders when its aspect or size doesn't
+      // match an integer multiple of the visible map area. KeepCharacter-
+      // AspectRatio is no longer consulted — integer scale preserves
+      // aspect by construction, so the toggle is a no-op now and stays
+      // only to avoid breaking older project files that wrote it.
+      int scale = Math.Max( 1, Math.Min( availableWidth / displayW,
+                                         availableHeight / displayH ) );
+
+      int finalW = displayW * scale;
+      int finalH = displayH * scale;
+
+      pictureEditor.Anchor   = System.Windows.Forms.AnchorStyles.None;
+      pictureEditor.Size     = new System.Drawing.Size( finalW, finalH );
+      pictureEditor.Location = new System.Drawing.Point(
+        Math.Max( 0, ( availableWidth  - finalW ) / 2 ),
+        Math.Max( 0, ( availableHeight - finalH ) / 2 ) );
     }
 
     private void tabEditor_Resize( object sender, EventArgs e )
@@ -8483,6 +8573,104 @@ namespace RetroDevStudio.Documents
         {
 
         }
+
+
+
+    /// <summary>
+    /// User dragged the grid-opacity slider. Push the value into the map
+    /// project so it's saved with the file, then trigger a repaint to
+    /// apply it. The grid render path reads the live value off the project,
+    /// so no other plumbing is needed.
+    /// </summary>
+    private void gridOpacitySlider_ValueChanged( object sender, EventArgs e )
+    {
+      if ( m_MapProject == null ) return;
+      if ( m_MapProject.GridOpacity == gridOpacitySlider.Value ) return;
+      m_MapProject.GridOpacity = gridOpacitySlider.Value;
+      Modified = true;
+      pictureEditor.Invalidate();
+    }
+
+
+
+    /// <summary>
+    /// Alpha-blend a vertical run of grid pixels onto the target buffer.
+    /// FastImage.Line / SetPixel don't blend; we read existing RGB, blend
+    /// with white at the given alpha (0..255), and write back.
+    /// </summary>
+    private static void BlendGridSpanVertical(
+      GR.Image.FastImage Target, int X, int Y1, int Y2, int Alpha )
+    {
+      if ( Alpha <= 0 ) return;
+      if ( Alpha >= 255 )
+      {
+        // Fully opaque: skip the blend math, draw direct white.
+        Target.Line( X, Y1, X, Y2, 0xffffffff );
+        return;
+      }
+      if ( Y1 > Y2 ) { int t = Y1; Y1 = Y2; Y2 = t; }
+      for ( int y = Y1; y <= Y2; ++y )
+      {
+        Target.SetPixel( X, y, BlendWithWhite( Target.GetPixel( X, y ), Alpha ) );
+      }
+    }
+
+
+
+    private static void BlendGridSpanHorizontal(
+      GR.Image.FastImage Target, int X1, int X2, int Y, int Alpha )
+    {
+      if ( Alpha <= 0 ) return;
+      if ( Alpha >= 255 )
+      {
+        Target.Line( X1, Y, X2, Y, 0xffffffff );
+        return;
+      }
+      if ( X1 > X2 ) { int t = X1; X1 = X2; X2 = t; }
+      for ( int x = X1; x <= X2; ++x )
+      {
+        Target.SetPixel( x, Y, BlendWithWhite( Target.GetPixel( x, Y ), Alpha ) );
+      }
+    }
+
+
+
+    /// <summary>
+    /// Standard "src over" blend with white. Alpha is 0..255 (255 = full
+    /// white, 0 = unchanged). Returns 0xFF-RGB.
+    /// </summary>
+    private static uint BlendWithWhite( uint Existing, int Alpha )
+    {
+      int er = (int)( ( Existing >> 16 ) & 0xff );
+      int eg = (int)( ( Existing >> 8 ) & 0xff );
+      int eb = (int)( Existing & 0xff );
+      int inv = 255 - Alpha;
+      int rr = ( 255 * Alpha + er * inv ) / 255;
+      int rg = ( 255 * Alpha + eg * inv ) / 255;
+      int rb = ( 255 * Alpha + eb * inv ) / 255;
+      return 0xff000000u | ( (uint)rr << 16 ) | ( (uint)rg << 8 ) | (uint)rb;
+    }
+
+
+
+    /// <summary>
+    /// Toggle the grid overlay on the Map tab. Wired to the G keyboard
+    /// shortcut (gated to the Map tab + non-text-input focus) and called
+    /// directly elsewhere if needed. Mirrors the project field, the
+    /// checkbox, and forces a repaint in one place.
+    /// </summary>
+    private void ToggleGridShortcut()
+    {
+      if ( m_MapProject == null ) return;
+      m_MapProject.ShowGrid = !m_MapProject.ShowGrid;
+      // Sync the checkbox without re-firing its handler (which would
+      // toggle the field again and cancel out our change).
+      checkShowGrid.CheckedChanged -= checkShowGrid_CheckedChanged;
+      checkShowGrid.Checked = m_MapProject.ShowGrid;
+      checkShowGrid.CheckedChanged += checkShowGrid_CheckedChanged;
+      Modified = true;
+      Redraw();
+    }
 
 
 

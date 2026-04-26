@@ -93,6 +93,8 @@
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.groupBox3 = new System.Windows.Forms.GroupBox();
             this.dimSlider = new Krypton.Toolkit.KryptonTrackBar();
+            this.gridOpacitySlider = new Krypton.Toolkit.KryptonTrackBar();
+            this.labelGridOpacity = new System.Windows.Forms.Label();
             this.labelRightClickBehavior = new System.Windows.Forms.Label();
             this.comboRightClickBehavior = new Krypton.Toolkit.KryptonComboBox();
             this.btnDesignerBackground = new System.Windows.Forms.Button();
@@ -971,13 +973,15 @@
             // groupBox3
             // 
             this.groupBox3.Controls.Add(this.dimSlider);
+            this.groupBox3.Controls.Add(this.labelGridOpacity);
+            this.groupBox3.Controls.Add(this.gridOpacitySlider);
             this.groupBox3.Controls.Add(this.labelRightClickBehavior);
             this.groupBox3.Controls.Add(this.comboRightClickBehavior);
             this.groupBox3.Controls.Add(this.btnDesignerBackground);
             this.groupBox3.Controls.Add(this.labelDesignerBackground);
             this.groupBox3.Location = new System.Drawing.Point(11, 367);
             this.groupBox3.Name = "groupBox3";
-            this.groupBox3.Size = new System.Drawing.Size(331, 117);
+            this.groupBox3.Size = new System.Drawing.Size(331, 162);
             this.groupBox3.TabIndex = 38;
             this.groupBox3.TabStop = false;
             this.groupBox3.Text = "groupBox3";
@@ -993,6 +997,26 @@
             this.dimSlider.Value = 100;
             this.dimSlider.ValueChanged += new System.EventHandler(this.dimSlider_ValueChanged);
             this.dimSlider.Scroll += new System.EventHandler(this.dimSlider_Scroll);
+            //
+            // labelGridOpacity
+            //
+            this.labelGridOpacity.AutoSize = true;
+            this.labelGridOpacity.Location = new System.Drawing.Point(15, 110);
+            this.labelGridOpacity.Name = "labelGridOpacity";
+            this.labelGridOpacity.Size = new System.Drawing.Size(70, 13);
+            this.labelGridOpacity.TabIndex = 36;
+            this.labelGridOpacity.Text = "Grid opacity:";
+            //
+            // gridOpacitySlider
+            //
+            this.gridOpacitySlider.Location = new System.Drawing.Point(15, 128);
+            this.gridOpacitySlider.Maximum = 100;
+            this.gridOpacitySlider.Name = "gridOpacitySlider";
+            this.gridOpacitySlider.Size = new System.Drawing.Size(310, 27);
+            this.gridOpacitySlider.TabIndex = 37;
+            this.gridOpacitySlider.TickFrequency = 10;
+            this.gridOpacitySlider.Value = 100;
+            this.gridOpacitySlider.ValueChanged += new System.EventHandler(this.gridOpacitySlider_ValueChanged);
             // 
             // labelRightClickBehavior
             // 
@@ -1133,7 +1157,7 @@
             this.groupBoxRevisions.Controls.Add(this.btnCreateRevision);
             this.groupBoxRevisions.Controls.Add(this.btnRevertRevision);
             this.groupBoxRevisions.Controls.Add(this.btnDeleteRevision);
-            this.groupBoxRevisions.Location = new System.Drawing.Point(11, 490);
+            this.groupBoxRevisions.Location = new System.Drawing.Point(11, 535);
             this.groupBoxRevisions.Name = "groupBoxRevisions";
             this.groupBoxRevisions.Size = new System.Drawing.Size(331, 82);
             this.groupBoxRevisions.TabIndex = 39;
@@ -1198,7 +1222,7 @@
             this.groupBoxShiftClick.Controls.Add(this.comboBlankTile);
             this.groupBoxShiftClick.Controls.Add(this.labelBlankColor);
             this.groupBoxShiftClick.Controls.Add(this.comboBlankColor);
-            this.groupBoxShiftClick.Location = new System.Drawing.Point(11, 578);
+            this.groupBoxShiftClick.Location = new System.Drawing.Point(11, 623);
             this.groupBoxShiftClick.Name = "groupBoxShiftClick";
             this.groupBoxShiftClick.Size = new System.Drawing.Size(331, 74);
             this.groupBoxShiftClick.TabIndex = 40;
@@ -2975,6 +2999,8 @@
         private System.Windows.Forms.Label label19;
         private System.Windows.Forms.Label label25;
         private Krypton.Toolkit.KryptonTrackBar dimSlider;
+        private Krypton.Toolkit.KryptonTrackBar gridOpacitySlider;
+        private System.Windows.Forms.Label labelGridOpacity;
         private System.Windows.Forms.GroupBox groupSize;
         private Krypton.Toolkit.KryptonCheckBox checkShowGrid;
         private Krypton.Toolkit.KryptonComboBox comboMapAlternativeMode;

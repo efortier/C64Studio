@@ -273,7 +273,15 @@ namespace RetroDevStudio.CustomRenderer
         {
           var lv = control as CSListView;
 
-          lv.SelectedTextColor    = Core.Settings.FGColor( ColorableElement.SELECTED_TEXT );
+          // Selected-text foreground: use the regular CONTROL_TEXT color
+          // (light on dark, dark on light) so the text is readable against
+          // the highlight strip. Previously this was set to the SELECTED_
+          // TEXT color too, which on the dark theme is dark blue — same
+          // hue as the highlight tint, leaving the text nearly invisible
+          // against a 25%-transparent dark-blue strip on a dark form bg.
+          // The selection BG below stays as the highlight color, made
+          // 25% transparent so it tints the underlying control color.
+          lv.SelectedTextColor    = Core.Settings.FGColor( ColorableElement.CONTROL_TEXT );
           lv.SelectedTextBGColor  = Core.Settings.FGColor( ColorableElement.SELECTED_TEXT );
           // make transparent
           if ( ( lv.SelectedTextBGColor & 0xff000000 ) == 0xff000000 )

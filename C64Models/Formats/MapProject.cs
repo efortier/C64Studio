@@ -282,6 +282,14 @@ namespace RetroDevStudio.Formats
     public TextMode                     Mode = TextMode.COMMODORE_40_X_25_HIRES;
     public CharsetProject               Charset = new Formats.CharsetProject();
     public bool                         ShowGrid = false;
+    /// <summary>
+    /// Opacity of the grid overlay drawn on the map editor (0..100).
+    /// 100 = opaque white grid lines (legacy behaviour); 0 = invisible
+    /// (equivalent to ShowGrid=false). Each grid pixel is alpha-blended
+    /// against the map underneath at this percentage. Stored per-project
+    /// so different maps can have visually-distinct grid emphasis.
+    /// </summary>
+    public int                          GridOpacity = 100;
     public bool                         ShowCharacterListGrid = false;
     /// <summary>
     /// Index into <see cref="Maps"/> of the map the user had selected when
@@ -347,6 +355,8 @@ namespace RetroDevStudio.Formats
       // Shift-click "blank" tile + color, also appended.
       chunkProjectInfo.AppendString( ShiftClickBlankTile ?? "" );
       chunkProjectInfo.AppendI32( ShiftClickBlankColor );
+      // Grid opacity (0..100). Append-only.
+      chunkProjectInfo.AppendI32( GridOpacity );
       projectFile.Append( chunkProjectInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkCharset = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET );
@@ -579,6 +589,15 @@ namespace RetroDevStudio.Formats
                 {
                   ShiftClickBlankColor = 0;
                 }
+              }
+              // Optional appended Grid opacity. Old files leave it at the
+              // default of 100 (fully opaque, matches the legacy behaviour
+              // before this slider existed).
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                GridOpacity = chunkReader.ReadInt32();
+                if ( GridOpacity < 0 )   GridOpacity = 0;
+                if ( GridOpacity > 100 ) GridOpacity = 100;
               }
             }
             break;
