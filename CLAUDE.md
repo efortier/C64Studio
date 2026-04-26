@@ -1,5 +1,12 @@
 # C64Studio (RetroDevStudio) - Development Rules
 
+## Hard Rule: No Speculative Fixes
+**Never attempt a fix unless you have a 100% probability of success.** Two clean tracks:
+- **100% confident** → APPLY the fix. Don't ask "want me to apply?" — the user has opted out of being asked when you're certain.
+- **Less than 100%** → STOP. Output analysis + question. Don't edit code.
+
+Certainty bar: cause verified by source inspection, proposed change matches an established pattern, no plausible side effects you haven't enumerated. A clean build is not evidence of correctness — runtime behavior is. Reverts and "small adjustments" need the same bar as new fixes.
+
 ## Project Overview
 C64Studio is a Windows Forms IDE for Commodore 64 / retro computer development. The solution (`C64Studio.sln`) is a .NET project targeting both `net3.5` and `net8.0-windows`.
 

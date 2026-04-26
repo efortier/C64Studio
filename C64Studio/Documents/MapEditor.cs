@@ -304,23 +304,59 @@ namespace RetroDevStudio.Documents
         SetMapZoomPercent( Core.Settings.MapEditorZoomPercent );
       }
 
-      comboMapMultiColor1.Items.Add( "From charset" );
-      comboMapMultiColor2.Items.Add( "From charset" );
-      comboMapBGColor.Items.Add( "Project" );
-      comboMapAlternativeBGColor4.Items.Add( "Project" );
-      for ( int i = 0; i < 16; ++i )
+      // Batch the populate loop in BeginUpdate/EndUpdate. Both ComboBox
+      // and KryptonComboBox re-layout/invalidate on every Items.Add by
+      // default; without batching, 11 combos × 16 strings = 176 layout
+      // passes (~270 ms in profiling). The two types don't share a base
+      // class with BeginUpdate, so the calls are listed inline rather
+      // than driven by a typed array. The try/finally ensures EndUpdate
+      // always runs even if a future addition throws.
+      comboTileBackground.BeginUpdate();
+      comboTileMulticolor1.BeginUpdate();
+      comboTileMulticolor2.BeginUpdate();
+      comboTileBGColor4.BeginUpdate();
+      comboMapMultiColor1.BeginUpdate();
+      comboMapMultiColor2.BeginUpdate();
+      comboMapBGColor.BeginUpdate();
+      comboMapAlternativeBGColor4.BeginUpdate();
+      comboMarkerColor.BeginUpdate();
+      comboMarkerColorOverride.BeginUpdate();
+      comboBlankColor.BeginUpdate();
+      try
       {
-        comboTileBackground.Items.Add( i.ToString( "d2" ) );
-        comboTileMulticolor1.Items.Add( i.ToString( "d2" ) );
-        comboTileMulticolor2.Items.Add( i.ToString( "d2" ) );
-        comboTileBGColor4.Items.Add( i.ToString( "d2" ) );
-        comboMapMultiColor1.Items.Add( i.ToString( "d2" ) );
-        comboMapMultiColor2.Items.Add( i.ToString( "d2" ) );
-        comboMapBGColor.Items.Add( i.ToString( "d2" ) );
-        comboMapAlternativeBGColor4.Items.Add( i.ToString( "d2" ) );
-        comboMarkerColor.Items.Add( i.ToString( "d2" ) );
-        comboMarkerColorOverride.Items.Add( i.ToString( "d2" ) );
-        comboBlankColor.Items.Add( i.ToString( "d2" ) );
+        comboMapMultiColor1.Items.Add( "From charset" );
+        comboMapMultiColor2.Items.Add( "From charset" );
+        comboMapBGColor.Items.Add( "Project" );
+        comboMapAlternativeBGColor4.Items.Add( "Project" );
+        for ( int i = 0; i < 16; ++i )
+        {
+          string label = i.ToString( "d2" );
+          comboTileBackground.Items.Add( label );
+          comboTileMulticolor1.Items.Add( label );
+          comboTileMulticolor2.Items.Add( label );
+          comboTileBGColor4.Items.Add( label );
+          comboMapMultiColor1.Items.Add( label );
+          comboMapMultiColor2.Items.Add( label );
+          comboMapBGColor.Items.Add( label );
+          comboMapAlternativeBGColor4.Items.Add( label );
+          comboMarkerColor.Items.Add( label );
+          comboMarkerColorOverride.Items.Add( label );
+          comboBlankColor.Items.Add( label );
+        }
+      }
+      finally
+      {
+        comboTileBackground.EndUpdate();
+        comboTileMulticolor1.EndUpdate();
+        comboTileMulticolor2.EndUpdate();
+        comboTileBGColor4.EndUpdate();
+        comboMapMultiColor1.EndUpdate();
+        comboMapMultiColor2.EndUpdate();
+        comboMapBGColor.EndUpdate();
+        comboMapAlternativeBGColor4.EndUpdate();
+        comboMarkerColor.EndUpdate();
+        comboMarkerColorOverride.EndUpdate();
+        comboBlankColor.EndUpdate();
       }
       comboTileBackground.SelectedIndex = 0;
       comboTileMulticolor1.SelectedIndex = 0;
@@ -2592,10 +2628,35 @@ namespace RetroDevStudio.Documents
       RedrawMap();
       RedrawColorChooser();
       RedrawColorChooser();
+
       characterEditor.CharsetUpdated( m_MapProject.Charset );
       characterEditor.CharactersPerRow = m_MapProject.CharactersPerRow;
-      characterEditor.EditorMode = m_MapProject.CharacterEditorMode;
-      characterEditor.SwatchSize = m_MapProject.ColorSwatchSize;
+      characterEditor.EditorMode       = m_MapProject.CharacterEditorMode;
+      characterEditor.SwatchSize       = m_MapProject.ColorSwatchSize;
+
+      // Re-point our own panelCharacters items at the loaded charset's
+      // Tile.Image bitmaps. Charset.ReadFromBuffer clears Characters
+      // and re-adds new CharData instances with new Tile.Image bitmaps,
+      // so the references the constructor stashed in
+      // panelCharacters.Items[*].MemoryImage are now orphaned. The
+      // bitmaps themselves already have valid pixels at this point —
+      // characterEditor.CharsetUpdated above runs RebuildAllCharImages
+      // which calls DisplayChar onto the new bitmaps. We just need to
+      // update the Items references and invalidate. (The previously-
+      // working case relied on the unguarded comboBackground handler
+      // firing FullRebuild during one of the SelectedIndex assignments
+      // earlier in this method — but that only fires when the new
+      // BackgroundColor differs from the constructor's default, which
+      // isn't the case for projects with BackgroundColor = 0.)
+      for ( int i = 0; i < m_MapProject.Charset.TotalNumberOfCharacters; ++i )
+      {
+        if ( i < panelCharacters.Items.Count )
+        {
+          panelCharacters.Items[i].MemoryImage = m_MapProject.Charset.Characters[i].Tile.Image;
+        }
+      }
+      panelCharacters.Invalidate();
+
       Modified = false;
       if ( string.IsNullOrEmpty( DocumentInfo.DocumentFilename ) )
       {
@@ -2629,8 +2690,14 @@ namespace RetroDevStudio.Documents
 
       EnableFileWatcher();
       ResumeLayout();
+
       return true;
     }
+
+
+
+
+
 
     private void RefreshMapTileList()
     {
