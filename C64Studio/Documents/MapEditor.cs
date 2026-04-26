@@ -1924,6 +1924,42 @@ namespace RetroDevStudio.Documents
         }
       }
 
+      if ( ( Buttons & MouseButtons.Middle ) != 0 )
+      {
+        // Middle-click is a "pick the cell's color override" gesture.
+        // It mirrors right-click-as-eyedropper for the tile, but for the
+        // placement color combo. We map cell-override semantics (-1 ==
+        // "use the tile's own color") to combo index 0 ("Default"), and
+        // explicit colors 0..15 to combo indices 1..16.
+        int cellX = trueX + offsetX;
+        int cellY = trueY + offsetY;
+        if ( ( cellX >= 0 )
+        &&   ( cellY >= 0 )
+        &&   ( cellX < m_CurrentMap.Tiles.Width )
+        &&   ( cellY < m_CurrentMap.Tiles.Height ) )
+        {
+          // Defensive: the override layer can lag the tile layer briefly
+          // during resize / load of legacy projects. Treat out-of-range as
+          // "Default" rather than throwing.
+          int cellOverride = -1;
+          if ( ( cellX < m_CurrentMap.TileColorOverrides.Width )
+          &&   ( cellY < m_CurrentMap.TileColorOverrides.Height ) )
+          {
+            cellOverride = m_CurrentMap.TileColorOverrides[cellX, cellY];
+          }
+          int targetIndex = ( cellOverride < 0 ) ? 0 : cellOverride + 1;
+          if ( ( comboTilePlacementColor != null )
+          &&   ( targetIndex >= 0 )
+          &&   ( targetIndex < comboTilePlacementColor.Items.Count )
+          &&   ( comboTilePlacementColor.SelectedIndex != targetIndex ) )
+          {
+            // SelectedIndexChanged updates m_TilePlacementColorOverride,
+            // so we don't need to write the field directly here.
+            comboTilePlacementColor.SelectedIndex = targetIndex;
+          }
+        }
+      }
+
       if ( ( Buttons & MouseButtons.Right ) != 0 )
       {
         if ( m_ToolMode == ToolMode.ENTITY )
@@ -3376,6 +3412,17 @@ namespace RetroDevStudio.Documents
       int    w = m_CurrentMap.Tiles.Width;
       int    h = m_CurrentMap.Tiles.Height;
 
+      // Defensive: legacy maps may have an override layer that hasn't yet
+      // been brought into shape with Tiles. Without this, a shift would
+      // silently leave overrides behind for any cell outside the current
+      // override layer's footprint. Cheap to call when sizes already match.
+      if ( ( m_CurrentMap.TileColorOverrides.Width != w )
+      ||   ( m_CurrentMap.TileColorOverrides.Height != h ) )
+      {
+        ResizeColorOverridesPreservingDefaults( m_CurrentMap.TileColorOverrides, w, h );
+      }
+      var overrides = m_CurrentMap.TileColorOverrides;
+
       if ( DX > 0 )
       {
         for ( int x = w - 1; x >= DX; --x )
@@ -3383,13 +3430,17 @@ namespace RetroDevStudio.Documents
           for ( int y = 0; y < h; ++y )
           {
             m_CurrentMap.Tiles[x, y] = m_CurrentMap.Tiles[x - DX, y];
+            overrides[x, y]          = overrides[x - DX, y];
           }
         }
         for ( int x = 0; x < DX; ++x )
         {
            for ( int y = 0; y < h; ++y )
            {
-             m_CurrentMap.Tiles[x, y] = 0; 
+             m_CurrentMap.Tiles[x, y] = 0;
+             // -1, not 0: cleared cells should be "no override", not
+             // "override to color 0 (black)".
+             overrides[x, y]          = -1;
            }
         }
       }
@@ -3401,6 +3452,7 @@ namespace RetroDevStudio.Documents
            for ( int y = 0; y < h; ++y )
            {
              m_CurrentMap.Tiles[x, y] = m_CurrentMap.Tiles[x + absDX, y];
+             overrides[x, y]          = overrides[x + absDX, y];
            }
          }
          for ( int x = w - absDX; x < w; ++x )
@@ -3408,10 +3460,11 @@ namespace RetroDevStudio.Documents
             for ( int y = 0; y < h; ++y )
             {
               m_CurrentMap.Tiles[x, y] = 0;
+              overrides[x, y]          = -1;
             }
          }
       }
-      
+
       if ( DY > 0 )
       {
         for ( int y = h - 1; y >= DY; --y )
@@ -3419,6 +3472,7 @@ namespace RetroDevStudio.Documents
           for ( int x = 0; x < w; ++x )
           {
             m_CurrentMap.Tiles[x, y] = m_CurrentMap.Tiles[x, y - DY];
+            overrides[x, y]          = overrides[x, y - DY];
           }
         }
         for ( int y = 0; y < DY; ++y )
@@ -3426,6 +3480,7 @@ namespace RetroDevStudio.Documents
            for ( int x = 0; x < w; ++x )
            {
              m_CurrentMap.Tiles[x, y] = 0;
+             overrides[x, y]          = -1;
            }
         }
       }
@@ -3437,6 +3492,7 @@ namespace RetroDevStudio.Documents
            for ( int x = 0; x < w; ++x )
            {
              m_CurrentMap.Tiles[x, y] = m_CurrentMap.Tiles[x, y + absDY];
+             overrides[x, y]          = overrides[x, y + absDY];
            }
          }
          for ( int y = h - absDY; y < h; ++y )
@@ -3444,6 +3500,7 @@ namespace RetroDevStudio.Documents
             for ( int x = 0; x < w; ++x )
             {
               m_CurrentMap.Tiles[x, y] = 0;
+              overrides[x, y]          = -1;
             }
          }
       }
@@ -4853,8 +4910,36 @@ namespace RetroDevStudio.Documents
             else if ( tile == TileIndex )
             {
               map.Tiles[i, j] = 0;
+              // The cell just became empty — drop any per-cell color
+              // override along with the tile so we don't carry a stale
+              // tint forward into the exported color grid (or onto
+              // whatever the user paints over the empty cell next).
+              if ( ( i < map.TileColorOverrides.Width )
+              &&   ( j < map.TileColorOverrides.Height ) )
+              {
+                map.TileColorOverrides[i, j] = -1;
+              }
             }
           }
+        }
+      }
+
+      // Entity types reference tiles by index. Mirror the same shift
+      // that we just applied to map cells: indices > TileIndex slide
+      // down by one; indices == TileIndex (whose tile is gone) become
+      // -1, which the rendering loop's `TileIndex < 0` guard treats as
+      // "no tile" and skips the entity. Better to surface a deleted
+      // entity-tile binding as an invisible entity than to silently
+      // re-bind it to whatever shifted into the freed slot.
+      foreach ( var et in m_MapProject.EntityTypes )
+      {
+        if ( et.TileIndex == TileIndex )
+        {
+          et.TileIndex = -1;
+        }
+        else if ( et.TileIndex > TileIndex )
+        {
+          --et.TileIndex;
         }
       }
 
@@ -4863,6 +4948,20 @@ namespace RetroDevStudio.Documents
       {
         m_MapProject.Tiles[i].Index = i;
       }
+
+      // The painting selection (m_CurrentEditorTile) may still hold a
+      // reference to the just-removed Tile object. Its .Index field
+      // wasn't touched by the renumbering loop above (only surviving
+      // tiles got renumbered), so reading it for placement would write
+      // a stale index into m_CurrentMap.Tiles[,]. Drop the reference
+      // here; the comboTiles.SelectedIndex assignment below rebinds it
+      // deterministically through comboTiles_SelectedIndexChanged.
+      if ( ( m_CurrentEditorTile != null )
+      &&   ( !m_MapProject.Tiles.Contains( m_CurrentEditorTile ) ) )
+      {
+        m_CurrentEditorTile = null;
+      }
+
       listTileInfo.Items.RemoveAt( TileIndex );
       for ( int i = TileIndex; i < listTileInfo.Items.Count; ++i )
       {
@@ -4870,6 +4969,34 @@ namespace RetroDevStudio.Documents
       }
       listTileInfo_SelectedIndexChanged( null, null );
       comboTiles.Items.RemoveAt( TileIndex );
+
+      // Re-establish a deterministic comboTiles selection so the painting
+      // tile is bound to a real, current Tile via the SelectedIndexChanged
+      // handler. Relying on WinForms ListBox's auto-shift behavior was
+      // fragile — it doesn't always fire the event when the index value
+      // happens to land on a different item, leaving m_CurrentEditorTile
+      // pointing at a now-deleted Tile object (the original wrong-tile
+      // placement bug).
+      if ( comboTiles.Items.Count > 0 )
+      {
+        int newSelection = Math.Min( TileIndex, comboTiles.Items.Count - 1 );
+        if ( comboTiles.SelectedIndex != newSelection )
+        {
+          comboTiles.SelectedIndex = newSelection;
+        }
+        else
+        {
+          // Same numeric index but possibly a different underlying tile —
+          // re-fire the handler manually to ensure m_CurrentEditorTile
+          // gets the current Tile object.
+          comboTiles_SelectedIndexChanged( comboTiles, EventArgs.Empty );
+        }
+      }
+      else
+      {
+        m_CurrentEditorTile = null;
+      }
+
       m_CurrentEditedTile = null;
       listTileChars.Items.Clear();
       RedrawMap();
@@ -5399,13 +5526,15 @@ namespace RetroDevStudio.Documents
 
 
 
-    private void RemoveFloatingSelection()
+    private bool RemoveFloatingSelection()
     {
       if ( m_FloatingSelection != null )
       {
         m_FloatingSelection = null;
         Redraw();
+        return true;
       }
+      return false;
     }
 
 
@@ -6676,8 +6805,21 @@ namespace RetroDevStudio.Documents
       {
         if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.ESCAPE ) )
         {
-          RemoveFloatingSelection();
-          return true;
+          // ESC peels back one layer of selection state at a time:
+          // floating selection first (the most "live" / in-flight state),
+          // then any right-click selection of marker/entity/tile cell.
+          // Both helpers report whether they actually cleared something
+          // so we can decide whether to swallow the key — letting it fall
+          // through when nothing was selected lets parent/global ESC
+          // handlers (e.g. tab close shortcuts) react if they want to.
+          if ( RemoveFloatingSelection() )
+          {
+            return true;
+          }
+          if ( ClearMarkerEntitySelection() )
+          {
+            return true;
+          }
         }
       }
       else if ( keyData == Keys.Delete )
@@ -7345,10 +7487,12 @@ namespace RetroDevStudio.Documents
 
     /// <summary>
     /// Clear marker, entity, AND tile-cursor selection and refresh the
-    /// delete buttons. Used on map change and tool change; separated out
-    /// because it's repeated in several spots.
+    /// delete buttons. Used on map change, tool change, and the Escape
+    /// key. Returns true when something was actually cleared so callers
+    /// (notably <see cref="ProcessCmdKey"/>) can decide whether to swallow
+    /// the input that triggered the clear.
     /// </summary>
-    private void ClearMarkerEntitySelection()
+    private bool ClearMarkerEntitySelection()
     {
       bool hadSomething = ( m_SelectedMarker != null )
                           || ( m_SelectedEntity != null )
@@ -7361,6 +7505,7 @@ namespace RetroDevStudio.Documents
       {
         pictureEditor.Invalidate();
       }
+      return hadSomething;
     }
 
 
@@ -7522,7 +7667,9 @@ namespace RetroDevStudio.Documents
 
       if ( e.Index == 0 )
       {
-        // "Default" row — no swatch, just the literal label.
+        // "Default" row — no swatch, just the literal label aligned with
+        // where the numeric labels appear on the color rows below so the
+        // dropdown reads as a clean column.
         using ( var brush = new System.Drawing.SolidBrush( combo.ForeColor ) )
         {
           e.Graphics.DrawString( "Default", combo.Font, brush,
@@ -7531,24 +7678,45 @@ namespace RetroDevStudio.Documents
       }
       else
       {
-        // Color rows: combo index 1..16 → palette index 0..15. Draw a
-        // wide-ish swatch with a thin black border, leaving room on the
-        // right for the numeric "00".."15" label so the user can read the
-        // index alongside the color.
+        // Color rows: combo index 1..16 → palette index 0..15. Layout
+        // (left-to-right): numeric "00".."15" label, then a color swatch
+        // filling the rest of the row width (minus a small right margin),
+        // with a thin black border.
         int colorIndex = e.Index - 1;
         uint color = m_MapProject.Charset.Colors.Palette.ColorValues[colorIndex];
 
-        int swatchW = e.Bounds.Height - 4;
-        using ( var brush = new System.Drawing.SolidBrush( System.Drawing.Color.FromArgb( (int)color ) ) )
-        {
-          e.Graphics.FillRectangle( brush, e.Bounds.X + 2, e.Bounds.Y + 2, swatchW, e.Bounds.Height - 4 );
-        }
-        e.Graphics.DrawRectangle( System.Drawing.Pens.Black, e.Bounds.X + 2, e.Bounds.Y + 2, swatchW, e.Bounds.Height - 5 );
+        // Reserve a fixed column on the left for the index text. 26 px
+        // is enough for two digits in the editor's typical font; if the
+        // user picks a much larger font this stays readable because the
+        // swatch only ever shrinks, never overlaps.
+        const int IndexColumnWidth = 26;
+        const int RightMargin      = 4;
+        const int SwatchInsetTop   = 2;
+        const int SwatchInsetBot   = 2;
+
         using ( var brush = new System.Drawing.SolidBrush( combo.ForeColor ) )
         {
           e.Graphics.DrawString( colorIndex.ToString( "00" ), combo.Font, brush,
-                                 e.Bounds.X + swatchW + 6, e.Bounds.Y + 3 );
+                                 e.Bounds.X + 4, e.Bounds.Y + 3 );
         }
+
+        int swatchX = e.Bounds.X + IndexColumnWidth;
+        int swatchY = e.Bounds.Y + SwatchInsetTop;
+        int swatchW = e.Bounds.Width - IndexColumnWidth - RightMargin;
+        int swatchH = e.Bounds.Height - SwatchInsetTop - SwatchInsetBot;
+        if ( swatchW < 1 ) swatchW = 1;
+        if ( swatchH < 1 ) swatchH = 1;
+
+        using ( var brush = new System.Drawing.SolidBrush( System.Drawing.Color.FromArgb( (int)color ) ) )
+        {
+          e.Graphics.FillRectangle( brush, swatchX, swatchY, swatchW, swatchH );
+        }
+        // Inset the border by one pixel from the bottom-right edge so
+        // the rectangle is fully visible (FillRectangle and DrawRectangle
+        // use slightly different inclusive/exclusive conventions).
+        e.Graphics.DrawRectangle( System.Drawing.Pens.Black,
+                                  swatchX, swatchY,
+                                  swatchW - 1, swatchH - 1 );
       }
 
       e.DrawFocusRectangle();

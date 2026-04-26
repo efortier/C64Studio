@@ -14,6 +14,14 @@ namespace RetroDevStudio.Undo
     private int                     _TileIndex = -1;
     public List<Undo.UndoTask>      _InternalUndos = new List<UndoTask>();
 
+    // Pre-deletion snapshots so undo can put everything back the way it
+    // was. RemoveTile now mutates entity-type tile indices and per-cell
+    // color overrides as part of the deletion; without these snapshots
+    // an undo would leave both in their post-deletion state even after
+    // the tile itself is restored.
+    private List<int>                                _EntityTypeTileIndices = new List<int>();
+    private List<GR.Game.Layer<int>>                 _ColorOverrideSnapshots = new List<GR.Game.Layer<int>>();
+
 
 
     public UndoMapTileRemove( MapEditor Editor, MapProject Project, int TileIndex )
@@ -37,6 +45,32 @@ namespace RetroDevStudio.Undo
             }
           }
         }
+      }
+
+      // Snapshot every entity-type's tile binding. Index in the list
+      // matches Project.EntityTypes index; on undo we walk both lists
+      // in lockstep up to min(count, count) so a concurrent type-add or
+      // type-remove (unlikely but possible) doesn't crash the restore.
+      foreach ( var et in Project.EntityTypes )
+      {
+        _EntityTypeTileIndices.Add( et.TileIndex );
+      }
+
+      // Snapshot every map's color-override layer. Same shape as Tiles;
+      // captured deeply (per-cell copy) rather than holding a reference
+      // because the original layer keeps mutating during the delete.
+      foreach ( var map in Project.Maps )
+      {
+        var snap = new GR.Game.Layer<int>();
+        snap.Resize( map.TileColorOverrides.Width, map.TileColorOverrides.Height );
+        for ( int j = 0; j < map.TileColorOverrides.Height; ++j )
+        {
+          for ( int i = 0; i < map.TileColorOverrides.Width; ++i )
+          {
+            snap[i, j] = map.TileColorOverrides[i, j];
+          }
+        }
+        _ColorOverrideSnapshots.Add( snap );
       }
     }
 
@@ -63,6 +97,40 @@ namespace RetroDevStudio.Undo
     public override void Apply()
     {
       _MapEditor.AddTile( _TileIndex, _RemovedTile );
+
+      // Restore entity-type → tile bindings. Done after AddTile so the
+      // tile list is back to its pre-deletion length when we hand
+      // indices back to the entity types — otherwise an index that was
+      // valid pre-delete (e.g. == old Tiles.Count - 1) would still be
+      // out of range until AddTile inserts the tile.
+      int entCount = System.Math.Min( _EntityTypeTileIndices.Count, _MapProject.EntityTypes.Count );
+      for ( int i = 0; i < entCount; ++i )
+      {
+        _MapProject.EntityTypes[i].TileIndex = _EntityTypeTileIndices[i];
+      }
+
+      // Restore per-map color overrides. We deep-copy back into the
+      // existing layer rather than swapping references so anyone holding
+      // a reference to map.TileColorOverrides keeps seeing the right
+      // data.
+      int mapCount = System.Math.Min( _ColorOverrideSnapshots.Count, _MapProject.Maps.Count );
+      for ( int m = 0; m < mapCount; ++m )
+      {
+        var map = _MapProject.Maps[m];
+        var snap = _ColorOverrideSnapshots[m];
+        if ( ( map.TileColorOverrides.Width != snap.Width )
+        ||   ( map.TileColorOverrides.Height != snap.Height ) )
+        {
+          map.TileColorOverrides.Resize( snap.Width, snap.Height );
+        }
+        for ( int j = 0; j < snap.Height; ++j )
+        {
+          for ( int i = 0; i < snap.Width; ++i )
+          {
+            map.TileColorOverrides[i, j] = snap[i, j];
+          }
+        }
+      }
     }
   }
 }
