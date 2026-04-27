@@ -117,6 +117,27 @@ namespace RetroDevStudio.Formats
       /// after the upgrade.
       /// </summary>
       public GR.Game.Layer<int> TileColorOverrides = new GR.Game.Layer<int>();
+
+      /// <summary>
+      /// Per-character one-way "blocked" override. true at a char =>
+      /// that char is impassable in the exported passable bitfield,
+      /// regardless of the placed tile's <see cref="Tile.Passable"/>.
+      /// false (the default) defers to the tile.
+      ///
+      /// One-way: this layer can ONLY make tile-passable chars
+      /// impassable (place per-character walls/obstacles over a passable
+      /// floor tile). It cannot flip a tile-impassable char to passable
+      /// — that direction would require a tri-state model and the user
+      /// explicitly asked for block-only.
+      ///
+      /// Dimensions: <see cref="Tiles"/>.Width × <see cref="TileSpacingX"/>
+      /// by Tiles.Height × <see cref="TileSpacingY"/> — one slot per
+      /// character, mirroring <see cref="TileColorOverrides"/> exactly.
+      /// Default <c>false</c> after a fresh <see cref="GR.Game.Layer{T}.Resize"/>
+      /// (zero-init) IS the no-override sentinel — no separate reset
+      /// step is needed.
+      /// </summary>
+      public GR.Game.Layer<bool> CharBlockedOverrides = new GR.Game.Layer<bool>();
       public string             Name = "";
       public int                TileSpacingX = 2;
       public int                TileSpacingY = 2;
@@ -1530,6 +1551,29 @@ namespace RetroDevStudio.Formats
              }
            }
 
+           // Per-character one-way "blocked" override: anywhere the
+           // user marked a char as blocked, force it impassable in the
+           // bitfield. (false in CharBlockedOverrides means "no
+           // override" — the per-tile loop above is already authoritative
+           // for those.) This is the only way to flip false → in the
+           // exported bits; it cannot turn an impassable char passable.
+           if ( ( map.CharBlockedOverrides.Width  > 0 )
+           &&   ( map.CharBlockedOverrides.Height > 0 ) )
+           {
+             int ovW = System.Math.Min( map.CharBlockedOverrides.Width,  exportWidth );
+             int ovH = System.Math.Min( map.CharBlockedOverrides.Height, exportHeight );
+             for ( int cy = 0; cy < ovH; ++cy )
+             {
+               for ( int cx = 0; cx < ovW; ++cx )
+               {
+                 if ( map.CharBlockedOverrides[cx, cy] )
+                 {
+                   passable[cy * exportWidth + cx] = false;
+                 }
+               }
+             }
+           }
+
            GR.Memory.ByteBuffer bitfieldData = new GR.Memory.ByteBuffer();
            for ( int y = 0; y < exportHeight; ++y )
            {
@@ -2084,6 +2128,26 @@ namespace RetroDevStudio.Formats
               }
             }
           }
+          // Per-character one-way "blocked" override pass — see the
+          // matching block in ExportAsAssembly for full rationale. true
+          // forces impassable; false defers to the tile-driven decision
+          // above. Cannot turn an impassable char passable.
+          if ( ( map.CharBlockedOverrides.Width  > 0 )
+          &&   ( map.CharBlockedOverrides.Height > 0 ) )
+          {
+            int ovW = System.Math.Min( map.CharBlockedOverrides.Width,  ew );
+            int ovH = System.Math.Min( map.CharBlockedOverrides.Height, eh );
+            for ( int cy = 0; cy < ovH; ++cy )
+            {
+              for ( int cx = 0; cx < ovW; ++cx )
+              {
+                if ( map.CharBlockedOverrides[cx, cy] )
+                {
+                  passable[cy * ew + cx] = false;
+                }
+              }
+            }
+          }
           for ( int y = 0; y < eh; ++y )
           {
             int currentX = 0;
@@ -2408,6 +2472,7 @@ namespace RetroDevStudio.Formats
 
 
 
+    [System.Obsolete( "Superseded by ExportAsGameBinary; will be removed." )]
     public bool ExportSparseTileAndMapData( bool Vertical, out string ExportData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective, bool EmptyTileCompression, int EmptyTileIndex, bool AddFilenamespace, string Filenamespace, bool WrapMapData )
     {
       StringBuilder sb = new StringBuilder();
@@ -2949,6 +3014,26 @@ namespace RetroDevStudio.Formats
              }
            }
 
+           // Per-character one-way "blocked" override pass — same as
+           // ExportAsAssembly / ExportAsGameBinary. Applied here for
+           // parity until this deprecated export path is removed.
+           if ( ( map.CharBlockedOverrides.Width  > 0 )
+           &&   ( map.CharBlockedOverrides.Height > 0 ) )
+           {
+             int ovW = System.Math.Min( map.CharBlockedOverrides.Width,  passableWidth );
+             int ovH = System.Math.Min( map.CharBlockedOverrides.Height, passableHeight );
+             for ( int cy = 0; cy < ovH; ++cy )
+             {
+               for ( int cx = 0; cx < ovW; ++cx )
+               {
+                 if ( map.CharBlockedOverrides[cx, cy] )
+                 {
+                   passable[cy * passableWidth + cx] = false;
+                 }
+               }
+             }
+           }
+
            GR.Memory.ByteBuffer bitfieldData = new GR.Memory.ByteBuffer();
            for ( int y = 0; y < passableHeight; ++y )
            {
@@ -3272,6 +3357,43 @@ namespace RetroDevStudio.Formats
         chunkMap.Append( chunkOverrides.ToBuffer() );
       }
 
+      // Per-character one-way "blocked" override layer (mirrors the
+      // color-override chunk above, but stored as 1 byte per cell since
+      // the value is binary). Sparse: only emitted when at least one
+      // cell is true. Skipping the chunk for fully-default maps keeps
+      // pre-feature saves byte-identical (no chunk = layer defaults to
+      // all false on load, which is the no-override sentinel).
+      bool anyBlocked = false;
+      if ( ( map.CharBlockedOverrides.Width == saveCharW )
+      &&   ( map.CharBlockedOverrides.Height == saveCharH ) )
+      {
+        for ( int j = 0; j < saveCharH && !anyBlocked; ++j )
+        {
+          for ( int i = 0; i < saveCharW; ++i )
+          {
+            if ( map.CharBlockedOverrides[i, j] )
+            {
+              anyBlocked = true;
+              break;
+            }
+          }
+        }
+      }
+      if ( anyBlocked )
+      {
+        GR.IO.FileChunk chunkBlocked = new GR.IO.FileChunk( FileChunkConstants.MAP_CHAR_BLOCKED_OVERRIDES );
+        chunkBlocked.AppendI32( saveCharW );
+        chunkBlocked.AppendI32( saveCharH );
+        for ( int j = 0; j < saveCharH; ++j )
+        {
+          for ( int i = 0; i < saveCharW; ++i )
+          {
+            chunkBlocked.AppendU8( map.CharBlockedOverrides[i, j] ? (byte)1 : (byte)0 );
+          }
+        }
+        chunkMap.Append( chunkBlocked.ToBuffer() );
+      }
+
       if ( map.ExtraDataText.Length > 0 )
       {
         GR.IO.FileChunk chunkMapExtraData = new GR.IO.FileChunk( FileChunkConstants.MAP_EXTRA_DATA_TEXT );
@@ -3402,6 +3524,14 @@ namespace RetroDevStudio.Formats
                   map.TileColorOverrides[xx, yy] = -1;
                 }
               }
+              // Per-character "blocked" override layer — same shape as
+              // TileColorOverrides above. Resize alone is enough: the
+              // default false IS the no-override sentinel, no explicit
+              // reset needed. The optional MAP_CHAR_BLOCKED_OVERRIDES
+              // chunk below may overwrite individual cells; absent chunk
+              // means "no overrides anywhere", which matches every
+              // pre-feature project.
+              map.CharBlockedOverrides.Resize( charW, charH );
 
               // Optimization: read entire block at once
               GR.Memory.ByteBuffer  inputBuffer = new GR.Memory.ByteBuffer();
@@ -3491,6 +3621,37 @@ namespace RetroDevStudio.Formats
                     {
                       map.TileColorOverrides[i, j] = v;
                     }
+                  }
+                }
+              }
+            }
+            break;
+          case FileChunkConstants.MAP_CHAR_BLOCKED_OVERRIDES:
+            {
+              // Per-character "blocked" override layer. Stored as 1 byte
+              // per cell (0 / 1) in char-grid shape. MAP_DATA already
+              // resized the layer to the current char-grid; mismatched
+              // dimensions here are defensive (clamp on read).
+              int chunkW = mapChunkReader.ReadInt32();
+              int chunkH = mapChunkReader.ReadInt32();
+              int charW  = map.Tiles.Width  * map.TileSpacingX;
+              int charH  = map.Tiles.Height * map.TileSpacingY;
+
+              if ( ( map.CharBlockedOverrides.Width != charW )
+              ||   ( map.CharBlockedOverrides.Height != charH ) )
+              {
+                map.CharBlockedOverrides.Resize( charW, charH );
+              }
+
+              for ( int j = 0; j < chunkH; ++j )
+              {
+                for ( int i = 0; i < chunkW; ++i )
+                {
+                  byte v = mapChunkReader.ReadUInt8();
+                  if ( ( i < charW )
+                  &&   ( j < charH ) )
+                  {
+                    map.CharBlockedOverrides[i, j] = ( v != 0 );
                   }
                 }
               }

@@ -93,8 +93,8 @@
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.groupBox3 = new System.Windows.Forms.GroupBox();
             this.dimSlider = new Krypton.Toolkit.KryptonTrackBar();
-            this.gridOpacitySlider = new Krypton.Toolkit.KryptonTrackBar();
             this.labelGridOpacity = new System.Windows.Forms.Label();
+            this.gridOpacitySlider = new Krypton.Toolkit.KryptonTrackBar();
             this.labelRightClickBehavior = new System.Windows.Forms.Label();
             this.comboRightClickBehavior = new Krypton.Toolkit.KryptonComboBox();
             this.btnDesignerBackground = new System.Windows.Forms.Button();
@@ -154,6 +154,7 @@
             this.btnToolFill = new Krypton.Toolkit.KryptonCheckButton();
             this.btnToolSelect = new Krypton.Toolkit.KryptonCheckButton();
             this.btnToolMarker = new Krypton.Toolkit.KryptonCheckButton();
+            this.btnToolPassable = new Krypton.Toolkit.KryptonCheckButton();
             this.comboTilePlacementColor = new Krypton.Toolkit.KryptonComboBox();
             this.comboMarkerTypes = new Krypton.Toolkit.KryptonComboBox();
             this.labelMarkerValue1 = new System.Windows.Forms.Label();
@@ -997,18 +998,18 @@
             this.dimSlider.Value = 100;
             this.dimSlider.ValueChanged += new System.EventHandler(this.dimSlider_ValueChanged);
             this.dimSlider.Scroll += new System.EventHandler(this.dimSlider_Scroll);
-            //
+            // 
             // labelGridOpacity
-            //
+            // 
             this.labelGridOpacity.AutoSize = true;
             this.labelGridOpacity.Location = new System.Drawing.Point(15, 110);
             this.labelGridOpacity.Name = "labelGridOpacity";
-            this.labelGridOpacity.Size = new System.Drawing.Size(70, 13);
+            this.labelGridOpacity.Size = new System.Drawing.Size(66, 13);
             this.labelGridOpacity.TabIndex = 36;
             this.labelGridOpacity.Text = "Grid opacity:";
-            //
+            // 
             // gridOpacitySlider
-            //
+            // 
             this.gridOpacitySlider.Location = new System.Drawing.Point(15, 128);
             this.gridOpacitySlider.Maximum = 100;
             this.gridOpacitySlider.Name = "gridOpacitySlider";
@@ -1121,7 +1122,7 @@
             // 
             this.btnRemoveOverlappingTiles.Location = new System.Drawing.Point(8, 49);
             this.btnRemoveOverlappingTiles.Name = "btnRemoveOverlappingTiles";
-            this.btnRemoveOverlappingTiles.Size = new System.Drawing.Size(169, 24);
+            this.btnRemoveOverlappingTiles.Size = new System.Drawing.Size(148, 24);
             this.btnRemoveOverlappingTiles.TabIndex = 16;
             this.toolTip1.SetToolTip(this.btnRemoveOverlappingTiles, "Remove tiles that are overlapped by larger tiles placed earlier in reading order");
             this.btnRemoveOverlappingTiles.Values.DropDownArrowColor = System.Drawing.Color.Empty;
@@ -1130,7 +1131,7 @@
             // 
             // btnDisplayFilters
             // 
-            this.btnDisplayFilters.Location = new System.Drawing.Point(128, 19);
+            this.btnDisplayFilters.Location = new System.Drawing.Point(240, 21);
             this.btnDisplayFilters.Name = "btnDisplayFilters";
             this.btnDisplayFilters.Size = new System.Drawing.Size(80, 24);
             this.btnDisplayFilters.TabIndex = 17;
@@ -1141,7 +1142,7 @@
             // 
             // checkFilterEnabled
             // 
-            this.checkFilterEnabled.Location = new System.Drawing.Point(214, 21);
+            this.checkFilterEnabled.Location = new System.Drawing.Point(222, 51);
             this.checkFilterEnabled.Name = "checkFilterEnabled";
             this.checkFilterEnabled.Size = new System.Drawing.Size(98, 22);
             this.checkFilterEnabled.TabIndex = 18;
@@ -1577,6 +1578,7 @@
             this.flowLayoutPanel1.Controls.Add(this.btnToolFill);
             this.flowLayoutPanel1.Controls.Add(this.btnToolSelect);
             this.flowLayoutPanel1.Controls.Add(this.btnToolMarker);
+            this.flowLayoutPanel1.Controls.Add(this.btnToolPassable);
             this.flowLayoutPanel1.Controls.Add(this.comboTilePlacementColor);
             this.flowLayoutPanel1.Controls.Add(this.comboMarkerTypes);
             this.flowLayoutPanel1.Controls.Add(this.labelMarkerValue1);
@@ -1663,11 +1665,22 @@
             this.btnToolMarker.Values.Text = "M";
             this.btnToolMarker.CheckedChanged += new System.EventHandler(this.btnToolMarker_CheckedChanged);
             // 
+            // btnToolPassable
+            // 
+            this.btnToolPassable.Location = new System.Drawing.Point(183, 3);
+            this.btnToolPassable.Name = "btnToolPassable";
+            this.btnToolPassable.Size = new System.Drawing.Size(24, 24);
+            this.btnToolPassable.TabIndex = 9;
+            this.toolTip1.SetToolTip(this.btnToolPassable, "Per-character blocked override (P)");
+            this.btnToolPassable.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnToolPassable.Values.Text = "P";
+            this.btnToolPassable.CheckedChanged += new System.EventHandler(this.btnToolPassable_CheckedChanged);
+            // 
             // comboTilePlacementColor
             // 
             this.comboTilePlacementColor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboTilePlacementColor.DropDownWidth = 110;
-            this.comboTilePlacementColor.Location = new System.Drawing.Point(183, 3);
+            this.comboTilePlacementColor.Location = new System.Drawing.Point(213, 3);
             this.comboTilePlacementColor.Name = "comboTilePlacementColor";
             this.comboTilePlacementColor.Size = new System.Drawing.Size(80, 22);
             this.comboTilePlacementColor.TabIndex = 49;
@@ -1678,7 +1691,7 @@
             // 
             this.comboMarkerTypes.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboMarkerTypes.DropDownWidth = 150;
-            this.comboMarkerTypes.Location = new System.Drawing.Point(269, 3);
+            this.comboMarkerTypes.Location = new System.Drawing.Point(299, 3);
             this.comboMarkerTypes.Name = "comboMarkerTypes";
             this.comboMarkerTypes.Size = new System.Drawing.Size(150, 22);
             this.comboMarkerTypes.TabIndex = 3;
@@ -1687,7 +1700,7 @@
             // labelMarkerValue1
             // 
             this.labelMarkerValue1.AutoSize = true;
-            this.labelMarkerValue1.Location = new System.Drawing.Point(425, 7);
+            this.labelMarkerValue1.Location = new System.Drawing.Point(455, 7);
             this.labelMarkerValue1.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
             this.labelMarkerValue1.Name = "labelMarkerValue1";
             this.labelMarkerValue1.Size = new System.Drawing.Size(46, 13);
@@ -1701,7 +1714,7 @@
             0,
             0,
             0});
-            this.editMarkerValue1.Location = new System.Drawing.Point(474, 3);
+            this.editMarkerValue1.Location = new System.Drawing.Point(504, 3);
             this.editMarkerValue1.Maximum = new decimal(new int[] {
             255,
             0,
@@ -1725,7 +1738,7 @@
             // labelMarkerValue2
             // 
             this.labelMarkerValue2.AutoSize = true;
-            this.labelMarkerValue2.Location = new System.Drawing.Point(535, 7);
+            this.labelMarkerValue2.Location = new System.Drawing.Point(565, 7);
             this.labelMarkerValue2.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
             this.labelMarkerValue2.Name = "labelMarkerValue2";
             this.labelMarkerValue2.Size = new System.Drawing.Size(46, 13);
@@ -1739,7 +1752,7 @@
             0,
             0,
             0});
-            this.editMarkerValue2.Location = new System.Drawing.Point(584, 3);
+            this.editMarkerValue2.Location = new System.Drawing.Point(614, 3);
             this.editMarkerValue2.Maximum = new decimal(new int[] {
             255,
             0,
@@ -1763,7 +1776,7 @@
             // btnDeleteSelectedMarker
             // 
             this.btnDeleteSelectedMarker.Enabled = false;
-            this.btnDeleteSelectedMarker.Location = new System.Drawing.Point(645, 3);
+            this.btnDeleteSelectedMarker.Location = new System.Drawing.Point(675, 3);
             this.btnDeleteSelectedMarker.Margin = new System.Windows.Forms.Padding(3, 3, 3, 0);
             this.btnDeleteSelectedMarker.Name = "btnDeleteSelectedMarker";
             this.btnDeleteSelectedMarker.Size = new System.Drawing.Size(26, 24);
@@ -1778,7 +1791,7 @@
             // 
             this.comboMarkerColorOverride.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboMarkerColorOverride.DropDownWidth = 48;
-            this.comboMarkerColorOverride.Location = new System.Drawing.Point(677, 3);
+            this.comboMarkerColorOverride.Location = new System.Drawing.Point(707, 3);
             this.comboMarkerColorOverride.Name = "comboMarkerColorOverride";
             this.comboMarkerColorOverride.Size = new System.Drawing.Size(48, 22);
             this.comboMarkerColorOverride.TabIndex = 4;
@@ -1786,7 +1799,7 @@
             // 
             // checkAutoTiling
             // 
-            this.checkAutoTiling.Location = new System.Drawing.Point(731, 3);
+            this.checkAutoTiling.Location = new System.Drawing.Point(761, 3);
             this.checkAutoTiling.Name = "checkAutoTiling";
             this.checkAutoTiling.Size = new System.Drawing.Size(82, 27);
             this.checkAutoTiling.TabIndex = 16;
@@ -1794,7 +1807,7 @@
             // 
             // btnZoomOut
             // 
-            this.btnZoomOut.Location = new System.Drawing.Point(819, 3);
+            this.btnZoomOut.Location = new System.Drawing.Point(849, 3);
             this.btnZoomOut.Name = "btnZoomOut";
             this.btnZoomOut.Size = new System.Drawing.Size(24, 24);
             this.btnZoomOut.TabIndex = 10;
@@ -1805,7 +1818,7 @@
             // 
             // btnZoomIn
             // 
-            this.btnZoomIn.Location = new System.Drawing.Point(849, 3);
+            this.btnZoomIn.Location = new System.Drawing.Point(879, 3);
             this.btnZoomIn.Name = "btnZoomIn";
             this.btnZoomIn.Size = new System.Drawing.Size(24, 24);
             this.btnZoomIn.TabIndex = 11;
@@ -1816,7 +1829,7 @@
             // 
             // labelZoom
             // 
-            this.labelZoom.Location = new System.Drawing.Point(879, 0);
+            this.labelZoom.Location = new System.Drawing.Point(909, 0);
             this.labelZoom.Name = "labelZoom";
             this.labelZoom.Size = new System.Drawing.Size(33, 30);
             this.labelZoom.TabIndex = 9;
@@ -1825,7 +1838,7 @@
             // 
             // checkShowGrid
             // 
-            this.checkShowGrid.Location = new System.Drawing.Point(918, 3);
+            this.checkShowGrid.Location = new System.Drawing.Point(948, 3);
             this.checkShowGrid.Name = "checkShowGrid";
             this.checkShowGrid.Size = new System.Drawing.Size(47, 20);
             this.checkShowGrid.TabIndex = 12;
@@ -2930,6 +2943,7 @@
         private System.Windows.Forms.ToolTip toolTip1;
     private Krypton.Toolkit.KryptonCheckBox checkAutoTiling;
         private Krypton.Toolkit.KryptonCheckButton btnToolMarker;
+        private Krypton.Toolkit.KryptonCheckButton btnToolPassable;
         private Krypton.Toolkit.KryptonComboBox comboMarkerTypes;
         private System.Windows.Forms.Label labelMarkerExportSymbol;
         private System.Windows.Forms.TextBox editMarkerExportSymbol;

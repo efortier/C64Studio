@@ -28,7 +28,13 @@ namespace RetroDevStudio.Documents
       FILL,
       SELECT,
       MARKER,
-      ENTITY
+      ENTITY,
+      // Per-character "blocked" override layer. While active: no tile
+      // painting; clicks toggle CharBlockedOverrides per char; the
+      // PictureEditor_PostPaint overlay tints the map so the user can
+      // see which chars block movement (red = tile-driven, orange =
+      // override-driven, blue = redundant override).
+      PASSABLE
     };
 
 
@@ -97,6 +103,15 @@ namespace RetroDevStudio.Documents
     private bool                        m_DraggingSelectedMarker = false;
     private bool                        m_DraggingSelectedEntity = false;
 
+    // Bucket-toggle state for a passable-tool drag stroke. The first
+    // press samples the clicked char's current value and decides what
+    // the entire drag will write (the inverse). Continuing the drag re-
+    // enters cells without untoggling — every cell of the stroke ends
+    // up at the captured value. m_BlockedDragActive is cleared on mouse
+    // release in the same place the marker/entity drag flags clear.
+    private bool                        m_BlockedDragActive = false;
+    private bool                        m_BlockedDragWriteValue = false;
+
     // Single-tile right-click selection in tile-painting modes. Pressing
     // Delete with this set replaces that map cell with tile 0. (-1, -1) =
     // no current selection. Cleared on map change and on switching to
@@ -164,6 +179,13 @@ namespace RetroDevStudio.Documents
     private List<int>                                 m_FloatingSelectionOverrides = null;
     private int                                       m_FloatingSelectionSourceSpacingX = 1;
     private int                                       m_FloatingSelectionSourceSpacingY = 1;
+    // Per-character "blocked" overrides captured at copy time alongside
+    // m_FloatingSelectionOverrides. Same char-grid layout (charW × charH
+    // booleans, row-major). Null when the clipboard payload didn't
+    // include a blocked trailer (older copies, or a payload from a
+    // different source) — InsertFloatingSelection then leaves the
+    // destination's blocked overrides at false (no-override default).
+    private List<bool>                                m_FloatingSelectionBlocked = null;
 
     private ExportMapFormBase           m_ExportForm = null;
     private ImportMapFormBase           m_ImportForm = null;
@@ -812,6 +834,106 @@ namespace RetroDevStudio.Documents
         }
       }
 
+      // Per-character "blocked" overlay. Active only in PASSABLE tool
+      // mode. For each visible character cell we determine its effective
+      // export state and tint:
+      //   tile.Passable=false, override=false  → RED 50%   (impassable from tile)
+      //   tile.Passable=true,  override=true   → ORANGE 50% (impassable from override)
+      //   tile.Passable=false, override=true   → BLUE 20%  (override is redundant)
+      //   tile.Passable=true,  override=false  → no overlay
+      // Per-pixel blend mirrors the MarkerDimOpacity loop above. Walks
+      // visible chars (one inner loop per char's pixel block) to keep
+      // the work proportional to the rendered map area.
+      if ( ( m_CurrentMap != null )
+      &&   ( m_ToolMode == ToolMode.PASSABLE ) )
+      {
+        int offsetX = m_CurEditorOffsetX;
+        int offsetY = m_CurEditorOffsetY;
+        int viewCharWidth = ViewCharWidth;
+        int viewCharHeight = ViewCharHeight;
+        int spacingX = m_CurrentMap.TileSpacingX;
+        int spacingY = m_CurrentMap.TileSpacingY;
+        int passableLayerW = m_CurrentMap.CharBlockedOverrides.Width;
+        int passableLayerH = m_CurrentMap.CharBlockedOverrides.Height;
+
+        // Component order in TargetBuffer: r = pixel & 0xff, g = (pixel>>8) & 0xff,
+        // b = (pixel>>16) & 0xff, alpha in top byte. Match the marker-dim block above.
+        for ( int viewCharY = 0; viewCharY < viewCharHeight; ++viewCharY )
+        {
+          int charMapY = offsetY * spacingY + viewCharY;
+          if ( ( charMapY < 0 ) || ( charMapY >= passableLayerH ) ) continue;
+          int tileY = charMapY / spacingY;
+          if ( ( tileY < 0 ) || ( tileY >= m_CurrentMap.Tiles.Height ) ) continue;
+
+          for ( int viewCharX = 0; viewCharX < viewCharWidth; ++viewCharX )
+          {
+            int charMapX = offsetX * spacingX + viewCharX;
+            if ( ( charMapX < 0 ) || ( charMapX >= passableLayerW ) ) continue;
+            int tileX = charMapX / spacingX;
+            if ( ( tileX < 0 ) || ( tileX >= m_CurrentMap.Tiles.Width ) ) continue;
+
+            int tileIndex = m_CurrentMap.Tiles[tileX, tileY];
+            bool tilePassable = ( tileIndex >= 0 && tileIndex < m_MapProject.Tiles.Count )
+                                ? m_MapProject.Tiles[tileIndex].Passable : true;
+            bool blockedOverride = m_CurrentMap.CharBlockedOverrides[charMapX, charMapY];
+
+            uint tintR, tintG, tintB;
+            int  alpha;
+            if ( !tilePassable && !blockedOverride )
+            {
+              // Impassable from tile — strong red.
+              tintR = 255; tintG = 0; tintB = 0; alpha = 128;
+            }
+            else if ( tilePassable && blockedOverride )
+            {
+              // Impassable from override — strong orange to distinguish
+              // from tile-driven red (so the user can see at a glance
+              // which chars they personally blocked).
+              tintR = 255; tintG = 140; tintB = 0; alpha = 128;
+            }
+            else if ( !tilePassable && blockedOverride )
+            {
+              // Redundant override (tile already blocks). Faint blue
+              // so the user knows the override is set but isn't doing
+              // any work in the bitfield.
+              tintR = 0; tintG = 128; tintB = 255; alpha = 50;
+            }
+            else
+            {
+              continue;   // tile.Passable && !override → no overlay
+            }
+
+            // Source-space rect for this char (8×8 pixels), scaled to
+            // TargetBuffer rect with the same ScaleCoordCeil math as
+            // the grid block above.
+            int sourceX  = renderOffsetX + viewCharX * 8;
+            int sourceY  = renderOffsetY + viewCharY * 8;
+            int sourceX2 = sourceX + 8;
+            int sourceY2 = sourceY + 8;
+            int targetX  = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX,  sourceWidth,  targetWidth  ) ) );
+            int targetY  = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( sourceY,  sourceHeight, targetHeight ) ) );
+            int targetX2 = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX2, sourceWidth,  targetWidth  ) ) );
+            int targetY2 = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( sourceY2, sourceHeight, targetHeight ) ) );
+
+            int invAlpha = 255 - alpha;
+            for ( int py = targetY; py < targetY2; ++py )
+            {
+              for ( int px = targetX; px < targetX2; ++px )
+              {
+                uint pixel = TargetBuffer.GetPixel( px, py );
+                uint pr = pixel & 0xff;
+                uint pg = ( pixel >> 8  ) & 0xff;
+                uint pb = ( pixel >> 16 ) & 0xff;
+                uint nr = ( tintR * (uint)alpha + pr * (uint)invAlpha ) / 255;
+                uint ng = ( tintG * (uint)alpha + pg * (uint)invAlpha ) / 255;
+                uint nb = ( tintB * (uint)alpha + pb * (uint)invAlpha ) / 255;
+                TargetBuffer.SetPixel( px, py, ( 0xff000000 | ( nb << 16 ) | ( ng << 8 ) | nr ) );
+              }
+            }
+          }
+        }
+      }
+
       if ( ( m_CurrentMap != null )
       &&   ( m_ToolMode == ToolMode.MARKER ) )
       {
@@ -1374,11 +1496,31 @@ namespace RetroDevStudio.Documents
                   {
                     m_CurrentMap.TileColorOverrides[dstCharX, dstCharY] = v;
                   }
+                  // Parallel write for the blocked overrides. If the
+                  // payload didn't include a blocked trailer (older
+                  // copies), default to false — placing a tile resets
+                  // blocked, mirroring the color-override path's
+                  // ApplyPlacementColorOverride clear behavior.
+                  bool blockedValue = false;
+                  if ( m_FloatingSelectionBlocked != null )
+                  {
+                    blockedValue = m_FloatingSelectionBlocked[srcCharX + srcCharY * captureCharW];
+                  }
+                  if ( ( dstCharX >= 0 ) && ( dstCharY >= 0 )
+                  &&   ( dstCharX < m_CurrentMap.CharBlockedOverrides.Width )
+                  &&   ( dstCharY < m_CurrentMap.CharBlockedOverrides.Height ) )
+                  {
+                    m_CurrentMap.CharBlockedOverrides[dstCharX, dstCharY] = blockedValue;
+                  }
                 }
               }
             }
             else
             {
+              // Legacy (no-trailer) paste: ApplyPlacementColorOverride
+              // wipes both color AND blocked overrides for the placed
+              // tile's footprint (per its definition), so the legacy
+              // path is correct without parallel work here.
               ApplyPlacementColorOverride( m_MousePos.X + m_CurEditorOffsetX + i, m_MousePos.Y + m_CurEditorOffsetY + j );
             }
 
@@ -1400,6 +1542,7 @@ namespace RetroDevStudio.Documents
       }
       m_FloatingSelection = null;
       m_FloatingSelectionOverrides = null;
+      m_FloatingSelectionBlocked = null;
       RecalcTileUsageInCurrentMap();
       Redraw();
       Modified = true;
@@ -1557,6 +1700,9 @@ namespace RetroDevStudio.Documents
         // selection got nulled out from underneath us mid-drag.
         m_DraggingSelectedMarker = false;
         m_DraggingSelectedEntity = false;
+        // End any in-flight blocked-override drag stroke. The captured
+        // write value isn't reset — it's only re-read on the next press.
+        m_BlockedDragActive = false;
 
         switch ( m_ToolMode )
         {
@@ -2294,6 +2440,70 @@ namespace RetroDevStudio.Documents
                    Modified = true;
                  }
                }
+             }
+             break;
+
+          case ToolMode.PASSABLE:
+             // Per-character "blocked" override editor. Bucket-toggle
+             // drag: the first cell of the press decides set-or-clear,
+             // and the entire stroke writes that one captured value
+             // (m_BlockedDragWriteValue) — re-entering an already-
+             // flipped cell during the same drag does NOT untoggle it.
+             // One UndoMapCharBlockedChange entry per drag stroke.
+             {
+               // Revision-active maps are read-only — bail before any
+               // mutation. Belt-and-suspenders: btnToolPassable should
+               // be disabled in revision view, but if a stale tool
+               // mode somehow runs, this guard catches it.
+               if ( m_IsViewingRevision )
+               {
+                 break;
+               }
+
+               // charX, charY are the visible-char indices; offsetX/Y
+               // are scroll offsets in TILES. Convert to absolute map
+               // char coords — same conversion the Ctrl+click color-
+               // paint path uses just above.
+               int blkCharX = charX + offsetX * m_CurrentMap.TileSpacingX;
+               int blkCharY = charY + offsetY * m_CurrentMap.TileSpacingY;
+               if ( ( blkCharX < 0 )
+               ||   ( blkCharY < 0 )
+               ||   ( blkCharX >= m_CurrentMap.CharBlockedOverrides.Width )
+               ||   ( blkCharY >= m_CurrentMap.CharBlockedOverrides.Height ) )
+               {
+                 break;
+               }
+
+               bool current = m_CurrentMap.CharBlockedOverrides[blkCharX, blkCharY];
+               if ( m_MouseButtonReleased )
+               {
+                 // First press of the stroke — capture the operation
+                 // and snapshot the whole layer for one-undo-per-stroke.
+                 m_MouseButtonReleased    = false;
+                 m_BlockedDragActive      = true;
+                 m_BlockedDragWriteValue  = !current;
+                 DocumentInfo.UndoManager.AddUndoTask(
+                   new Undo.UndoMapCharBlockedChange(
+                     this, m_CurrentMap, 0, 0,
+                     m_CurrentMap.CharBlockedOverrides.Width,
+                     m_CurrentMap.CharBlockedOverrides.Height ) );
+               }
+               if ( !m_BlockedDragActive )
+               {
+                 break;
+               }
+               if ( current == m_BlockedDragWriteValue )
+               {
+                 break;  // already at target value — no work
+               }
+               m_CurrentMap.CharBlockedOverrides[blkCharX, blkCharY] = m_BlockedDragWriteValue;
+               SetModified();
+               // Repaint the parent tile so the overlay refreshes for
+               // this char (UpdateArea takes tile coords).
+               int parentTileX = blkCharX / m_CurrentMap.TileSpacingX;
+               int parentTileY = blkCharY / m_CurrentMap.TileSpacingY;
+               UpdateArea( parentTileX, parentTileY, 1, 1 );
+               pictureEditor.Invalidate();
              }
              break;
         }
@@ -3722,6 +3932,32 @@ namespace RetroDevStudio.Documents
         }
       }
 
+      // Per-character "blocked" override trailer. Same forward-compat
+      // approach as the color trailer above: older paste code stops
+      // after the color trailer (which reads exactly its declared W*H
+      // ints) and ignores anything past it. Layout: [i32 charW][i32
+      // charH][byte × (charW * charH)] (1 byte per cell, 0/1) — same
+      // shape as the on-disk MAP_CHAR_BLOCKED_OVERRIDES chunk. Spacing
+      // is shared with the color trailer above (paste reads it once).
+      dataSelection.AppendI32( charW );
+      dataSelection.AppendI32( charH );
+      for ( int j = 0; j < charH; ++j )
+      {
+        for ( int i = 0; i < charW; ++i )
+        {
+          int srcX = charBaseX + i;
+          int srcY = charBaseY + j;
+          bool b = false;
+          if ( ( srcX >= 0 ) && ( srcY >= 0 )
+          &&   ( srcX < m_CurrentMap.CharBlockedOverrides.Width )
+          &&   ( srcY < m_CurrentMap.CharBlockedOverrides.Height ) )
+          {
+            b = m_CurrentMap.CharBlockedOverrides[srcX, srcY];
+          }
+          dataSelection.AppendU8( b ? (byte)1 : (byte)0 );
+        }
+      }
+
       DataObject dataObj = new DataObject();
 
       dataObj.SetData( "RetroDevStudio.MapEditorSelection", false, dataSelection.MemoryStream() );
@@ -3810,6 +4046,33 @@ namespace RetroDevStudio.Documents
             for ( int i = 0; i < charW * charH; ++i )
             {
               m_FloatingSelectionOverrides.Add( memIn.ReadInt32() );
+            }
+          }
+        }
+
+        // Optional second trailer — per-character blocked overrides
+        // captured by even-newer copy code. Layout: [i32 charW][i32
+        // charH][byte × charW × charH]. Only attempted if the previous
+        // (color) trailer was present AND the payload still has at
+        // least the 8-byte header. Older payloads without this trailer
+        // leave m_FloatingSelectionBlocked at null, so paste defaults
+        // destination blocked overrides to false (no-override).
+        m_FloatingSelectionBlocked = null;
+        if ( ( m_FloatingSelectionOverrides != null )
+        &&   ( memIn.Size - memIn.Position >= 8 ) )
+        {
+          int blkW = memIn.ReadInt32();
+          int blkH = memIn.ReadInt32();
+          int expectedCharW = selectionWidth  * m_FloatingSelectionSourceSpacingX;
+          int expectedCharH = selectionHeight * m_FloatingSelectionSourceSpacingY;
+          if ( ( blkW == expectedCharW )
+          &&   ( blkH == expectedCharH )
+          &&   ( memIn.Size - memIn.Position >= (long)blkW * blkH ) )
+          {
+            m_FloatingSelectionBlocked = new List<bool>( blkW * blkH );
+            for ( int i = 0; i < blkW * blkH; ++i )
+            {
+              m_FloatingSelectionBlocked.Add( memIn.ReadUInt8() != 0 );
             }
           }
         }
@@ -4248,6 +4511,62 @@ namespace RetroDevStudio.Documents
           {
             overrides[x, y] = -1;
           }
+        }
+      }
+
+      // ----- Blocked-override layer (char-grid). false (the default)
+      // for vacated cells = no override (defer to tile). Same shift /
+      // copy / vacate pattern as the color override above.
+      if ( ( m_CurrentMap.CharBlockedOverrides.Width != charW )
+      ||   ( m_CurrentMap.CharBlockedOverrides.Height != charH ) )
+      {
+        m_CurrentMap.CharBlockedOverrides.Resize( charW, charH );
+      }
+      var blocked = m_CurrentMap.CharBlockedOverrides;
+      if ( charDX > 0 )
+      {
+        for ( int x = charW - 1; x >= charDX; --x )
+        {
+          for ( int y = 0; y < charH; ++y ) blocked[x, y] = blocked[x - charDX, y];
+        }
+        for ( int x = 0; x < charDX; ++x )
+        {
+          for ( int y = 0; y < charH; ++y ) blocked[x, y] = false;
+        }
+      }
+      else if ( charDX < 0 )
+      {
+        int absDX = -charDX;
+        for ( int x = 0; x < charW - absDX; ++x )
+        {
+          for ( int y = 0; y < charH; ++y ) blocked[x, y] = blocked[x + absDX, y];
+        }
+        for ( int x = charW - absDX; x < charW; ++x )
+        {
+          for ( int y = 0; y < charH; ++y ) blocked[x, y] = false;
+        }
+      }
+      if ( charDY > 0 )
+      {
+        for ( int y = charH - 1; y >= charDY; --y )
+        {
+          for ( int x = 0; x < charW; ++x ) blocked[x, y] = blocked[x, y - charDY];
+        }
+        for ( int y = 0; y < charDY; ++y )
+        {
+          for ( int x = 0; x < charW; ++x ) blocked[x, y] = false;
+        }
+      }
+      else if ( charDY < 0 )
+      {
+        int absDY = -charDY;
+        for ( int y = 0; y < charH - absDY; ++y )
+        {
+          for ( int x = 0; x < charW; ++x ) blocked[x, y] = blocked[x, y + absDY];
+        }
+        for ( int y = charH - absDY; y < charH; ++y )
+        {
+          for ( int x = 0; x < charW; ++x ) blocked[x, y] = false;
         }
       }
 
@@ -5140,6 +5459,10 @@ namespace RetroDevStudio.Documents
       // exporter read this per char.
       map.TileColorOverrides.Resize( w * tw, h * th );
       ResetColorOverrides( map.TileColorOverrides );
+      // Per-character "blocked" override layer — same shape. Resize alone
+      // is enough: zero-init bool = false = no-override sentinel, no
+      // explicit reset needed.
+      map.CharBlockedOverrides.Resize( w * tw, h * th );
       map.Name = editMapName.Text;
 
       DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapAdd( this, m_MapProject, m_MapProject.Maps.Count ) );
@@ -5315,10 +5638,19 @@ namespace RetroDevStudio.Documents
       {
         m_CurrentMap.TileColorOverrides.Resize( newCharW, newCharH );
         ResetColorOverrides( m_CurrentMap.TileColorOverrides );
+        // Spacing change wipes the blocked layer for the same reason —
+        // re-mapping per-char overrides across a different per-tile char
+        // block has no sensible default behaviour.
+        m_CurrentMap.CharBlockedOverrides.Resize( newCharW, newCharH );
+        m_CurrentMap.CharBlockedOverrides.Fill( false );
       }
       else
       {
         ResizeColorOverridesPreservingDefaults( m_CurrentMap.TileColorOverrides, newCharW, newCharH );
+        // Width/height-only change: Layer<bool>.Resize zero-fills new
+        // cells (false = no-override, the natural default) and preserves
+        // existing values in the overlap. No helper needed.
+        m_CurrentMap.CharBlockedOverrides.Resize( newCharW, newCharH );
       }
       m_CurrentMap.Name = editMapName.Text;
 
@@ -5733,6 +6065,17 @@ namespace RetroDevStudio.Documents
                   &&   ( cy < map.TileColorOverrides.Height ) )
                   {
                     map.TileColorOverrides[cx, cy] = -1;
+                  }
+                  // Same reasoning for the blocked-override layer:
+                  // the tile is gone, so any per-char override that
+                  // applied to its footprint is now stale.
+                  // UndoMapTileRemove snapshots both layers (see
+                  // _BlockedOverrideSnapshots) so undo restores them
+                  // alongside the tile.
+                  if ( ( cx < map.CharBlockedOverrides.Width )
+                  &&   ( cy < map.CharBlockedOverrides.Height ) )
+                  {
+                    map.CharBlockedOverrides[cx, cy] = false;
                   }
                 }
               }
@@ -6308,6 +6651,10 @@ namespace RetroDevStudio.Documents
         cpProject.MapWidth * map.TileSpacingX,
         cpProject.MapHeight * map.TileSpacingY );
       ResetColorOverrides( map.TileColorOverrides );
+      // Per-character blocked-override layer — same shape; default false.
+      map.CharBlockedOverrides.Resize(
+        cpProject.MapWidth * map.TileSpacingX,
+        cpProject.MapHeight * map.TileSpacingY );
       for ( int j = 0; j < cpProject.MapHeight; ++j )
       {
         for ( int i = 0; i < cpProject.MapWidth; ++i )
@@ -6347,10 +6694,11 @@ namespace RetroDevStudio.Documents
       if ( m_FloatingSelection != null )
       {
         m_FloatingSelection = null;
-        // Drop the parallel override capture too so a subsequent paste
+        // Drop the parallel override captures too so a subsequent paste
         // doesn't accidentally splice this selection's chars onto a
         // freshly-pasted tile grid.
         m_FloatingSelectionOverrides = null;
+        m_FloatingSelectionBlocked = null;
         Redraw();
         return true;
       }
@@ -6375,6 +6723,7 @@ namespace RetroDevStudio.Documents
         {
           btnToolEdit, btnToolRect, btnToolQuad, btnToolFill,
           btnToolSelect, btnToolMarker, btnToolEntity,
+          btnToolPassable,
         };
         foreach ( var b in buttons )
         {
@@ -6544,6 +6893,21 @@ namespace RetroDevStudio.Documents
                               && ( j < m_CurrentMap.TileColorOverrides.Height ) )
                             ? m_CurrentMap.TileColorOverrides[i,j] : -1;
           newMap.TileColorOverrides[i,j] = srcOverride;
+        }
+      }
+      // Per-character blocked-override layer: deep-copy slot-for-slot
+      // alongside the color overrides so a duplicate map carries every
+      // per-char passability tweak.
+      newMap.CharBlockedOverrides = new GR.Game.Layer<bool>();
+      newMap.CharBlockedOverrides.Resize( dupCharW, dupCharH );
+      for ( int j = 0; j < dupCharH; ++j )
+      {
+        for ( int i = 0; i < dupCharW; ++i )
+        {
+          bool srcBlocked = ( ( i < m_CurrentMap.CharBlockedOverrides.Width )
+                              && ( j < m_CurrentMap.CharBlockedOverrides.Height ) )
+                            ? m_CurrentMap.CharBlockedOverrides[i,j] : false;
+          newMap.CharBlockedOverrides[i,j] = srcBlocked;
         }
       }
       newMap.AlternativeBackgroundColor = m_CurrentMap.AlternativeBackgroundColor;
@@ -7732,6 +8096,27 @@ namespace RetroDevStudio.Documents
           return true;
         }
       }
+      else if ( keyData == Keys.P )
+      {
+        // Activate the per-character "blocked" override tool. Same
+        // scoping as G/S — Map tab only, not on a TextBox. Additionally
+        // gated on m_IsViewingRevision: the revision view is read-only
+        // and PASSABLE editing must not start there. Pressing P while
+        // viewing a revision falls through to the normal letter-key
+        // handling (no-op).
+        if ( ( tabMapEditor != null )
+        &&   ( tabMapEditor.SelectedPage == tabEditor )
+        &&   ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
+        &&   ( !m_IsViewingRevision ) )
+        {
+          if ( ( btnToolPassable != null )
+          &&   ( !btnToolPassable.Checked ) )
+          {
+            btnToolPassable.Checked = true;
+          }
+          return true;
+        }
+      }
       else if ( ( keyData == ( Keys.Alt | Keys.Left ) )
       ||        ( keyData == ( Keys.Alt | Keys.Right ) )
       ||        ( keyData == ( Keys.Alt | Keys.Up ) )
@@ -7872,6 +8257,16 @@ namespace RetroDevStudio.Documents
           &&   ( cy < m_CurrentMap.TileColorOverrides.Height ) )
           {
             m_CurrentMap.TileColorOverrides[cx, cy] = -1;
+          }
+          // Same reasoning for blocked overrides — the tile that owned
+          // these chars is being cleared, so any per-char passability
+          // override for its footprint is now stale. UndoMapTilesChange
+          // (taken above on line 8147) snapshots both layers, so Ctrl+Z
+          // restores the old tile + both override layers in one step.
+          if ( ( cx < m_CurrentMap.CharBlockedOverrides.Width )
+          &&   ( cy < m_CurrentMap.CharBlockedOverrides.Height ) )
+          {
+            m_CurrentMap.CharBlockedOverrides[cx, cy] = false;
           }
         }
       }
@@ -8759,6 +9154,27 @@ namespace RetroDevStudio.Documents
           }
         }
       }
+
+      // Reset the per-character "blocked" overrides for this tile's
+      // footprint. Placing a fresh tile is a "reset this region"
+      // gesture — keeping stale overrides risks silently re-blocking a
+      // newly-placed wall door or floor tile. UndoMapTilesChange
+      // snapshots both layers so Ctrl+Z restores the prior state.
+      int blkLayerW = m_CurrentMap.CharBlockedOverrides.Width;
+      int blkLayerH = m_CurrentMap.CharBlockedOverrides.Height;
+      for ( int dy = 0; dy < footprintY; ++dy )
+      {
+        for ( int dx = 0; dx < footprintX; ++dx )
+        {
+          int cx = charBaseX + dx;
+          int cy = charBaseY + dy;
+          if ( ( cx >= 0 ) && ( cy >= 0 )
+          &&   ( cx < blkLayerW ) && ( cy < blkLayerH ) )
+          {
+            m_CurrentMap.CharBlockedOverrides[cx, cy] = false;
+          }
+        }
+      }
     }
 
 
@@ -8978,6 +9394,25 @@ namespace RetroDevStudio.Documents
       if ( KeepActiveIfUnchecking( btnToolEntity ) ) return;
       m_ToolMode = ToolMode.ENTITY;
       UncheckOtherToolButtons( btnToolEntity );
+      AfterToolChange();
+    }
+
+
+
+    /// <summary>
+    /// Activate the per-character "blocked" override tool. Mirrors the
+    /// other tool-mode buttons: drop tile selection / floating selection,
+    /// flip the radio group, refresh the view. While PASSABLE is active
+    /// the PictureEditor_PostPaint overlay tints the map and left-clicks
+    /// edit <see cref="MapProject.Map.CharBlockedOverrides"/>.
+    /// </summary>
+    private void btnToolPassable_CheckedChanged( object sender, EventArgs e )
+    {
+      if ( KeepActiveIfUnchecking( btnToolPassable ) ) return;
+      HideSelection();
+      RemoveFloatingSelection();
+      m_ToolMode = ToolMode.PASSABLE;
+      UncheckOtherToolButtons( btnToolPassable );
       AfterToolChange();
     }
 

@@ -50,6 +50,11 @@
     // the revision payload is exactly what the load path already knows
     // how to parse — no parallel data model. See MapProject.Map.Revisions.
     public const ushort    MAP_REVISION                   = 0x1332;
+    // Per-character one-way "blocked" override. Sparse: only emitted when
+    // any cell is true. Layout: [i32 charW][i32 charH][byte × charW × charH]
+    // (1 byte per cell, 0/1). Defers to Tile.Passable when absent or when
+    // the cell value is false. See MapProject.Map.CharBlockedOverrides.
+    public const ushort    MAP_CHAR_BLOCKED_OVERRIDES     = 0x1333;
 
     public const ushort    CHARSET_PROJECT                = 0x1340;
     public const ushort    CHARSET_INFO                   = 0x1341;

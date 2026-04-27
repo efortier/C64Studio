@@ -24,6 +24,12 @@ namespace RetroDevStudio.Undo
     // has to capture the same granularity, otherwise undoing a Ctrl-
     // click recolour would only restore one in spacingX×spacingY chars.
     public GR.Game.Layer<int>     ChangedOverrides = new GR.Game.Layer<int>();
+    // Per-CHARACTER "blocked" override snapshot. Same shape as
+    // ChangedOverrides. ApplyPlacementColorOverride clears blocked-
+    // overrides for the placed tile's footprint, so Ctrl+Z must restore
+    // them alongside the tile + color. Default false IS the no-override
+    // sentinel — Resize zero-fills, no separate reset needed.
+    public GR.Game.Layer<bool>    ChangedBlocked   = new GR.Game.Layer<bool>();
     // Captured at construction time so Apply() can recompute char-grid
     // bounds even if the map's spacing changes between create and undo.
     private int                   m_SpacingX = 1;
@@ -44,6 +50,7 @@ namespace RetroDevStudio.Undo
 
       ChangedData.Resize( Width, Height );
       ChangedOverrides.Resize( Width * m_SpacingX, Height * m_SpacingY );
+      ChangedBlocked.Resize( Width * m_SpacingX, Height * m_SpacingY );
 
       // Tile snapshot — one value per tile cell.
       for ( int i = 0; i < Width; ++i )
@@ -76,6 +83,17 @@ namespace RetroDevStudio.Undo
           else
           {
             ChangedOverrides[i, j] = -1;
+          }
+          // Per-char blocked-override snapshot. Same defensive bounds
+          // check; out-of-range reads as false (no override).
+          if ( ( srcX < Map.CharBlockedOverrides.Width )
+          &&   ( srcY < Map.CharBlockedOverrides.Height ) )
+          {
+            ChangedBlocked[i, j] = Map.CharBlockedOverrides[srcX, srcY];
+          }
+          else
+          {
+            ChangedBlocked[i, j] = false;
           }
         }
       }
@@ -129,6 +147,12 @@ namespace RetroDevStudio.Undo
           &&   ( dstY < AffectedMap.TileColorOverrides.Height ) )
           {
             AffectedMap.TileColorOverrides[dstX, dstY] = ChangedOverrides[i, j];
+          }
+          // Restore per-char blocked-overrides. Same bounds guard.
+          if ( ( dstX < AffectedMap.CharBlockedOverrides.Width )
+          &&   ( dstY < AffectedMap.CharBlockedOverrides.Height ) )
+          {
+            AffectedMap.CharBlockedOverrides[dstX, dstY] = ChangedBlocked[i, j];
           }
         }
       }

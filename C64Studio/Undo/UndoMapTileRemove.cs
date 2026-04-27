@@ -21,6 +21,12 @@ namespace RetroDevStudio.Undo
     // the tile itself is restored.
     private List<int>                                _EntityTypeTileIndices = new List<int>();
     private List<GR.Game.Layer<int>>                 _ColorOverrideSnapshots = new List<GR.Game.Layer<int>>();
+    // Mirrors _ColorOverrideSnapshots for the per-character "blocked"
+    // override layer. RemoveTile clears blocked overrides on every map
+    // cell that used the deleted tile (so its footprint isn't left
+    // pointing at a stale tile-index after the shift), and Apply must
+    // be able to restore them.
+    private List<GR.Game.Layer<bool>>                _BlockedOverrideSnapshots = new List<GR.Game.Layer<bool>>();
 
 
 
@@ -73,6 +79,24 @@ namespace RetroDevStudio.Undo
           }
         }
         _ColorOverrideSnapshots.Add( snap );
+      }
+
+      // Snapshot every map's blocked-override layer too — same shape,
+      // same lifecycle as the color overrides. RemoveTile wipes these
+      // for the deleted tile's footprint; Apply restores them in lock
+      // step with the color layer.
+      foreach ( var map in Project.Maps )
+      {
+        var blkSnap = new GR.Game.Layer<bool>();
+        blkSnap.Resize( map.CharBlockedOverrides.Width, map.CharBlockedOverrides.Height );
+        for ( int j = 0; j < map.CharBlockedOverrides.Height; ++j )
+        {
+          for ( int i = 0; i < map.CharBlockedOverrides.Width; ++i )
+          {
+            blkSnap[i, j] = map.CharBlockedOverrides[i, j];
+          }
+        }
+        _BlockedOverrideSnapshots.Add( blkSnap );
       }
     }
 
@@ -130,6 +154,26 @@ namespace RetroDevStudio.Undo
           for ( int i = 0; i < snap.Width; ++i )
           {
             map.TileColorOverrides[i, j] = snap[i, j];
+          }
+        }
+      }
+
+      // Restore per-map blocked overrides — same deep-copy approach.
+      int blkMapCount = System.Math.Min( _BlockedOverrideSnapshots.Count, _MapProject.Maps.Count );
+      for ( int m = 0; m < blkMapCount; ++m )
+      {
+        var map = _MapProject.Maps[m];
+        var blkSnap = _BlockedOverrideSnapshots[m];
+        if ( ( map.CharBlockedOverrides.Width != blkSnap.Width )
+        ||   ( map.CharBlockedOverrides.Height != blkSnap.Height ) )
+        {
+          map.CharBlockedOverrides.Resize( blkSnap.Width, blkSnap.Height );
+        }
+        for ( int j = 0; j < blkSnap.Height; ++j )
+        {
+          for ( int i = 0; i < blkSnap.Width; ++i )
+          {
+            map.CharBlockedOverrides[i, j] = blkSnap[i, j];
           }
         }
       }
