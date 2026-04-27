@@ -1615,29 +1615,29 @@ namespace RetroDevStudio.Documents
         }
 
         // Ctrl+left-click (without Shift) writes the placement-override
-        // colour into the clicked cell's TileColorOverrides — recolouring
-        // the cell without changing which tile sits there. No-op when the
-        // combo is on "Default" (m_TilePlacementColorOverride < 0): the
-        // user picked no specific colour, so there's nothing to apply.
-        // Ctrl+drag colours multiple cells under one undo entry, mirroring
-        // the existing Shift-blank-click drag pattern. Falls through to
-        // tool-mode handling only when Ctrl isn't held, so the rest of the
-        // switch stays untouched.
+        // colour into the clicked CHARACTER's slot in TileColorOverrides
+        // — recolouring just that one char without changing which tile
+        // sits there or any other char of that tile. No-op when the
+        // combo is on "Default" (m_TilePlacementColorOverride < 0).
+        // Ctrl+drag colours multiple chars under one undo entry,
+        // mirroring the existing Shift-blank-click drag pattern. Falls
+        // through to tool-mode handling only when Ctrl isn't held.
         bool ctrlPaintColor = ( ( Control.ModifierKeys & Keys.Control ) == Keys.Control )
                            && ( ( Control.ModifierKeys & Keys.Shift ) != Keys.Shift )
                            && ( m_TilePlacementColorOverride >= 0 )
                            && ( m_CurrentMap != null );
         if ( ctrlPaintColor )
         {
-          int cellX = trueX + offsetX;
-          int cellY = trueY + offsetY;
-          if ( ( cellX >= 0 )
-          &&   ( cellY >= 0 )
-          &&   ( cellX < m_CurrentMap.Tiles.Width )
-          &&   ( cellY < m_CurrentMap.Tiles.Height )
-          &&   ( cellX < m_CurrentMap.TileColorOverrides.Width )
-          &&   ( cellY < m_CurrentMap.TileColorOverrides.Height )
-          &&   ( m_CurrentMap.TileColorOverrides[cellX, cellY] != m_TilePlacementColorOverride ) )
+          // charX, charY are visible-char indices in the DisplayPage;
+          // offsetX, offsetY are scroll offsets in TILES. Convert both
+          // to absolute map char coords.
+          int mapCharX = charX + offsetX * m_CurrentMap.TileSpacingX;
+          int mapCharY = charY + offsetY * m_CurrentMap.TileSpacingY;
+          if ( ( mapCharX >= 0 )
+          &&   ( mapCharY >= 0 )
+          &&   ( mapCharX < m_CurrentMap.TileColorOverrides.Width )
+          &&   ( mapCharY < m_CurrentMap.TileColorOverrides.Height )
+          &&   ( m_CurrentMap.TileColorOverrides[mapCharX, mapCharY] != m_TilePlacementColorOverride ) )
           {
             // First cell of a drag stroke gets one whole-map undo entry,
             // same as the SINGLE_TILE drag below — one Ctrl+Z rewinds the
@@ -1650,9 +1650,14 @@ namespace RetroDevStudio.Documents
                                              m_CurrentMap.Tiles.Width,
                                              m_CurrentMap.Tiles.Height ) );
             }
-            m_CurrentMap.TileColorOverrides[cellX, cellY] = m_TilePlacementColorOverride;
+            m_CurrentMap.TileColorOverrides[mapCharX, mapCharY] = m_TilePlacementColorOverride;
             SetModified();
-            UpdateArea( cellX, cellY, 1, 1 );
+            // The change is a single character; redraw the parent tile
+            // (UpdateArea takes tile coords + tile counts) so the
+            // surrounding chars repaint with their unchanged values too.
+            int parentTileX = mapCharX / m_CurrentMap.TileSpacingX;
+            int parentTileY = mapCharY / m_CurrentMap.TileSpacingY;
+            UpdateArea( parentTileX, parentTileY, 1, 1 );
           }
           return;
         }
@@ -1772,8 +1777,47 @@ namespace RetroDevStudio.Documents
                 m_LastPaintedPos = currentPos;
               }
 
+              // The "skip if unchanged" fast-path needs to compare the
+              // ENTIRE char footprint the tile actually OCCUPIES, not
+              // just the top-left char and not just spacingX × spacingY.
+              // When TileSpacing < Tile.Chars dimensions (e.g. spacing=1
+              // with a 2x2 tile) the tile renders 4 chars but spacing²
+              // would only check 1 — a re-place with matching top-left
+              // would skip and leave the other 3 chars carrying stale
+              // overrides from a prior placement. Use max(spacing, Chars)
+              // so we cover both the slot and the rendered cells.
+              bool footprintMatchesOverride = true;
+              {
+                int fpFootprintX = m_CurrentMap.TileSpacingX;
+                int fpFootprintY = m_CurrentMap.TileSpacingY;
+                if ( ( tileIndex >= 0 ) && ( tileIndex < m_MapProject.Tiles.Count ) )
+                {
+                  var fpTile = m_MapProject.Tiles[tileIndex];
+                  if ( fpTile.Chars.Width  > fpFootprintX ) fpFootprintX = fpTile.Chars.Width;
+                  if ( fpTile.Chars.Height > fpFootprintY ) fpFootprintY = fpTile.Chars.Height;
+                }
+                int fpBaseX = ( trueX + offsetX ) * m_CurrentMap.TileSpacingX;
+                int fpBaseY = ( trueY + offsetY ) * m_CurrentMap.TileSpacingY;
+                int fpW     = m_CurrentMap.TileColorOverrides.Width;
+                int fpH     = m_CurrentMap.TileColorOverrides.Height;
+                for ( int dy = 0; dy < fpFootprintY && footprintMatchesOverride; ++dy )
+                {
+                  for ( int dx = 0; dx < fpFootprintX; ++dx )
+                  {
+                    int cx = fpBaseX + dx;
+                    int cy = fpBaseY + dy;
+                    int cur = ( cx >= 0 && cy >= 0 && cx < fpW && cy < fpH )
+                              ? m_CurrentMap.TileColorOverrides[cx, cy] : -1;
+                    if ( cur != m_TilePlacementColorOverride )
+                    {
+                      footprintMatchesOverride = false;
+                      break;
+                    }
+                  }
+                }
+              }
               if ( ( m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY] != tileIndex )
-              ||   ( m_CurrentMap.TileColorOverrides[trueX + offsetX, trueY + offsetY] != m_TilePlacementColorOverride ) )
+              ||   ( !footprintMatchesOverride ) )
               {
                 if ( m_MouseButtonReleased )
                 {
@@ -2094,14 +2138,19 @@ namespace RetroDevStudio.Documents
         &&   ( cellX < m_CurrentMap.Tiles.Width )
         &&   ( cellY < m_CurrentMap.Tiles.Height ) )
         {
-          // Defensive: the override layer can lag the tile layer briefly
-          // during resize / load of legacy projects. Treat out-of-range as
-          // "Default" rather than throwing.
+          // Eyedrop the override at the specific CHAR under the cursor
+          // (override is now per-character). Defensive: the override
+          // layer can lag the tile layer briefly during resize / load of
+          // legacy projects — treat out-of-range as "Default" rather than
+          // throwing.
+          int sampleCharX = charX + offsetX * m_CurrentMap.TileSpacingX;
+          int sampleCharY = charY + offsetY * m_CurrentMap.TileSpacingY;
           int cellOverride = -1;
-          if ( ( cellX < m_CurrentMap.TileColorOverrides.Width )
-          &&   ( cellY < m_CurrentMap.TileColorOverrides.Height ) )
+          if ( ( sampleCharX >= 0 ) && ( sampleCharY >= 0 )
+          &&   ( sampleCharX < m_CurrentMap.TileColorOverrides.Width )
+          &&   ( sampleCharY < m_CurrentMap.TileColorOverrides.Height ) )
           {
-            cellOverride = m_CurrentMap.TileColorOverrides[cellX, cellY];
+            cellOverride = m_CurrentMap.TileColorOverrides[sampleCharX, sampleCharY];
           }
           int targetIndex = ( cellOverride < 0 ) ? 0 : cellOverride + 1;
           if ( ( comboTilePlacementColor != null )
@@ -2329,17 +2378,46 @@ namespace RetroDevStudio.Documents
       }
       GetMapRenderOffsets( out int renderOffsetX, out int renderOffsetY );
 
+      // For per-char override lookup: where this tile sits in MAP char
+      // coords. trueX is the visible TILE index; m_CurEditorOffsetX
+      // converts that to the absolute map tile index; multiplying by
+      // spacing gives the top-left character coord of the tile footprint.
+      int mapCharBaseX = ( trueX + m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX;
+      int mapCharBaseY = ( trueY + m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY;
+
       for ( int j = 0; j < m_MapProject.Tiles[TileIndex].Chars.Height; ++j )
       {
         for ( int i = 0; i < m_MapProject.Tiles[TileIndex].Chars.Width; ++i )
         {
-          // Per-cell color override: when colorOverride >= 0 every char of
-          // the tile renders in that single color, matching how the
-          // exported color grid will look. Default colorOverride = -1
-          // keeps the tile's intrinsic per-character colors.
-          byte colorToUse = ( colorOverride >= 0 )
-                            ? (byte)colorOverride
-                            : m_MapProject.Tiles[TileIndex].Chars[i, j].Color;
+          // Two paths for the colour:
+          //  - colorOverride >= 0  → caller forced a single colour for
+          //    this draw (preview overlays, floating selection drag).
+          //    Apply uniformly to every char of the tile.
+          //  - colorOverride == -1 → render from data: read the per-char
+          //    override from m_CurrentMap.TileColorOverrides at the
+          //    actual char coord; -1 there means "use the tile's
+          //    intrinsic per-character colour."
+          byte colorToUse;
+          if ( colorOverride >= 0 )
+          {
+            colorToUse = (byte)colorOverride;
+          }
+          else
+          {
+            int charMapX = mapCharBaseX + i;
+            int charMapY = mapCharBaseY + j;
+            int charOverride = -1;
+            if ( ( m_CurrentMap != null )
+            &&   ( charMapX >= 0 ) && ( charMapY >= 0 )
+            &&   ( charMapX < m_CurrentMap.TileColorOverrides.Width )
+            &&   ( charMapY < m_CurrentMap.TileColorOverrides.Height ) )
+            {
+              charOverride = m_CurrentMap.TileColorOverrides[charMapX, charMapY];
+            }
+            colorToUse = ( charOverride >= 0 )
+                         ? (byte)charOverride
+                         : m_MapProject.Tiles[TileIndex].Chars[i, j].Color;
+          }
           DrawCharImage( pictureEditor.DisplayPage,
                          renderOffsetX + ( trueX * m_CurrentMap.TileSpacingX + i ) * 8,
                          renderOffsetY + ( trueY * m_CurrentMap.TileSpacingY + j ) * 8,
@@ -2466,23 +2544,28 @@ namespace RetroDevStudio.Documents
               CharMode        = ( m_CurrentMap.AlternativeMode != TextCharMode.UNKNOWN ) ? m_CurrentMap.AlternativeMode : Lookup.TextCharModeFromTextMode( m_MapProject.Mode )
             };
 
-            // Per-cell color override pulled from the map's TileColorOverrides
-            // layer. -1 = use the tile's own per-character colors (the
-            // historical default). Anything 0..15 paints every char of
-            // this placement in that single C64 color.
-            int cellOverride = -1;
-            if ( ( x < m_CurrentMap.TileColorOverrides.Width )
-            &&   ( y < m_CurrentMap.TileColorOverrides.Height ) )
-            {
-              cellOverride = m_CurrentMap.TileColorOverrides[x, y];
-            }
+            // Per-CHARACTER color override pulled from the map's
+            // TileColorOverrides layer (now char-grid sized: one slot per
+            // character cell on the map). -1 = use the tile's own colour
+            // for that character; 0..15 paints just that character in
+            // the given C64 colour.
+            int tileCharBaseX = x * m_CurrentMap.TileSpacingX;
+            int tileCharBaseY = y * m_CurrentMap.TileSpacingY;
 
             for ( int j = 0; j < tile.Chars.Height; ++j )
             {
               for ( int i = 0; i < tile.Chars.Width; ++i )
               {
-                alternativeSettings.CustomColor = ( cellOverride >= 0 )
-                                                  ? cellOverride
+                int charMapX = tileCharBaseX + i;
+                int charMapY = tileCharBaseY + j;
+                int charOverride = -1;
+                if ( ( charMapX < m_CurrentMap.TileColorOverrides.Width )
+                &&   ( charMapY < m_CurrentMap.TileColorOverrides.Height ) )
+                {
+                  charOverride = m_CurrentMap.TileColorOverrides[charMapX, charMapY];
+                }
+                alternativeSettings.CustomColor = ( charOverride >= 0 )
+                                                  ? charOverride
                                                   : tile.Chars[i, j].Color;
                 Displayer.CharacterDisplayer.DisplayChar( m_MapProject.Charset,
                                                           tile.Chars[i, j].Character,
@@ -3755,18 +3838,27 @@ namespace RetroDevStudio.Documents
 
       int    w = m_CurrentMap.Tiles.Width;
       int    h = m_CurrentMap.Tiles.Height;
+      int    spacingX = m_CurrentMap.TileSpacingX;
+      int    spacingY = m_CurrentMap.TileSpacingY;
+      int    charW = w * spacingX;
+      int    charH = h * spacingY;
 
-      // Defensive: legacy maps may have an override layer that hasn't yet
-      // been brought into shape with Tiles. Without this, a shift would
-      // silently leave overrides behind for any cell outside the current
-      // override layer's footprint. Cheap to call when sizes already match.
-      if ( ( m_CurrentMap.TileColorOverrides.Width != w )
-      ||   ( m_CurrentMap.TileColorOverrides.Height != h ) )
+      // Defensive: legacy maps may have the override layer at the old
+      // tile-grid shape, OR briefly out of shape during resize. Bring it
+      // to the char-grid shape before shifting; cheap to call when sizes
+      // already match.
+      if ( ( m_CurrentMap.TileColorOverrides.Width != charW )
+      ||   ( m_CurrentMap.TileColorOverrides.Height != charH ) )
       {
-        ResizeColorOverridesPreservingDefaults( m_CurrentMap.TileColorOverrides, w, h );
+        ResizeColorOverridesPreservingDefaults( m_CurrentMap.TileColorOverrides, charW, charH );
       }
       var overrides = m_CurrentMap.TileColorOverrides;
+      // Char-grid shift = tile shift × spacing. Same Bresenham-free
+      // copy-and-clear pattern as the tile loop, just on the char layer.
+      int charDX = DX * spacingX;
+      int charDY = DY * spacingY;
 
+      // ----- Tiles layer (tile-grid) -----
       if ( DX > 0 )
       {
         for ( int x = w - 1; x >= DX; --x )
@@ -3774,7 +3866,6 @@ namespace RetroDevStudio.Documents
           for ( int y = 0; y < h; ++y )
           {
             m_CurrentMap.Tiles[x, y] = m_CurrentMap.Tiles[x - DX, y];
-            overrides[x, y]          = overrides[x - DX, y];
           }
         }
         for ( int x = 0; x < DX; ++x )
@@ -3782,9 +3873,6 @@ namespace RetroDevStudio.Documents
            for ( int y = 0; y < h; ++y )
            {
              m_CurrentMap.Tiles[x, y] = 0;
-             // -1, not 0: cleared cells should be "no override", not
-             // "override to color 0 (black)".
-             overrides[x, y]          = -1;
            }
         }
       }
@@ -3796,7 +3884,6 @@ namespace RetroDevStudio.Documents
            for ( int y = 0; y < h; ++y )
            {
              m_CurrentMap.Tiles[x, y] = m_CurrentMap.Tiles[x + absDX, y];
-             overrides[x, y]          = overrides[x + absDX, y];
            }
          }
          for ( int x = w - absDX; x < w; ++x )
@@ -3804,11 +3891,9 @@ namespace RetroDevStudio.Documents
             for ( int y = 0; y < h; ++y )
             {
               m_CurrentMap.Tiles[x, y] = 0;
-              overrides[x, y]          = -1;
             }
          }
       }
-
       if ( DY > 0 )
       {
         for ( int y = h - 1; y >= DY; --y )
@@ -3816,7 +3901,6 @@ namespace RetroDevStudio.Documents
           for ( int x = 0; x < w; ++x )
           {
             m_CurrentMap.Tiles[x, y] = m_CurrentMap.Tiles[x, y - DY];
-            overrides[x, y]          = overrides[x, y - DY];
           }
         }
         for ( int y = 0; y < DY; ++y )
@@ -3824,7 +3908,6 @@ namespace RetroDevStudio.Documents
            for ( int x = 0; x < w; ++x )
            {
              m_CurrentMap.Tiles[x, y] = 0;
-             overrides[x, y]          = -1;
            }
         }
       }
@@ -3836,7 +3919,6 @@ namespace RetroDevStudio.Documents
            for ( int x = 0; x < w; ++x )
            {
              m_CurrentMap.Tiles[x, y] = m_CurrentMap.Tiles[x, y + absDY];
-             overrides[x, y]          = overrides[x, y + absDY];
            }
          }
          for ( int y = h - absDY; y < h; ++y )
@@ -3844,9 +3926,82 @@ namespace RetroDevStudio.Documents
             for ( int x = 0; x < w; ++x )
             {
               m_CurrentMap.Tiles[x, y] = 0;
-              overrides[x, y]          = -1;
             }
          }
+      }
+
+      // ----- Override layer (char-grid). -1 (not 0) for vacated cells:
+      // -1 means "no override / use tile's own colour"; 0 would mean
+      // "override to colour 0 (black)" — different semantic. -----
+      if ( charDX > 0 )
+      {
+        for ( int x = charW - 1; x >= charDX; --x )
+        {
+          for ( int y = 0; y < charH; ++y )
+          {
+            overrides[x, y] = overrides[x - charDX, y];
+          }
+        }
+        for ( int x = 0; x < charDX; ++x )
+        {
+          for ( int y = 0; y < charH; ++y )
+          {
+            overrides[x, y] = -1;
+          }
+        }
+      }
+      else if ( charDX < 0 )
+      {
+        int absDX = -charDX;
+        for ( int x = 0; x < charW - absDX; ++x )
+        {
+          for ( int y = 0; y < charH; ++y )
+          {
+            overrides[x, y] = overrides[x + absDX, y];
+          }
+        }
+        for ( int x = charW - absDX; x < charW; ++x )
+        {
+          for ( int y = 0; y < charH; ++y )
+          {
+            overrides[x, y] = -1;
+          }
+        }
+      }
+      if ( charDY > 0 )
+      {
+        for ( int y = charH - 1; y >= charDY; --y )
+        {
+          for ( int x = 0; x < charW; ++x )
+          {
+            overrides[x, y] = overrides[x, y - charDY];
+          }
+        }
+        for ( int y = 0; y < charDY; ++y )
+        {
+          for ( int x = 0; x < charW; ++x )
+          {
+            overrides[x, y] = -1;
+          }
+        }
+      }
+      else if ( charDY < 0 )
+      {
+        int absDY = -charDY;
+        for ( int y = 0; y < charH - absDY; ++y )
+        {
+          for ( int x = 0; x < charW; ++x )
+          {
+            overrides[x, y] = overrides[x, y + absDY];
+          }
+        }
+        for ( int y = charH - absDY; y < charH; ++y )
+        {
+          for ( int x = 0; x < charW; ++x )
+          {
+            overrides[x, y] = -1;
+          }
+        }
       }
 
       // Shift markers that were placed inside the map area. Off-map markers
@@ -4733,10 +4888,10 @@ namespace RetroDevStudio.Documents
       map.TileSpacingX = tw;
       map.TileSpacingY = th;
       map.Tiles.Resize( w, h );
-      // Keep the per-cell color-override layer the same shape as Tiles
-      // and initialize it to "no override" everywhere. -1 means the cell
-      // renders/exports using the placed tile's intrinsic colors.
-      map.TileColorOverrides.Resize( w, h );
+      // Per-character color-override layer: char-grid sized (w × spacingX,
+      // h × spacingY). All -1 = "no override anywhere". The renderer and
+      // exporter read this per char.
+      map.TileColorOverrides.Resize( w * tw, h * th );
       ResetColorOverrides( map.TileColorOverrides );
       map.Name = editMapName.Text;
 
@@ -4876,6 +5031,12 @@ namespace RetroDevStudio.Documents
 
 
 
+      // Detect spacing change BEFORE we overwrite the field — a change
+      // in spacing remaps the entire char-grid override layer in a way
+      // that has no obvious right answer, so we clear it.
+      bool spacingChanged = ( tw != m_CurrentMap.TileSpacingX )
+                         || ( th != m_CurrentMap.TileSpacingY );
+
       m_CurrentMap.TileSpacingX = tw;
       m_CurrentMap.TileSpacingY = th;
 
@@ -4896,11 +5057,22 @@ namespace RetroDevStudio.Documents
       }
 
       m_CurrentMap.Tiles.Resize( w, h );
-      // Keep TileColorOverrides shape in sync with Tiles. Layer.Resize
-      // preserves existing cell values within the overlap; new cells get
-      // the layer's default-int (0), but we explicitly set them to -1
-      // (no override) to match the rest of the layer's semantics.
-      ResizeColorOverridesPreservingDefaults( m_CurrentMap.TileColorOverrides, w, h );
+      // TileColorOverrides is char-grid sized (w × spacingX, h × spacingY).
+      // On a width/height-only change we preserve overrides in the overlap
+      // region. On a spacing change we wipe the layer — re-mapping the
+      // per-char overrides across a different per-tile char block has no
+      // sensible default behaviour.
+      int newCharW = w * tw;
+      int newCharH = h * th;
+      if ( spacingChanged )
+      {
+        m_CurrentMap.TileColorOverrides.Resize( newCharW, newCharH );
+        ResetColorOverrides( m_CurrentMap.TileColorOverrides );
+      }
+      else
+      {
+        ResizeColorOverridesPreservingDefaults( m_CurrentMap.TileColorOverrides, newCharW, newCharH );
+      }
       m_CurrentMap.Name = editMapName.Text;
 
       m_SelectedTiles = new bool[w, h];
@@ -5265,9 +5437,27 @@ namespace RetroDevStudio.Documents
 
     public void RemoveTile( int TileIndex )
     {
+      // The tile being removed is still in the list at this point
+      // (RemoveAt happens after the per-map sweep below). Capture its
+      // char-footprint up-front so the override-clear loop knows exactly
+      // how many chars each affected cell rendered. Footprint is
+      // max(spacing, Chars dims) — when spacing < Chars (e.g. spacing=1
+      // with a 2x2 tile) the tile renders 4 chars across 4 slots, so a
+      // spacing²=1 clear would leave 3 stale overrides per cell.
+      int removedFootprintX = 1;
+      int removedFootprintY = 1;
+      if ( ( TileIndex >= 0 ) && ( TileIndex < m_MapProject.Tiles.Count ) )
+      {
+        var removedTile = m_MapProject.Tiles[TileIndex];
+        removedFootprintX = removedTile.Chars.Width;
+        removedFootprintY = removedTile.Chars.Height;
+      }
+
       // remove from all maps
       foreach ( var map in m_MapProject.Maps )
       {
+        int clrFootprintX = ( removedFootprintX > map.TileSpacingX ) ? removedFootprintX : map.TileSpacingX;
+        int clrFootprintY = ( removedFootprintY > map.TileSpacingY ) ? removedFootprintY : map.TileSpacingY;
         for ( int i = 0; i < map.Tiles.Width; ++i )
         {
           for ( int j = 0; j < map.Tiles.Height; ++j )
@@ -5280,14 +5470,24 @@ namespace RetroDevStudio.Documents
             else if ( tile == TileIndex )
             {
               map.Tiles[i, j] = 0;
-              // The cell just became empty — drop any per-cell color
-              // override along with the tile so we don't carry a stale
-              // tint forward into the exported color grid (or onto
-              // whatever the user paints over the empty cell next).
-              if ( ( i < map.TileColorOverrides.Width )
-              &&   ( j < map.TileColorOverrides.Height ) )
+              // The cell just became empty — drop the per-character
+              // overrides for every char this tile actually rendered so
+              // we don't carry stale tint forward into the exported
+              // color grid (or onto whatever the user paints over next).
+              int charBaseX = i * map.TileSpacingX;
+              int charBaseY = j * map.TileSpacingY;
+              for ( int dy = 0; dy < clrFootprintY; ++dy )
               {
-                map.TileColorOverrides[i, j] = -1;
+                for ( int dx = 0; dx < clrFootprintX; ++dx )
+                {
+                  int cx = charBaseX + dx;
+                  int cy = charBaseY + dy;
+                  if ( ( cx < map.TileColorOverrides.Width )
+                  &&   ( cy < map.TileColorOverrides.Height ) )
+                  {
+                    map.TileColorOverrides[cx, cy] = -1;
+                  }
+                }
               }
             }
           }
@@ -5856,7 +6056,10 @@ namespace RetroDevStudio.Documents
 
       var map = new Formats.MapProject.Map();
       map.Tiles.Resize( cpProject.MapWidth, cpProject.MapHeight );
-      map.TileColorOverrides.Resize( cpProject.MapWidth, cpProject.MapHeight );
+      // TileColorOverrides is char-grid — multiply by spacing.
+      map.TileColorOverrides.Resize(
+        cpProject.MapWidth * map.TileSpacingX,
+        cpProject.MapHeight * map.TileSpacingY );
       ResetColorOverrides( map.TileColorOverrides );
       for ( int j = 0; j < cpProject.MapHeight; ++j )
       {
@@ -6066,24 +6269,32 @@ namespace RetroDevStudio.Documents
       newMap.Name = m_CurrentMap.Name;
       newMap.Tiles = new GR.Game.Layer<int>();
       newMap.Tiles.Resize( m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height );
-      // Color override layer is per-cell, so it duplicates alongside Tiles.
-      // The new map should look identical to the source when the user
-      // duplicates — including any per-cell color tweaks they made.
+      newMap.TileSpacingX = m_CurrentMap.TileSpacingX;
+      newMap.TileSpacingY = m_CurrentMap.TileSpacingY;
+      // Char-grid override layer: copy slot-for-slot from the source so
+      // the duplicated map looks identical, per-character tweaks
+      // included.
+      int dupCharW = m_CurrentMap.Tiles.Width  * newMap.TileSpacingX;
+      int dupCharH = m_CurrentMap.Tiles.Height * newMap.TileSpacingY;
       newMap.TileColorOverrides = new GR.Game.Layer<int>();
-      newMap.TileColorOverrides.Resize( m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height );
+      newMap.TileColorOverrides.Resize( dupCharW, dupCharH );
       for ( int i = 0; i < m_CurrentMap.Tiles.Width; ++i )
       {
         for ( int j = 0; j < m_CurrentMap.Tiles.Height; ++j )
         {
           newMap.Tiles[i,j] =  m_CurrentMap.Tiles[i,j];
+        }
+      }
+      for ( int j = 0; j < dupCharH; ++j )
+      {
+        for ( int i = 0; i < dupCharW; ++i )
+        {
           int srcOverride = ( ( i < m_CurrentMap.TileColorOverrides.Width )
                               && ( j < m_CurrentMap.TileColorOverrides.Height ) )
                             ? m_CurrentMap.TileColorOverrides[i,j] : -1;
           newMap.TileColorOverrides[i,j] = srcOverride;
         }
       }
-      newMap.TileSpacingX = m_CurrentMap.TileSpacingX;
-      newMap.TileSpacingY = m_CurrentMap.TileSpacingY;
       newMap.AlternativeBackgroundColor = m_CurrentMap.AlternativeBackgroundColor;
       newMap.AlternativeMultiColor1     = m_CurrentMap.AlternativeMultiColor1;
       newMap.AlternativeMultiColor2     = m_CurrentMap.AlternativeMultiColor2;
@@ -6721,21 +6932,26 @@ namespace RetroDevStudio.Documents
             CharMode        = ( m_CurrentMap.AlternativeMode != TextCharMode.UNKNOWN ) ? m_CurrentMap.AlternativeMode : Lookup.TextCharModeFromTextMode( m_MapProject.Mode )
           };
 
-          // Honor the per-cell color override for the exported image too,
-          // so "Copy map to clipboard as image" produces what the editor
-          // shows on screen.
-          int cellOverrideCpy = -1;
-          if ( ( x < m_CurrentMap.TileColorOverrides.Width )
-          &&   ( y < m_CurrentMap.TileColorOverrides.Height ) )
-          {
-            cellOverrideCpy = m_CurrentMap.TileColorOverrides[x, y];
-          }
+          // Honor per-CHARACTER color overrides for the exported image
+          // too, so "Copy map to clipboard as image" produces what the
+          // editor shows on screen. Same per-char lookup pattern as the
+          // editor's RedrawMap render.
+          int copyCharBaseX = x * m_CurrentMap.TileSpacingX;
+          int copyCharBaseY = y * m_CurrentMap.TileSpacingY;
           for ( int j = 0; j < tile.Chars.Height; ++j )
           {
             for ( int i = 0; i < tile.Chars.Width; ++i )
             {
-              alternativeSettings.CustomColor = ( cellOverrideCpy >= 0 )
-                                                ? cellOverrideCpy
+              int charMapX = copyCharBaseX + i;
+              int charMapY = copyCharBaseY + j;
+              int charOverride = -1;
+              if ( ( charMapX < m_CurrentMap.TileColorOverrides.Width )
+              &&   ( charMapY < m_CurrentMap.TileColorOverrides.Height ) )
+              {
+                charOverride = m_CurrentMap.TileColorOverrides[charMapX, charMapY];
+              }
+              alternativeSettings.CustomColor = ( charOverride >= 0 )
+                                                ? charOverride
                                                 : tile.Chars[i, j].Color;
               Displayer.CharacterDisplayer.DisplayChar( m_MapProject.Charset,
                                                         tile.Chars[i, j].Character,
@@ -7338,14 +7554,37 @@ namespace RetroDevStudio.Documents
       DocumentInfo.UndoManager.AddUndoTask(
         new Undo.UndoMapTilesChange( this, m_CurrentMap, x, y, undoW, undoH ) );
       m_CurrentMap.Tiles[x, y] = 0;
-      // Clearing a cell to "empty" means dropping any per-cell color
-      // override along with the tile — otherwise the override would
-      // silently linger and tint whatever the user paints over the
-      // empty cell next.
-      if ( ( x < m_CurrentMap.TileColorOverrides.Width )
-      &&   ( y < m_CurrentMap.TileColorOverrides.Height ) )
+      // Clearing a cell to "empty" means dropping per-character overrides
+      // for every char the OLD tile actually occupied — otherwise the
+      // overrides would silently linger and tint whatever the user paints
+      // over the empty cell next. Footprint is max(spacing, Chars dims):
+      // when spacing < Chars (e.g. spacing=1 with a 2x2 tile) the tile
+      // renders 4 chars, so clearing only spacing²=1 char would leave 3
+      // stale overrides. Computed BEFORE Tiles[x,y]=0 above so oldIndex
+      // is still valid here.
+      int clrFootprintX = m_CurrentMap.TileSpacingX;
+      int clrFootprintY = m_CurrentMap.TileSpacingY;
+      if ( ( oldIndex >= 0 )
+      &&   ( oldIndex < m_MapProject.Tiles.Count ) )
       {
-        m_CurrentMap.TileColorOverrides[x, y] = -1;
+        var oldTile = m_MapProject.Tiles[oldIndex];
+        if ( oldTile.Chars.Width  > clrFootprintX ) clrFootprintX = oldTile.Chars.Width;
+        if ( oldTile.Chars.Height > clrFootprintY ) clrFootprintY = oldTile.Chars.Height;
+      }
+      int clrCharBaseX = x * m_CurrentMap.TileSpacingX;
+      int clrCharBaseY = y * m_CurrentMap.TileSpacingY;
+      for ( int dy = 0; dy < clrFootprintY; ++dy )
+      {
+        for ( int dx = 0; dx < clrFootprintX; ++dx )
+        {
+          int cx = clrCharBaseX + dx;
+          int cy = clrCharBaseY + dy;
+          if ( ( cx < m_CurrentMap.TileColorOverrides.Width )
+          &&   ( cy < m_CurrentMap.TileColorOverrides.Height ) )
+          {
+            m_CurrentMap.TileColorOverrides[cx, cy] = -1;
+          }
+        }
       }
       // Full RedrawMap, not DrawTile — DrawTile only repaints as many
       // characters as the NEW tile occupies, so deleting a 2x2 tile and
@@ -8172,24 +8411,65 @@ namespace RetroDevStudio.Documents
 
 
     /// <summary>
-    /// Stamp the current placement color override into a single map cell's
-    /// TileColorOverrides slot. Called by every tile-placement code path
-    /// right after writing the tile index, so the per-cell override always
-    /// reflects whatever the toolbar combo had selected at the moment of
-    /// placement (-1 = leave the tile's intrinsic colors alone, 0..15 =
-    /// paint everything in this single C64 color).
+    /// Stamp the current placement color override into every CHARACTER
+    /// slot covered by the tile that was just placed at <paramref name="cellX"/>,
+    /// <paramref name="cellY"/>. The cell coords are TILE coords; the
+    /// stamping covers the full footprint of the placed tile — which can
+    /// be LARGER than spacingX × spacingY (e.g. a 2x2-char tile in a
+    /// spacing=1 map covers 4 chars across 4 different slots). Without
+    /// honouring the actual tile size, only the chars belonging to the
+    /// stamping slot would be cleared and the other chars the tile
+    /// renders into would keep stale overrides.
+    ///
+    /// -1 leaves every char slot at -1 (uses the tile's intrinsic
+    /// per-char colours); 0..15 paints every character of the
+    /// placement in that single C64 colour. Called by every
+    /// tile-placement code path right after writing the tile index. For
+    /// per-character painting (Ctrl+click), see HandleMouseOnEditor —
+    /// that path writes a single char slot.
     /// </summary>
     private void ApplyPlacementColorOverride( int cellX, int cellY )
     {
       if ( m_CurrentMap == null ) return;
-      if ( ( cellX < 0 )
-      ||   ( cellY < 0 )
-      ||   ( cellX >= m_CurrentMap.TileColorOverrides.Width )
-      ||   ( cellY >= m_CurrentMap.TileColorOverrides.Height ) )
+      int spacingX = m_CurrentMap.TileSpacingX;
+      int spacingY = m_CurrentMap.TileSpacingY;
+
+      // Footprint = max( spacing, tile's char dimensions ). The just-
+      // placed tile lives at Tiles[cellX, cellY]; reading it here means
+      // callers don't need to thread the dimensions through.
+      int footprintX = spacingX;
+      int footprintY = spacingY;
+      if ( ( cellX >= 0 ) && ( cellY >= 0 )
+      &&   ( cellX < m_CurrentMap.Tiles.Width )
+      &&   ( cellY < m_CurrentMap.Tiles.Height ) )
       {
-        return;
+        int placedTileIndex = m_CurrentMap.Tiles[cellX, cellY];
+        if ( ( placedTileIndex >= 0 )
+        &&   ( placedTileIndex < m_MapProject.Tiles.Count ) )
+        {
+          var placedTile = m_MapProject.Tiles[placedTileIndex];
+          if ( placedTile.Chars.Width  > footprintX ) footprintX = placedTile.Chars.Width;
+          if ( placedTile.Chars.Height > footprintY ) footprintY = placedTile.Chars.Height;
+        }
       }
-      m_CurrentMap.TileColorOverrides[cellX, cellY] = m_TilePlacementColorOverride;
+
+      int charBaseX = cellX * spacingX;
+      int charBaseY = cellY * spacingY;
+      int charLayerW = m_CurrentMap.TileColorOverrides.Width;
+      int charLayerH = m_CurrentMap.TileColorOverrides.Height;
+      for ( int dy = 0; dy < footprintY; ++dy )
+      {
+        for ( int dx = 0; dx < footprintX; ++dx )
+        {
+          int cx = charBaseX + dx;
+          int cy = charBaseY + dy;
+          if ( ( cx >= 0 ) && ( cy >= 0 )
+          &&   ( cx < charLayerW ) && ( cy < charLayerH ) )
+          {
+            m_CurrentMap.TileColorOverrides[cx, cy] = m_TilePlacementColorOverride;
+          }
+        }
+      }
     }
 
 

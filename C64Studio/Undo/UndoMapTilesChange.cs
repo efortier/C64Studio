@@ -18,11 +18,16 @@ namespace RetroDevStudio.Undo
     public int        Height = 0;
 
     public GR.Game.Layer<int>     ChangedData = new GR.Game.Layer<int>();
-    // Per-cell color override snapshot. Captured alongside the tile
-    // index so undo of a placement restores both the tile AND the color
-    // it had before — without this, placing a colored tile on top of
-    // an uncolored tile and undoing would leave the override behind.
+    // Per-CHARACTER color override snapshot. Sized to (Width × spacingX,
+    // Height × spacingY) — one slot per char cell that the snapshotted
+    // tile range covers. TileColorOverrides went per-character so undo
+    // has to capture the same granularity, otherwise undoing a Ctrl-
+    // click recolour would only restore one in spacingX×spacingY chars.
     public GR.Game.Layer<int>     ChangedOverrides = new GR.Game.Layer<int>();
+    // Captured at construction time so Apply() can recompute char-grid
+    // bounds even if the map's spacing changes between create and undo.
+    private int                   m_SpacingX = 1;
+    private int                   m_SpacingY = 1;
 
 
 
@@ -34,23 +39,39 @@ namespace RetroDevStudio.Undo
       this.Height = Height;
       MapEditor = Editor;
       AffectedMap = Map;
-      ChangedData.Resize( Width, Height );
-      ChangedOverrides.Resize( Width, Height );
+      m_SpacingX = Map.TileSpacingX;
+      m_SpacingY = Map.TileSpacingY;
 
+      ChangedData.Resize( Width, Height );
+      ChangedOverrides.Resize( Width * m_SpacingX, Height * m_SpacingY );
+
+      // Tile snapshot — one value per tile cell.
       for ( int i = 0; i < Width; ++i )
       {
         for ( int j = 0; j < Height; ++j )
         {
           ChangedData[i, j] = Map.Tiles[X + i, Y + j];
-          // Be defensive about override layer dimensions — older project
-          // files that didn't have the layer may have it sized to 0,0
-          // briefly during load, and we don't want a snapshot to throw
-          // here. Cells outside the layer get -1 (no override) which is
-          // the correct semantic default.
-          if ( ( X + i < Map.TileColorOverrides.Width )
-          &&   ( Y + j < Map.TileColorOverrides.Height ) )
+        }
+      }
+
+      // Per-char override snapshot — covers the char-rectangle
+      // corresponding to the snapshotted tile range. Defensive about
+      // out-of-range reads (older projects briefly have the layer at
+      // 0×0 during load) — anything outside the layer reads as -1.
+      int charBaseX = X * m_SpacingX;
+      int charBaseY = Y * m_SpacingY;
+      int charW = Width * m_SpacingX;
+      int charH = Height * m_SpacingY;
+      for ( int j = 0; j < charH; ++j )
+      {
+        for ( int i = 0; i < charW; ++i )
+        {
+          int srcX = charBaseX + i;
+          int srcY = charBaseY + j;
+          if ( ( srcX < Map.TileColorOverrides.Width )
+          &&   ( srcY < Map.TileColorOverrides.Height ) )
           {
-            ChangedOverrides[i, j] = Map.TileColorOverrides[X + i, Y + j];
+            ChangedOverrides[i, j] = Map.TileColorOverrides[srcX, srcY];
           }
           else
           {
@@ -82,15 +103,32 @@ namespace RetroDevStudio.Undo
 
     public override void Apply()
     {
+      // Restore tiles (tile-grid).
       for ( int i = 0; i < Width; ++i )
       {
         for ( int j = 0; j < Height; ++j )
         {
           AffectedMap.Tiles[X + i, Y + j] = ChangedData[i, j];
-          if ( ( X + i < AffectedMap.TileColorOverrides.Width )
-          &&   ( Y + j < AffectedMap.TileColorOverrides.Height ) )
+        }
+      }
+      // Restore per-char overrides (char-grid). Bounds check guards
+      // against the layer being out-of-shape (e.g. spacing changed
+      // between snapshot and apply — defensive, normal flow keeps it
+      // in sync).
+      int charBaseX = X * m_SpacingX;
+      int charBaseY = Y * m_SpacingY;
+      int charW = Width * m_SpacingX;
+      int charH = Height * m_SpacingY;
+      for ( int j = 0; j < charH; ++j )
+      {
+        for ( int i = 0; i < charW; ++i )
+        {
+          int dstX = charBaseX + i;
+          int dstY = charBaseY + j;
+          if ( ( dstX < AffectedMap.TileColorOverrides.Width )
+          &&   ( dstY < AffectedMap.TileColorOverrides.Height ) )
           {
-            AffectedMap.TileColorOverrides[X + i, Y + j] = ChangedOverrides[i, j];
+            AffectedMap.TileColorOverrides[dstX, dstY] = ChangedOverrides[i, j];
           }
         }
       }

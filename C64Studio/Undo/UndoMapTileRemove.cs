@@ -56,9 +56,11 @@ namespace RetroDevStudio.Undo
         _EntityTypeTileIndices.Add( et.TileIndex );
       }
 
-      // Snapshot every map's color-override layer. Same shape as Tiles;
-      // captured deeply (per-cell copy) rather than holding a reference
-      // because the original layer keeps mutating during the delete.
+      // Snapshot every map's color-override layer. Char-grid sized
+      // (Tiles × spacing); captured deeply (per-char copy) rather than
+      // holding a reference because the original layer keeps mutating
+      // during the delete. Loop bounds use the layer's own Width/Height
+      // so this stays correct regardless of grid dimensions.
       foreach ( var map in Project.Maps )
       {
         var snap = new GR.Game.Layer<int>();
