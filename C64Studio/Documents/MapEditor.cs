@@ -87,6 +87,16 @@ namespace RetroDevStudio.Documents
     private Formats.MapProject.Marker   m_SelectedMarker = null;
     private Formats.MapProject.Entity   m_SelectedEntity = null;
 
+    // Drag-to-move state for the currently-selected marker / entity.
+    // Set when a left-click LANDS on the selected marker/entity in its
+    // tool mode; cleared as soon as the mouse button releases. While
+    // true, mouse-move updates the marker/entity X/Y to the cell under
+    // the cursor — but only when the cell actually CHANGES (so we don't
+    // burn a redraw per pixel). One undo entry is created at drag-start,
+    // covering the entire drag stroke.
+    private bool                        m_DraggingSelectedMarker = false;
+    private bool                        m_DraggingSelectedEntity = false;
+
     // Single-tile right-click selection in tile-painting modes. Pressing
     // Delete with this set replaces that map cell with tile 0. (-1, -1) =
     // no current selection. Cleared on map change and on switching to
@@ -141,6 +151,19 @@ namespace RetroDevStudio.Documents
     private List<GR.Generic.Tupel<bool,int>>          m_FloatingSelection = null;
     private System.Drawing.Size                       m_FloatingSelectionSize;
     private System.Drawing.Point                      m_FloatingSelectionPos;
+    // Per-character color overrides captured at copy time, char-grid
+    // sized: m_FloatingSelectionSourceSpacingX × m_FloatingSelectionSize.Width
+    // wide by m_FloatingSelectionSourceSpacingY × Size.Height tall, stored
+    // row-major. Null when paste came from an older clipboard payload that
+    // didn't include override data — InsertFloatingSelection then falls
+    // back to ApplyPlacementColorOverride for backward parity. Spacing is
+    // captured at copy time because the source map's TileSpacing may differ
+    // from the destination's (cross-map paste); the layout is interpreted
+    // using the captured source spacing and clipped at the destination's
+    // override-layer bounds.
+    private List<int>                                 m_FloatingSelectionOverrides = null;
+    private int                                       m_FloatingSelectionSourceSpacingX = 1;
+    private int                                       m_FloatingSelectionSourceSpacingY = 1;
 
     private ExportMapFormBase           m_ExportForm = null;
     private ImportMapFormBase           m_ImportForm = null;
@@ -252,6 +275,21 @@ namespace RetroDevStudio.Documents
       // default of column 0 would overlap the index text with the image.
       listTileInfo.ImageColumnIndex = 1;
       listTileInfo.DrawItemImage += listTileInfo_DrawItemImage;
+
+      // Suppress the OS-level typeahead "filtering" on the two tile pickers
+      // — listTileInfo (Tiles tab) and comboTiles (Map tab). Default
+      // ListBox/ListView behaviour jumps the selection to the first item
+      // whose name starts with the pressed letter, but tile-name prefixes
+      // collide constantly (Wall1, Wall2, ...) so the jump is more
+      // confusing than useful. Equally important: now that S is the
+      // SELECT-tool shortcut and G the grid toggle, we don't want a
+      // focused list to silently reroute those keystrokes into a name
+      // search before ProcessCmdKey can pick them up. Setting Handled =
+      // true on KeyPress eats the WM_CHAR before the OS typeahead sees
+      // it; arrow / Enter / mouse selection still work because those
+      // come through KeyDown, not KeyPress.
+      listTileInfo.KeyPress += SuppressTileListTypeahead;
+      comboTiles.KeyPress   += SuppressTileListTypeahead;
 
       characterEditor.UndoManager = DocumentInfo.UndoManager;
       characterEditor.Core = Core;
@@ -1283,6 +1321,22 @@ namespace RetroDevStudio.Documents
 
       DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, m_MousePos.X + m_CurEditorOffsetX, m_MousePos.Y + m_CurEditorOffsetY, m_FloatingSelectionSize.Width, m_FloatingSelectionSize.Height ) );
 
+      // When the clipboard payload included a per-character override
+      // trailer (newer copies — see CopyToClipboard / PasteFromClipboard),
+      // we restore those exact char values on paste. Without it we'd lose
+      // the source's per-character coloring and instead stamp every
+      // character of every pasted cell with the user's CURRENT placement
+      // override — which is what was happening before this fix and made
+      // copy/paste look "wrong-colored". Falling back to
+      // ApplyPlacementColorOverride preserves legacy behaviour for any
+      // pre-trailer clipboard payload that might still be in flight.
+      bool                useCapturedOverrides = ( m_FloatingSelectionOverrides != null );
+      int                 srcSpacingX = m_FloatingSelectionSourceSpacingX;
+      int                 srcSpacingY = m_FloatingSelectionSourceSpacingY;
+      int                 dstSpacingX = m_CurrentMap.TileSpacingX;
+      int                 dstSpacingY = m_CurrentMap.TileSpacingY;
+      int                 captureCharW = m_FloatingSelectionSize.Width  * srcSpacingX;
+
       for ( int j = 0; j < m_FloatingSelectionSize.Height; ++j )
       {
         for ( int i = 0; i < m_FloatingSelectionSize.Width; ++i )
@@ -1291,7 +1345,42 @@ namespace RetroDevStudio.Documents
           if ( selectionChar.first )
           {
             m_CurrentMap.Tiles[m_MousePos.X + m_CurEditorOffsetX + i, m_MousePos.Y + m_CurEditorOffsetY + j] = selectionChar.second;
-            ApplyPlacementColorOverride( m_MousePos.X + m_CurEditorOffsetX + i, m_MousePos.Y + m_CurEditorOffsetY + j );
+
+            if ( useCapturedOverrides )
+            {
+              // Walk this tile cell's char footprint in the SOURCE grid
+              // (i*srcSpacingX..i*srcSpacingX+srcSpacingX-1, etc.) and
+              // write each value into the destination's char layer at
+              // the corresponding offset within the destination cell. If
+              // source and destination spacings disagree we cover the
+              // overlap (min of the two) — beats either dropping the
+              // overrides entirely or painting them past the cell edge.
+              int copyW = ( srcSpacingX < dstSpacingX ) ? srcSpacingX : dstSpacingX;
+              int copyH = ( srcSpacingY < dstSpacingY ) ? srcSpacingY : dstSpacingY;
+              int dstCharBaseX = ( m_MousePos.X + m_CurEditorOffsetX + i ) * dstSpacingX;
+              int dstCharBaseY = ( m_MousePos.Y + m_CurEditorOffsetY + j ) * dstSpacingY;
+              for ( int dy = 0; dy < copyH; ++dy )
+              {
+                for ( int dx = 0; dx < copyW; ++dx )
+                {
+                  int srcCharX = i * srcSpacingX + dx;
+                  int srcCharY = j * srcSpacingY + dy;
+                  int v = m_FloatingSelectionOverrides[srcCharX + srcCharY * captureCharW];
+                  int dstCharX = dstCharBaseX + dx;
+                  int dstCharY = dstCharBaseY + dy;
+                  if ( ( dstCharX >= 0 ) && ( dstCharY >= 0 )
+                  &&   ( dstCharX < m_CurrentMap.TileColorOverrides.Width )
+                  &&   ( dstCharY < m_CurrentMap.TileColorOverrides.Height ) )
+                  {
+                    m_CurrentMap.TileColorOverrides[dstCharX, dstCharY] = v;
+                  }
+                }
+              }
+            }
+            else
+            {
+              ApplyPlacementColorOverride( m_MousePos.X + m_CurEditorOffsetX + i, m_MousePos.Y + m_CurEditorOffsetY + j );
+            }
 
             DrawTile( ( m_MousePos.X + i ) * 8 * m_CurrentMap.TileSpacingX,
                       ( m_MousePos.Y + j ) * 8 * m_CurrentMap.TileSpacingY,
@@ -1310,6 +1399,7 @@ namespace RetroDevStudio.Documents
         }
       }
       m_FloatingSelection = null;
+      m_FloatingSelectionOverrides = null;
       RecalcTileUsageInCurrentMap();
       Redraw();
       Modified = true;
@@ -1462,6 +1552,11 @@ namespace RetroDevStudio.Documents
       {
         m_MouseButtonReleased = true;
         m_LastPaintedPos = new System.Drawing.Point( -1, -1 );
+        // Mouse-up ends any in-flight marker/entity drag. Cleared
+        // unconditionally — cheap, and avoids a stuck-drag if the
+        // selection got nulled out from underneath us mid-drag.
+        m_DraggingSelectedMarker = false;
+        m_DraggingSelectedEntity = false;
 
         switch ( m_ToolMode )
         {
@@ -1601,6 +1696,53 @@ namespace RetroDevStudio.Documents
         // middle buttons (eyedropper, color-picker) still flow through.
         if ( m_IsViewingRevision )
         {
+          return;
+        }
+
+        // Drag-to-move continuation for an already-grabbed marker/entity.
+        // The drag was started by an earlier left-click that landed on the
+        // selected instance (see the MARKER/ENTITY case branches below).
+        // Each subsequent move re-fires HandleMouseOnEditor — we only
+        // commit a position update when the tile cell actually changes,
+        // which keeps redraws to once per cell crossing instead of once
+        // per mouse pixel. Out-of-bounds cells are clamped to the map
+        // (entities) / 0..255 (markers) at the call sites; here we simply
+        // skip the update when the new cell is outside the legal range so
+        // a drag that strays off-edge doesn't move the instance to bogus
+        // coordinates.
+        if ( m_DraggingSelectedEntity )
+        {
+          int newX = trueX + offsetX;
+          int newY = trueY + offsetY;
+          if ( ( m_SelectedEntity != null )
+          &&   ( newX >= 0 ) && ( newY >= 0 )
+          &&   ( newX < m_CurrentMap.Tiles.Width )
+          &&   ( newY < m_CurrentMap.Tiles.Height )
+          &&   ( ( m_SelectedEntity.X != newX ) || ( m_SelectedEntity.Y != newY ) ) )
+          {
+            m_SelectedEntity.X = newX;
+            m_SelectedEntity.Y = newY;
+            SetModified();
+            RedrawMap();
+            pictureEditor.Invalidate();
+          }
+          return;
+        }
+        if ( m_DraggingSelectedMarker )
+        {
+          int newX = trueX + offsetX;
+          int newY = trueY + offsetY;
+          if ( ( m_SelectedMarker != null )
+          &&   ( newX >= 0 ) && ( newY >= 0 )
+          &&   ( newX <= 255 ) && ( newY <= 255 )
+          &&   ( ( m_SelectedMarker.X != newX ) || ( m_SelectedMarker.Y != newY ) ) )
+          {
+            m_SelectedMarker.X = newX;
+            m_SelectedMarker.Y = newY;
+            SetModified();
+            RedrawMap();
+            pictureEditor.Invalidate();
+          }
           return;
         }
 
@@ -2017,6 +2159,24 @@ namespace RetroDevStudio.Documents
                int placeX = trueX + offsetX;
                int placeY = trueY + offsetY;
 
+               // Drag-to-move trigger: if the press lands on the currently
+               // selected marker's cell, grab it instead of placing a new
+               // one. Subsequent mouse-moves drive the position update via
+               // the m_DraggingSelectedMarker continuation block above.
+               // The undo entry is taken once at drag-start so the entire
+               // move (however many cells crossed) collapses to a single
+               // Ctrl+Z. Returns out of this case so the placement code
+               // below doesn't also run.
+               if ( ( m_SelectedMarker != null )
+               &&   ( m_SelectedMarker.X == placeX )
+               &&   ( m_SelectedMarker.Y == placeY ) )
+               {
+                 DocumentInfo.UndoManager.AddUndoTask(
+                   new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
+                 m_DraggingSelectedMarker = true;
+                 break;
+               }
+
                // Markers can live anywhere addressable by an u8 — including
                // outside the map, for global/non-level markers.
                if ( ( placeX < 0 )
@@ -2071,6 +2231,21 @@ namespace RetroDevStudio.Documents
 
                int placeX = trueX + offsetX;
                int placeY = trueY + offsetY;
+
+               // Drag-to-move trigger: see the matching MARKER block above
+               // for the rationale. Pressed on the selected entity =>
+               // grab it for dragging; the continuation block above moves
+               // it as the cursor crosses cells. Single undo entry covers
+               // the whole drag.
+               if ( ( m_SelectedEntity != null )
+               &&   ( m_SelectedEntity.X == placeX )
+               &&   ( m_SelectedEntity.Y == placeY ) )
+               {
+                 DocumentInfo.UndoManager.AddUndoTask(
+                   new Undo.UndoMapEntitiesChange( this, m_CurrentMap ) );
+                 m_DraggingSelectedEntity = true;
+                 break;
+               }
 
                // Entities are in-map only (unlike markers which may float in 0..255).
                if ( ( placeX < 0 )
@@ -3510,6 +3685,43 @@ namespace RetroDevStudio.Documents
         }
       }
 
+      // Append the per-character color-override block for the selection's
+      // bounding rectangle. Older readers stop after the per-cell tile
+      // section above (their fixed-shape loop reads exactly W*H cells),
+      // so the trailer is invisible to them — this remains a forward-
+      // compatible extension of the existing clipboard format. The block
+      // contains spacing dimensions (so paste can interpret the char grid
+      // even if pasted into a map with different spacing), the char-grid
+      // dimensions, and one i32 per char value (-1 = no override). Chars
+      // belonging to UNSELECTED tile cells are still serialized — paste
+      // skips them, matching the per-cell isSet flag in the tile section.
+      int srcSpacingX = m_CurrentMap.TileSpacingX;
+      int srcSpacingY = m_CurrentMap.TileSpacingY;
+      int charW = ( x2 - x1 + 1 ) * srcSpacingX;
+      int charH = ( y2 - y1 + 1 ) * srcSpacingY;
+      dataSelection.AppendI32( srcSpacingX );
+      dataSelection.AppendI32( srcSpacingY );
+      dataSelection.AppendI32( charW );
+      dataSelection.AppendI32( charH );
+      int charBaseX = x1 * srcSpacingX;
+      int charBaseY = y1 * srcSpacingY;
+      for ( int j = 0; j < charH; ++j )
+      {
+        for ( int i = 0; i < charW; ++i )
+        {
+          int srcX = charBaseX + i;
+          int srcY = charBaseY + j;
+          int v = -1;
+          if ( ( srcX >= 0 ) && ( srcY >= 0 )
+          &&   ( srcX < m_CurrentMap.TileColorOverrides.Width )
+          &&   ( srcY < m_CurrentMap.TileColorOverrides.Height ) )
+          {
+            v = m_CurrentMap.TileColorOverrides[srcX, srcY];
+          }
+          dataSelection.AppendI32( v );
+        }
+      }
+
       DataObject dataObj = new DataObject();
 
       dataObj.SetData( "RetroDevStudio.MapEditorSelection", false, dataSelection.MemoryStream() );
@@ -3567,6 +3779,41 @@ namespace RetroDevStudio.Documents
             }
           }
         }
+
+        // Optional trailer — per-character color overrides written by
+        // newer copy code. Layout: [srcSpacingX][srcSpacingY][charW]
+        // [charH][charW × charH ints]. Detected by checking whether at
+        // least the four header ints remain in the stream; older payloads
+        // stop here and we leave the override list null (which makes
+        // InsertFloatingSelection fall back to the legacy
+        // ApplyPlacementColorOverride behaviour). Defensive on charW/H
+        // mismatching srcSpacing × selection dimensions: clip to the
+        // expected size so a malformed payload can't blow the heap.
+        m_FloatingSelectionOverrides = null;
+        m_FloatingSelectionSourceSpacingX = 1;
+        m_FloatingSelectionSourceSpacingY = 1;
+        if ( memIn.Size - memIn.Position >= 16 )
+        {
+          int srcSpacingX = memIn.ReadInt32();
+          int srcSpacingY = memIn.ReadInt32();
+          int charW = memIn.ReadInt32();
+          int charH = memIn.ReadInt32();
+          if ( ( srcSpacingX > 0 ) && ( srcSpacingY > 0 )
+          &&   ( charW > 0 ) && ( charH > 0 )
+          &&   ( charW == selectionWidth * srcSpacingX )
+          &&   ( charH == selectionHeight * srcSpacingY )
+          &&   ( memIn.Size - memIn.Position >= (long)charW * charH * 4 ) )
+          {
+            m_FloatingSelectionSourceSpacingX = srcSpacingX;
+            m_FloatingSelectionSourceSpacingY = srcSpacingY;
+            m_FloatingSelectionOverrides = new List<int>( charW * charH );
+            for ( int i = 0; i < charW * charH; ++i )
+            {
+              m_FloatingSelectionOverrides.Add( memIn.ReadInt32() );
+            }
+          }
+        }
+
         m_FloatingSelectionPos = m_MousePos;
         Redraw();
         pictureEditor.Invalidate();
@@ -6100,6 +6347,10 @@ namespace RetroDevStudio.Documents
       if ( m_FloatingSelection != null )
       {
         m_FloatingSelection = null;
+        // Drop the parallel override capture too so a subsequent paste
+        // doesn't accidentally splice this selection's chars onto a
+        // freshly-pasted tile grid.
+        m_FloatingSelectionOverrides = null;
         Redraw();
         return true;
       }
@@ -7421,6 +7672,24 @@ namespace RetroDevStudio.Documents
         // is false.
         if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
         {
+          // Order: marker/entity selection first (they take precedence in
+          // their respective tool modes), then fall back to the right-
+          // clicked tile cell. Both helpers reuse the existing toolbar
+          // button click handlers — same confirmation prompt, same undo
+          // entry, same redraw. Sender/EventArgs are unused by those
+          // handlers so we can pass nulls / Empty.
+          if ( ( m_ToolMode == ToolMode.MARKER )
+          &&   ( m_SelectedMarker != null ) )
+          {
+            btnDeleteSelectedMarker_Click( null, EventArgs.Empty );
+            return true;
+          }
+          if ( ( m_ToolMode == ToolMode.ENTITY )
+          &&   ( m_SelectedEntity != null ) )
+          {
+            btnDeleteSelectedEntity_Click( null, EventArgs.Empty );
+            return true;
+          }
           if ( TryDeleteRightClickedTile() )
           {
             return true;
@@ -7440,6 +7709,26 @@ namespace RetroDevStudio.Documents
         &&   ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) ) )
         {
           ToggleGridShortcut();
+          return true;
+        }
+      }
+      else if ( keyData == Keys.S )
+      {
+        // Activate the rectangle floating-selection tool (SELECT mode).
+        // Same scoping rules as the G shortcut: only on the Map tab and
+        // never when a TextBox / numeric input has focus, so the user
+        // can still type lowercase 's' in name fields. Combo / list
+        // typeahead is intentionally overridden — same as G.
+        if ( ( tabMapEditor != null )
+        &&   ( tabMapEditor.SelectedPage == tabEditor )
+        &&   ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) ) )
+        {
+          if ( ( btnToolSelect != null )
+          &&   ( !btnToolSelect.Checked ) )
+          {
+            // CheckedChanged sets m_ToolMode and unchecks siblings.
+            btnToolSelect.Checked = true;
+          }
           return true;
         }
       }
@@ -8950,6 +9239,21 @@ namespace RetroDevStudio.Documents
       checkShowGrid.CheckedChanged += checkShowGrid_CheckedChanged;
       Modified = true;
       Redraw();
+    }
+
+
+
+    /// <summary>
+    /// Eats character input on the tile pickers so the OS doesn't run its
+    /// "jump to first item starting with this letter" typeahead. Wired to
+    /// listTileInfo (Tiles tab) and comboTiles (Map tab) — see the
+    /// constructor block where these are hooked up for the rationale.
+    /// Setting Handled = true short-circuits the WM_CHAR pipeline before
+    /// the control's default search behaviour runs.
+    /// </summary>
+    private void SuppressTileListTypeahead( object sender, KeyPressEventArgs e )
+    {
+      e.Handled = true;
     }
 
 
