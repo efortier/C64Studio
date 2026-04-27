@@ -104,6 +104,10 @@
             this.btnShiftUp = new Krypton.Toolkit.KryptonButton();
             this.btnShiftDown = new Krypton.Toolkit.KryptonButton();
             this.btnShiftRight = new Krypton.Toolkit.KryptonButton();
+            this.btnMapWidthInc = new Krypton.Toolkit.KryptonButton();
+            this.btnMapWidthDec = new Krypton.Toolkit.KryptonButton();
+            this.btnMapHeightInc = new Krypton.Toolkit.KryptonButton();
+            this.btnMapHeightDec = new Krypton.Toolkit.KryptonButton();
             this.btnRemoveOverlappingTiles = new Krypton.Toolkit.KryptonButton();
             this.btnDisplayFilters = new Krypton.Toolkit.KryptonButton();
             this.checkFilterEnabled = new Krypton.Toolkit.KryptonCheckBox();
@@ -1064,6 +1068,10 @@
             this.groupBox2.Controls.Add(this.btnShiftUp);
             this.groupBox2.Controls.Add(this.btnShiftDown);
             this.groupBox2.Controls.Add(this.btnShiftRight);
+            this.groupBox2.Controls.Add(this.btnMapWidthInc);
+            this.groupBox2.Controls.Add(this.btnMapWidthDec);
+            this.groupBox2.Controls.Add(this.btnMapHeightInc);
+            this.groupBox2.Controls.Add(this.btnMapHeightDec);
             this.groupBox2.Controls.Add(this.btnRemoveOverlappingTiles);
             this.groupBox2.Controls.Add(this.btnDisplayFilters);
             this.groupBox2.Controls.Add(this.checkFilterEnabled);
@@ -1087,7 +1095,7 @@
             // 
             // btnShiftUp
             // 
-            this.btnShiftUp.Location = new System.Drawing.Point(38, 19);
+            this.btnShiftUp.Location = new System.Drawing.Point(34, 19);
             this.btnShiftUp.Name = "btnShiftUp";
             this.btnShiftUp.Size = new System.Drawing.Size(24, 24);
             this.btnShiftUp.TabIndex = 13;
@@ -1098,7 +1106,7 @@
             // 
             // btnShiftDown
             // 
-            this.btnShiftDown.Location = new System.Drawing.Point(68, 19);
+            this.btnShiftDown.Location = new System.Drawing.Point(60, 19);
             this.btnShiftDown.Name = "btnShiftDown";
             this.btnShiftDown.Size = new System.Drawing.Size(24, 24);
             this.btnShiftDown.TabIndex = 14;
@@ -1109,7 +1117,7 @@
             // 
             // btnShiftRight
             // 
-            this.btnShiftRight.Location = new System.Drawing.Point(98, 19);
+            this.btnShiftRight.Location = new System.Drawing.Point(86, 19);
             this.btnShiftRight.Name = "btnShiftRight";
             this.btnShiftRight.Size = new System.Drawing.Size(24, 24);
             this.btnShiftRight.TabIndex = 15;
@@ -1117,6 +1125,50 @@
             this.btnShiftRight.Values.DropDownArrowColor = System.Drawing.Color.Empty;
             this.btnShiftRight.Values.Text = "►";
             this.btnShiftRight.Click += new System.EventHandler(this.btnShiftRight_Click);
+            // 
+            // btnMapWidthInc
+            // 
+            this.btnMapWidthInc.Location = new System.Drawing.Point(115, 19);
+            this.btnMapWidthInc.Name = "btnMapWidthInc";
+            this.btnMapWidthInc.Size = new System.Drawing.Size(30, 24);
+            this.btnMapWidthInc.TabIndex = 18;
+            this.toolTip1.SetToolTip(this.btnMapWidthInc, "Add a column to the map (width +1)");
+            this.btnMapWidthInc.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnMapWidthInc.Values.Text = "W+";
+            this.btnMapWidthInc.Click += new System.EventHandler(this.btnMapWidthInc_Click);
+            // 
+            // btnMapWidthDec
+            // 
+            this.btnMapWidthDec.Location = new System.Drawing.Point(148, 19);
+            this.btnMapWidthDec.Name = "btnMapWidthDec";
+            this.btnMapWidthDec.Size = new System.Drawing.Size(30, 24);
+            this.btnMapWidthDec.TabIndex = 19;
+            this.toolTip1.SetToolTip(this.btnMapWidthDec, "Remove the rightmost column (width -1)");
+            this.btnMapWidthDec.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnMapWidthDec.Values.Text = "W−";
+            this.btnMapWidthDec.Click += new System.EventHandler(this.btnMapWidthDec_Click);
+            // 
+            // btnMapHeightInc
+            // 
+            this.btnMapHeightInc.Location = new System.Drawing.Point(180, 19);
+            this.btnMapHeightInc.Name = "btnMapHeightInc";
+            this.btnMapHeightInc.Size = new System.Drawing.Size(28, 24);
+            this.btnMapHeightInc.TabIndex = 20;
+            this.toolTip1.SetToolTip(this.btnMapHeightInc, "Add a row to the map (height +1)");
+            this.btnMapHeightInc.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnMapHeightInc.Values.Text = "H+";
+            this.btnMapHeightInc.Click += new System.EventHandler(this.btnMapHeightInc_Click);
+            // 
+            // btnMapHeightDec
+            // 
+            this.btnMapHeightDec.Location = new System.Drawing.Point(210, 19);
+            this.btnMapHeightDec.Name = "btnMapHeightDec";
+            this.btnMapHeightDec.Size = new System.Drawing.Size(28, 24);
+            this.btnMapHeightDec.TabIndex = 21;
+            this.toolTip1.SetToolTip(this.btnMapHeightDec, "Remove the bottom row (height -1)");
+            this.btnMapHeightDec.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnMapHeightDec.Values.Text = "H−";
+            this.btnMapHeightDec.Click += new System.EventHandler(this.btnMapHeightDec_Click);
             // 
             // btnRemoveOverlappingTiles
             // 
@@ -1131,9 +1183,9 @@
             // 
             // btnDisplayFilters
             // 
-            this.btnDisplayFilters.Location = new System.Drawing.Point(240, 21);
+            this.btnDisplayFilters.Location = new System.Drawing.Point(244, 19);
             this.btnDisplayFilters.Name = "btnDisplayFilters";
-            this.btnDisplayFilters.Size = new System.Drawing.Size(80, 24);
+            this.btnDisplayFilters.Size = new System.Drawing.Size(72, 24);
             this.btnDisplayFilters.TabIndex = 17;
             this.toolTip1.SetToolTip(this.btnDisplayFilters, "Configure CRT-style display filters (scanlines, phosphor mask, etc.)");
             this.btnDisplayFilters.Values.DropDownArrowColor = System.Drawing.Color.Empty;
@@ -2974,6 +3026,10 @@
     private Krypton.Toolkit.KryptonButton btnShiftUp;
     private Krypton.Toolkit.KryptonButton btnShiftDown;
     private Krypton.Toolkit.KryptonButton btnShiftRight;
+    private Krypton.Toolkit.KryptonButton btnMapWidthInc;
+    private Krypton.Toolkit.KryptonButton btnMapWidthDec;
+    private Krypton.Toolkit.KryptonButton btnMapHeightInc;
+    private Krypton.Toolkit.KryptonButton btnMapHeightDec;
     private Krypton.Toolkit.KryptonButton btnRemoveOverlappingTiles;
     private Krypton.Toolkit.KryptonButton btnDisplayFilters;
     private Krypton.Toolkit.KryptonCheckBox checkFilterEnabled;

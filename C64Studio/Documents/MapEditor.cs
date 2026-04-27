@@ -5676,6 +5676,70 @@ namespace RetroDevStudio.Documents
 
 
 
+    /// <summary>
+    /// Resize the current map by ±1 in width or height. Implemented by
+    /// writing the desired new value into <see cref="editMapWidth"/> /
+    /// <see cref="editMapHeight"/> and calling
+    /// <see cref="btnMapApply_Click"/> — same code path the user takes
+    /// when typing a new size and pressing Apply, so undo, entity-cascade,
+    /// and per-character override-layer resize all run for free. Reads the
+    /// CURRENT applied dimension from <c>m_CurrentMap</c> rather than the
+    /// textbox so a stale typed value the user hasn't applied yet doesn't
+    /// throw the +1/-1 off; non-applied edits in the OTHER textboxes
+    /// (spacing / name) still commit through Apply, matching what would
+    /// happen if the user typed a new width and clicked Apply themselves.
+    /// Lower-clamped at 1 — Apply silently no-ops on 0, but exposing a
+    /// "shrink to nothing" gesture would be confusing.
+    /// </summary>
+    private void ApplyMapSizeDelta( int dW, int dH )
+    {
+      if ( m_CurrentMap == null ) return;
+      int newW = m_CurrentMap.Tiles.Width  + dW;
+      int newH = m_CurrentMap.Tiles.Height + dH;
+      if ( newW < 1 ) newW = 1;
+      if ( newH < 1 ) newH = 1;
+      if ( ( newW == m_CurrentMap.Tiles.Width )
+      &&   ( newH == m_CurrentMap.Tiles.Height ) )
+      {
+        // Already at the clamp boundary — nothing to do; Apply would
+        // early-out anyway (no change).
+        return;
+      }
+      editMapWidth.Text  = newW.ToString();
+      editMapHeight.Text = newH.ToString();
+      btnMapApply_Click( this, EventArgs.Empty );
+    }
+
+
+
+    private void btnMapWidthInc_Click( object sender, EventArgs e )
+    {
+      ApplyMapSizeDelta( 1, 0 );
+    }
+
+
+
+    private void btnMapWidthDec_Click( object sender, EventArgs e )
+    {
+      ApplyMapSizeDelta( -1, 0 );
+    }
+
+
+
+    private void btnMapHeightInc_Click( object sender, EventArgs e )
+    {
+      ApplyMapSizeDelta( 0, 1 );
+    }
+
+
+
+    private void btnMapHeightDec_Click( object sender, EventArgs e )
+    {
+      ApplyMapSizeDelta( 0, -1 );
+    }
+
+
+
     private void mapHScroll_Scroll( DecentForms.ControlBase Sender )
     {
       if ( m_CurEditorOffsetX != mapHScroll.Value )
@@ -6730,6 +6794,19 @@ namespace RetroDevStudio.Documents
           if ( ( b != keeper ) && b.Checked )
           {
             b.Checked = false;
+            // KryptonCheckButton paints its "checked" frame from an
+            // internal palette state that the Checked setter alone
+            // doesn't refresh when flipped programmatically — the
+            // mouse-click path normally drives that refresh through
+            // hover/leave events. Without a forced refresh the frame
+            // stays drawn even though Checked is now false (visible
+            // as two highlighted tool buttons after Escape resets the
+            // tool). Refresh() runs Krypton's full palette + child
+            // re-evaluation; Update() flushes the resulting paint
+            // synchronously so we don't depend on the next message
+            // pump tick to clear it.
+            b.Refresh();
+            b.Update();
           }
         }
       }
@@ -8010,19 +8087,37 @@ namespace RetroDevStudio.Documents
       {
         if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.ESCAPE ) )
         {
-          // ESC peels back one layer of selection state at a time:
-          // floating selection first (the most "live" / in-flight state),
-          // then any right-click selection of marker/entity/tile cell.
-          // Both helpers report whether they actually cleared something
-          // so we can decide whether to swallow the key — letting it fall
-          // through when nothing was selected lets parent/global ESC
-          // handlers (e.g. tab close shortcuts) react if they want to.
+          // ESC peels back one layer of editing state at a time, in order
+          // from most "live" to least:
+          //   1. Floating selection (a paste in flight) — drop it.
+          //   2. Right-click selection of marker / entity / tile cell —
+          //      clear the highlight.
+          //   3. Non-default tool mode — revert to SINGLE_TILE (the
+          //      default place/pick tool). Lets the user "back out" of
+          //      Rect / Fill / Select / Marker / Entity / Passable in
+          //      one keypress without having to click the tile-edit
+          //      button.
+          // Each step reports whether it actually did something so we
+          // know whether to swallow the key — falling through when
+          // nothing was peelable lets parent/global ESC handlers (tab
+          // close shortcuts etc.) react if they want to.
           if ( RemoveFloatingSelection() )
           {
             return true;
           }
           if ( ClearMarkerEntitySelection() )
           {
+            return true;
+          }
+          if ( ( m_ToolMode != ToolMode.SINGLE_TILE )
+          &&   ( btnToolEdit != null )
+          &&   ( !btnToolEdit.Checked ) )
+          {
+            // Setting Checked re-enters CheckedChanged which runs the
+            // full activation path (m_ToolMode = SINGLE_TILE,
+            // UncheckOtherToolButtons, AfterToolChange). Same code path
+            // as a user-initiated click on the tile-edit button.
+            btnToolEdit.Checked = true;
             return true;
           }
         }
@@ -9819,6 +9914,10 @@ namespace RetroDevStudio.Documents
       if ( btnShiftRight != null )           btnShiftRight.Enabled           = enabled;
       if ( btnShiftUp != null )              btnShiftUp.Enabled              = enabled;
       if ( btnShiftDown != null )            btnShiftDown.Enabled            = enabled;
+      if ( btnMapWidthInc != null )          btnMapWidthInc.Enabled          = enabled;
+      if ( btnMapWidthDec != null )          btnMapWidthDec.Enabled          = enabled;
+      if ( btnMapHeightInc != null )         btnMapHeightInc.Enabled         = enabled;
+      if ( btnMapHeightDec != null )         btnMapHeightDec.Enabled         = enabled;
       if ( btnRemoveOverlappingTiles != null ) btnRemoveOverlappingTiles.Enabled = enabled;
 
       // Map metadata
