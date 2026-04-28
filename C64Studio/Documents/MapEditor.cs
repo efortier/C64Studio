@@ -126,6 +126,16 @@ namespace RetroDevStudio.Documents
     // TileColorOverrides[x, y] for each cell that gets a new tile.
     private int                         m_TilePlacementColorOverride = -1;
 
+    // Set transiently around any PROGRAMMATIC change to
+    // comboTilePlacementColor.SelectedIndex (eyedropper, init,
+    // repopulate-after-theme-change). The combo's
+    // SelectedIndexChanged handler reads this flag to decide whether
+    // to also apply the new color to a currently-selected tile —
+    // user-driven combo changes should apply, programmatic ones
+    // should NOT (the user didn't ask for an apply when we updated the
+    // combo to mirror an eyedropped char).
+    private bool                        m_SuppressTilePlacementColorAutoApply = false;
+
     // Guards against spurious control-change callbacks firing while we are
     // programmatically copying a selected instance's fields INTO the
     // toolbar controls. Without it, the ValueChanged handlers would
@@ -432,9 +442,19 @@ namespace RetroDevStudio.Documents
 
       // "Default" + 16 C64 colors for the tile placement color override.
       // Default index 0 means no override; placing leaves the tile's
-      // intrinsic char colors alone.
-      RefreshTilePlacementColorCombo();
-      comboTilePlacementColor.SelectedIndex = 0;
+      // intrinsic char colors alone. Suppress the auto-apply-to-
+      // selected-tile path: this is editor init, no user intent to
+      // overwrite anything.
+      m_SuppressTilePlacementColorAutoApply = true;
+      try
+      {
+        RefreshTilePlacementColorCombo();
+        comboTilePlacementColor.SelectedIndex = 0;
+      }
+      finally
+      {
+        m_SuppressTilePlacementColorAutoApply = false;
+      }
 
       comboExportOrientation.SelectedIndex = 0;
       comboExportData.SelectedIndex = 0;
@@ -2544,8 +2564,19 @@ namespace RetroDevStudio.Documents
           &&   ( comboTilePlacementColor.SelectedIndex != targetIndex ) )
           {
             // SelectedIndexChanged updates m_TilePlacementColorOverride,
-            // so we don't need to write the field directly here.
-            comboTilePlacementColor.SelectedIndex = targetIndex;
+            // so we don't need to write the field directly here. Suppress
+            // the auto-apply-to-selected-tile path — the user middle-
+            // clicked to SAMPLE a color, not to push it into the
+            // currently-selected tile.
+            m_SuppressTilePlacementColorAutoApply = true;
+            try
+            {
+              comboTilePlacementColor.SelectedIndex = targetIndex;
+            }
+            finally
+            {
+              m_SuppressTilePlacementColorAutoApply = false;
+            }
           }
         }
       }
@@ -9107,16 +9138,26 @@ namespace RetroDevStudio.Documents
         return;
       }
       int prev = comboTilePlacementColor.SelectedIndex;
-      comboTilePlacementColor.BeginUpdate();
-      comboTilePlacementColor.Items.Clear();
-      comboTilePlacementColor.Items.Add( "Default" );
-      for ( int i = 0; i < 16; ++i )
+      // Repopulate is a UI-only refresh (e.g. after a theme change);
+      // it must not push a color into a currently-selected tile.
+      m_SuppressTilePlacementColorAutoApply = true;
+      try
       {
-        comboTilePlacementColor.Items.Add( i.ToString( "00" ) );
+        comboTilePlacementColor.BeginUpdate();
+        comboTilePlacementColor.Items.Clear();
+        comboTilePlacementColor.Items.Add( "Default" );
+        for ( int i = 0; i < 16; ++i )
+        {
+          comboTilePlacementColor.Items.Add( i.ToString( "00" ) );
+        }
+        comboTilePlacementColor.EndUpdate();
+        comboTilePlacementColor.SelectedIndex = ( prev >= 0 && prev < ExpectedCount )
+                                                ? prev : 0;
       }
-      comboTilePlacementColor.EndUpdate();
-      comboTilePlacementColor.SelectedIndex = ( prev >= 0 && prev < ExpectedCount )
-                                              ? prev : 0;
+      finally
+      {
+        m_SuppressTilePlacementColorAutoApply = false;
+      }
     }
 
 
@@ -9201,6 +9242,98 @@ namespace RetroDevStudio.Documents
       else
       {
         m_TilePlacementColorOverride = comboTilePlacementColor.SelectedIndex - 1;
+      }
+
+      // User-driven combo change while a single tile is right-click
+      // selected (no marker / entity selection, not in revision view) —
+      // immediately stamp the new color across the selected tile's full
+      // char footprint. Lets the user recolor an existing placed tile
+      // without first re-painting it. Programmatic combo changes (init,
+      // eyedropper, repopulate) bypass this via the suppress flag — they
+      // mustn't push a color into a tile the user didn't explicitly ask
+      // to recolor.
+      if ( !m_SuppressTilePlacementColorAutoApply )
+      {
+        ApplyPlacementColorOverrideToSelectedTile();
+      }
+    }
+
+
+
+    /// <summary>
+    /// If a single tile is right-click selected (no marker / entity
+    /// selection, map editable), stamp the current
+    /// <see cref="m_TilePlacementColorOverride"/> into every char of
+    /// that tile's full footprint. Footprint = max(spacing, tile.Chars
+    /// dimensions), matching <see cref="ApplyPlacementColorOverride"/>.
+    /// Snapshots via <see cref="Undo.UndoMapTilesChange"/> for the
+    /// tile-cell footprint so Ctrl+Z restores both the prior tile data
+    /// and both override layers (color + blocked) atomically. Bails on
+    /// no-op (out-of-range / no tile / read-only / nothing to do).
+    /// </summary>
+    private void ApplyPlacementColorOverrideToSelectedTile()
+    {
+      if ( m_CurrentMap == null )      return;
+      if ( m_IsViewingRevision )       return;
+      if ( m_SelectedMarker != null )  return;
+      if ( m_SelectedEntity != null )  return;
+      int sx = m_SelectedTilePos.X;
+      int sy = m_SelectedTilePos.Y;
+      if ( ( sx < 0 ) || ( sy < 0 ) )  return;
+      if ( ( sx >= m_CurrentMap.Tiles.Width )
+      ||   ( sy >= m_CurrentMap.Tiles.Height ) ) return;
+
+      int tileIndex = m_CurrentMap.Tiles[sx, sy];
+      if ( ( tileIndex < 0 )
+      ||   ( tileIndex >= m_MapProject.Tiles.Count ) ) return;
+      var tile = m_MapProject.Tiles[tileIndex];
+
+      // Snapshot the affected tile-cell footprint BEFORE mutating so
+      // undo restores both Tiles[] (no change here, but the snapshot
+      // path expects it) and the per-char override layers. Use the
+      // tile's TILE-CELL footprint (in tile cells) for the undo extent
+      // — same helper TryDeleteRightClickedTile uses.
+      int undoW, undoH;
+      GetTileCellFootprint( tile, out undoW, out undoH );
+      DocumentInfo.UndoManager.AddUndoTask(
+        new Undo.UndoMapTilesChange( this, m_CurrentMap, sx, sy, undoW, undoH ) );
+
+      // Char footprint = max(spacing, tile.Chars dims). Same formula as
+      // ApplyPlacementColorOverride — when spacing < Chars (e.g.
+      // spacing=1 on a 2x2 tile) the tile renders 4 chars, so we have
+      // to recolor all of them not just spacing²=1.
+      int spacingX = m_CurrentMap.TileSpacingX;
+      int spacingY = m_CurrentMap.TileSpacingY;
+      int footprintX = ( tile.Chars.Width  > spacingX ) ? tile.Chars.Width  : spacingX;
+      int footprintY = ( tile.Chars.Height > spacingY ) ? tile.Chars.Height : spacingY;
+      int charBaseX = sx * spacingX;
+      int charBaseY = sy * spacingY;
+      int layerW = m_CurrentMap.TileColorOverrides.Width;
+      int layerH = m_CurrentMap.TileColorOverrides.Height;
+      bool anyChanged = false;
+      for ( int dy = 0; dy < footprintY; ++dy )
+      {
+        for ( int dx = 0; dx < footprintX; ++dx )
+        {
+          int cx = charBaseX + dx;
+          int cy = charBaseY + dy;
+          if ( ( cx >= 0 ) && ( cy >= 0 )
+          &&   ( cx < layerW ) && ( cy < layerH ) )
+          {
+            if ( m_CurrentMap.TileColorOverrides[cx, cy] != m_TilePlacementColorOverride )
+            {
+              m_CurrentMap.TileColorOverrides[cx, cy] = m_TilePlacementColorOverride;
+              anyChanged = true;
+            }
+          }
+        }
+      }
+
+      if ( anyChanged )
+      {
+        UpdateArea( sx, sy, undoW, undoH );
+        pictureEditor.Invalidate();
+        SetModified();
       }
     }
 
