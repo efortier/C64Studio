@@ -4226,22 +4226,35 @@ namespace RetroDevStudio.Documents
 
     private void btnShiftLeft_Click( object sender, EventArgs e )
     {
-      ShiftMap( -1, 0 );
+      ShiftMap( -1, 0, IsShiftKeyDown() );
     }
 
     private void btnShiftRight_Click( object sender, EventArgs e )
     {
-      ShiftMap( 1, 0 );
+      ShiftMap( 1, 0, IsShiftKeyDown() );
     }
 
     private void btnShiftUp_Click( object sender, EventArgs e )
     {
-      ShiftMap( 0, -1 );
+      ShiftMap( 0, -1, IsShiftKeyDown() );
     }
 
     private void btnShiftDown_Click( object sender, EventArgs e )
     {
-      ShiftMap( 0, 1 );
+      ShiftMap( 0, 1, IsShiftKeyDown() );
+    }
+
+
+
+    /// <summary>
+    /// True iff Shift is currently held. Used by the Shift Map buttons
+    /// to switch from "shift + vacate" to "roll / wrap" semantics —
+    /// content that falls off one edge re-enters from the opposite
+    /// edge instead of being dropped.
+    /// </summary>
+    private static bool IsShiftKeyDown()
+    {
+      return ( Control.ModifierKeys & Keys.Shift ) == Keys.Shift;
     }
 
 
@@ -4409,7 +4422,23 @@ namespace RetroDevStudio.Documents
         "Cleared " + clearedCount + " overlapping tile" + ( clearedCount == 1 ? "" : "s" ) + "." );
     }
 
-    private void ShiftMap( int DX, int DY )
+    /// <summary>
+    /// Shift the entire map by (DX, DY) tile cells. Default semantics
+    /// SHIFT-and-VACATE: content that falls off the edge is lost; the
+    /// vacated cells are filled with sentinel values (tile 0, color
+    /// override -1, blocked override false). When <paramref name="Roll"/>
+    /// is true, every layer (tiles, color overrides, blocked overrides,
+    /// markers, entities) WRAPS modulo the map dimensions instead — what
+    /// leaves one edge re-enters the opposite edge. Roll mode is
+    /// triggered by holding Shift while clicking the Shift Map buttons.
+    ///
+    /// Implementation uses temp buffers (one per layer) so the
+    /// destination writes don't trample source values mid-copy. This
+    /// removes the per-direction in-place ordering dance that the old
+    /// vacate-only path had — the cost is one extra alloc per layer per
+    /// shift, dwarfed by the redraw that follows anyway.
+    /// </summary>
+    private void ShiftMap( int DX, int DY, bool Roll = false )
     {
       if ( !IsMapEditable )
       {
@@ -4436,218 +4465,130 @@ namespace RetroDevStudio.Documents
       {
         ResizeColorOverridesPreservingDefaults( m_CurrentMap.TileColorOverrides, charW, charH );
       }
-      var overrides = m_CurrentMap.TileColorOverrides;
-      // Char-grid shift = tile shift × spacing. Same Bresenham-free
-      // copy-and-clear pattern as the tile loop, just on the char layer.
-      int charDX = DX * spacingX;
-      int charDY = DY * spacingY;
-
-      // ----- Tiles layer (tile-grid) -----
-      if ( DX > 0 )
-      {
-        for ( int x = w - 1; x >= DX; --x )
-        {
-          for ( int y = 0; y < h; ++y )
-          {
-            m_CurrentMap.Tiles[x, y] = m_CurrentMap.Tiles[x - DX, y];
-          }
-        }
-        for ( int x = 0; x < DX; ++x )
-        {
-           for ( int y = 0; y < h; ++y )
-           {
-             m_CurrentMap.Tiles[x, y] = 0;
-           }
-        }
-      }
-      else if ( DX < 0 )
-      {
-         int absDX = -DX;
-         for ( int x = 0; x < w - absDX; ++x )
-         {
-           for ( int y = 0; y < h; ++y )
-           {
-             m_CurrentMap.Tiles[x, y] = m_CurrentMap.Tiles[x + absDX, y];
-           }
-         }
-         for ( int x = w - absDX; x < w; ++x )
-         {
-            for ( int y = 0; y < h; ++y )
-            {
-              m_CurrentMap.Tiles[x, y] = 0;
-            }
-         }
-      }
-      if ( DY > 0 )
-      {
-        for ( int y = h - 1; y >= DY; --y )
-        {
-          for ( int x = 0; x < w; ++x )
-          {
-            m_CurrentMap.Tiles[x, y] = m_CurrentMap.Tiles[x, y - DY];
-          }
-        }
-        for ( int y = 0; y < DY; ++y )
-        {
-           for ( int x = 0; x < w; ++x )
-           {
-             m_CurrentMap.Tiles[x, y] = 0;
-           }
-        }
-      }
-      else if ( DY < 0 )
-      {
-         int absDY = -DY;
-         for ( int y = 0; y < h - absDY; ++y )
-         {
-           for ( int x = 0; x < w; ++x )
-           {
-             m_CurrentMap.Tiles[x, y] = m_CurrentMap.Tiles[x, y + absDY];
-           }
-         }
-         for ( int y = h - absDY; y < h; ++y )
-         {
-            for ( int x = 0; x < w; ++x )
-            {
-              m_CurrentMap.Tiles[x, y] = 0;
-            }
-         }
-      }
-
-      // ----- Override layer (char-grid). -1 (not 0) for vacated cells:
-      // -1 means "no override / use tile's own colour"; 0 would mean
-      // "override to colour 0 (black)" — different semantic. -----
-      if ( charDX > 0 )
-      {
-        for ( int x = charW - 1; x >= charDX; --x )
-        {
-          for ( int y = 0; y < charH; ++y )
-          {
-            overrides[x, y] = overrides[x - charDX, y];
-          }
-        }
-        for ( int x = 0; x < charDX; ++x )
-        {
-          for ( int y = 0; y < charH; ++y )
-          {
-            overrides[x, y] = -1;
-          }
-        }
-      }
-      else if ( charDX < 0 )
-      {
-        int absDX = -charDX;
-        for ( int x = 0; x < charW - absDX; ++x )
-        {
-          for ( int y = 0; y < charH; ++y )
-          {
-            overrides[x, y] = overrides[x + absDX, y];
-          }
-        }
-        for ( int x = charW - absDX; x < charW; ++x )
-        {
-          for ( int y = 0; y < charH; ++y )
-          {
-            overrides[x, y] = -1;
-          }
-        }
-      }
-      if ( charDY > 0 )
-      {
-        for ( int y = charH - 1; y >= charDY; --y )
-        {
-          for ( int x = 0; x < charW; ++x )
-          {
-            overrides[x, y] = overrides[x, y - charDY];
-          }
-        }
-        for ( int y = 0; y < charDY; ++y )
-        {
-          for ( int x = 0; x < charW; ++x )
-          {
-            overrides[x, y] = -1;
-          }
-        }
-      }
-      else if ( charDY < 0 )
-      {
-        int absDY = -charDY;
-        for ( int y = 0; y < charH - absDY; ++y )
-        {
-          for ( int x = 0; x < charW; ++x )
-          {
-            overrides[x, y] = overrides[x, y + absDY];
-          }
-        }
-        for ( int y = charH - absDY; y < charH; ++y )
-        {
-          for ( int x = 0; x < charW; ++x )
-          {
-            overrides[x, y] = -1;
-          }
-        }
-      }
-
-      // ----- Blocked-override layer (char-grid). false (the default)
-      // for vacated cells = no override (defer to tile). Same shift /
-      // copy / vacate pattern as the color override above.
       if ( ( m_CurrentMap.CharBlockedOverrides.Width != charW )
       ||   ( m_CurrentMap.CharBlockedOverrides.Height != charH ) )
       {
         m_CurrentMap.CharBlockedOverrides.Resize( charW, charH );
       }
-      var blocked = m_CurrentMap.CharBlockedOverrides;
-      if ( charDX > 0 )
+
+      int charDX = DX * spacingX;
+      int charDY = DY * spacingY;
+
+      // ----- Tiles layer (tile-grid) -----
+      int[,] newTiles = new int[w, h];
+      for ( int x = 0; x < w; ++x )
       {
-        for ( int x = charW - 1; x >= charDX; --x )
+        for ( int y = 0; y < h; ++y )
         {
-          for ( int y = 0; y < charH; ++y ) blocked[x, y] = blocked[x - charDX, y];
-        }
-        for ( int x = 0; x < charDX; ++x )
-        {
-          for ( int y = 0; y < charH; ++y ) blocked[x, y] = false;
+          int srcX, srcY;
+          if ( Roll )
+          {
+            srcX = ( ( x - DX ) % w + w ) % w;
+            srcY = ( ( y - DY ) % h + h ) % h;
+            newTiles[x, y] = m_CurrentMap.Tiles[srcX, srcY];
+          }
+          else
+          {
+            srcX = x - DX;
+            srcY = y - DY;
+            if ( ( srcX >= 0 ) && ( srcY >= 0 ) && ( srcX < w ) && ( srcY < h ) )
+            {
+              newTiles[x, y] = m_CurrentMap.Tiles[srcX, srcY];
+            }
+            else
+            {
+              newTiles[x, y] = 0;   // vacated cell
+            }
+          }
         }
       }
-      else if ( charDX < 0 )
+      for ( int x = 0; x < w; ++x )
       {
-        int absDX = -charDX;
-        for ( int x = 0; x < charW - absDX; ++x )
+        for ( int y = 0; y < h; ++y )
         {
-          for ( int y = 0; y < charH; ++y ) blocked[x, y] = blocked[x + absDX, y];
-        }
-        for ( int x = charW - absDX; x < charW; ++x )
-        {
-          for ( int y = 0; y < charH; ++y ) blocked[x, y] = false;
-        }
-      }
-      if ( charDY > 0 )
-      {
-        for ( int y = charH - 1; y >= charDY; --y )
-        {
-          for ( int x = 0; x < charW; ++x ) blocked[x, y] = blocked[x, y - charDY];
-        }
-        for ( int y = 0; y < charDY; ++y )
-        {
-          for ( int x = 0; x < charW; ++x ) blocked[x, y] = false;
-        }
-      }
-      else if ( charDY < 0 )
-      {
-        int absDY = -charDY;
-        for ( int y = 0; y < charH - absDY; ++y )
-        {
-          for ( int x = 0; x < charW; ++x ) blocked[x, y] = blocked[x, y + absDY];
-        }
-        for ( int y = charH - absDY; y < charH; ++y )
-        {
-          for ( int x = 0; x < charW; ++x ) blocked[x, y] = false;
+          m_CurrentMap.Tiles[x, y] = newTiles[x, y];
         }
       }
 
-      // Shift markers that were placed inside the map area. Off-map markers
-      // (global / non-level meta-markers) are left alone. A marker whose new
-      // position leaves the 0..255 u8 range is dropped — same semantics as a
-      // tile that shifts off the edge.
+      // ----- Color override layer (char-grid). -1 is the "no override"
+      // sentinel, used to fill vacated cells in non-roll mode. -----
+      var overrides = m_CurrentMap.TileColorOverrides;
+      int[,] newOverrides = new int[charW, charH];
+      for ( int x = 0; x < charW; ++x )
+      {
+        for ( int y = 0; y < charH; ++y )
+        {
+          int srcX, srcY;
+          if ( Roll )
+          {
+            srcX = ( ( x - charDX ) % charW + charW ) % charW;
+            srcY = ( ( y - charDY ) % charH + charH ) % charH;
+            newOverrides[x, y] = overrides[srcX, srcY];
+          }
+          else
+          {
+            srcX = x - charDX;
+            srcY = y - charDY;
+            if ( ( srcX >= 0 ) && ( srcY >= 0 ) && ( srcX < charW ) && ( srcY < charH ) )
+            {
+              newOverrides[x, y] = overrides[srcX, srcY];
+            }
+            else
+            {
+              newOverrides[x, y] = -1;
+            }
+          }
+        }
+      }
+      for ( int x = 0; x < charW; ++x )
+      {
+        for ( int y = 0; y < charH; ++y )
+        {
+          overrides[x, y] = newOverrides[x, y];
+        }
+      }
+
+      // ----- Blocked-override layer (char-grid). false is the
+      // "no override" sentinel; vacated cells in non-roll mode get false. -----
+      var blocked = m_CurrentMap.CharBlockedOverrides;
+      bool[,] newBlocked = new bool[charW, charH];
+      for ( int x = 0; x < charW; ++x )
+      {
+        for ( int y = 0; y < charH; ++y )
+        {
+          int srcX, srcY;
+          if ( Roll )
+          {
+            srcX = ( ( x - charDX ) % charW + charW ) % charW;
+            srcY = ( ( y - charDY ) % charH + charH ) % charH;
+            newBlocked[x, y] = blocked[srcX, srcY];
+          }
+          else
+          {
+            srcX = x - charDX;
+            srcY = y - charDY;
+            if ( ( srcX >= 0 ) && ( srcY >= 0 ) && ( srcX < charW ) && ( srcY < charH ) )
+            {
+              newBlocked[x, y] = blocked[srcX, srcY];
+            }
+            else
+            {
+              newBlocked[x, y] = false;
+            }
+          }
+        }
+      }
+      for ( int x = 0; x < charW; ++x )
+      {
+        for ( int y = 0; y < charH; ++y )
+        {
+          blocked[x, y] = newBlocked[x, y];
+        }
+      }
+
+      // Markers: in-map markers shift (or wrap, in roll mode); off-map
+      // (global / non-level meta-markers) are always left alone — they
+      // aren't part of the map's spatial content.
       var shiftedMarkers = new List<MapProject.Marker>();
       foreach ( var marker in m_CurrentMap.Markers )
       {
@@ -4663,7 +4604,12 @@ namespace RetroDevStudio.Documents
 
         int newX = marker.X + DX;
         int newY = marker.Y + DY;
-        if ( ( newX < 0 ) || ( newX > 255 ) || ( newY < 0 ) || ( newY > 255 ) )
+        if ( Roll )
+        {
+          newX = ( newX % w + w ) % w;
+          newY = ( newY % h + h ) % h;
+        }
+        else if ( ( newX < 0 ) || ( newX > 255 ) || ( newY < 0 ) || ( newY > 255 ) )
         {
           // shifted off the addressable range — drop
           continue;
@@ -4674,15 +4620,20 @@ namespace RetroDevStudio.Documents
       }
       m_CurrentMap.Markers = shiftedMarkers;
 
-      // Shift entities too. Entities are strictly in-map, so anything that
-      // shifts out of the map bounds is dropped.
+      // Entities are strictly in-map; in non-roll mode anything past the
+      // bounds is dropped, in roll mode it wraps.
       var shiftedEntities = new List<MapProject.Entity>();
       foreach ( var entity in m_CurrentMap.Entities )
       {
         int newX = entity.X + DX;
         int newY = entity.Y + DY;
-        if ( ( newX < 0 ) || ( newY < 0 )
-        ||   ( newX >= w ) || ( newY >= h ) )
+        if ( Roll )
+        {
+          newX = ( newX % w + w ) % w;
+          newY = ( newY % h + h ) % h;
+        }
+        else if ( ( newX < 0 ) || ( newY < 0 )
+        ||        ( newX >= w ) || ( newY >= h ) )
         {
           continue;
         }
