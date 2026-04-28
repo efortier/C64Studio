@@ -95,6 +95,10 @@
             this.dimSlider = new Krypton.Toolkit.KryptonTrackBar();
             this.labelGridOpacity = new System.Windows.Forms.Label();
             this.gridOpacitySlider = new Krypton.Toolkit.KryptonTrackBar();
+            this.labelTileListRowSpacing = new System.Windows.Forms.Label();
+            this.editTileListRowSpacing = new Krypton.Toolkit.KryptonNumericUpDown();
+            this.labelTileListRowSeparatorColor = new System.Windows.Forms.Label();
+            this.btnTileListRowSeparatorColor = new System.Windows.Forms.Button();
             this.labelRightClickBehavior = new System.Windows.Forms.Label();
             this.comboRightClickBehavior = new Krypton.Toolkit.KryptonComboBox();
             this.btnDesignerBackground = new System.Windows.Forms.Button();
@@ -980,13 +984,17 @@
             this.groupBox3.Controls.Add(this.dimSlider);
             this.groupBox3.Controls.Add(this.labelGridOpacity);
             this.groupBox3.Controls.Add(this.gridOpacitySlider);
+            this.groupBox3.Controls.Add(this.labelTileListRowSpacing);
+            this.groupBox3.Controls.Add(this.editTileListRowSpacing);
+            this.groupBox3.Controls.Add(this.labelTileListRowSeparatorColor);
+            this.groupBox3.Controls.Add(this.btnTileListRowSeparatorColor);
             this.groupBox3.Controls.Add(this.labelRightClickBehavior);
             this.groupBox3.Controls.Add(this.comboRightClickBehavior);
             this.groupBox3.Controls.Add(this.btnDesignerBackground);
             this.groupBox3.Controls.Add(this.labelDesignerBackground);
             this.groupBox3.Location = new System.Drawing.Point(11, 367);
             this.groupBox3.Name = "groupBox3";
-            this.groupBox3.Size = new System.Drawing.Size(331, 162);
+            this.groupBox3.Size = new System.Drawing.Size(331, 200);
             this.groupBox3.TabIndex = 38;
             this.groupBox3.TabStop = false;
             this.groupBox3.Text = "groupBox3";
@@ -1022,6 +1030,61 @@
             this.gridOpacitySlider.TickFrequency = 10;
             this.gridOpacitySlider.Value = 100;
             this.gridOpacitySlider.ValueChanged += new System.EventHandler(this.gridOpacitySlider_ValueChanged);
+            // 
+            // labelTileListRowSpacing
+            // 
+            this.labelTileListRowSpacing.AutoSize = true;
+            this.labelTileListRowSpacing.Location = new System.Drawing.Point(15, 162);
+            this.labelTileListRowSpacing.Name = "labelTileListRowSpacing";
+            this.labelTileListRowSpacing.Size = new System.Drawing.Size(102, 13);
+            this.labelTileListRowSpacing.TabIndex = 38;
+            this.labelTileListRowSpacing.Text = "Tile list row spacing:";
+            // 
+            // editTileListRowSpacing
+            // 
+            this.editTileListRowSpacing.Increment = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.editTileListRowSpacing.Location = new System.Drawing.Point(120, 159);
+            this.editTileListRowSpacing.Maximum = new decimal(new int[] {
+            32,
+            0,
+            0,
+            0});
+            this.editTileListRowSpacing.Minimum = new decimal(new int[] {
+            0,
+            0,
+            0,
+            0});
+            this.editTileListRowSpacing.Name = "editTileListRowSpacing";
+            this.editTileListRowSpacing.Size = new System.Drawing.Size(60, 22);
+            this.editTileListRowSpacing.TabIndex = 39;
+            this.editTileListRowSpacing.Value = new decimal(new int[] {
+            4,
+            0,
+            0,
+            0});
+            this.editTileListRowSpacing.ValueChanged += new System.EventHandler(this.editTileListRowSpacing_ValueChanged);
+            // 
+            // labelTileListRowSeparatorColor
+            // 
+            this.labelTileListRowSeparatorColor.AutoSize = true;
+            this.labelTileListRowSeparatorColor.Location = new System.Drawing.Point(190, 162);
+            this.labelTileListRowSeparatorColor.Name = "labelTileListRowSeparatorColor";
+            this.labelTileListRowSeparatorColor.Size = new System.Drawing.Size(34, 13);
+            this.labelTileListRowSeparatorColor.TabIndex = 40;
+            this.labelTileListRowSeparatorColor.Text = "Color:";
+            // 
+            // btnTileListRowSeparatorColor
+            // 
+            this.btnTileListRowSeparatorColor.Location = new System.Drawing.Point(240, 159);
+            this.btnTileListRowSeparatorColor.Name = "btnTileListRowSeparatorColor";
+            this.btnTileListRowSeparatorColor.Size = new System.Drawing.Size(60, 22);
+            this.btnTileListRowSeparatorColor.TabIndex = 41;
+            this.btnTileListRowSeparatorColor.UseVisualStyleBackColor = true;
+            this.btnTileListRowSeparatorColor.Click += new System.EventHandler(this.btnTileListRowSeparatorColor_Click);
             // 
             // labelRightClickBehavior
             // 
@@ -1210,7 +1273,7 @@
             this.groupBoxRevisions.Controls.Add(this.btnCreateRevision);
             this.groupBoxRevisions.Controls.Add(this.btnRevertRevision);
             this.groupBoxRevisions.Controls.Add(this.btnDeleteRevision);
-            this.groupBoxRevisions.Location = new System.Drawing.Point(11, 535);
+            this.groupBoxRevisions.Location = new System.Drawing.Point(14, 573);
             this.groupBoxRevisions.Name = "groupBoxRevisions";
             this.groupBoxRevisions.Size = new System.Drawing.Size(331, 82);
             this.groupBoxRevisions.TabIndex = 39;
@@ -1275,7 +1338,7 @@
             this.groupBoxShiftClick.Controls.Add(this.comboBlankTile);
             this.groupBoxShiftClick.Controls.Add(this.labelBlankColor);
             this.groupBoxShiftClick.Controls.Add(this.comboBlankColor);
-            this.groupBoxShiftClick.Location = new System.Drawing.Point(11, 623);
+            this.groupBoxShiftClick.Location = new System.Drawing.Point(11, 661);
             this.groupBoxShiftClick.Name = "groupBoxShiftClick";
             this.groupBoxShiftClick.Size = new System.Drawing.Size(331, 74);
             this.groupBoxShiftClick.TabIndex = 40;
@@ -3071,6 +3134,10 @@
         private Krypton.Toolkit.KryptonTrackBar dimSlider;
         private Krypton.Toolkit.KryptonTrackBar gridOpacitySlider;
         private System.Windows.Forms.Label labelGridOpacity;
+        private System.Windows.Forms.Label labelTileListRowSpacing;
+        private Krypton.Toolkit.KryptonNumericUpDown editTileListRowSpacing;
+        private System.Windows.Forms.Label labelTileListRowSeparatorColor;
+        private System.Windows.Forms.Button btnTileListRowSeparatorColor;
         private System.Windows.Forms.GroupBox groupSize;
         private Krypton.Toolkit.KryptonCheckBox checkShowGrid;
         private Krypton.Toolkit.KryptonComboBox comboMapAlternativeMode;

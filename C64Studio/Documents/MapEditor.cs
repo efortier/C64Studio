@@ -61,6 +61,25 @@ namespace RetroDevStudio.Documents
     // a smaller increment so the user can fine-tune the zoom level.
     private const int                   MapZoomWheelStepPercent = 5;
     private const int                   MapTileListItemHeight = 44;
+
+    /// <summary>
+    /// Effective row height of the Map tab's tile list — the fixed
+    /// content height plus the user-configured inter-row separator
+    /// (clamped non-negative). Settings may not be available during
+    /// early construction; default to 0 separator in that case.
+    /// </summary>
+    private int MapTileListEffectiveItemHeight
+    {
+      get
+      {
+        int sep = 0;
+        if ( Core?.Settings != null )
+        {
+          sep = Math.Max( 0, Core.Settings.MapTileListRowSeparatorHeight );
+        }
+        return MapTileListItemHeight + sep;
+      }
+    }
     private const int                   MapTilePreviewPadding = 2;
     // Square edge length (in pixels) of the tile thumbnail rendered into
     // each listTileInfo row on the Tiles tab. Drives both the row height
@@ -275,7 +294,31 @@ namespace RetroDevStudio.Documents
 
       GR.Image.DPIHandler.ResizeControlsForDPI( this );
 
-      comboTiles.ItemHeight = MapTileListItemHeight;
+      comboTiles.ItemHeight = MapTileListEffectiveItemHeight;
+
+      // Seed the tile-list spacing controls from the (already-loaded)
+      // app-level StudioSettings. Detach + reattach the ValueChanged
+      // hook so this seeding doesn't fire the user-facing handler and
+      // dirty anything. Defensive on Core?.Settings — Core is set by
+      // the host before this constructor block runs, but settings
+      // could be null in some test harnesses.
+      if ( Core?.Settings != null )
+      {
+        if ( editTileListRowSpacing != null )
+        {
+          int sep = Core.Settings.MapTileListRowSeparatorHeight;
+          if ( sep < 0 ) sep = 0;
+          if ( sep > 32 ) sep = 32;
+          editTileListRowSpacing.ValueChanged -= editTileListRowSpacing_ValueChanged;
+          editTileListRowSpacing.Value = sep;
+          editTileListRowSpacing.ValueChanged += editTileListRowSpacing_ValueChanged;
+        }
+        if ( btnTileListRowSeparatorColor != null )
+        {
+          btnTileListRowSeparatorColor.BackColor = System.Drawing.Color.FromArgb(
+            unchecked( (int)Core.Settings.MapTileListRowSeparatorColorARGB ) );
+        }
+      }
 
       // listTileInfo (Tiles tab) gets a per-row tile thumbnail rendered
       // through the CSListView.DrawItemImage hook. The control reserves
@@ -3331,7 +3374,7 @@ namespace RetroDevStudio.Documents
 
           listTileInfo.Items.Add( item );
         }
-        comboTiles.ItemHeight = MapTileListItemHeight;
+        comboTiles.ItemHeight = MapTileListEffectiveItemHeight;
       }
       finally
       {
@@ -5160,7 +5203,7 @@ namespace RetroDevStudio.Documents
       editTileSpacingH.Text = m_CurrentMap.TileSpacingY.ToString();
       editMapWidth.Text = m_CurrentMap.Tiles.Width.ToString();
       editMapHeight.Text = m_CurrentMap.Tiles.Height.ToString();
-      comboTiles.ItemHeight = MapTileListItemHeight;
+      comboTiles.ItemHeight = MapTileListEffectiveItemHeight;
       // Extra data is now edited via Tools → Edit extra data... — no
       // longer mirrored in a constantly-visible textbox here.
       comboMapMultiColor1.SelectedIndex = m_CurrentMap.AlternativeMultiColor1 + 1;
@@ -5797,6 +5840,21 @@ namespace RetroDevStudio.Documents
 
     private void comboTiles_DrawItem( object sender, DrawItemEventArgs e )
     {
+      // Reserve a strip at the bottom of each row for the inter-row
+      // separator. innerBounds is the actual content rect; the strip
+      // beneath is filled with the user-configured separator color
+      // after the content paints. sep == 0 means "no separator", which
+      // restores the original packed-rows behavior.
+      int sep = 0;
+      uint sepARGB = 0;
+      if ( Core?.Settings != null )
+      {
+        sep = Math.Max( 0, Core.Settings.MapTileListRowSeparatorHeight );
+        sepARGB = Core.Settings.MapTileListRowSeparatorColorARGB;
+      }
+      System.Drawing.Rectangle innerBounds = new System.Drawing.Rectangle(
+        e.Bounds.X, e.Bounds.Y, e.Bounds.Width, Math.Max( 1, e.Bounds.Height - sep ) );
+
       if ( Core?.Theming != null )
         Core.Theming.DrawThemedBackground( e, comboTiles );
       else
@@ -5804,6 +5862,15 @@ namespace RetroDevStudio.Documents
       if ( ( e.Index < 0 )
       ||   ( e.Index >= comboTiles.Items.Count ) )
       {
+        // Paint the separator strip even on empty/invalid rows so
+        // there's no visual gap that betrays uneven painting.
+        if ( sep > 0 )
+        {
+          using ( var b = new System.Drawing.SolidBrush( System.Drawing.Color.FromArgb( unchecked( (int)sepARGB ) ) ) )
+          {
+            e.Graphics.FillRectangle( b, e.Bounds.X, e.Bounds.Bottom - sep, e.Bounds.Width, sep );
+          }
+        }
         e.DrawFocusRectangle();
         return;
       }
@@ -5812,14 +5879,21 @@ namespace RetroDevStudio.Documents
       Formats.MapProject.Tile tile = tileInfo.second;
       if ( tile == null )
       {
+        if ( sep > 0 )
+        {
+          using ( var b = new System.Drawing.SolidBrush( System.Drawing.Color.FromArgb( unchecked( (int)sepARGB ) ) ) )
+          {
+            e.Graphics.FillRectangle( b, e.Bounds.X, e.Bounds.Bottom - sep, e.Bounds.Width, sep );
+          }
+        }
         e.DrawFocusRectangle();
         return;
       }
 
       int previewPadding = MapTilePreviewPadding;
-      int previewSize = Math.Max( 1, e.Bounds.Height - previewPadding * 2 );
-      System.Drawing.Rectangle previewRect = new System.Drawing.Rectangle( e.Bounds.Left + previewPadding,
-                                                                           e.Bounds.Top + ( e.Bounds.Height - previewSize ) / 2,
+      int previewSize = Math.Max( 1, innerBounds.Height - previewPadding * 2 );
+      System.Drawing.Rectangle previewRect = new System.Drawing.Rectangle( innerBounds.Left + previewPadding,
+                                                                           innerBounds.Top + ( innerBounds.Height - previewSize ) / 2,
                                                                            previewSize,
                                                                            previewSize );
 
@@ -5853,9 +5927,19 @@ namespace RetroDevStudio.Documents
 
       string label = e.Index.ToString() + ": " + tile.Name;
       int textX = previewRect.Right + 6;
-      int textY = e.Bounds.Top + ( e.Bounds.Height - comboTiles.Font.Height ) / 2;
+      int textY = innerBounds.Top + ( innerBounds.Height - comboTiles.Font.Height ) / 2;
       System.Drawing.Brush textBrush = new System.Drawing.SolidBrush( comboTiles.ForeColor );
       e.Graphics.DrawString( label, comboTiles.Font, textBrush, textX, textY );
+      // Paint the inter-row separator strip as the very last step so
+      // it overlays nothing else (focus rect aside). Skipped when
+      // sep == 0 to keep the no-spacing config a true no-op.
+      if ( sep > 0 )
+      {
+        using ( var b = new System.Drawing.SolidBrush( System.Drawing.Color.FromArgb( unchecked( (int)sepARGB ) ) ) )
+        {
+          e.Graphics.FillRectangle( b, e.Bounds.X, e.Bounds.Bottom - sep, e.Bounds.Width, sep );
+        }
+      }
       e.DrawFocusRectangle();
     }
 
@@ -9838,6 +9922,60 @@ namespace RetroDevStudio.Documents
       m_MapProject.GridOpacity = gridOpacitySlider.Value;
       Modified = true;
       pictureEditor.Invalidate();
+    }
+
+
+
+    /// <summary>
+    /// Push the user's tile-list spacing change into StudioSettings,
+    /// re-flow comboTiles' ItemHeight, and force a repaint. Settings
+    /// persist on the next save (the SETTINGS_MAP_EDITOR chunk picks
+    /// up the new value automatically). Guards on Core?.Settings so
+    /// the early-construction NumericUpDown.ValueChanged that fires
+    /// during Designer setup doesn't NRE.
+    /// </summary>
+    private void editTileListRowSpacing_ValueChanged( object sender, EventArgs e )
+    {
+      if ( Core?.Settings == null ) return;
+      int v = (int)editTileListRowSpacing.Value;
+      if ( v < 0 ) v = 0;
+      if ( v > 32 ) v = 32;
+      if ( Core.Settings.MapTileListRowSeparatorHeight == v ) return;
+      Core.Settings.MapTileListRowSeparatorHeight = v;
+      comboTiles.ItemHeight = MapTileListEffectiveItemHeight;
+      comboTiles.Invalidate();
+    }
+
+
+
+    /// <summary>
+    /// Open a standard <see cref="ColorDialog"/> seeded with the
+    /// current separator color. On OK, persist the new ARGB into
+    /// settings, refresh the button's swatch, and invalidate the tile
+    /// list so the new color shows up immediately. Cancel = no-op.
+    /// </summary>
+    private void btnTileListRowSeparatorColor_Click( object sender, EventArgs e )
+    {
+      if ( Core?.Settings == null ) return;
+      uint cur = Core.Settings.MapTileListRowSeparatorColorARGB;
+      using ( var dlg = new System.Windows.Forms.ColorDialog() )
+      {
+        dlg.Color = System.Drawing.Color.FromArgb( unchecked( (int)cur ) );
+        dlg.FullOpen = true;
+        if ( dlg.ShowDialog( this ) == DialogResult.OK )
+        {
+          uint argb = (uint)dlg.Color.ToArgb();
+          // ColorDialog only edits RGB (alpha = 255 always); preserve
+          // the high byte = 0xff so the separator stays opaque.
+          argb |= 0xff000000u;
+          if ( argb != Core.Settings.MapTileListRowSeparatorColorARGB )
+          {
+            Core.Settings.MapTileListRowSeparatorColorARGB = argb;
+            btnTileListRowSeparatorColor.BackColor = System.Drawing.Color.FromArgb( unchecked( (int)argb ) );
+            comboTiles.Invalidate();
+          }
+        }
+      }
     }
 
 

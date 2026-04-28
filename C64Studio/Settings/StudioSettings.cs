@@ -231,6 +231,16 @@ namespace RetroDevStudio
     public int                                  HelpZoomFactor = 100;
     public int                                  MapEditorZoomPercent = 100;
 
+    // Visual separator between rows in the Map tab's tile list
+    // (comboTiles). Height in pixels added below each item, filled
+    // with MapTileListRowSeparatorColorARGB. Range 0..32 (0 = no
+    // separator, original packed-rows behavior). Persisted in the
+    // SETTINGS_MAP_EDITOR chunk.
+    public int                                  MapTileListRowSeparatorHeight   = 4;
+    // ARGB color of the separator strip. Default is a soft mid-grey
+    // that contrasts against the dark theme without dominating.
+    public uint                                 MapTileListRowSeparatorColorARGB = 0xff404040;
+
     public List<DebugMemoryViewSettings>        DebugMemoryViews = new List<DebugMemoryViewSettings>();
 
     public bool                                 CheckForUpdates = true;
@@ -727,6 +737,11 @@ namespace RetroDevStudio
 
       GR.IO.FileChunk chunkMapEditor = new GR.IO.FileChunk( FileChunkConstants.SETTINGS_MAP_EDITOR );
       chunkMapEditor.AppendI32( MapEditorZoomPercent );
+      // Append-only forward-compat: row separator height + color.
+      // Older readers stop after the zoom int; newer readers
+      // position-check before reading these.
+      chunkMapEditor.AppendI32( MapTileListRowSeparatorHeight );
+      chunkMapEditor.AppendU32( MapTileListRowSeparatorColorARGB );
       SettingsData.Append( chunkMapEditor.ToBuffer() );
 
       GR.IO.FileChunk chunkThemeMode = new GR.IO.FileChunk( FileChunkConstants.SETTINGS_THEME_MODE );
@@ -1301,6 +1316,17 @@ namespace RetroDevStudio
 
               MapEditorZoomPercent = binIn.ReadInt32();
               MapEditorZoomPercent = GR.MathUtil.Clamp( 50, MapEditorZoomPercent, 400 );
+              // Optional fields appended in newer versions; old files
+              // fall through to the constructor defaults.
+              if ( binIn.Size - binIn.Position >= 4 )
+              {
+                MapTileListRowSeparatorHeight = binIn.ReadInt32();
+                MapTileListRowSeparatorHeight = GR.MathUtil.Clamp( 0, MapTileListRowSeparatorHeight, 32 );
+              }
+              if ( binIn.Size - binIn.Position >= 4 )
+              {
+                MapTileListRowSeparatorColorARGB = binIn.ReadUInt32();
+              }
             }
             break;
           case FileChunkConstants.SETTINGS_THEME_MODE:
