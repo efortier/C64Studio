@@ -371,6 +371,7 @@ namespace RetroDevStudio.Documents
       characterEditor.Modified += CharacterEditor_Modified;
       characterEditor.ShowCreateTileButton = true;
       characterEditor.CreateTileFromCharacter += CharacterEditor_CreateTileFromCharacter;
+      characterEditor.CreateMultipleTilesFromCharacters += CharacterEditor_CreateMultipleTilesFromCharacters;
       characterEditor.CharacterSelectionChanged += CharacterEditor_CharacterSelectionChanged;
 
       comboExportMethod.Items.Add( new GR.Generic.Tupel<string, Type>( "as assembly", typeof( ExportMapAsAssembly ) ) );
@@ -3886,10 +3887,93 @@ namespace RetroDevStudio.Documents
       m_MapProject.Tiles.Add( tile );
       tile.Index = m_MapProject.Tiles.Count - 1;
       RefreshMapTileList();
-      
+
       if ( comboTiles.Items.Count > 0 )
       {
         comboTiles.SelectedIndex = comboTiles.Items.Count - 1;
+      }
+      Modified = true;
+    }
+
+
+
+    /// <summary>
+    /// "Create Multiple Tiles" event handler — fires when the user
+    /// clicks the new button on the Character Set tab. The button is
+    /// only enabled in 1x1 editor mode with at least one selected
+    /// character (gated by <see cref="Controls.CharacterEditor.RefreshCreateMultipleTilesEnabled"/>),
+    /// so this code can assume those preconditions but still defends.
+    ///
+    /// Flow: prompt for a base name (default "Tile"), then for each
+    /// selected character index create a 1×1 tile named "{base} N"
+    /// where N starts at 1 and increments. Naming goes through
+    /// <see cref="MakeTileNameUnique"/> so collisions with existing
+    /// tiles slide forward to the next free number — same uniqueness
+    /// behaviour as the single-tile path. The last-created tile is
+    /// selected in comboTiles, mirroring Create Tile.
+    /// </summary>
+    private void CharacterEditor_CreateMultipleTilesFromCharacters( object sender, EventArgs e )
+    {
+      // Defensive preconditions — the button shouldn't be clickable
+      // outside these, but a stale state shouldn't crash.
+      if ( m_MapProject == null ) return;
+      if ( ( characterEditor.EditorWidth != 1 )
+      ||   ( characterEditor.EditorHeight != 1 ) ) return;
+
+      var selected = characterEditor.SelectedIndices;
+      if ( ( selected == null ) || ( selected.Count == 0 ) ) return;
+
+      var dlg = new Dialogs.FormInputText( Core, "Create Multiple Tiles", "Base name:", "Tile" );
+      if ( dlg.ShowDialog() != DialogResult.OK )
+      {
+        return;
+      }
+      string baseName = ( dlg.InputText ?? string.Empty ).TrimEnd();
+      if ( baseName.Length == 0 )
+      {
+        baseName = "Tile";
+      }
+
+      // Iterate selection in panel order. Snapshot to a local list
+      // because creating tiles changes project state; the panel's
+      // SelectedIndices reference may or may not be live, but the
+      // safe move is to capture once.
+      var indices = new List<int>( selected );
+
+      // Counter starts at 1 so the user reads "Fence 1", "Fence 2".
+      // MakeTileNameUnique handles collisions with already-existing
+      // names of the same prefix.
+      int counter = 1;
+      int lastIndex = -1;
+      for ( int i = 0; i < indices.Count; ++i )
+      {
+        int charIndex = indices[i];
+        if ( ( charIndex < 0 )
+        ||   ( charIndex >= m_MapProject.Charset.Characters.Count ) )
+        {
+          continue;
+        }
+
+        var tile = new MapProject.Tile();
+        tile.Name = MakeTileNameUnique( baseName + " " + counter );
+        ++counter;
+
+        tile.Chars.Resize( 1, 1 );
+        tile.Chars[0, 0].Character = (byte)charIndex;
+        tile.Chars[0, 0].Color     = (byte)m_MapProject.Charset.Characters[charIndex].Tile.CustomColor;
+
+        m_MapProject.Tiles.Add( tile );
+        tile.Index = m_MapProject.Tiles.Count - 1;
+        lastIndex = tile.Index;
+      }
+
+      if ( lastIndex < 0 ) return; // every selected index was out of range
+
+      RefreshMapTileList();
+      if ( ( comboTiles.Items.Count > 0 )
+      &&   ( lastIndex < comboTiles.Items.Count ) )
+      {
+        comboTiles.SelectedIndex = lastIndex;
       }
       Modified = true;
     }
@@ -10299,6 +10383,15 @@ namespace RetroDevStudio.Documents
         System.Windows.Forms.MessageBoxDefaultButton.Button2 );
       if ( confirm != System.Windows.Forms.DialogResult.OK ) return;
 
+      // Capture the full pre-revert state for undo BEFORE any field
+      // mutation below. UndoMapRevert snapshots every persisted field
+      // (size, both override layers, markers, entities, alt colors,
+      // etc.) — the revert is too cross-cutting to compose from per-
+      // aspect undos like UndoMapSizeChange + UndoMapTilesChange,
+      // because those write into rect bounds that may be invalid after
+      // a size-changing restore.
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapRevert( this, m_LiveMap ) );
+
       // In-place field copy so every other reference to m_LiveMap (e.g.
       // m_MapProject.Maps[i] and the comboMaps Tupel) stays valid.
       // Revisions list is intentionally preserved; it's metadata about
@@ -10306,6 +10399,7 @@ namespace RetroDevStudio.Documents
       var fresh = Formats.MapProject.CloneMap( rev.Snapshot );
       m_LiveMap.Tiles                       = fresh.Tiles;
       m_LiveMap.TileColorOverrides          = fresh.TileColorOverrides;
+      m_LiveMap.CharBlockedOverrides        = fresh.CharBlockedOverrides;
       m_LiveMap.Name                        = fresh.Name;
       m_LiveMap.TileSpacingX                = fresh.TileSpacingX;
       m_LiveMap.TileSpacingY                = fresh.TileSpacingY;

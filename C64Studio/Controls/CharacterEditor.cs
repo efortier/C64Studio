@@ -133,8 +133,23 @@ namespace RetroDevStudio.Controls
       set
       {
         btnCreateTile.Visible = value;
+        // The "Create Multiple Tiles" sibling shares visibility with
+        // the single-tile button — both belong to the same map-editor
+        // workflow, so they appear together. Enabled state is governed
+        // separately by RefreshCreateMultipleTilesEnabled (only enabled
+        // for 1x1 mode + at least one selected character).
+        btnCreateMultipleTiles.Visible = value;
+        RefreshCreateMultipleTilesEnabled();
       }
     }
+
+    /// <summary>
+    /// Fires when the user clicks "Create Multiple Tiles" — the host
+    /// (MapEditor) prompts for a base name and creates one tile per
+    /// selected character, naming them "{base} 1", "{base} 2", etc.
+    /// Only enabled in 1x1 editor mode with at least one selected char.
+    /// </summary>
+    public event EventHandler CreateMultipleTilesFromCharacters;
 
     public int CurrentCharIndex
     {
@@ -198,6 +213,9 @@ namespace RetroDevStudio.Controls
       m_EditorHeightInChars = Height;
       AdjustCharacterSizes();
       canvasEditor.Invalidate();
+      // 1x1-only constraint of "Create Multiple Tiles" depends on this
+      // pair, so re-evaluate after every mode change.
+      RefreshCreateMultipleTilesEnabled();
     }
 
     private int m_ColorSwatchSize = 16;
@@ -393,6 +411,31 @@ namespace RetroDevStudio.Controls
       {
         CreateTileFromCharacter( this, new EventArgs() );
       }
+    }
+
+    private void btnCreateMultipleTiles_Click( DecentForms.ControlBase Sender )
+    {
+      if ( CreateMultipleTilesFromCharacters != null )
+      {
+        CreateMultipleTilesFromCharacters( this, new EventArgs() );
+      }
+    }
+
+    /// <summary>
+    /// "Create Multiple Tiles" only makes sense in 1x1 editor mode
+    /// (each selected char becomes its own 1×1 tile) and requires at
+    /// least one selected character on the panelCharacters grid.
+    /// Called from the size-radio CheckedChanged handlers and from
+    /// panelCharacters_SelectionChanged so the button stays in sync.
+    /// </summary>
+    private void RefreshCreateMultipleTilesEnabled()
+    {
+      if ( btnCreateMultipleTiles == null ) return;
+      bool is1x1 = ( m_EditorWidthInChars == 1 ) && ( m_EditorHeightInChars == 1 );
+      bool anySelected = ( panelCharacters != null )
+                      && ( panelCharacters.SelectedIndices != null )
+                      && ( panelCharacters.SelectedIndices.Count > 0 );
+      btnCreateMultipleTiles.Enabled = is1x1 && anySelected;
     }
 
     private void btnClearPlayground_Click( DecentForms.ControlBase Sender )
@@ -1232,6 +1275,7 @@ namespace RetroDevStudio.Controls
         }
       }
       ValidateMoveButtons();
+      RefreshCreateMultipleTilesEnabled();
     }
 
 

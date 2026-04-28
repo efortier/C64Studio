@@ -84,6 +84,7 @@
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.btnMoveSelectionToTarget = new DecentForms.Button();
             this.btnCreateTile = new DecentForms.Button();
+            this.btnCreateMultipleTiles = new DecentForms.Button();
             this.btnRestoreDefault = new DecentForms.Button();
             this.btnRemoveDuplicates = new DecentForms.Button();
             this.btnClearChars = new DecentForms.Button();
@@ -838,6 +839,7 @@
             this.groupBox1.Controls.Add(this.btnPasteFromClipboard);
             this.groupBox1.Controls.Add(this.btnPaste);
             this.groupBox1.Controls.Add(this.btnCreateTile);
+            this.groupBox1.Controls.Add(this.btnCreateMultipleTiles);
             this.groupBox1.Controls.Add(this.editMoveTargetIndex);
             this.groupBox1.Controls.Add(this.btnHighlightDuplicates);
             this.groupBox1.Controls.Add(this.btnRestoreDefault);
@@ -878,6 +880,22 @@
             this.btnCreateTile.Text = "Create Tile";
             this.btnCreateTile.Visible = false;
             this.btnCreateTile.Click += new DecentForms.EventHandler(this.btnCreateTile_Click);
+            //
+            // btnCreateMultipleTiles
+            //
+            this.btnCreateMultipleTiles.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnCreateMultipleTiles.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnCreateMultipleTiles.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnCreateMultipleTiles.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnCreateMultipleTiles.Image = null;
+            this.btnCreateMultipleTiles.Location = new System.Drawing.Point(105, 139);
+            this.btnCreateMultipleTiles.Name = "btnCreateMultipleTiles";
+            this.btnCreateMultipleTiles.Size = new System.Drawing.Size(150, 23);
+            this.btnCreateMultipleTiles.TabIndex = 25;
+            this.btnCreateMultipleTiles.Text = "Create Multiple Tiles";
+            this.btnCreateMultipleTiles.Visible = false;
+            this.btnCreateMultipleTiles.Enabled = false;
+            this.btnCreateMultipleTiles.Click += new DecentForms.EventHandler(this.btnCreateMultipleTiles_Click);
             // 
             // btnRestoreDefault
             // 
@@ -1429,6 +1447,7 @@
         private System.Windows.Forms.CheckBox checkPasteMultiColor;
         private DecentForms.Button btnMoveSelectionToTarget;
         private DecentForms.Button btnCreateTile;
+        private DecentForms.Button btnCreateMultipleTiles;
         private System.Windows.Forms.TextBox editMoveTargetIndex;
     private CustomDrawControl canvasEditor;
     private System.Windows.Forms.ToolTip toolTip1;
