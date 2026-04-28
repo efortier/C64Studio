@@ -4601,6 +4601,30 @@ namespace RetroDevStudio.Controls
             }
         }
 
+        private void ButtonCanvas1x2_CheckedChanged(DecentForms.ControlBase Sender)
+        {
+            if (ButtonCanvas1x2.Checked)
+            {
+                SetEditorMode( 1, 2 );
+                if (!DoNotUpdateFromControls)
+                {
+                    RaiseModifiedEvent();
+                }
+            }
+        }
+
+        private void ButtonCanvas2x1_CheckedChanged(DecentForms.ControlBase Sender)
+        {
+            if (ButtonCanvas2x1.Checked)
+            {
+                SetEditorMode( 2, 1 );
+                if (!DoNotUpdateFromControls)
+                {
+                    RaiseModifiedEvent();
+                }
+            }
+        }
+
         private void ButtonCanvas4x4_CheckedChanged(DecentForms.ControlBase Sender)
         {
             if (ButtonCanvas4x4.Checked)

@@ -50,6 +50,8 @@
             this.btnRotateLeft = new DecentForms.Button();
             this.button3 = new DecentForms.Button();
             this.ButtonCanvas1x1 = new DecentForms.RadioButton();
+            this.ButtonCanvas1x2 = new DecentForms.RadioButton();
+            this.ButtonCanvas2x1 = new DecentForms.RadioButton();
             this.btnZoomIn = new DecentForms.Button();
             this.btnZoomOut = new DecentForms.Button();
             this.btnCopy = new DecentForms.Button();
@@ -710,6 +712,8 @@
             // flowLayoutPanel1
             // 
             this.flowLayoutPanel1.Controls.Add(this.ButtonCanvas1x1);
+            this.flowLayoutPanel1.Controls.Add(this.ButtonCanvas1x2);
+            this.flowLayoutPanel1.Controls.Add(this.ButtonCanvas2x1);
             this.flowLayoutPanel1.Controls.Add(this.ButtonCanvas2x2);
             this.flowLayoutPanel1.Controls.Add(this.ButtonCanvas2x3);
             this.flowLayoutPanel1.Controls.Add(this.ButtonCanvas4x4);
@@ -748,6 +752,32 @@
             this.ButtonCanvas2x3.TabIndex = 62;
             this.ButtonCanvas2x3.Text = "2x3";
             this.ButtonCanvas2x3.CheckedChanged += new DecentForms.EventHandler(this.ButtonCanvas2x3_CheckedChanged);
+            //
+            // ButtonCanvas1x2
+            //
+            this.ButtonCanvas1x2.Appearance = System.Windows.Forms.Appearance.Button;
+            this.ButtonCanvas1x2.BorderStyle = DecentForms.BorderStyle.NONE;
+            this.ButtonCanvas1x2.CheckAlign = DecentForms.ContentAlignment.MiddleLeft;
+            this.ButtonCanvas1x2.Checked = false;
+            this.ButtonCanvas1x2.Image = null;
+            this.ButtonCanvas1x2.Name = "ButtonCanvas1x2";
+            this.ButtonCanvas1x2.Size = new System.Drawing.Size(33, 24);
+            this.ButtonCanvas1x2.TabIndex = 62;
+            this.ButtonCanvas1x2.Text = "1x2";
+            this.ButtonCanvas1x2.CheckedChanged += new DecentForms.EventHandler(this.ButtonCanvas1x2_CheckedChanged);
+            //
+            // ButtonCanvas2x1
+            //
+            this.ButtonCanvas2x1.Appearance = System.Windows.Forms.Appearance.Button;
+            this.ButtonCanvas2x1.BorderStyle = DecentForms.BorderStyle.NONE;
+            this.ButtonCanvas2x1.CheckAlign = DecentForms.ContentAlignment.MiddleLeft;
+            this.ButtonCanvas2x1.Checked = false;
+            this.ButtonCanvas2x1.Image = null;
+            this.ButtonCanvas2x1.Name = "ButtonCanvas2x1";
+            this.ButtonCanvas2x1.Size = new System.Drawing.Size(33, 24);
+            this.ButtonCanvas2x1.TabIndex = 62;
+            this.ButtonCanvas2x1.Text = "2x1";
+            this.ButtonCanvas2x1.CheckedChanged += new DecentForms.EventHandler(this.ButtonCanvas2x1_CheckedChanged);
             // 
             // ButtonCanvas4x4
             // 
@@ -1446,6 +1476,8 @@
         private DecentForms.RadioButton ButtonCanvas4x4;
         private DecentForms.RadioButton ButtonCanvas2x3;
         private DecentForms.RadioButton ButtonCanvas2x2;
+        private DecentForms.RadioButton ButtonCanvas2x1;
+        private DecentForms.RadioButton ButtonCanvas1x2;
         private DecentForms.RadioButton ButtonCanvas1x1;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel1;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel2;

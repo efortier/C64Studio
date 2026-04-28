@@ -6789,24 +6789,41 @@ namespace RetroDevStudio.Documents
           btnToolSelect, btnToolMarker, btnToolEntity,
           btnToolPassable,
         };
+        bool needFocusMove = false;
         foreach ( var b in buttons )
         {
           if ( ( b != keeper ) && b.Checked )
           {
             b.Checked = false;
-            // KryptonCheckButton paints its "checked" frame from an
-            // internal palette state that the Checked setter alone
-            // doesn't refresh when flipped programmatically — the
-            // mouse-click path normally drives that refresh through
-            // hover/leave events. Without a forced refresh the frame
-            // stays drawn even though Checked is now false (visible
-            // as two highlighted tool buttons after Escape resets the
-            // tool). Refresh() runs Krypton's full palette + child
-            // re-evaluation; Update() flushes the resulting paint
-            // synchronously so we don't depend on the next message
-            // pump tick to clear it.
-            b.Refresh();
-            b.Update();
+            // The button's Checked just went false, but if it still
+            // holds keyboard focus the focus rectangle keeps drawing
+            // in a way that reads as "selected" — that's the
+            // long-standing "two buttons look selected" bug, and it
+            // pre-dates Krypton (focus-ring overlap with the
+            // checked-frame style is a stock WinForms tool-button
+            // problem). Note we need to move focus, not just flip
+            // Checked. Defer the move until after the loop so we
+            // don't poke focus mid-iteration.
+            if ( b.Focused )
+            {
+              needFocusMove = true;
+            }
+          }
+        }
+        // Focus the map's picture editor — that's where the user's
+        // attention is anyway, and it removes the focus ring from any
+        // now-unchecked tool button. Falling back to keeper.Focus()
+        // ensures focus lands somewhere visible if pictureEditor
+        // can't accept focus for some reason.
+        if ( needFocusMove )
+        {
+          if ( ( pictureEditor != null ) && pictureEditor.CanFocus )
+          {
+            pictureEditor.Focus();
+          }
+          else if ( ( keeper != null ) && keeper.CanFocus )
+          {
+            keeper.Focus();
           }
         }
       }
