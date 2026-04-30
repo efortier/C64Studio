@@ -2575,11 +2575,16 @@ namespace RetroDevStudio.Documents
 
       if ( ( Buttons & MouseButtons.Middle ) != 0 )
       {
-        // Middle-click is a "pick the cell's color override" gesture.
-        // It mirrors right-click-as-eyedropper for the tile, but for the
-        // placement color combo. We map cell-override semantics (-1 ==
-        // "use the tile's own color") to combo index 0 ("Default"), and
-        // explicit colors 0..15 to combo indices 1..16.
+        // Middle-click eyedrops the EFFECTIVE color of the char under
+        // the cursor — whatever the renderer would actually paint:
+        //   1. If a per-char color override is set, use that.
+        //   2. Otherwise fall back to the underlying tile's char color
+        //      (tile.Chars[localCharX, localCharY].Color).
+        // The dropdown is never set to "Default" by middle-click — that
+        // would be a useless eyedrop (you can't paint with Default in any
+        // visible way). If neither source can yield a color (sample
+        // outside any tile / tile index out of range), the dropdown is
+        // left untouched.
         int cellX = trueX + offsetX;
         int cellY = trueY + offsetY;
         if ( ( cellX >= 0 )
@@ -2587,21 +2592,56 @@ namespace RetroDevStudio.Documents
         &&   ( cellX < m_CurrentMap.Tiles.Width )
         &&   ( cellY < m_CurrentMap.Tiles.Height ) )
         {
-          // Eyedrop the override at the specific CHAR under the cursor
-          // (override is now per-character). Defensive: the override
-          // layer can lag the tile layer briefly during resize / load of
-          // legacy projects — treat out-of-range as "Default" rather than
-          // throwing.
           int sampleCharX = charX + offsetX * m_CurrentMap.TileSpacingX;
           int sampleCharY = charY + offsetY * m_CurrentMap.TileSpacingY;
-          int cellOverride = -1;
+          int sampledColor = -1;
+
+          // Step 1: per-char override layer takes precedence when set.
           if ( ( sampleCharX >= 0 ) && ( sampleCharY >= 0 )
           &&   ( sampleCharX < m_CurrentMap.TileColorOverrides.Width )
           &&   ( sampleCharY < m_CurrentMap.TileColorOverrides.Height ) )
           {
-            cellOverride = m_CurrentMap.TileColorOverrides[sampleCharX, sampleCharY];
+            int ov = m_CurrentMap.TileColorOverrides[sampleCharX, sampleCharY];
+            if ( ov >= 0 )
+            {
+              sampledColor = ov;
+            }
           }
-          int targetIndex = ( cellOverride < 0 ) ? 0 : cellOverride + 1;
+
+          // Step 2: no override — read the tile's own char color at the
+          // local position within the tile. The local char coords are
+          // sampleChar minus cell*spacing; bounds-check against the
+          // tile's actual Chars footprint (a tile may render fewer
+          // chars than spacing²).
+          if ( sampledColor < 0 )
+          {
+            int tileIndex = m_CurrentMap.Tiles[cellX, cellY];
+            if ( ( tileIndex >= 0 )
+            &&   ( tileIndex < m_MapProject.Tiles.Count ) )
+            {
+              var tile = m_MapProject.Tiles[tileIndex];
+              int localCharX = sampleCharX - cellX * m_CurrentMap.TileSpacingX;
+              int localCharY = sampleCharY - cellY * m_CurrentMap.TileSpacingY;
+              if ( ( localCharX >= 0 ) && ( localCharY >= 0 )
+              &&   ( localCharX < tile.Chars.Width )
+              &&   ( localCharY < tile.Chars.Height ) )
+              {
+                sampledColor = tile.Chars[localCharX, localCharY].Color;
+              }
+            }
+          }
+
+          // Nothing usable to eyedrop — leave the combo alone rather
+          // than dropping to "Default" (the old behavior, explicitly
+          // unwanted).
+          if ( sampledColor < 0 )
+          {
+            return;
+          }
+
+          // Map to the combo's 1..16 color rows (index 0 is "Default",
+          // never selected by this path).
+          int targetIndex = sampledColor + 1;
           if ( ( comboTilePlacementColor != null )
           &&   ( targetIndex >= 0 )
           &&   ( targetIndex < comboTilePlacementColor.Items.Count )
