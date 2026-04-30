@@ -6552,9 +6552,78 @@ namespace RetroDevStudio.Documents
 
 
 
+    // ----------------------------------------------------------------
+    // Auto-scroll the tile list while the user is dragging an item near
+    // the top/bottom edge — matches Explorer/Outlook/etc. so the user
+    // can drop a tile far above/below the current viewport without
+    // having to release, scroll manually, and re-grab.
+    //
+    // Pattern: hot-zone detection in DragOver flips the direction
+    // field; a 60 ms tick timer pumps WM_VSCROLL (line up/down) at the
+    // listview while the cursor sits in the zone. Released on
+    // DragDrop / DragLeave so it can't keep scrolling after the drop.
+    // ----------------------------------------------------------------
+    private System.Windows.Forms.Timer  m_TileListAutoScrollTimer = null;
+    private int                          m_TileListAutoScrollDirection = 0;
+    private const int                    TileListAutoScrollHotZonePx = 24;
+
+    [System.Runtime.InteropServices.DllImport( "user32.dll" )]
+    private static extern int SendMessage( IntPtr hWnd, int wMsg, IntPtr wParam, IntPtr lParam );
+    private const int WM_VSCROLL = 0x0115;
+    private const int SB_LINEUP = 0;
+    private const int SB_LINEDOWN = 1;
+
+    private void EnsureTileListAutoScrollTimer()
+    {
+      if ( m_TileListAutoScrollTimer != null ) return;
+      m_TileListAutoScrollTimer = new System.Windows.Forms.Timer();
+      // 60 ms ≈ 16 lines/sec — fast enough that you won't think it's
+      // stuck, slow enough that overshooting by one row is rare. Tuned
+      // by feel; bump down to ~40 ms if it feels sluggish on long lists.
+      m_TileListAutoScrollTimer.Interval = 60;
+      m_TileListAutoScrollTimer.Tick += TileListAutoScrollTimer_Tick;
+    }
+
+    private void TileListAutoScrollTimer_Tick( object sender, EventArgs e )
+    {
+      if ( ( listTileInfo == null ) || ( !listTileInfo.IsHandleCreated ) )
+      {
+        return;
+      }
+      if ( m_TileListAutoScrollDirection < 0 )
+      {
+        SendMessage( listTileInfo.Handle, WM_VSCROLL, (IntPtr)SB_LINEUP, IntPtr.Zero );
+      }
+      else if ( m_TileListAutoScrollDirection > 0 )
+      {
+        SendMessage( listTileInfo.Handle, WM_VSCROLL, (IntPtr)SB_LINEDOWN, IntPtr.Zero );
+      }
+    }
+
+    private void StopTileListAutoScroll()
+    {
+      m_TileListAutoScrollDirection = 0;
+      if ( m_TileListAutoScrollTimer != null )
+      {
+        m_TileListAutoScrollTimer.Stop();
+      }
+    }
+
     private void listTileInfo_ItemDrag( object sender, ItemDragEventArgs e )
     {
+      EnsureTileListAutoScrollTimer();
       listTileInfo.DoDragDrop( e.Item, DragDropEffects.Move );
+      StopTileListAutoScroll();
+    }
+
+
+
+    private void listTileInfo_DragLeave( object sender, EventArgs e )
+    {
+      // Cursor exited the listview — stop pumping scrolls so a
+      // dragged-out-then-back-in motion doesn't keep scrolling while
+      // the cursor is somewhere else entirely.
+      StopTileListAutoScroll();
     }
 
 
@@ -6591,12 +6660,49 @@ namespace RetroDevStudio.Documents
         }
       }
       listTileInfo.InsertionMark.Index = targetIndex;
+
+      // Hot-zone auto-scroll: cursor near the top edge → scroll up,
+      // near the bottom edge → scroll down, anywhere else → idle.
+      // The timer (lazy-initialised in ItemDrag) does the actual
+      // pumping at a steady rate so the user doesn't have to wiggle
+      // the mouse to keep scrolling. Direction reset to 0 stops the
+      // timer until the cursor re-enters a zone.
+      int newDir = 0;
+      if ( targetPoint.Y < TileListAutoScrollHotZonePx )
+      {
+        newDir = -1;
+      }
+      else if ( targetPoint.Y > listTileInfo.ClientSize.Height - TileListAutoScrollHotZonePx )
+      {
+        newDir = 1;
+      }
+      m_TileListAutoScrollDirection = newDir;
+      if ( m_TileListAutoScrollTimer != null )
+      {
+        if ( newDir != 0 )
+        {
+          if ( !m_TileListAutoScrollTimer.Enabled )
+          {
+            m_TileListAutoScrollTimer.Start();
+          }
+        }
+        else if ( m_TileListAutoScrollTimer.Enabled )
+        {
+          m_TileListAutoScrollTimer.Stop();
+        }
+      }
     }
 
 
 
     private void listTileInfo_DragDrop( object sender, DragEventArgs e )
     {
+      // Drop committed — kill the auto-scroll pump immediately. The
+      // ItemDrag finally-clause also stops it, but doing it here means
+      // the listview doesn't get one extra scroll tick after the user
+      // releases.
+      StopTileListAutoScroll();
+
       System.Drawing.Point targetPoint = listTileInfo.PointToClient( new System.Drawing.Point( e.X, e.Y ) );
       int targetIndex = listTileInfo.InsertionMark.NearestIndex( targetPoint );
 

@@ -2306,6 +2306,7 @@
             this.listTileInfo.DragDrop += new System.Windows.Forms.DragEventHandler(this.listTileInfo_DragDrop);
             this.listTileInfo.DragEnter += new System.Windows.Forms.DragEventHandler(this.listTileInfo_DragEnter);
             this.listTileInfo.DragOver += new System.Windows.Forms.DragEventHandler(this.listTileInfo_DragOver);
+            this.listTileInfo.DragLeave += new System.EventHandler(this.listTileInfo_DragLeave);
             // 
             // columnHeader4
             // 
