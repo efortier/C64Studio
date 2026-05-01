@@ -78,6 +78,7 @@
             this.clearAllMarkersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.clearMarkerTypeMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.editExtraDataToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.brightnessTablesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.tabEditor = new Krypton.Navigator.KryptonPage();
             this.flowLayoutPanel2 = new System.Windows.Forms.FlowLayoutPanel();
             this.btnToolEntity = new Krypton.Toolkit.KryptonCheckButton();
@@ -163,6 +164,10 @@
             this.btnToolSelect = new Krypton.Toolkit.KryptonCheckButton();
             this.btnToolMarker = new Krypton.Toolkit.KryptonCheckButton();
             this.btnToolPassable = new Krypton.Toolkit.KryptonCheckButton();
+            this.btnBrightnessLinearUp = new Krypton.Toolkit.KryptonButton();
+            this.btnBrightnessLinearDown = new Krypton.Toolkit.KryptonButton();
+            this.btnBrightnessHueUp = new Krypton.Toolkit.KryptonButton();
+            this.btnBrightnessHueDown = new Krypton.Toolkit.KryptonButton();
             this.comboTilePlacementColor = new Krypton.Toolkit.KryptonComboBox();
             this.comboMarkerTypes = new Krypton.Toolkit.KryptonComboBox();
             this.labelMarkerValue1 = new System.Windows.Forms.Label();
@@ -735,7 +740,8 @@
             this.toolStripSeparator1,
             this.clearAllMarkersToolStripMenuItem,
             this.clearMarkerTypeMenuItem,
-            this.editExtraDataToolStripMenuItem});
+            this.editExtraDataToolStripMenuItem,
+            this.brightnessTablesToolStripMenuItem});
             this.toolsToolStripMenuItem.Name = "toolsToolStripMenuItem";
             this.toolsToolStripMenuItem.Size = new System.Drawing.Size(46, 20);
             this.toolsToolStripMenuItem.Text = "Tools";
@@ -772,6 +778,13 @@
             this.editExtraDataToolStripMenuItem.Size = new System.Drawing.Size(185, 22);
             this.editExtraDataToolStripMenuItem.Text = "Edit extra data...";
             this.editExtraDataToolStripMenuItem.Click += new System.EventHandler(this.editExtraDataToolStripMenuItem_Click);
+            //
+            // brightnessTablesToolStripMenuItem
+            //
+            this.brightnessTablesToolStripMenuItem.Name = "brightnessTablesToolStripMenuItem";
+            this.brightnessTablesToolStripMenuItem.Size = new System.Drawing.Size(185, 22);
+            this.brightnessTablesToolStripMenuItem.Text = "Brightness tables...";
+            this.brightnessTablesToolStripMenuItem.Click += new System.EventHandler(this.brightnessTablesToolStripMenuItem_Click);
             // 
             // tabEditor
             // 
@@ -1694,6 +1707,10 @@
             this.flowLayoutPanel1.Controls.Add(this.btnToolSelect);
             this.flowLayoutPanel1.Controls.Add(this.btnToolMarker);
             this.flowLayoutPanel1.Controls.Add(this.btnToolPassable);
+            this.flowLayoutPanel1.Controls.Add(this.btnBrightnessLinearUp);
+            this.flowLayoutPanel1.Controls.Add(this.btnBrightnessLinearDown);
+            this.flowLayoutPanel1.Controls.Add(this.btnBrightnessHueUp);
+            this.flowLayoutPanel1.Controls.Add(this.btnBrightnessHueDown);
             this.flowLayoutPanel1.Controls.Add(this.comboTilePlacementColor);
             this.flowLayoutPanel1.Controls.Add(this.comboMarkerTypes);
             this.flowLayoutPanel1.Controls.Add(this.labelMarkerValue1);
@@ -1790,9 +1807,53 @@
             this.btnToolPassable.Values.DropDownArrowColor = System.Drawing.Color.Empty;
             this.btnToolPassable.Values.Text = "P";
             this.btnToolPassable.CheckedChanged += new System.EventHandler(this.btnToolPassable_CheckedChanged);
-            // 
+            //
+            // btnBrightnessLinearUp
+            //
+            this.btnBrightnessLinearUp.Location = new System.Drawing.Point(213, 3);
+            this.btnBrightnessLinearUp.Name = "btnBrightnessLinearUp";
+            this.btnBrightnessLinearUp.Size = new System.Drawing.Size(24, 24);
+            this.btnBrightnessLinearUp.TabIndex = 10;
+            this.toolTip1.SetToolTip(this.btnBrightnessLinearUp, "Brightness Up (linear luminance)  ]");
+            this.btnBrightnessLinearUp.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnBrightnessLinearUp.Values.Text = "↑";
+            this.btnBrightnessLinearUp.Click += new System.EventHandler(this.btnBrightnessLinearUp_Click);
+            //
+            // btnBrightnessLinearDown
+            //
+            this.btnBrightnessLinearDown.Location = new System.Drawing.Point(243, 3);
+            this.btnBrightnessLinearDown.Name = "btnBrightnessLinearDown";
+            this.btnBrightnessLinearDown.Size = new System.Drawing.Size(24, 24);
+            this.btnBrightnessLinearDown.TabIndex = 11;
+            this.toolTip1.SetToolTip(this.btnBrightnessLinearDown, "Brightness Down (linear luminance)  [");
+            this.btnBrightnessLinearDown.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnBrightnessLinearDown.Values.Text = "↓";
+            this.btnBrightnessLinearDown.Click += new System.EventHandler(this.btnBrightnessLinearDown_Click);
+            //
+            // btnBrightnessHueUp
+            //
+            this.btnBrightnessHueUp.Location = new System.Drawing.Point(273, 3);
+            this.btnBrightnessHueUp.Name = "btnBrightnessHueUp";
+            this.btnBrightnessHueUp.Size = new System.Drawing.Size(24, 24);
+            this.btnBrightnessHueUp.TabIndex = 12;
+            this.toolTip1.SetToolTip(this.btnBrightnessHueUp, "Brightness Up (hue-preserving)  Shift+]");
+            this.btnBrightnessHueUp.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnBrightnessHueUp.Values.Text = "⇈";
+            this.btnBrightnessHueUp.Click += new System.EventHandler(this.btnBrightnessHueUp_Click);
+            //
+            // btnBrightnessHueDown
+            //
+            this.btnBrightnessHueDown.Location = new System.Drawing.Point(303, 3);
+            this.btnBrightnessHueDown.Name = "btnBrightnessHueDown";
+            this.btnBrightnessHueDown.Size = new System.Drawing.Size(24, 24);
+            this.btnBrightnessHueDown.TabIndex = 13;
+            this.toolTip1.SetToolTip(this.btnBrightnessHueDown, "Brightness Down (hue-preserving)  Shift+[");
+            this.btnBrightnessHueDown.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnBrightnessHueDown.Values.Text = "⇊";
+            this.btnBrightnessHueDown.Click += new System.EventHandler(this.btnBrightnessHueDown_Click);
+            //
             // comboTilePlacementColor
-            // 
+            //
             this.comboTilePlacementColor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboTilePlacementColor.DropDownWidth = 110;
             this.comboTilePlacementColor.Location = new System.Drawing.Point(213, 3);
@@ -3060,6 +3121,10 @@
     private Krypton.Toolkit.KryptonCheckBox checkAutoTiling;
         private Krypton.Toolkit.KryptonCheckButton btnToolMarker;
         private Krypton.Toolkit.KryptonCheckButton btnToolPassable;
+        private Krypton.Toolkit.KryptonButton btnBrightnessLinearUp;
+        private Krypton.Toolkit.KryptonButton btnBrightnessLinearDown;
+        private Krypton.Toolkit.KryptonButton btnBrightnessHueUp;
+        private Krypton.Toolkit.KryptonButton btnBrightnessHueDown;
         private Krypton.Toolkit.KryptonComboBox comboMarkerTypes;
         private System.Windows.Forms.Label labelMarkerExportSymbol;
         private System.Windows.Forms.TextBox editMarkerExportSymbol;
@@ -3168,6 +3233,7 @@
         private Krypton.Toolkit.KryptonComboBox comboMaps;
         private Krypton.Toolkit.KryptonComboBox comboMapProjectMode;
         private System.Windows.Forms.ToolStripMenuItem editExtraDataToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem brightnessTablesToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem viewToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem keepMapCharacterAspectRatioToolStripMenuItem;
         private Krypton.Navigator.KryptonPage tabMarkers;

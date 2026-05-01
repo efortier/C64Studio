@@ -231,6 +231,39 @@ namespace RetroDevStudio
     public int                                  HelpZoomFactor = 100;
     public int                                  MapEditorZoomPercent = 100;
 
+    /// <summary>
+    /// Brightness-shift mappings for the Map editor. Stored as
+    /// CHAINS — ordered sequences of C64 color indices the user
+    /// walks through when pressing Up/Down. Up follows the chain
+    /// forward, Down walks it backward; either operation falls off
+    /// the end as a no-op (the "rail" behaviour).
+    ///
+    /// Linear is one chain (typically all 16 colors in luminance
+    /// order). Hue is a list of chains — one per hue family
+    /// (greyscale chain, red chain, green chain, etc.) — so a Red
+    /// char advances to a still-red lighter color rather than
+    /// jumping into a different hue family.
+    ///
+    /// Runtime code asks for the precomputed Up/Down array via the
+    /// computed properties below; chains are the source of truth.
+    /// </summary>
+    public List<int>                            BrightnessLinearChain = MakeDefaultBrightnessLinearChain();
+    public List<BrightnessHueChain>             BrightnessHueChains   = MakeDefaultBrightnessHueChains();
+
+    /// <summary>
+    /// Master switch for the Linear brightness mapping. When false,
+    /// the Linear Up/Down toolbar buttons (and the [/]
+    /// keyboard shortcuts) are inert — chars don't shift, the
+    /// buttons grey out. The Hue mapping is independent (its
+    /// per-chain Enabled flag covers that side).
+    /// </summary>
+    public bool                                 BrightnessLinearEnabled = true;
+
+    public int[] BrightnessLinearUp   { get { return DeriveChainUp( BrightnessLinearChain ); } }
+    public int[] BrightnessLinearDown { get { return DeriveChainDown( BrightnessLinearChain ); } }
+    public int[] BrightnessHueUp      { get { return DeriveChainsUp( BrightnessHueChains ); } }
+    public int[] BrightnessHueDown    { get { return DeriveChainsDown( BrightnessHueChains ); } }
+
     // Visual separator between rows in the Map tab's tile list
     // (comboTiles). Height in pixels added below each item, filled
     // with MapTileListRowSeparatorColorARGB. Range 0..32 (0 = no
@@ -302,6 +335,205 @@ namespace RetroDevStudio
     public AutoFormatSettings                   FormatSettings = new AutoFormatSettings();
 
     private int                                 _functionIndex = 0;
+
+
+
+    /// <summary>
+    /// One chain in the Hue mapping — an ordered list of C64 color
+    /// indices plus a per-chain Enabled flag. When Enabled is false,
+    /// <see cref="DeriveChainsUp"/>/<see cref="DeriveChainsDown"/>
+    /// skip this chain entirely so its source colors fall through to
+    /// "no neighbor" (chars at those colors stay put on Hue Up/Down).
+    /// Lets the user temporarily silence a chain without losing its
+    /// step list.
+    /// </summary>
+    public class BrightnessHueChain
+    {
+      public bool       Enabled = true;
+      public List<int>  Steps   = new List<int>();
+
+      public BrightnessHueChain() { }
+      public BrightnessHueChain( bool enabled, List<int> steps )
+      {
+        Enabled = enabled;
+        Steps   = steps ?? new List<int>();
+      }
+    }
+
+    /// <summary>
+    /// Default Linear chain — Pepto canonical luminance order
+    /// (darkest → lightest). All 16 colors present. The user can
+    /// reorder, add (insert duplicates of any color anywhere they want
+    /// to "extend" the chain), or remove via the Brightness Tables
+    /// dialog.
+    /// </summary>
+    private static List<int> MakeDefaultBrightnessLinearChain()
+    {
+      return new List<int> { 0, 6, 9, 2, 11, 4, 8, 12, 14, 5, 10, 15, 3, 13, 7, 1 };
+    }
+
+    /// <summary>
+    /// Default Hue chains — one ordered list per hue family. Each
+    /// chain walks lightest → darkest within its family (Up = forward
+    /// in the chain). Colors with no clean hue family (Cyan, Purple)
+    /// don't appear in any chain — pressing Hue Up/Down on those is
+    /// a no-op until the user explicitly adds them somewhere. All
+    /// default chains start Enabled.
+    /// </summary>
+    private static List<BrightnessHueChain> MakeDefaultBrightnessHueChains()
+    {
+      return new List<BrightnessHueChain>
+      {
+        new BrightnessHueChain( true, new List<int> { 0, 11, 12, 15, 1 } ),
+        new BrightnessHueChain( true, new List<int> { 9, 2, 10 } ),
+        new BrightnessHueChain( true, new List<int> { 5, 13 } ),
+        new BrightnessHueChain( true, new List<int> { 6, 14 } ),
+        new BrightnessHueChain( true, new List<int> { 8, 7 } ),
+      };
+    }
+
+    /// <summary>
+    /// Compute the per-color "Up" mapping from a single chain. Each
+    /// entry in the chain maps to the NEXT entry; the final entry
+    /// (and any color not in the chain) maps to -1 ("no neighbor —
+    /// leave char unchanged"). Last assignment wins if a color
+    /// appears multiple times in the chain.
+    /// </summary>
+    private static int[] DeriveChainUp( List<int> chain )
+    {
+      int[] up = new int[16];
+      for ( int i = 0; i < 16; ++i ) up[i] = -1;
+      if ( chain == null ) return up;
+      for ( int i = 0; i < chain.Count - 1; ++i )
+      {
+        int src = chain[i];
+        int dst = chain[i + 1];
+        if ( ( src >= 0 ) && ( src < 16 ) && ( dst >= 0 ) && ( dst < 16 ) )
+        {
+          up[src] = dst;
+        }
+      }
+      return up;
+    }
+
+    /// <summary>
+    /// Mirror of <see cref="DeriveChainUp"/>: Down maps every entry
+    /// to its predecessor. First entry has no Down neighbor (-1).
+    /// </summary>
+    private static int[] DeriveChainDown( List<int> chain )
+    {
+      int[] down = new int[16];
+      for ( int i = 0; i < 16; ++i ) down[i] = -1;
+      if ( chain == null ) return down;
+      for ( int i = 1; i < chain.Count; ++i )
+      {
+        int src = chain[i];
+        int dst = chain[i - 1];
+        if ( ( src >= 0 ) && ( src < 16 ) && ( dst >= 0 ) && ( dst < 16 ) )
+        {
+          down[src] = dst;
+        }
+      }
+      return down;
+    }
+
+    /// <summary>
+    /// Multi-chain version of <see cref="DeriveChainUp"/>. Walks
+    /// every chain whose <see cref="BrightnessHueChain.Enabled"/> is
+    /// true and OR-merges results. Disabled chains are skipped — their
+    /// source colors fall through to "no neighbor" so chars at those
+    /// colors stay put on Hue Up. If two enabled chains both map the
+    /// same source color, the LAST chain wins.
+    /// </summary>
+    private static int[] DeriveChainsUp( List<BrightnessHueChain> chains )
+    {
+      int[] up = new int[16];
+      for ( int i = 0; i < 16; ++i ) up[i] = -1;
+      if ( chains == null ) return up;
+      foreach ( var chain in chains )
+      {
+        if ( ( chain == null ) || ( !chain.Enabled ) || ( chain.Steps == null ) ) continue;
+        var steps = chain.Steps;
+        for ( int i = 0; i < steps.Count - 1; ++i )
+        {
+          int src = steps[i];
+          int dst = steps[i + 1];
+          if ( ( src >= 0 ) && ( src < 16 ) && ( dst >= 0 ) && ( dst < 16 ) )
+          {
+            up[src] = dst;
+          }
+        }
+      }
+      return up;
+    }
+
+    private static int[] DeriveChainsDown( List<BrightnessHueChain> chains )
+    {
+      int[] down = new int[16];
+      for ( int i = 0; i < 16; ++i ) down[i] = -1;
+      if ( chains == null ) return down;
+      foreach ( var chain in chains )
+      {
+        if ( ( chain == null ) || ( !chain.Enabled ) || ( chain.Steps == null ) ) continue;
+        var steps = chain.Steps;
+        for ( int i = 1; i < steps.Count; ++i )
+        {
+          int src = steps[i];
+          int dst = steps[i - 1];
+          if ( ( src >= 0 ) && ( src < 16 ) && ( dst >= 0 ) && ( dst < 16 ) )
+          {
+            down[src] = dst;
+          }
+        }
+      }
+      return down;
+    }
+
+
+
+    /// <summary>
+    /// Append a single chain (variable length) to a chunk: i32 count
+    /// followed by count × i32 color indices. Each color is clamped
+    /// to [0, 15] on append; values outside that range are silently
+    /// dropped from the chain (defensive against UI bugs).
+    /// </summary>
+    private static void AppendBrightnessChain( GR.IO.FileChunk chunk, List<int> chain )
+    {
+      // Filter to valid 0..15 entries; count first, then payload.
+      var clean = new List<int>();
+      if ( chain != null )
+      {
+        foreach ( int c in chain )
+        {
+          if ( ( c >= 0 ) && ( c < 16 ) ) clean.Add( c );
+        }
+      }
+      chunk.AppendI32( clean.Count );
+      foreach ( int c in clean ) chunk.AppendI32( c );
+    }
+
+    /// <summary>
+    /// Read a single chain from a reader: i32 count, then count × i32
+    /// color indices. Returns the loaded chain. Returns null if the
+    /// reader doesn't have enough bytes for a count — caller treats
+    /// null as "stop reading further chains".
+    /// </summary>
+    private static List<int> ReadBrightnessChain( GR.IO.IReader reader )
+    {
+      if ( reader.Size - reader.Position < 4 ) return null;
+      int count = reader.ReadInt32();
+      if ( count < 0 ) count = 0;
+      // Defensive cap: a chain of 1024 colors is absurd; clamp.
+      if ( count > 1024 ) count = 1024;
+      var chain = new List<int>( count );
+      for ( int i = 0; i < count; ++i )
+      {
+        if ( reader.Size - reader.Position < 4 ) break;
+        int v = reader.ReadInt32();
+        if ( ( v >= 0 ) && ( v < 16 ) ) chain.Add( v );
+      }
+      return chain;
+    }
 
 
 
@@ -751,6 +983,27 @@ namespace RetroDevStudio
       GR.IO.FileChunk chunkKryptonPalette = new GR.IO.FileChunk( FileChunkConstants.SETTINGS_KRYPTON_PALETTE_MODE );
       chunkKryptonPalette.AppendI32( KryptonPaletteMode );
       SettingsData.Append( chunkKryptonPalette.ToBuffer() );
+
+      // Brightness-shift mappings, stored as chains. Layout:
+      //   [u8 linearEnabled]
+      //   [i32 linearChainCount][i32 × N linearChain]
+      //   [i32 hueChainsCount]
+      //   for each hue chain: [u8 enabled][i32 chainCount][i32 × N chain]
+      // The Up/Down per-color arrays used at runtime are derived from
+      // these chains on demand. Chunk is always written so any user
+      // customization round-trips; defaults case is tiny (~150 bytes).
+      GR.IO.FileChunk chunkBrightness = new GR.IO.FileChunk( FileChunkConstants.SETTINGS_BRIGHTNESS_TABLES );
+      chunkBrightness.AppendU8( BrightnessLinearEnabled ? (byte)1 : (byte)0 );
+      AppendBrightnessChain( chunkBrightness, BrightnessLinearChain );
+      int hueChainCount = ( BrightnessHueChains != null ) ? BrightnessHueChains.Count : 0;
+      chunkBrightness.AppendI32( hueChainCount );
+      for ( int i = 0; i < hueChainCount; ++i )
+      {
+        var hc = BrightnessHueChains[i];
+        chunkBrightness.AppendU8( ( hc != null && hc.Enabled ) ? (byte)1 : (byte)0 );
+        AppendBrightnessChain( chunkBrightness, ( hc != null ) ? hc.Steps : null );
+      }
+      SettingsData.Append( chunkBrightness.ToBuffer() );
 
       GR.IO.FileChunk chunkDisplayFilters = new GR.IO.FileChunk( FileChunkConstants.SETTINGS_DISPLAY_FILTERS );
       chunkDisplayFilters.Append( DisplayFilters.SaveToBuffer() );
@@ -1340,6 +1593,42 @@ namespace RetroDevStudio
             {
               GR.IO.IReader binIn = chunkData.MemoryReader();
               KryptonPaletteMode = binIn.ReadInt32();
+            }
+            break;
+          case FileChunkConstants.SETTINGS_BRIGHTNESS_TABLES:
+            {
+              GR.IO.IReader binIn = chunkData.MemoryReader();
+              // Chain-based format. Layout per the matching save block:
+              //   [u8 linearEnabled][linearChain]
+              //   [i32 hueChainCount]
+              //   for each: [u8 enabled][chain]
+              // Each read is bounds-checked so partial / older payloads
+              // fall back to the constructor defaults.
+              if ( binIn.Size - binIn.Position >= 1 )
+              {
+                BrightnessLinearEnabled = ( binIn.ReadUInt8() != 0 );
+              }
+              var linear = ReadBrightnessChain( binIn );
+              if ( linear != null )
+              {
+                BrightnessLinearChain = linear;
+              }
+              if ( binIn.Size - binIn.Position >= 4 )
+              {
+                int hueCount = binIn.ReadInt32();
+                if ( hueCount < 0 ) hueCount = 0;
+                if ( hueCount > 256 ) hueCount = 256;   // defensive cap
+                var hueChains = new List<BrightnessHueChain>( hueCount );
+                for ( int i = 0; i < hueCount; ++i )
+                {
+                  if ( binIn.Size - binIn.Position < 1 ) break;
+                  bool enabled = ( binIn.ReadUInt8() != 0 );
+                  var steps = ReadBrightnessChain( binIn );
+                  if ( steps == null ) break;
+                  hueChains.Add( new BrightnessHueChain( enabled, steps ) );
+                }
+                BrightnessHueChains = hueChains;
+              }
             }
             break;
           case FileChunkConstants.SETTINGS_DISPLAY_FILTERS:

@@ -294,6 +294,11 @@ namespace RetroDevStudio.Documents
 
       GR.Image.DPIHandler.ResizeControlsForDPI( this );
 
+      // Sync the Linear brightness toolbar buttons to the settings
+      // flag — they're always declared enabled in the Designer, so
+      // we have to actively reflect the user's preference at startup.
+      RefreshBrightnessButtonState();
+
       comboTiles.ItemHeight = MapTileListEffectiveItemHeight;
 
       // Seed the tile-list spacing controls from the (already-loaded)
@@ -8525,6 +8530,56 @@ namespace RetroDevStudio.Documents
           return true;
         }
       }
+      else if ( ( keyData == Keys.OemCloseBrackets )
+      ||        ( keyData == Keys.OemOpenBrackets )
+      ||        ( keyData == ( Keys.Shift | Keys.OemCloseBrackets ) )
+      ||        ( keyData == ( Keys.Shift | Keys.OemOpenBrackets ) ) )
+      {
+        // Brightness-shift shortcuts. Same scoping as G/S/P — Map tab
+        // only, not on a TextBox, not in revision view. The bracket
+        // keys aren't bound elsewhere on the Map tab so they're safe
+        // to claim:
+        //   ]         → linear brightness up
+        //   [         → linear brightness down
+        //   Shift+]   → hue-preserving brightness up
+        //   Shift+[   → hue-preserving brightness down
+        if ( ( tabMapEditor != null )
+        &&   ( tabMapEditor.SelectedPage == tabEditor )
+        &&   ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
+        &&   ( !m_IsViewingRevision )
+        &&   ( Core?.Settings != null ) )
+        {
+          if ( keyData == Keys.OemCloseBrackets )
+          {
+            // Linear-disabled flag silently swallows the key — no
+            // shift, but we don't want it falling through to a beep
+            // or some other accidental binding either.
+            if ( Core.Settings.BrightnessLinearEnabled )
+            {
+              ApplyBrightnessShift( Core.Settings.BrightnessLinearUp );
+            }
+            return true;
+          }
+          if ( keyData == Keys.OemOpenBrackets )
+          {
+            if ( Core.Settings.BrightnessLinearEnabled )
+            {
+              ApplyBrightnessShift( Core.Settings.BrightnessLinearDown );
+            }
+            return true;
+          }
+          if ( keyData == ( Keys.Shift | Keys.OemCloseBrackets ) )
+          {
+            ApplyBrightnessShift( Core.Settings.BrightnessHueUp );
+            return true;
+          }
+          if ( keyData == ( Keys.Shift | Keys.OemOpenBrackets ) )
+          {
+            ApplyBrightnessShift( Core.Settings.BrightnessHueDown );
+            return true;
+          }
+        }
+      }
       else if ( ( keyData == ( Keys.Alt | Keys.Left ) )
       ||        ( keyData == ( Keys.Alt | Keys.Right ) )
       ||        ( keyData == ( Keys.Alt | Keys.Up ) )
@@ -9600,6 +9655,271 @@ namespace RetroDevStudio.Documents
         pictureEditor.Invalidate();
         SetModified();
       }
+    }
+
+
+
+    /// <summary>
+    /// Resolve the EFFECTIVE color of a single character cell on the
+    /// current map — what the renderer would actually paint:
+    ///   1. If <see cref="MapProject.Map.TileColorOverrides"/> at
+    ///      (charMapX, charMapY) is &gt;= 0, that's the effective color.
+    ///   2. Otherwise fall back to the underlying tile's intrinsic
+    ///      char color: <c>tile.Chars[localCharX, localCharY].Color</c>
+    ///      where (localCharX, localCharY) is the char's position
+    ///      within the tile's footprint.
+    /// Returns -1 when no color can be resolved (off-map, invalid
+    /// tile index, char outside the tile's <see cref="Tile.Chars"/>
+    /// rect). Used by <see cref="ApplyBrightnessShift"/>; the same
+    /// resolution pattern is also inlined in DrawTile, the
+    /// middle-click eyedropper, and the export paths — those weren't
+    /// refactored to call this helper because they're hot/critical
+    /// paths and a cross-cutting refactor wasn't required for v1.
+    /// </summary>
+    private int GetEffectiveCharColor( int charMapX, int charMapY )
+    {
+      if ( m_CurrentMap == null ) return -1;
+      // Override wins when set.
+      if ( ( charMapX >= 0 ) && ( charMapY >= 0 )
+      &&   ( charMapX < m_CurrentMap.TileColorOverrides.Width )
+      &&   ( charMapY < m_CurrentMap.TileColorOverrides.Height ) )
+      {
+        int ov = m_CurrentMap.TileColorOverrides[charMapX, charMapY];
+        if ( ov >= 0 ) return ov;
+      }
+      int spacingX = m_CurrentMap.TileSpacingX;
+      int spacingY = m_CurrentMap.TileSpacingY;
+      if ( ( spacingX <= 0 ) || ( spacingY <= 0 ) ) return -1;
+      int tileX = charMapX / spacingX;
+      int tileY = charMapY / spacingY;
+      if ( ( tileX < 0 ) || ( tileY < 0 )
+      ||   ( tileX >= m_CurrentMap.Tiles.Width )
+      ||   ( tileY >= m_CurrentMap.Tiles.Height ) ) return -1;
+      int tileIndex = m_CurrentMap.Tiles[tileX, tileY];
+      if ( ( tileIndex < 0 ) || ( tileIndex >= m_MapProject.Tiles.Count ) ) return -1;
+      var tile = m_MapProject.Tiles[tileIndex];
+      int localX = charMapX - tileX * spacingX;
+      int localY = charMapY - tileY * spacingY;
+      if ( ( localX < 0 ) || ( localY < 0 )
+      ||   ( localX >= tile.Chars.Width )
+      ||   ( localY >= tile.Chars.Height ) ) return -1;
+      return tile.Chars[localX, localY].Color;
+    }
+
+
+
+    /// <summary>
+    /// Walk every char of every selected cell and shift its color
+    /// through one of the brightness tables (Linear-Up / Linear-Down /
+    /// Hue-Up / Hue-Down). Writes into TileColorOverrides as an
+    /// override, except when the result equals the tile's intrinsic
+    /// char color — in that case the override is cleared to -1
+    /// (Default), so the layer stays sparse and Up→Down round-trips
+    /// return to a fully-default state. Chars whose source color has
+    /// no neighbor in the chosen direction (-1 in the table) are left
+    /// unchanged.
+    ///
+    /// Selection sources, in priority order:
+    ///   1. Rectangle selection (m_SelectedTiles) — used when any
+    ///      cell is set.
+    ///   2. Right-click single-tile (m_SelectedTilePos) — fallback
+    ///      when source 1 is empty.
+    /// No-op when neither is active.
+    /// </summary>
+    private void ApplyBrightnessShift( int[] map )
+    {
+      if ( m_CurrentMap == null )      return;
+      if ( m_IsViewingRevision )       return;
+      if ( m_SelectedMarker != null )  return;
+      if ( m_SelectedEntity != null )  return;
+      if ( map == null )               return;
+
+      // Determine the bounding tile-rect of whichever selection is
+      // active. Rectangle selection takes priority; right-click single
+      // tile is the fallback when no rectangle is set.
+      int minTX = int.MaxValue, minTY = int.MaxValue, maxTX = -1, maxTY = -1;
+
+      if ( m_SelectedTiles != null )
+      {
+        int rectGridW = m_SelectedTiles.GetLength( 0 );
+        int rectGridH = m_SelectedTiles.GetLength( 1 );
+        int scanW = System.Math.Min( rectGridW, m_CurrentMap.Tiles.Width  );
+        int scanH = System.Math.Min( rectGridH, m_CurrentMap.Tiles.Height );
+        for ( int x = 0; x < scanW; ++x )
+        {
+          for ( int y = 0; y < scanH; ++y )
+          {
+            if ( m_SelectedTiles[x, y] )
+            {
+              if ( x < minTX ) minTX = x;
+              if ( y < minTY ) minTY = y;
+              if ( x > maxTX ) maxTX = x;
+              if ( y > maxTY ) maxTY = y;
+            }
+          }
+        }
+      }
+
+      // Right-click single-tile fallback when the rectangle was empty.
+      bool useSingleTileSelection = false;
+      if ( maxTX < 0 )
+      {
+        int sx = m_SelectedTilePos.X;
+        int sy = m_SelectedTilePos.Y;
+        if ( ( sx >= 0 ) && ( sy >= 0 )
+        &&   ( sx < m_CurrentMap.Tiles.Width )
+        &&   ( sy < m_CurrentMap.Tiles.Height ) )
+        {
+          minTX = maxTX = sx;
+          minTY = maxTY = sy;
+          useSingleTileSelection = true;
+        }
+      }
+
+      if ( maxTX < 0 ) return;   // no usable selection — silent no-op
+
+      int rectW = maxTX - minTX + 1;
+      int rectH = maxTY - minTY + 1;
+
+      // Single UndoMapTilesChange covering the bounding rect. Already
+      // snapshots Tiles + both override layers (color + blocked), so
+      // Ctrl+Z restores everything atomically.
+      DocumentInfo.UndoManager.AddUndoTask(
+        new Undo.UndoMapTilesChange( this, m_CurrentMap, minTX, minTY, rectW, rectH ) );
+
+      int spacingX = m_CurrentMap.TileSpacingX;
+      int spacingY = m_CurrentMap.TileSpacingY;
+      bool any = false;
+
+      for ( int tx = minTX; tx <= maxTX; ++tx )
+      {
+        for ( int ty = minTY; ty <= maxTY; ++ty )
+        {
+          // Cell-membership: rectangle respects the bool grid;
+          // single-tile fallback is the one cell at (minTX, minTY).
+          if ( useSingleTileSelection )
+          {
+            if ( ( tx != minTX ) || ( ty != minTY ) ) continue;
+          }
+          else if ( !m_SelectedTiles[tx, ty] )
+          {
+            continue;
+          }
+
+          int tileIndex = m_CurrentMap.Tiles[tx, ty];
+          if ( ( tileIndex < 0 )
+          ||   ( tileIndex >= m_MapProject.Tiles.Count ) ) continue;
+          var tile = m_MapProject.Tiles[tileIndex];
+
+          // Walk the tile's full char footprint (max(spacing, Chars
+          // dims)) so when spacing < Chars dims (e.g. spacing=1 on a
+          // 2x2 tile) all four chars get touched — same convention
+          // ApplyPlacementColorOverride uses.
+          int fpX = ( tile.Chars.Width  > spacingX ) ? tile.Chars.Width  : spacingX;
+          int fpY = ( tile.Chars.Height > spacingY ) ? tile.Chars.Height : spacingY;
+          for ( int dy = 0; dy < fpY; ++dy )
+          {
+            for ( int dx = 0; dx < fpX; ++dx )
+            {
+              int cx = tx * spacingX + dx;
+              int cy = ty * spacingY + dy;
+              if ( ( cx < 0 ) || ( cy < 0 )
+              ||   ( cx >= m_CurrentMap.TileColorOverrides.Width )
+              ||   ( cy >= m_CurrentMap.TileColorOverrides.Height ) ) continue;
+
+              int srcColor = GetEffectiveCharColor( cx, cy );
+              if ( ( srcColor < 0 ) || ( srcColor >= 16 ) ) continue;
+              int dstColor = map[srcColor];
+              if ( dstColor < 0 ) continue;        // rail — leave unchanged
+              if ( dstColor == srcColor ) continue; // no-op shift
+
+              // Tile's intrinsic char color at this local position.
+              // Used for the "match-original-clear-to-default" rule
+              // — keeps the override layer sparse so Up→Down round-
+              // trips end at -1 (no override).
+              int tileColor = -1;
+              if ( ( dx < tile.Chars.Width ) && ( dy < tile.Chars.Height ) )
+              {
+                tileColor = tile.Chars[dx, dy].Color;
+              }
+
+              int writeValue = ( dstColor == tileColor ) ? -1 : dstColor;
+              if ( m_CurrentMap.TileColorOverrides[cx, cy] != writeValue )
+              {
+                m_CurrentMap.TileColorOverrides[cx, cy] = writeValue;
+                any = true;
+              }
+            }
+          }
+        }
+      }
+
+      if ( any )
+      {
+        UpdateArea( minTX, minTY, rectW, rectH );
+        pictureEditor.Invalidate();
+        SetModified();
+      }
+    }
+
+
+
+    /// <summary>
+    /// Open the modal Brightness Tables editor. Lets the user reorder
+    /// the linear chain and edit hue chains via swatches. Apply on OK
+    /// rebuilds the per-color Up/Down arrays from the new chains;
+    /// Cancel discards. Tables persist in StudioSettings on the next
+    /// settings save.
+    /// </summary>
+    private void brightnessTablesToolStripMenuItem_Click( object sender, EventArgs e )
+    {
+      using ( var dlg = new Dialogs.DlgBrightnessTables( Core ) )
+      {
+        dlg.ShowDialog( FindForm() );
+      }
+      // Dialog OK may have flipped BrightnessLinearEnabled — refresh
+      // the toolbar button state (and the keyboard shortcuts pick up
+      // the new flag at next press, no separate sync needed).
+      RefreshBrightnessButtonState();
+    }
+
+
+
+    /// <summary>
+    /// Sync the Linear brightness toolbar buttons' Enabled state to
+    /// <see cref="StudioSettings.BrightnessLinearEnabled"/>. The Hue
+    /// buttons stay always-enabled — Hue uses per-chain Enabled flags
+    /// (skipped chains just produce no-ops at apply time, the user
+    /// shouldn't have to grey out the toolbar to disable hue work
+    /// because they might still want to use SOME chains).
+    /// </summary>
+    private void RefreshBrightnessButtonState()
+    {
+      bool linEnabled = ( Core?.Settings != null ) && Core.Settings.BrightnessLinearEnabled;
+      if ( btnBrightnessLinearUp != null )   btnBrightnessLinearUp.Enabled   = linEnabled;
+      if ( btnBrightnessLinearDown != null ) btnBrightnessLinearDown.Enabled = linEnabled;
+    }
+
+
+
+    private void btnBrightnessLinearUp_Click( object sender, EventArgs e )
+    {
+      ApplyBrightnessShift( ( Core?.Settings != null ) ? Core.Settings.BrightnessLinearUp : null );
+    }
+
+    private void btnBrightnessLinearDown_Click( object sender, EventArgs e )
+    {
+      ApplyBrightnessShift( ( Core?.Settings != null ) ? Core.Settings.BrightnessLinearDown : null );
+    }
+
+    private void btnBrightnessHueUp_Click( object sender, EventArgs e )
+    {
+      ApplyBrightnessShift( ( Core?.Settings != null ) ? Core.Settings.BrightnessHueUp : null );
+    }
+
+    private void btnBrightnessHueDown_Click( object sender, EventArgs e )
+    {
+      ApplyBrightnessShift( ( Core?.Settings != null ) ? Core.Settings.BrightnessHueDown : null );
     }
 
 

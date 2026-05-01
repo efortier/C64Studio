@@ -129,6 +129,15 @@
     // (the dev-time palette tester promoted to a real setting). Stored as
     // an int32 so the underlying enum can grow without a chunk-shape break.
     public const ushort    SETTINGS_KRYPTON_PALETTE_MODE  = 0x202A;
+    // Four 16-entry tables (Linear Up, Linear Down, Hue Up, Hue Down)
+    // for the brightness-shift feature on the Map editor. Each cell
+    // holds the C64 color index that the source color should advance
+    // to in that direction, or -1 to mean "no neighbor — leave the
+    // char unchanged". Defaults are hardcoded; the chunk only emits
+    // when at least one entry differs from the default to keep
+    // settings files small and forward-compat with no-customization
+    // installs. Layout: [i32 × 16] × 4 in the order above.
+    public const ushort    SETTINGS_BRIGHTNESS_TABLES     = 0x202B;
   }
 
 }
