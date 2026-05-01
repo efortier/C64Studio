@@ -29,12 +29,12 @@
     private void InitializeComponent()
     {
             this.components = new System.ComponentModel.Container();
-            GR.Image.FastImage fastImage1 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage6 = new GR.Image.FastImage();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MapEditor));
-            GR.Image.FastImage fastImage2 = new GR.Image.FastImage();
-            GR.Image.FastImage fastImage3 = new GR.Image.FastImage();
-            GR.Image.FastImage fastImage4 = new GR.Image.FastImage();
-            GR.Image.FastImage fastImage5 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage7 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage8 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage9 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage10 = new GR.Image.FastImage();
             this.panelMapContainer = new System.Windows.Forms.Panel();
             this.pictureEditor = new GR.Forms.FastPictureBox();
             this.tabMarkers = new Krypton.Navigator.KryptonPage();
@@ -80,6 +80,70 @@
             this.editExtraDataToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.brightnessTablesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.tabEditor = new Krypton.Navigator.KryptonPage();
+            this.flowLayoutPanel3 = new System.Windows.Forms.FlowLayoutPanel();
+            this.groupBox4 = new System.Windows.Forms.GroupBox();
+            this.label19 = new System.Windows.Forms.Label();
+            this.comboMaps = new Krypton.Toolkit.KryptonComboBox();
+            this.collapsiblePanel1 = new RetroDevStudio.Controls.CollapsiblePanel();
+            this.comboMapAlternativeMode = new Krypton.Toolkit.KryptonComboBox();
+            this.comboMapProjectMode = new Krypton.Toolkit.KryptonComboBox();
+            this.label1 = new System.Windows.Forms.Label();
+            this.comboMapAlternativeBGColor4 = new Krypton.Toolkit.KryptonComboBox();
+            this.label25 = new System.Windows.Forms.Label();
+            this.editMapWidth = new Krypton.Toolkit.KryptonTextBox();
+            this.comboMapMultiColor2 = new Krypton.Toolkit.KryptonComboBox();
+            this.label3 = new System.Windows.Forms.Label();
+            this.comboMapBGColor = new Krypton.Toolkit.KryptonComboBox();
+            this.editTileSpacingW = new Krypton.Toolkit.KryptonTextBox();
+            this.comboMapMultiColor1 = new Krypton.Toolkit.KryptonComboBox();
+            this.editMapHeight = new Krypton.Toolkit.KryptonTextBox();
+            this.btnCopy = new Krypton.Toolkit.KryptonButton();
+            this.editTileSpacingH = new Krypton.Toolkit.KryptonTextBox();
+            this.btnMoveMapDown = new Krypton.Toolkit.KryptonButton();
+            this.label18 = new System.Windows.Forms.Label();
+            this.btnMoveMapUp = new Krypton.Toolkit.KryptonButton();
+            this.label21 = new System.Windows.Forms.Label();
+            this.btnMapAdd = new Krypton.Toolkit.KryptonButton();
+            this.label13 = new System.Windows.Forms.Label();
+            this.btnMapDelete = new Krypton.Toolkit.KryptonButton();
+            this.editMapName = new Krypton.Toolkit.KryptonTextBox();
+            this.btnMapApply = new Krypton.Toolkit.KryptonButton();
+            this.label23 = new System.Windows.Forms.Label();
+            this.label14 = new System.Windows.Forms.Label();
+            this.label22 = new System.Windows.Forms.Label();
+            this.collapsiblePanel3 = new RetroDevStudio.Controls.CollapsiblePanel();
+            this.labelRevision = new System.Windows.Forms.Label();
+            this.comboRevisions = new Krypton.Toolkit.KryptonComboBox();
+            this.btnDeleteRevision = new Krypton.Toolkit.KryptonButton();
+            this.btnCreateRevision = new Krypton.Toolkit.KryptonButton();
+            this.btnRevertRevision = new Krypton.Toolkit.KryptonButton();
+            this.collapsiblePanelMapTab = new RetroDevStudio.Controls.CollapsiblePanel();
+            this.labelBlankTile = new System.Windows.Forms.Label();
+            this.comboBlankTile = new Krypton.Toolkit.KryptonComboBox();
+            this.comboBlankColor = new Krypton.Toolkit.KryptonComboBox();
+            this.labelBlankColor = new System.Windows.Forms.Label();
+            this.collapsiblePanel2 = new RetroDevStudio.Controls.CollapsiblePanel();
+            this.labelGridOpacity = new System.Windows.Forms.Label();
+            this.gridOpacitySlider = new Krypton.Toolkit.KryptonTrackBar();
+            this.dimSlider = new Krypton.Toolkit.KryptonTrackBar();
+            this.labelTileListRowSpacing = new System.Windows.Forms.Label();
+            this.labelDesignerBackground = new System.Windows.Forms.Label();
+            this.editTileListRowSpacing = new Krypton.Toolkit.KryptonNumericUpDown();
+            this.btnShiftLeft = new Krypton.Toolkit.KryptonButton();
+            this.labelTileListRowSeparatorColor = new System.Windows.Forms.Label();
+            this.btnDesignerBackground = new System.Windows.Forms.Button();
+            this.btnTileListRowSeparatorColor = new System.Windows.Forms.Button();
+            this.btnDisplayFilters = new Krypton.Toolkit.KryptonButton();
+            this.labelRightClickBehavior = new System.Windows.Forms.Label();
+            this.comboRightClickBehavior = new Krypton.Toolkit.KryptonComboBox();
+            this.btnMapHeightDec = new Krypton.Toolkit.KryptonButton();
+            this.checkFilterEnabled = new Krypton.Toolkit.KryptonCheckBox();
+            this.btnMapHeightInc = new Krypton.Toolkit.KryptonButton();
+            this.btnShiftUp = new Krypton.Toolkit.KryptonButton();
+            this.btnMapWidthDec = new Krypton.Toolkit.KryptonButton();
+            this.btnMapWidthInc = new Krypton.Toolkit.KryptonButton();
+            this.btnShiftDown = new Krypton.Toolkit.KryptonButton();
+            this.btnShiftRight = new Krypton.Toolkit.KryptonButton();
             this.flowLayoutPanel2 = new System.Windows.Forms.FlowLayoutPanel();
             this.btnToolEntity = new Krypton.Toolkit.KryptonCheckButton();
             this.comboEntityTypes = new Krypton.Toolkit.KryptonComboBox();
@@ -91,71 +155,7 @@
             this.checkEntityDefaultTriggered = new Krypton.Toolkit.KryptonCheckBox();
             this.btnDeleteSelectedEntity = new Krypton.Toolkit.KryptonButton();
             this.checkShowEntities = new Krypton.Toolkit.KryptonCheckBox();
-            this.groupBox1 = new System.Windows.Forms.GroupBox();
-            this.groupBox3 = new System.Windows.Forms.GroupBox();
-            this.dimSlider = new Krypton.Toolkit.KryptonTrackBar();
-            this.labelGridOpacity = new System.Windows.Forms.Label();
-            this.gridOpacitySlider = new Krypton.Toolkit.KryptonTrackBar();
-            this.labelTileListRowSpacing = new System.Windows.Forms.Label();
-            this.editTileListRowSpacing = new Krypton.Toolkit.KryptonNumericUpDown();
-            this.labelTileListRowSeparatorColor = new System.Windows.Forms.Label();
-            this.btnTileListRowSeparatorColor = new System.Windows.Forms.Button();
-            this.labelRightClickBehavior = new System.Windows.Forms.Label();
-            this.comboRightClickBehavior = new Krypton.Toolkit.KryptonComboBox();
-            this.btnDesignerBackground = new System.Windows.Forms.Button();
-            this.labelDesignerBackground = new System.Windows.Forms.Label();
-            this.groupBox2 = new System.Windows.Forms.GroupBox();
-            this.btnShiftLeft = new Krypton.Toolkit.KryptonButton();
-            this.btnShiftUp = new Krypton.Toolkit.KryptonButton();
-            this.btnShiftDown = new Krypton.Toolkit.KryptonButton();
-            this.btnShiftRight = new Krypton.Toolkit.KryptonButton();
-            this.btnMapWidthInc = new Krypton.Toolkit.KryptonButton();
-            this.btnMapWidthDec = new Krypton.Toolkit.KryptonButton();
-            this.btnMapHeightInc = new Krypton.Toolkit.KryptonButton();
-            this.btnMapHeightDec = new Krypton.Toolkit.KryptonButton();
             this.btnRemoveOverlappingTiles = new Krypton.Toolkit.KryptonButton();
-            this.btnDisplayFilters = new Krypton.Toolkit.KryptonButton();
-            this.checkFilterEnabled = new Krypton.Toolkit.KryptonCheckBox();
-            this.groupBoxRevisions = new System.Windows.Forms.GroupBox();
-            this.labelRevision = new System.Windows.Forms.Label();
-            this.comboRevisions = new Krypton.Toolkit.KryptonComboBox();
-            this.btnCreateRevision = new Krypton.Toolkit.KryptonButton();
-            this.btnRevertRevision = new Krypton.Toolkit.KryptonButton();
-            this.btnDeleteRevision = new Krypton.Toolkit.KryptonButton();
-            this.groupBoxShiftClick = new System.Windows.Forms.GroupBox();
-            this.labelBlankTile = new System.Windows.Forms.Label();
-            this.comboBlankTile = new Krypton.Toolkit.KryptonComboBox();
-            this.labelBlankColor = new System.Windows.Forms.Label();
-            this.comboBlankColor = new Krypton.Toolkit.KryptonComboBox();
-            this.label19 = new System.Windows.Forms.Label();
-            this.label25 = new System.Windows.Forms.Label();
-            this.groupSize = new System.Windows.Forms.GroupBox();
-            this.comboMapAlternativeMode = new Krypton.Toolkit.KryptonComboBox();
-            this.comboMapAlternativeBGColor4 = new Krypton.Toolkit.KryptonComboBox();
-            this.comboMapMultiColor2 = new Krypton.Toolkit.KryptonComboBox();
-            this.comboMapBGColor = new Krypton.Toolkit.KryptonComboBox();
-            this.comboMapMultiColor1 = new Krypton.Toolkit.KryptonComboBox();
-            this.btnCopy = new Krypton.Toolkit.KryptonButton();
-            this.btnMoveMapDown = new Krypton.Toolkit.KryptonButton();
-            this.btnMoveMapUp = new Krypton.Toolkit.KryptonButton();
-            this.btnMapAdd = new Krypton.Toolkit.KryptonButton();
-            this.btnMapDelete = new Krypton.Toolkit.KryptonButton();
-            this.btnMapApply = new Krypton.Toolkit.KryptonButton();
-            this.label14 = new System.Windows.Forms.Label();
-            this.label1 = new System.Windows.Forms.Label();
-            this.label22 = new System.Windows.Forms.Label();
-            this.label23 = new System.Windows.Forms.Label();
-            this.editMapName = new Krypton.Toolkit.KryptonTextBox();
-            this.label13 = new System.Windows.Forms.Label();
-            this.label21 = new System.Windows.Forms.Label();
-            this.label18 = new System.Windows.Forms.Label();
-            this.editTileSpacingH = new Krypton.Toolkit.KryptonTextBox();
-            this.editMapHeight = new Krypton.Toolkit.KryptonTextBox();
-            this.editTileSpacingW = new Krypton.Toolkit.KryptonTextBox();
-            this.label3 = new System.Windows.Forms.Label();
-            this.editMapWidth = new Krypton.Toolkit.KryptonTextBox();
-            this.comboMaps = new Krypton.Toolkit.KryptonComboBox();
-            this.comboMapProjectMode = new Krypton.Toolkit.KryptonComboBox();
             this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
             this.btnToolEdit = new Krypton.Toolkit.KryptonCheckButton();
             this.btnToolRect = new Krypton.Toolkit.KryptonCheckButton();
@@ -258,6 +258,9 @@
             this.fastPictureBox2 = new GR.Forms.FastPictureBox();
             this.label8 = new System.Windows.Forms.Label();
             this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
+            this.flowLayoutPanel4 = new System.Windows.Forms.FlowLayoutPanel();
+            this.kryptonLabel2 = new Krypton.Toolkit.KryptonLabel();
+            this.kryptonLabel1 = new Krypton.Toolkit.KryptonLabel();
             ((System.ComponentModel.ISupportInitialize)(this.m_FileWatcher)).BeginInit();
             this.panelMapContainer.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureEditor)).BeginInit();
@@ -271,25 +274,25 @@
             this.menuStrip1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.tabEditor)).BeginInit();
             this.tabEditor.SuspendLayout();
-            this.flowLayoutPanel2.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.comboEntityTypes)).BeginInit();
-            this.groupBox1.SuspendLayout();
-            this.groupBox3.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.comboRightClickBehavior)).BeginInit();
-            this.groupBox2.SuspendLayout();
-            this.groupBoxRevisions.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.comboRevisions)).BeginInit();
-            this.groupBoxShiftClick.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.comboBlankTile)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.comboBlankColor)).BeginInit();
-            this.groupSize.SuspendLayout();
+            this.flowLayoutPanel3.SuspendLayout();
+            this.groupBox4.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.comboMaps)).BeginInit();
+            this.collapsiblePanel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.comboMapAlternativeMode)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.comboMapProjectMode)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.comboMapAlternativeBGColor4)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.comboMapMultiColor2)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.comboMapBGColor)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.comboMapMultiColor1)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.comboMaps)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.comboMapProjectMode)).BeginInit();
+            this.collapsiblePanel3.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.comboRevisions)).BeginInit();
+            this.collapsiblePanelMapTab.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.comboBlankTile)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.comboBlankColor)).BeginInit();
+            this.collapsiblePanel2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.comboRightClickBehavior)).BeginInit();
+            this.flowLayoutPanel2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.comboEntityTypes)).BeginInit();
             this.flowLayoutPanel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.comboTilePlacementColor)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.comboMarkerTypes)).BeginInit();
@@ -309,6 +312,7 @@
             this.tabPage1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.fastPictureBox1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.fastPictureBox2)).BeginInit();
+            this.flowLayoutPanel4.SuspendLayout();
             this.SuspendLayout();
             // 
             // panelMapContainer
@@ -318,9 +322,9 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.panelMapContainer.BackColor = System.Drawing.SystemColors.ControlDark;
             this.panelMapContainer.Controls.Add(this.pictureEditor);
-            this.panelMapContainer.Location = new System.Drawing.Point(177, 81);
+            this.panelMapContainer.Location = new System.Drawing.Point(177, 111);
             this.panelMapContainer.Name = "panelMapContainer";
-            this.panelMapContainer.Size = new System.Drawing.Size(1003, 767);
+            this.panelMapContainer.Size = new System.Drawing.Size(1003, 737);
             this.panelMapContainer.TabIndex = 0;
             // 
             // pictureEditor
@@ -330,11 +334,11 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.pictureEditor.AutoResize = false;
             this.pictureEditor.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.pictureEditor.DisplayPage = fastImage1;
+            this.pictureEditor.DisplayPage = fastImage6;
             this.pictureEditor.Image = null;
-            this.pictureEditor.Location = new System.Drawing.Point(0, 0);
+            this.pictureEditor.Location = new System.Drawing.Point(0, 118);
             this.pictureEditor.Name = "pictureEditor";
-            this.pictureEditor.Size = new System.Drawing.Size(1440, 1071);
+            this.pictureEditor.Size = new System.Drawing.Size(1440, 923);
             this.pictureEditor.TabIndex = 0;
             this.pictureEditor.TabStop = false;
             this.pictureEditor.Paint += new System.Windows.Forms.PaintEventHandler(this.pictureEditor_Paint);
@@ -778,9 +782,9 @@
             this.editExtraDataToolStripMenuItem.Size = new System.Drawing.Size(185, 22);
             this.editExtraDataToolStripMenuItem.Text = "Edit extra data...";
             this.editExtraDataToolStripMenuItem.Click += new System.EventHandler(this.editExtraDataToolStripMenuItem_Click);
-            //
+            // 
             // brightnessTablesToolStripMenuItem
-            //
+            // 
             this.brightnessTablesToolStripMenuItem.Name = "brightnessTablesToolStripMenuItem";
             this.brightnessTablesToolStripMenuItem.Size = new System.Drawing.Size(185, 22);
             this.brightnessTablesToolStripMenuItem.Text = "Brightness tables...";
@@ -789,8 +793,9 @@
             // tabEditor
             // 
             this.tabEditor.AutoHiddenSlideSize = new System.Drawing.Size(200, 200);
+            this.tabEditor.Controls.Add(this.flowLayoutPanel4);
+            this.tabEditor.Controls.Add(this.flowLayoutPanel3);
             this.tabEditor.Controls.Add(this.flowLayoutPanel2);
-            this.tabEditor.Controls.Add(this.groupBox1);
             this.tabEditor.Controls.Add(this.flowLayoutPanel1);
             this.tabEditor.Controls.Add(this.comboTiles);
             this.tabEditor.Controls.Add(this.mapHScroll);
@@ -806,9 +811,737 @@
             this.tabEditor.ToolTipTitle = "Page ToolTip";
             this.tabEditor.UniqueName = "2ee94663d00440529f2d4eb7c920378a";
             // 
+            // flowLayoutPanel3
+            // 
+            this.flowLayoutPanel3.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.flowLayoutPanel3.Controls.Add(this.groupBox4);
+            this.flowLayoutPanel3.Controls.Add(this.collapsiblePanel1);
+            this.flowLayoutPanel3.Controls.Add(this.collapsiblePanel3);
+            this.flowLayoutPanel3.Controls.Add(this.collapsiblePanelMapTab);
+            this.flowLayoutPanel3.Controls.Add(this.collapsiblePanel2);
+            this.flowLayoutPanel3.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
+            this.flowLayoutPanel3.Location = new System.Drawing.Point(1204, 10);
+            this.flowLayoutPanel3.Name = "flowLayoutPanel3";
+            this.flowLayoutPanel3.Size = new System.Drawing.Size(364, 867);
+            this.flowLayoutPanel3.TabIndex = 1;
+            // 
+            // groupBox4
+            // 
+            this.groupBox4.Controls.Add(this.label19);
+            this.groupBox4.Controls.Add(this.comboMaps);
+            this.groupBox4.Location = new System.Drawing.Point(3, 3);
+            this.groupBox4.Name = "groupBox4";
+            this.groupBox4.Size = new System.Drawing.Size(350, 56);
+            this.groupBox4.TabIndex = 1;
+            this.groupBox4.TabStop = false;
+            // 
+            // label19
+            // 
+            this.label19.AutoSize = true;
+            this.label19.Location = new System.Drawing.Point(10, 23);
+            this.label19.Name = "label19";
+            this.label19.Size = new System.Drawing.Size(68, 13);
+            this.label19.TabIndex = 25;
+            this.label19.Text = "Current Map:";
+            // 
+            // comboMaps
+            // 
+            this.comboMaps.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboMaps.DropDownWidth = 246;
+            this.comboMaps.Enabled = false;
+            this.comboMaps.FormattingEnabled = true;
+            this.comboMaps.Location = new System.Drawing.Point(84, 20);
+            this.comboMaps.Name = "comboMaps";
+            this.comboMaps.Size = new System.Drawing.Size(246, 22);
+            this.comboMaps.TabIndex = 0;
+            this.comboMaps.SelectedIndexChanged += new System.EventHandler(this.comboMaps_SelectedIndexChanged);
+            // 
+            // collapsiblePanel1
+            // 
+            this.collapsiblePanel1.Collapsed = true;
+            this.collapsiblePanel1.Controls.Add(this.comboMapAlternativeMode);
+            this.collapsiblePanel1.Controls.Add(this.comboMapProjectMode);
+            this.collapsiblePanel1.Controls.Add(this.label1);
+            this.collapsiblePanel1.Controls.Add(this.comboMapAlternativeBGColor4);
+            this.collapsiblePanel1.Controls.Add(this.label25);
+            this.collapsiblePanel1.Controls.Add(this.editMapWidth);
+            this.collapsiblePanel1.Controls.Add(this.comboMapMultiColor2);
+            this.collapsiblePanel1.Controls.Add(this.label3);
+            this.collapsiblePanel1.Controls.Add(this.comboMapBGColor);
+            this.collapsiblePanel1.Controls.Add(this.editTileSpacingW);
+            this.collapsiblePanel1.Controls.Add(this.comboMapMultiColor1);
+            this.collapsiblePanel1.Controls.Add(this.editMapHeight);
+            this.collapsiblePanel1.Controls.Add(this.btnCopy);
+            this.collapsiblePanel1.Controls.Add(this.editTileSpacingH);
+            this.collapsiblePanel1.Controls.Add(this.btnMoveMapDown);
+            this.collapsiblePanel1.Controls.Add(this.label18);
+            this.collapsiblePanel1.Controls.Add(this.btnMoveMapUp);
+            this.collapsiblePanel1.Controls.Add(this.label21);
+            this.collapsiblePanel1.Controls.Add(this.btnMapAdd);
+            this.collapsiblePanel1.Controls.Add(this.label13);
+            this.collapsiblePanel1.Controls.Add(this.btnMapDelete);
+            this.collapsiblePanel1.Controls.Add(this.editMapName);
+            this.collapsiblePanel1.Controls.Add(this.btnMapApply);
+            this.collapsiblePanel1.Controls.Add(this.label23);
+            this.collapsiblePanel1.Controls.Add(this.label14);
+            this.collapsiblePanel1.Controls.Add(this.label22);
+            this.collapsiblePanel1.ExpandedHeight = 230;
+            this.collapsiblePanel1.Location = new System.Drawing.Point(3, 65);
+            this.collapsiblePanel1.MinimumSize = new System.Drawing.Size(40, 56);
+            this.collapsiblePanel1.Name = "collapsiblePanel1";
+            this.collapsiblePanel1.Padding = new System.Windows.Forms.Padding(0, 22, 0, 0);
+            this.collapsiblePanel1.Size = new System.Drawing.Size(350, 56);
+            this.collapsiblePanel1.TabIndex = 1;
+            this.collapsiblePanel1.Title = "Map details";
+            // 
+            // comboMapAlternativeMode
+            // 
+            this.comboMapAlternativeMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboMapAlternativeMode.DropDownWidth = 121;
+            this.comboMapAlternativeMode.FormattingEnabled = true;
+            this.comboMapAlternativeMode.Location = new System.Drawing.Point(69, 117);
+            this.comboMapAlternativeMode.Name = "comboMapAlternativeMode";
+            this.comboMapAlternativeMode.Size = new System.Drawing.Size(121, 22);
+            this.comboMapAlternativeMode.TabIndex = 11;
+            this.comboMapAlternativeMode.SelectedIndexChanged += new System.EventHandler(this.comboMapAlternativeMode_SelectedIndexChanged);
+            // 
+            // comboMapProjectMode
+            // 
+            this.comboMapProjectMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboMapProjectMode.DropDownWidth = 246;
+            this.comboMapProjectMode.FormattingEnabled = true;
+            this.comboMapProjectMode.Location = new System.Drawing.Point(69, 199);
+            this.comboMapProjectMode.Name = "comboMapProjectMode";
+            this.comboMapProjectMode.Size = new System.Drawing.Size(246, 22);
+            this.comboMapProjectMode.TabIndex = 1;
+            this.comboMapProjectMode.SelectedIndexChanged += new System.EventHandler(this.comboMapProjectMode_SelectedIndexChanged);
+            // 
+            // label1
+            // 
+            this.label1.AutoSize = true;
+            this.label1.Location = new System.Drawing.Point(15, 30);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(30, 13);
+            this.label1.TabIndex = 25;
+            this.label1.Text = "Size:";
+            // 
+            // comboMapAlternativeBGColor4
+            // 
+            this.comboMapAlternativeBGColor4.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboMapAlternativeBGColor4.DropDownWidth = 82;
+            this.comboMapAlternativeBGColor4.Location = new System.Drawing.Point(188, 171);
+            this.comboMapAlternativeBGColor4.Name = "comboMapAlternativeBGColor4";
+            this.comboMapAlternativeBGColor4.Size = new System.Drawing.Size(82, 22);
+            this.comboMapAlternativeBGColor4.TabIndex = 16;
+            this.comboMapAlternativeBGColor4.SelectedIndexChanged += new System.EventHandler(this.comboMapBGColor4_SelectedIndexChanged);
+            // 
+            // label25
+            // 
+            this.label25.AutoSize = true;
+            this.label25.Location = new System.Drawing.Point(15, 203);
+            this.label25.Name = "label25";
+            this.label25.Size = new System.Drawing.Size(37, 13);
+            this.label25.TabIndex = 25;
+            this.label25.Text = "Mode:";
+            // 
+            // editMapWidth
+            // 
+            this.editMapWidth.Location = new System.Drawing.Point(69, 27);
+            this.editMapWidth.Name = "editMapWidth";
+            this.editMapWidth.Size = new System.Drawing.Size(60, 23);
+            this.editMapWidth.TabIndex = 0;
+            this.editMapWidth.Text = "20";
+            // 
+            // comboMapMultiColor2
+            // 
+            this.comboMapMultiColor2.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboMapMultiColor2.DropDownWidth = 82;
+            this.comboMapMultiColor2.Location = new System.Drawing.Point(188, 144);
+            this.comboMapMultiColor2.Name = "comboMapMultiColor2";
+            this.comboMapMultiColor2.Size = new System.Drawing.Size(82, 22);
+            this.comboMapMultiColor2.TabIndex = 14;
+            this.comboMapMultiColor2.SelectedIndexChanged += new System.EventHandler(this.comboMapMultiColor2_SelectedIndexChanged);
+            // 
+            // label3
+            // 
+            this.label3.AutoSize = true;
+            this.label3.Location = new System.Drawing.Point(15, 68);
+            this.label3.Name = "label3";
+            this.label3.Size = new System.Drawing.Size(45, 13);
+            this.label3.TabIndex = 25;
+            this.label3.Text = "Tilesize:";
+            // 
+            // comboMapBGColor
+            // 
+            this.comboMapBGColor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboMapBGColor.DropDownWidth = 82;
+            this.comboMapBGColor.Location = new System.Drawing.Point(69, 171);
+            this.comboMapBGColor.Name = "comboMapBGColor";
+            this.comboMapBGColor.Size = new System.Drawing.Size(82, 22);
+            this.comboMapBGColor.TabIndex = 15;
+            this.comboMapBGColor.SelectedIndexChanged += new System.EventHandler(this.comboMapBGColor_SelectedIndexChanged);
+            // 
+            // editTileSpacingW
+            // 
+            this.editTileSpacingW.Location = new System.Drawing.Point(69, 65);
+            this.editTileSpacingW.Name = "editTileSpacingW";
+            this.editTileSpacingW.Size = new System.Drawing.Size(60, 23);
+            this.editTileSpacingW.TabIndex = 2;
+            this.editTileSpacingW.Text = "2";
+            // 
+            // comboMapMultiColor1
+            // 
+            this.comboMapMultiColor1.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboMapMultiColor1.DropDownWidth = 82;
+            this.comboMapMultiColor1.Location = new System.Drawing.Point(69, 144);
+            this.comboMapMultiColor1.Name = "comboMapMultiColor1";
+            this.comboMapMultiColor1.Size = new System.Drawing.Size(82, 22);
+            this.comboMapMultiColor1.TabIndex = 13;
+            this.comboMapMultiColor1.SelectedIndexChanged += new System.EventHandler(this.comboMapMultiColor1_SelectedIndexChanged);
+            // 
+            // editMapHeight
+            // 
+            this.editMapHeight.Location = new System.Drawing.Point(134, 27);
+            this.editMapHeight.Name = "editMapHeight";
+            this.editMapHeight.Size = new System.Drawing.Size(56, 23);
+            this.editMapHeight.TabIndex = 1;
+            this.editMapHeight.Text = "12";
+            // 
+            // btnCopy
+            // 
+            this.btnCopy.Location = new System.Drawing.Point(301, 88);
+            this.btnCopy.Name = "btnCopy";
+            this.btnCopy.Size = new System.Drawing.Size(35, 23);
+            this.btnCopy.TabIndex = 5;
+            this.btnCopy.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnCopy.Values.Text = "Cpy";
+            this.btnCopy.Click += new System.EventHandler(this.btnMapCopy_Click);
+            // 
+            // editTileSpacingH
+            // 
+            this.editTileSpacingH.Location = new System.Drawing.Point(134, 65);
+            this.editTileSpacingH.Name = "editTileSpacingH";
+            this.editTileSpacingH.Size = new System.Drawing.Size(56, 23);
+            this.editTileSpacingH.TabIndex = 3;
+            this.editTileSpacingH.Text = "2";
+            // 
+            // btnMoveMapDown
+            // 
+            this.btnMoveMapDown.Enabled = false;
+            this.btnMoveMapDown.Location = new System.Drawing.Point(237, 63);
+            this.btnMoveMapDown.Name = "btnMoveMapDown";
+            this.btnMoveMapDown.Size = new System.Drawing.Size(35, 23);
+            this.btnMoveMapDown.TabIndex = 7;
+            this.toolTip1.SetToolTip(this.btnMoveMapDown, "Move Map Down");
+            this.btnMoveMapDown.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnMoveMapDown.Values.Text = "▼";
+            this.btnMoveMapDown.Click += new System.EventHandler(this.btnMoveMapDown_Click);
+            // 
+            // label18
+            // 
+            this.label18.AutoSize = true;
+            this.label18.Location = new System.Drawing.Point(15, 94);
+            this.label18.Name = "label18";
+            this.label18.Size = new System.Drawing.Size(38, 13);
+            this.label18.TabIndex = 25;
+            this.label18.Text = "Name:";
+            // 
+            // btnMoveMapUp
+            // 
+            this.btnMoveMapUp.Enabled = false;
+            this.btnMoveMapUp.Location = new System.Drawing.Point(198, 63);
+            this.btnMoveMapUp.Name = "btnMoveMapUp";
+            this.btnMoveMapUp.Size = new System.Drawing.Size(35, 23);
+            this.btnMoveMapUp.TabIndex = 6;
+            this.toolTip1.SetToolTip(this.btnMoveMapUp, "Move Map Up");
+            this.btnMoveMapUp.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnMoveMapUp.Values.Text = "▲";
+            this.btnMoveMapUp.Click += new System.EventHandler(this.btnMoveMapUp_Click);
+            // 
+            // label21
+            // 
+            this.label21.AutoSize = true;
+            this.label21.Location = new System.Drawing.Point(15, 147);
+            this.label21.Name = "label21";
+            this.label21.Size = new System.Drawing.Size(32, 13);
+            this.label21.TabIndex = 25;
+            this.label21.Text = "MC1:";
+            // 
+            // btnMapAdd
+            // 
+            this.btnMapAdd.Location = new System.Drawing.Point(301, 59);
+            this.btnMapAdd.Name = "btnMapAdd";
+            this.btnMapAdd.Size = new System.Drawing.Size(35, 23);
+            this.btnMapAdd.TabIndex = 4;
+            this.btnMapAdd.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnMapAdd.Values.Text = "Add";
+            this.btnMapAdd.Click += new System.EventHandler(this.btnMapAdd_Click);
+            // 
+            // label13
+            // 
+            this.label13.AutoSize = true;
+            this.label13.Location = new System.Drawing.Point(15, 120);
+            this.label13.Name = "label13";
+            this.label13.Size = new System.Drawing.Size(37, 13);
+            this.label13.TabIndex = 25;
+            this.label13.Text = "Mode:";
+            // 
+            // btnMapDelete
+            // 
+            this.btnMapDelete.Enabled = false;
+            this.btnMapDelete.Location = new System.Drawing.Point(280, 117);
+            this.btnMapDelete.Name = "btnMapDelete";
+            this.btnMapDelete.Size = new System.Drawing.Size(56, 23);
+            this.btnMapDelete.TabIndex = 10;
+            this.btnMapDelete.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnMapDelete.Values.Text = "Delete";
+            this.btnMapDelete.Click += new System.EventHandler(this.btnMapDelete_Click);
+            // 
+            // editMapName
+            // 
+            this.editMapName.Location = new System.Drawing.Point(69, 91);
+            this.editMapName.Name = "editMapName";
+            this.editMapName.Size = new System.Drawing.Size(122, 23);
+            this.editMapName.TabIndex = 8;
+            // 
+            // btnMapApply
+            // 
+            this.btnMapApply.Enabled = false;
+            this.btnMapApply.Location = new System.Drawing.Point(198, 27);
+            this.btnMapApply.Name = "btnMapApply";
+            this.btnMapApply.Size = new System.Drawing.Size(53, 23);
+            this.btnMapApply.TabIndex = 9;
+            this.btnMapApply.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnMapApply.Values.Text = "Apply";
+            this.btnMapApply.Click += new System.EventHandler(this.btnMapApply_Click);
+            // 
+            // label23
+            // 
+            this.label23.AutoSize = true;
+            this.label23.Location = new System.Drawing.Point(15, 174);
+            this.label23.Name = "label23";
+            this.label23.Size = new System.Drawing.Size(25, 13);
+            this.label23.TabIndex = 25;
+            this.label23.Text = "BG:";
+            // 
+            // label14
+            // 
+            this.label14.AutoSize = true;
+            this.label14.Location = new System.Drawing.Point(154, 174);
+            this.label14.Name = "label14";
+            this.label14.Size = new System.Drawing.Size(31, 13);
+            this.label14.TabIndex = 25;
+            this.label14.Text = "BG4:";
+            // 
+            // label22
+            // 
+            this.label22.AutoSize = true;
+            this.label22.Location = new System.Drawing.Point(154, 147);
+            this.label22.Name = "label22";
+            this.label22.Size = new System.Drawing.Size(32, 13);
+            this.label22.TabIndex = 25;
+            this.label22.Text = "MC2:";
+            // 
+            // collapsiblePanel3
+            // 
+            this.collapsiblePanel3.Collapsed = true;
+            this.collapsiblePanel3.Controls.Add(this.labelRevision);
+            this.collapsiblePanel3.Controls.Add(this.comboRevisions);
+            this.collapsiblePanel3.Controls.Add(this.btnDeleteRevision);
+            this.collapsiblePanel3.Controls.Add(this.btnCreateRevision);
+            this.collapsiblePanel3.Controls.Add(this.btnRevertRevision);
+            this.collapsiblePanel3.ExpandedHeight = 94;
+            this.collapsiblePanel3.Location = new System.Drawing.Point(3, 127);
+            this.collapsiblePanel3.MinimumSize = new System.Drawing.Size(40, 22);
+            this.collapsiblePanel3.Name = "collapsiblePanel3";
+            this.collapsiblePanel3.Padding = new System.Windows.Forms.Padding(0, 22, 0, 0);
+            this.collapsiblePanel3.Size = new System.Drawing.Size(350, 22);
+            this.collapsiblePanel3.TabIndex = 1;
+            this.collapsiblePanel3.Title = "Map revisions";
+            // 
+            // labelRevision
+            // 
+            this.labelRevision.AutoSize = true;
+            this.labelRevision.Location = new System.Drawing.Point(9, 30);
+            this.labelRevision.Name = "labelRevision";
+            this.labelRevision.Size = new System.Drawing.Size(51, 13);
+            this.labelRevision.TabIndex = 0;
+            this.labelRevision.Text = "Revision:";
+            // 
+            // comboRevisions
+            // 
+            this.comboRevisions.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboRevisions.DropDownWidth = 250;
+            this.comboRevisions.Location = new System.Drawing.Point(84, 26);
+            this.comboRevisions.Name = "comboRevisions";
+            this.comboRevisions.Size = new System.Drawing.Size(246, 22);
+            this.comboRevisions.TabIndex = 1;
+            this.comboRevisions.SelectedIndexChanged += new System.EventHandler(this.comboRevisions_SelectedIndexChanged);
+            // 
+            // btnDeleteRevision
+            // 
+            this.btnDeleteRevision.Location = new System.Drawing.Point(225, 62);
+            this.btnDeleteRevision.Name = "btnDeleteRevision";
+            this.btnDeleteRevision.Size = new System.Drawing.Size(94, 23);
+            this.btnDeleteRevision.TabIndex = 4;
+            this.toolTip1.SetToolTip(this.btnDeleteRevision, "Delete the selected revision (with confirmation).");
+            this.btnDeleteRevision.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnDeleteRevision.Values.Text = "Delete";
+            this.btnDeleteRevision.Click += new System.EventHandler(this.btnDeleteRevision_Click);
+            // 
+            // btnCreateRevision
+            // 
+            this.btnCreateRevision.Location = new System.Drawing.Point(9, 62);
+            this.btnCreateRevision.Name = "btnCreateRevision";
+            this.btnCreateRevision.Size = new System.Drawing.Size(110, 23);
+            this.btnCreateRevision.TabIndex = 2;
+            this.toolTip1.SetToolTip(this.btnCreateRevision, "Snapshot the current map as a new revision.");
+            this.btnCreateRevision.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnCreateRevision.Values.Text = "Create Revision";
+            this.btnCreateRevision.Click += new System.EventHandler(this.btnCreateRevision_Click);
+            // 
+            // btnRevertRevision
+            // 
+            this.btnRevertRevision.Location = new System.Drawing.Point(125, 62);
+            this.btnRevertRevision.Name = "btnRevertRevision";
+            this.btnRevertRevision.Size = new System.Drawing.Size(94, 23);
+            this.btnRevertRevision.TabIndex = 3;
+            this.toolTip1.SetToolTip(this.btnRevertRevision, "Replace the live map with the selected revision (with confirmation).");
+            this.btnRevertRevision.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnRevertRevision.Values.Text = "Revert to...";
+            this.btnRevertRevision.Click += new System.EventHandler(this.btnRevertRevision_Click);
+            // 
+            // collapsiblePanelMapTab
+            // 
+            this.collapsiblePanelMapTab.BackColor = System.Drawing.SystemColors.Control;
+            this.collapsiblePanelMapTab.Collapsed = true;
+            this.collapsiblePanelMapTab.Controls.Add(this.labelBlankTile);
+            this.collapsiblePanelMapTab.Controls.Add(this.comboBlankTile);
+            this.collapsiblePanelMapTab.Controls.Add(this.comboBlankColor);
+            this.collapsiblePanelMapTab.Controls.Add(this.labelBlankColor);
+            this.collapsiblePanelMapTab.ExpandedHeight = 81;
+            this.collapsiblePanelMapTab.ForeColor = System.Drawing.SystemColors.ControlText;
+            this.collapsiblePanelMapTab.Location = new System.Drawing.Point(3, 155);
+            this.collapsiblePanelMapTab.MinimumSize = new System.Drawing.Size(40, 22);
+            this.collapsiblePanelMapTab.Name = "collapsiblePanelMapTab";
+            this.collapsiblePanelMapTab.Padding = new System.Windows.Forms.Padding(0, 22, 0, 0);
+            this.collapsiblePanelMapTab.Size = new System.Drawing.Size(350, 22);
+            this.collapsiblePanelMapTab.TabIndex = 41;
+            this.collapsiblePanelMapTab.Title = "Shift-click behavior";
+            // 
+            // labelBlankTile
+            // 
+            this.labelBlankTile.AutoSize = true;
+            this.labelBlankTile.Location = new System.Drawing.Point(15, 32);
+            this.labelBlankTile.Name = "labelBlankTile";
+            this.labelBlankTile.Size = new System.Drawing.Size(53, 13);
+            this.labelBlankTile.TabIndex = 0;
+            this.labelBlankTile.Text = "Blank tile:";
+            // 
+            // comboBlankTile
+            // 
+            this.comboBlankTile.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboBlankTile.DropDownWidth = 250;
+            this.comboBlankTile.Location = new System.Drawing.Point(15, 48);
+            this.comboBlankTile.Name = "comboBlankTile";
+            this.comboBlankTile.Size = new System.Drawing.Size(146, 22);
+            this.comboBlankTile.TabIndex = 1;
+            this.comboBlankTile.SelectedIndexChanged += new System.EventHandler(this.comboBlankTile_SelectedIndexChanged);
+            // 
+            // comboBlankColor
+            // 
+            this.comboBlankColor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboBlankColor.DropDownWidth = 250;
+            this.comboBlankColor.Location = new System.Drawing.Point(172, 48);
+            this.comboBlankColor.Name = "comboBlankColor";
+            this.comboBlankColor.Size = new System.Drawing.Size(153, 22);
+            this.comboBlankColor.TabIndex = 3;
+            this.comboBlankColor.SelectedIndexChanged += new System.EventHandler(this.comboBlankColor_SelectedIndexChanged);
+            // 
+            // labelBlankColor
+            // 
+            this.labelBlankColor.AutoSize = true;
+            this.labelBlankColor.Location = new System.Drawing.Point(169, 32);
+            this.labelBlankColor.Name = "labelBlankColor";
+            this.labelBlankColor.Size = new System.Drawing.Size(63, 13);
+            this.labelBlankColor.TabIndex = 2;
+            this.labelBlankColor.Text = "Blank color:";
+            // 
+            // collapsiblePanel2
+            // 
+            this.collapsiblePanel2.Collapsed = true;
+            this.collapsiblePanel2.Controls.Add(this.labelGridOpacity);
+            this.collapsiblePanel2.Controls.Add(this.gridOpacitySlider);
+            this.collapsiblePanel2.Controls.Add(this.dimSlider);
+            this.collapsiblePanel2.Controls.Add(this.labelTileListRowSpacing);
+            this.collapsiblePanel2.Controls.Add(this.labelDesignerBackground);
+            this.collapsiblePanel2.Controls.Add(this.editTileListRowSpacing);
+            this.collapsiblePanel2.Controls.Add(this.btnShiftLeft);
+            this.collapsiblePanel2.Controls.Add(this.labelTileListRowSeparatorColor);
+            this.collapsiblePanel2.Controls.Add(this.btnDesignerBackground);
+            this.collapsiblePanel2.Controls.Add(this.btnTileListRowSeparatorColor);
+            this.collapsiblePanel2.Controls.Add(this.btnDisplayFilters);
+            this.collapsiblePanel2.Controls.Add(this.labelRightClickBehavior);
+            this.collapsiblePanel2.Controls.Add(this.comboRightClickBehavior);
+            this.collapsiblePanel2.Controls.Add(this.btnMapHeightDec);
+            this.collapsiblePanel2.Controls.Add(this.checkFilterEnabled);
+            this.collapsiblePanel2.Controls.Add(this.btnMapHeightInc);
+            this.collapsiblePanel2.Controls.Add(this.btnShiftUp);
+            this.collapsiblePanel2.Controls.Add(this.btnMapWidthDec);
+            this.collapsiblePanel2.Controls.Add(this.btnMapWidthInc);
+            this.collapsiblePanel2.Controls.Add(this.btnShiftDown);
+            this.collapsiblePanel2.Controls.Add(this.btnShiftRight);
+            this.collapsiblePanel2.ExpandedHeight = 295;
+            this.collapsiblePanel2.Location = new System.Drawing.Point(3, 183);
+            this.collapsiblePanel2.MinimumSize = new System.Drawing.Size(40, 56);
+            this.collapsiblePanel2.Name = "collapsiblePanel2";
+            this.collapsiblePanel2.Padding = new System.Windows.Forms.Padding(0, 22, 0, 0);
+            this.collapsiblePanel2.Size = new System.Drawing.Size(350, 56);
+            this.collapsiblePanel2.TabIndex = 42;
+            this.collapsiblePanel2.Title = "Map tools";
+            // 
+            // labelGridOpacity
+            // 
+            this.labelGridOpacity.AutoSize = true;
+            this.labelGridOpacity.Location = new System.Drawing.Point(5, 216);
+            this.labelGridOpacity.Name = "labelGridOpacity";
+            this.labelGridOpacity.Size = new System.Drawing.Size(66, 13);
+            this.labelGridOpacity.TabIndex = 36;
+            this.labelGridOpacity.Text = "Grid opacity:";
+            // 
+            // gridOpacitySlider
+            // 
+            this.gridOpacitySlider.Location = new System.Drawing.Point(5, 234);
+            this.gridOpacitySlider.Maximum = 100;
+            this.gridOpacitySlider.Name = "gridOpacitySlider";
+            this.gridOpacitySlider.Size = new System.Drawing.Size(310, 27);
+            this.gridOpacitySlider.TabIndex = 37;
+            this.gridOpacitySlider.TickFrequency = 10;
+            this.gridOpacitySlider.Value = 100;
+            this.gridOpacitySlider.ValueChanged += new System.EventHandler(this.gridOpacitySlider_ValueChanged);
+            // 
+            // dimSlider
+            // 
+            this.dimSlider.Location = new System.Drawing.Point(8, 174);
+            this.dimSlider.Maximum = 100;
+            this.dimSlider.Name = "dimSlider";
+            this.dimSlider.Size = new System.Drawing.Size(310, 27);
+            this.dimSlider.TabIndex = 0;
+            this.dimSlider.TickFrequency = 10;
+            this.dimSlider.Value = 100;
+            this.dimSlider.ValueChanged += new System.EventHandler(this.dimSlider_ValueChanged);
+            this.dimSlider.Scroll += new System.EventHandler(this.dimSlider_Scroll);
+            // 
+            // labelTileListRowSpacing
+            // 
+            this.labelTileListRowSpacing.AutoSize = true;
+            this.labelTileListRowSpacing.Location = new System.Drawing.Point(5, 268);
+            this.labelTileListRowSpacing.Name = "labelTileListRowSpacing";
+            this.labelTileListRowSpacing.Size = new System.Drawing.Size(102, 13);
+            this.labelTileListRowSpacing.TabIndex = 38;
+            this.labelTileListRowSpacing.Text = "Tile list row spacing:";
+            // 
+            // labelDesignerBackground
+            // 
+            this.labelDesignerBackground.AutoSize = true;
+            this.labelDesignerBackground.Location = new System.Drawing.Point(7, 117);
+            this.labelDesignerBackground.Name = "labelDesignerBackground";
+            this.labelDesignerBackground.Size = new System.Drawing.Size(81, 13);
+            this.labelDesignerBackground.TabIndex = 34;
+            this.labelDesignerBackground.Text = "Map back color";
+            // 
+            // editTileListRowSpacing
+            // 
+            this.editTileListRowSpacing.Increment = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.editTileListRowSpacing.Location = new System.Drawing.Point(110, 265);
+            this.editTileListRowSpacing.Maximum = new decimal(new int[] {
+            32,
+            0,
+            0,
+            0});
+            this.editTileListRowSpacing.Minimum = new decimal(new int[] {
+            0,
+            0,
+            0,
+            0});
+            this.editTileListRowSpacing.Name = "editTileListRowSpacing";
+            this.editTileListRowSpacing.Size = new System.Drawing.Size(60, 22);
+            this.editTileListRowSpacing.TabIndex = 39;
+            this.editTileListRowSpacing.Value = new decimal(new int[] {
+            4,
+            0,
+            0,
+            0});
+            this.editTileListRowSpacing.ValueChanged += new System.EventHandler(this.editTileListRowSpacing_ValueChanged);
+            // 
+            // btnShiftLeft
+            // 
+            this.btnShiftLeft.Location = new System.Drawing.Point(10, 25);
+            this.btnShiftLeft.Name = "btnShiftLeft";
+            this.btnShiftLeft.Size = new System.Drawing.Size(24, 24);
+            this.btnShiftLeft.TabIndex = 12;
+            this.toolTip1.SetToolTip(this.btnShiftLeft, "Shift Map Left");
+            this.btnShiftLeft.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnShiftLeft.Values.Text = "◄";
+            this.btnShiftLeft.Click += new System.EventHandler(this.btnShiftLeft_Click);
+            // 
+            // labelTileListRowSeparatorColor
+            // 
+            this.labelTileListRowSeparatorColor.AutoSize = true;
+            this.labelTileListRowSeparatorColor.Location = new System.Drawing.Point(180, 268);
+            this.labelTileListRowSeparatorColor.Name = "labelTileListRowSeparatorColor";
+            this.labelTileListRowSeparatorColor.Size = new System.Drawing.Size(34, 13);
+            this.labelTileListRowSeparatorColor.TabIndex = 40;
+            this.labelTileListRowSeparatorColor.Text = "Color:";
+            // 
+            // btnDesignerBackground
+            // 
+            this.btnDesignerBackground.FlatAppearance.BorderColor = System.Drawing.Color.Black;
+            this.btnDesignerBackground.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnDesignerBackground.Location = new System.Drawing.Point(7, 133);
+            this.btnDesignerBackground.Name = "btnDesignerBackground";
+            this.btnDesignerBackground.Size = new System.Drawing.Size(146, 22);
+            this.btnDesignerBackground.TabIndex = 35;
+            this.btnDesignerBackground.UseVisualStyleBackColor = false;
+            this.btnDesignerBackground.Click += new System.EventHandler(this.btnDesignerBackground_Click);
+            // 
+            // btnTileListRowSeparatorColor
+            // 
+            this.btnTileListRowSeparatorColor.Location = new System.Drawing.Point(230, 265);
+            this.btnTileListRowSeparatorColor.Name = "btnTileListRowSeparatorColor";
+            this.btnTileListRowSeparatorColor.Size = new System.Drawing.Size(60, 22);
+            this.btnTileListRowSeparatorColor.TabIndex = 41;
+            this.btnTileListRowSeparatorColor.UseVisualStyleBackColor = true;
+            this.btnTileListRowSeparatorColor.Click += new System.EventHandler(this.btnTileListRowSeparatorColor_Click);
+            // 
+            // btnDisplayFilters
+            // 
+            this.btnDisplayFilters.Location = new System.Drawing.Point(246, 25);
+            this.btnDisplayFilters.Name = "btnDisplayFilters";
+            this.btnDisplayFilters.Size = new System.Drawing.Size(72, 24);
+            this.btnDisplayFilters.TabIndex = 17;
+            this.toolTip1.SetToolTip(this.btnDisplayFilters, "Configure CRT-style display filters (scanlines, phosphor mask, etc.)");
+            this.btnDisplayFilters.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnDisplayFilters.Values.Text = "CRT Filters...";
+            this.btnDisplayFilters.Click += new System.EventHandler(this.btnDisplayFilters_Click);
+            // 
+            // labelRightClickBehavior
+            // 
+            this.labelRightClickBehavior.AutoSize = true;
+            this.labelRightClickBehavior.Location = new System.Drawing.Point(8, 70);
+            this.labelRightClickBehavior.Name = "labelRightClickBehavior";
+            this.labelRightClickBehavior.Size = new System.Drawing.Size(104, 13);
+            this.labelRightClickBehavior.TabIndex = 32;
+            this.labelRightClickBehavior.Text = "Right-click behavior:";
+            // 
+            // comboRightClickBehavior
+            // 
+            this.comboRightClickBehavior.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboRightClickBehavior.DropDownWidth = 266;
+            this.comboRightClickBehavior.FormattingEnabled = true;
+            this.comboRightClickBehavior.Location = new System.Drawing.Point(8, 86);
+            this.comboRightClickBehavior.Name = "comboRightClickBehavior";
+            this.comboRightClickBehavior.Size = new System.Drawing.Size(157, 22);
+            this.comboRightClickBehavior.TabIndex = 33;
+            // 
+            // btnMapHeightDec
+            // 
+            this.btnMapHeightDec.Location = new System.Drawing.Point(212, 25);
+            this.btnMapHeightDec.Name = "btnMapHeightDec";
+            this.btnMapHeightDec.Size = new System.Drawing.Size(28, 24);
+            this.btnMapHeightDec.TabIndex = 21;
+            this.toolTip1.SetToolTip(this.btnMapHeightDec, "Remove the bottom row (height -1)");
+            this.btnMapHeightDec.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnMapHeightDec.Values.Text = "H−";
+            this.btnMapHeightDec.Click += new System.EventHandler(this.btnMapHeightDec_Click);
+            // 
+            // checkFilterEnabled
+            // 
+            this.checkFilterEnabled.Location = new System.Drawing.Point(224, 70);
+            this.checkFilterEnabled.Name = "checkFilterEnabled";
+            this.checkFilterEnabled.Size = new System.Drawing.Size(98, 22);
+            this.checkFilterEnabled.TabIndex = 18;
+            this.toolTip1.SetToolTip(this.checkFilterEnabled, "Session-only toggle — bypasses the entire filter pipeline without changing any pe" +
+        "r-filter settings.");
+            this.checkFilterEnabled.Values.Text = "Filter enabled";
+            this.checkFilterEnabled.CheckedChanged += new System.EventHandler(this.checkFilterEnabled_CheckedChanged);
+            // 
+            // btnMapHeightInc
+            // 
+            this.btnMapHeightInc.Location = new System.Drawing.Point(182, 25);
+            this.btnMapHeightInc.Name = "btnMapHeightInc";
+            this.btnMapHeightInc.Size = new System.Drawing.Size(28, 24);
+            this.btnMapHeightInc.TabIndex = 20;
+            this.toolTip1.SetToolTip(this.btnMapHeightInc, "Add a row to the map (height +1)");
+            this.btnMapHeightInc.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnMapHeightInc.Values.Text = "H+";
+            this.btnMapHeightInc.Click += new System.EventHandler(this.btnMapHeightInc_Click);
+            // 
+            // btnShiftUp
+            // 
+            this.btnShiftUp.Location = new System.Drawing.Point(36, 25);
+            this.btnShiftUp.Name = "btnShiftUp";
+            this.btnShiftUp.Size = new System.Drawing.Size(24, 24);
+            this.btnShiftUp.TabIndex = 13;
+            this.toolTip1.SetToolTip(this.btnShiftUp, "Shift Map Up");
+            this.btnShiftUp.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnShiftUp.Values.Text = "▲";
+            this.btnShiftUp.Click += new System.EventHandler(this.btnShiftUp_Click);
+            // 
+            // btnMapWidthDec
+            // 
+            this.btnMapWidthDec.Location = new System.Drawing.Point(150, 25);
+            this.btnMapWidthDec.Name = "btnMapWidthDec";
+            this.btnMapWidthDec.Size = new System.Drawing.Size(30, 24);
+            this.btnMapWidthDec.TabIndex = 19;
+            this.toolTip1.SetToolTip(this.btnMapWidthDec, "Remove the rightmost column (width -1)");
+            this.btnMapWidthDec.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnMapWidthDec.Values.Text = "W−";
+            this.btnMapWidthDec.Click += new System.EventHandler(this.btnMapWidthDec_Click);
+            // 
+            // btnMapWidthInc
+            // 
+            this.btnMapWidthInc.Location = new System.Drawing.Point(117, 25);
+            this.btnMapWidthInc.Name = "btnMapWidthInc";
+            this.btnMapWidthInc.Size = new System.Drawing.Size(30, 24);
+            this.btnMapWidthInc.TabIndex = 18;
+            this.toolTip1.SetToolTip(this.btnMapWidthInc, "Add a column to the map (width +1)");
+            this.btnMapWidthInc.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnMapWidthInc.Values.Text = "W+";
+            this.btnMapWidthInc.Click += new System.EventHandler(this.btnMapWidthInc_Click);
+            // 
+            // btnShiftDown
+            // 
+            this.btnShiftDown.Location = new System.Drawing.Point(62, 25);
+            this.btnShiftDown.Name = "btnShiftDown";
+            this.btnShiftDown.Size = new System.Drawing.Size(24, 24);
+            this.btnShiftDown.TabIndex = 14;
+            this.toolTip1.SetToolTip(this.btnShiftDown, "Shift Map Down");
+            this.btnShiftDown.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnShiftDown.Values.Text = "▼";
+            this.btnShiftDown.Click += new System.EventHandler(this.btnShiftDown_Click);
+            // 
+            // btnShiftRight
+            // 
+            this.btnShiftRight.Location = new System.Drawing.Point(88, 25);
+            this.btnShiftRight.Name = "btnShiftRight";
+            this.btnShiftRight.Size = new System.Drawing.Size(24, 24);
+            this.btnShiftRight.TabIndex = 15;
+            this.toolTip1.SetToolTip(this.btnShiftRight, "Shift Map Right");
+            this.btnShiftRight.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnShiftRight.Values.Text = "►";
+            this.btnShiftRight.Click += new System.EventHandler(this.btnShiftRight_Click);
+            // 
             // flowLayoutPanel2
             // 
-            this.flowLayoutPanel2.Controls.Add(this.btnToolEntity);
+            this.flowLayoutPanel2.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.flowLayoutPanel2.Controls.Add(this.kryptonLabel2);
             this.flowLayoutPanel2.Controls.Add(this.comboEntityTypes);
             this.flowLayoutPanel2.Controls.Add(this.labelEntityValue1);
             this.flowLayoutPanel2.Controls.Add(this.editEntityValue1Default);
@@ -825,7 +1558,7 @@
             // 
             // btnToolEntity
             // 
-            this.btnToolEntity.Location = new System.Drawing.Point(3, 3);
+            this.btnToolEntity.Location = new System.Drawing.Point(183, 3);
             this.btnToolEntity.Name = "btnToolEntity";
             this.btnToolEntity.Size = new System.Drawing.Size(24, 24);
             this.btnToolEntity.TabIndex = 40;
@@ -838,7 +1571,7 @@
             // 
             this.comboEntityTypes.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboEntityTypes.DropDownWidth = 150;
-            this.comboEntityTypes.Location = new System.Drawing.Point(33, 3);
+            this.comboEntityTypes.Location = new System.Drawing.Point(78, 3);
             this.comboEntityTypes.Name = "comboEntityTypes";
             this.comboEntityTypes.Size = new System.Drawing.Size(150, 22);
             this.comboEntityTypes.TabIndex = 41;
@@ -847,7 +1580,7 @@
             // labelEntityValue1
             // 
             this.labelEntityValue1.AutoSize = true;
-            this.labelEntityValue1.Location = new System.Drawing.Point(189, 7);
+            this.labelEntityValue1.Location = new System.Drawing.Point(234, 7);
             this.labelEntityValue1.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
             this.labelEntityValue1.Name = "labelEntityValue1";
             this.labelEntityValue1.Size = new System.Drawing.Size(46, 13);
@@ -861,7 +1594,7 @@
             0,
             0,
             0});
-            this.editEntityValue1Default.Location = new System.Drawing.Point(238, 3);
+            this.editEntityValue1Default.Location = new System.Drawing.Point(283, 3);
             this.editEntityValue1Default.Maximum = new decimal(new int[] {
             255,
             0,
@@ -885,7 +1618,7 @@
             // labelEntityValue2
             // 
             this.labelEntityValue2.AutoSize = true;
-            this.labelEntityValue2.Location = new System.Drawing.Point(299, 7);
+            this.labelEntityValue2.Location = new System.Drawing.Point(344, 7);
             this.labelEntityValue2.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
             this.labelEntityValue2.Name = "labelEntityValue2";
             this.labelEntityValue2.Size = new System.Drawing.Size(46, 13);
@@ -899,7 +1632,7 @@
             0,
             0,
             0});
-            this.editEntityValue2Default.Location = new System.Drawing.Point(348, 3);
+            this.editEntityValue2Default.Location = new System.Drawing.Point(393, 3);
             this.editEntityValue2Default.Maximum = new decimal(new int[] {
             255,
             0,
@@ -925,7 +1658,7 @@
             this.checkEntityDefaultEnabled.AutoSize = false;
             this.checkEntityDefaultEnabled.Checked = true;
             this.checkEntityDefaultEnabled.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.checkEntityDefaultEnabled.Location = new System.Drawing.Point(412, 5);
+            this.checkEntityDefaultEnabled.Location = new System.Drawing.Point(457, 5);
             this.checkEntityDefaultEnabled.Margin = new System.Windows.Forms.Padding(6, 5, 3, 0);
             this.checkEntityDefaultEnabled.Name = "checkEntityDefaultEnabled";
             this.checkEntityDefaultEnabled.Size = new System.Drawing.Size(83, 22);
@@ -936,7 +1669,7 @@
             // checkEntityDefaultTriggered
             // 
             this.checkEntityDefaultTriggered.AutoSize = false;
-            this.checkEntityDefaultTriggered.Location = new System.Drawing.Point(504, 5);
+            this.checkEntityDefaultTriggered.Location = new System.Drawing.Point(549, 5);
             this.checkEntityDefaultTriggered.Margin = new System.Windows.Forms.Padding(6, 5, 3, 0);
             this.checkEntityDefaultTriggered.Name = "checkEntityDefaultTriggered";
             this.checkEntityDefaultTriggered.Size = new System.Drawing.Size(83, 22);
@@ -947,7 +1680,7 @@
             // btnDeleteSelectedEntity
             // 
             this.btnDeleteSelectedEntity.Enabled = false;
-            this.btnDeleteSelectedEntity.Location = new System.Drawing.Point(593, 3);
+            this.btnDeleteSelectedEntity.Location = new System.Drawing.Point(638, 3);
             this.btnDeleteSelectedEntity.Margin = new System.Windows.Forms.Padding(3, 3, 3, 0);
             this.btnDeleteSelectedEntity.Name = "btnDeleteSelectedEntity";
             this.btnDeleteSelectedEntity.Size = new System.Drawing.Size(26, 24);
@@ -963,7 +1696,7 @@
             this.checkShowEntities.AutoSize = false;
             this.checkShowEntities.Checked = true;
             this.checkShowEntities.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.checkShowEntities.Location = new System.Drawing.Point(628, 5);
+            this.checkShowEntities.Location = new System.Drawing.Point(673, 5);
             this.checkShowEntities.Margin = new System.Windows.Forms.Padding(6, 5, 3, 0);
             this.checkShowEntities.Name = "checkShowEntities";
             this.checkShowEntities.Size = new System.Drawing.Size(103, 20);
@@ -971,284 +1704,9 @@
             this.checkShowEntities.Values.Text = "Show Entities";
             this.checkShowEntities.CheckedChanged += new System.EventHandler(this.checkShowEntities_CheckedChanged);
             // 
-            // groupBox1
-            // 
-            this.groupBox1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.groupBox1.BackColor = System.Drawing.Color.Transparent;
-            this.groupBox1.Controls.Add(this.groupBox3);
-            this.groupBox1.Controls.Add(this.groupBox2);
-            this.groupBox1.Controls.Add(this.groupBoxRevisions);
-            this.groupBox1.Controls.Add(this.groupBoxShiftClick);
-            this.groupBox1.Controls.Add(this.label19);
-            this.groupBox1.Controls.Add(this.label25);
-            this.groupBox1.Controls.Add(this.groupSize);
-            this.groupBox1.Controls.Add(this.comboMaps);
-            this.groupBox1.Controls.Add(this.comboMapProjectMode);
-            this.groupBox1.Location = new System.Drawing.Point(1205, 9);
-            this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(361, 945);
-            this.groupBox1.TabIndex = 37;
-            this.groupBox1.TabStop = false;
-            this.groupBox1.Text = "Map Controls";
-            // 
-            // groupBox3
-            // 
-            this.groupBox3.Controls.Add(this.dimSlider);
-            this.groupBox3.Controls.Add(this.labelGridOpacity);
-            this.groupBox3.Controls.Add(this.gridOpacitySlider);
-            this.groupBox3.Controls.Add(this.labelTileListRowSpacing);
-            this.groupBox3.Controls.Add(this.editTileListRowSpacing);
-            this.groupBox3.Controls.Add(this.labelTileListRowSeparatorColor);
-            this.groupBox3.Controls.Add(this.btnTileListRowSeparatorColor);
-            this.groupBox3.Controls.Add(this.labelRightClickBehavior);
-            this.groupBox3.Controls.Add(this.comboRightClickBehavior);
-            this.groupBox3.Controls.Add(this.btnDesignerBackground);
-            this.groupBox3.Controls.Add(this.labelDesignerBackground);
-            this.groupBox3.Location = new System.Drawing.Point(11, 367);
-            this.groupBox3.Name = "groupBox3";
-            this.groupBox3.Size = new System.Drawing.Size(331, 200);
-            this.groupBox3.TabIndex = 38;
-            this.groupBox3.TabStop = false;
-            this.groupBox3.Text = "groupBox3";
-            // 
-            // dimSlider
-            // 
-            this.dimSlider.Location = new System.Drawing.Point(15, 77);
-            this.dimSlider.Maximum = 100;
-            this.dimSlider.Name = "dimSlider";
-            this.dimSlider.Size = new System.Drawing.Size(310, 27);
-            this.dimSlider.TabIndex = 0;
-            this.dimSlider.TickFrequency = 10;
-            this.dimSlider.Value = 100;
-            this.dimSlider.ValueChanged += new System.EventHandler(this.dimSlider_ValueChanged);
-            this.dimSlider.Scroll += new System.EventHandler(this.dimSlider_Scroll);
-            // 
-            // labelGridOpacity
-            // 
-            this.labelGridOpacity.AutoSize = true;
-            this.labelGridOpacity.Location = new System.Drawing.Point(15, 110);
-            this.labelGridOpacity.Name = "labelGridOpacity";
-            this.labelGridOpacity.Size = new System.Drawing.Size(66, 13);
-            this.labelGridOpacity.TabIndex = 36;
-            this.labelGridOpacity.Text = "Grid opacity:";
-            // 
-            // gridOpacitySlider
-            // 
-            this.gridOpacitySlider.Location = new System.Drawing.Point(15, 128);
-            this.gridOpacitySlider.Maximum = 100;
-            this.gridOpacitySlider.Name = "gridOpacitySlider";
-            this.gridOpacitySlider.Size = new System.Drawing.Size(310, 27);
-            this.gridOpacitySlider.TabIndex = 37;
-            this.gridOpacitySlider.TickFrequency = 10;
-            this.gridOpacitySlider.Value = 100;
-            this.gridOpacitySlider.ValueChanged += new System.EventHandler(this.gridOpacitySlider_ValueChanged);
-            // 
-            // labelTileListRowSpacing
-            // 
-            this.labelTileListRowSpacing.AutoSize = true;
-            this.labelTileListRowSpacing.Location = new System.Drawing.Point(15, 162);
-            this.labelTileListRowSpacing.Name = "labelTileListRowSpacing";
-            this.labelTileListRowSpacing.Size = new System.Drawing.Size(102, 13);
-            this.labelTileListRowSpacing.TabIndex = 38;
-            this.labelTileListRowSpacing.Text = "Tile list row spacing:";
-            // 
-            // editTileListRowSpacing
-            // 
-            this.editTileListRowSpacing.Increment = new decimal(new int[] {
-            1,
-            0,
-            0,
-            0});
-            this.editTileListRowSpacing.Location = new System.Drawing.Point(120, 159);
-            this.editTileListRowSpacing.Maximum = new decimal(new int[] {
-            32,
-            0,
-            0,
-            0});
-            this.editTileListRowSpacing.Minimum = new decimal(new int[] {
-            0,
-            0,
-            0,
-            0});
-            this.editTileListRowSpacing.Name = "editTileListRowSpacing";
-            this.editTileListRowSpacing.Size = new System.Drawing.Size(60, 22);
-            this.editTileListRowSpacing.TabIndex = 39;
-            this.editTileListRowSpacing.Value = new decimal(new int[] {
-            4,
-            0,
-            0,
-            0});
-            this.editTileListRowSpacing.ValueChanged += new System.EventHandler(this.editTileListRowSpacing_ValueChanged);
-            // 
-            // labelTileListRowSeparatorColor
-            // 
-            this.labelTileListRowSeparatorColor.AutoSize = true;
-            this.labelTileListRowSeparatorColor.Location = new System.Drawing.Point(190, 162);
-            this.labelTileListRowSeparatorColor.Name = "labelTileListRowSeparatorColor";
-            this.labelTileListRowSeparatorColor.Size = new System.Drawing.Size(34, 13);
-            this.labelTileListRowSeparatorColor.TabIndex = 40;
-            this.labelTileListRowSeparatorColor.Text = "Color:";
-            // 
-            // btnTileListRowSeparatorColor
-            // 
-            this.btnTileListRowSeparatorColor.Location = new System.Drawing.Point(240, 159);
-            this.btnTileListRowSeparatorColor.Name = "btnTileListRowSeparatorColor";
-            this.btnTileListRowSeparatorColor.Size = new System.Drawing.Size(60, 22);
-            this.btnTileListRowSeparatorColor.TabIndex = 41;
-            this.btnTileListRowSeparatorColor.UseVisualStyleBackColor = true;
-            this.btnTileListRowSeparatorColor.Click += new System.EventHandler(this.btnTileListRowSeparatorColor_Click);
-            // 
-            // labelRightClickBehavior
-            // 
-            this.labelRightClickBehavior.AutoSize = true;
-            this.labelRightClickBehavior.Location = new System.Drawing.Point(15, 24);
-            this.labelRightClickBehavior.Name = "labelRightClickBehavior";
-            this.labelRightClickBehavior.Size = new System.Drawing.Size(104, 13);
-            this.labelRightClickBehavior.TabIndex = 32;
-            this.labelRightClickBehavior.Text = "Right-click behavior:";
-            // 
-            // comboRightClickBehavior
-            // 
-            this.comboRightClickBehavior.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboRightClickBehavior.DropDownWidth = 266;
-            this.comboRightClickBehavior.FormattingEnabled = true;
-            this.comboRightClickBehavior.Location = new System.Drawing.Point(15, 40);
-            this.comboRightClickBehavior.Name = "comboRightClickBehavior";
-            this.comboRightClickBehavior.Size = new System.Drawing.Size(157, 22);
-            this.comboRightClickBehavior.TabIndex = 33;
-            // 
-            // btnDesignerBackground
-            // 
-            this.btnDesignerBackground.FlatAppearance.BorderColor = System.Drawing.Color.Black;
-            this.btnDesignerBackground.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnDesignerBackground.Location = new System.Drawing.Point(179, 40);
-            this.btnDesignerBackground.Name = "btnDesignerBackground";
-            this.btnDesignerBackground.Size = new System.Drawing.Size(146, 22);
-            this.btnDesignerBackground.TabIndex = 35;
-            this.btnDesignerBackground.UseVisualStyleBackColor = false;
-            this.btnDesignerBackground.Click += new System.EventHandler(this.btnDesignerBackground_Click);
-            // 
-            // labelDesignerBackground
-            // 
-            this.labelDesignerBackground.AutoSize = true;
-            this.labelDesignerBackground.Location = new System.Drawing.Point(179, 24);
-            this.labelDesignerBackground.Name = "labelDesignerBackground";
-            this.labelDesignerBackground.Size = new System.Drawing.Size(81, 13);
-            this.labelDesignerBackground.TabIndex = 34;
-            this.labelDesignerBackground.Text = "Map back color";
-            // 
-            // groupBox2
-            // 
-            this.groupBox2.Controls.Add(this.btnShiftLeft);
-            this.groupBox2.Controls.Add(this.btnShiftUp);
-            this.groupBox2.Controls.Add(this.btnShiftDown);
-            this.groupBox2.Controls.Add(this.btnShiftRight);
-            this.groupBox2.Controls.Add(this.btnMapWidthInc);
-            this.groupBox2.Controls.Add(this.btnMapWidthDec);
-            this.groupBox2.Controls.Add(this.btnMapHeightInc);
-            this.groupBox2.Controls.Add(this.btnMapHeightDec);
-            this.groupBox2.Controls.Add(this.btnRemoveOverlappingTiles);
-            this.groupBox2.Controls.Add(this.btnDisplayFilters);
-            this.groupBox2.Controls.Add(this.checkFilterEnabled);
-            this.groupBox2.Location = new System.Drawing.Point(11, 268);
-            this.groupBox2.Name = "groupBox2";
-            this.groupBox2.Size = new System.Drawing.Size(334, 84);
-            this.groupBox2.TabIndex = 36;
-            this.groupBox2.TabStop = false;
-            this.groupBox2.Text = "Map tools";
-            // 
-            // btnShiftLeft
-            // 
-            this.btnShiftLeft.Location = new System.Drawing.Point(8, 19);
-            this.btnShiftLeft.Name = "btnShiftLeft";
-            this.btnShiftLeft.Size = new System.Drawing.Size(24, 24);
-            this.btnShiftLeft.TabIndex = 12;
-            this.toolTip1.SetToolTip(this.btnShiftLeft, "Shift Map Left");
-            this.btnShiftLeft.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            this.btnShiftLeft.Values.Text = "◄";
-            this.btnShiftLeft.Click += new System.EventHandler(this.btnShiftLeft_Click);
-            // 
-            // btnShiftUp
-            // 
-            this.btnShiftUp.Location = new System.Drawing.Point(34, 19);
-            this.btnShiftUp.Name = "btnShiftUp";
-            this.btnShiftUp.Size = new System.Drawing.Size(24, 24);
-            this.btnShiftUp.TabIndex = 13;
-            this.toolTip1.SetToolTip(this.btnShiftUp, "Shift Map Up");
-            this.btnShiftUp.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            this.btnShiftUp.Values.Text = "▲";
-            this.btnShiftUp.Click += new System.EventHandler(this.btnShiftUp_Click);
-            // 
-            // btnShiftDown
-            // 
-            this.btnShiftDown.Location = new System.Drawing.Point(60, 19);
-            this.btnShiftDown.Name = "btnShiftDown";
-            this.btnShiftDown.Size = new System.Drawing.Size(24, 24);
-            this.btnShiftDown.TabIndex = 14;
-            this.toolTip1.SetToolTip(this.btnShiftDown, "Shift Map Down");
-            this.btnShiftDown.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            this.btnShiftDown.Values.Text = "▼";
-            this.btnShiftDown.Click += new System.EventHandler(this.btnShiftDown_Click);
-            // 
-            // btnShiftRight
-            // 
-            this.btnShiftRight.Location = new System.Drawing.Point(86, 19);
-            this.btnShiftRight.Name = "btnShiftRight";
-            this.btnShiftRight.Size = new System.Drawing.Size(24, 24);
-            this.btnShiftRight.TabIndex = 15;
-            this.toolTip1.SetToolTip(this.btnShiftRight, "Shift Map Right");
-            this.btnShiftRight.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            this.btnShiftRight.Values.Text = "►";
-            this.btnShiftRight.Click += new System.EventHandler(this.btnShiftRight_Click);
-            // 
-            // btnMapWidthInc
-            // 
-            this.btnMapWidthInc.Location = new System.Drawing.Point(115, 19);
-            this.btnMapWidthInc.Name = "btnMapWidthInc";
-            this.btnMapWidthInc.Size = new System.Drawing.Size(30, 24);
-            this.btnMapWidthInc.TabIndex = 18;
-            this.toolTip1.SetToolTip(this.btnMapWidthInc, "Add a column to the map (width +1)");
-            this.btnMapWidthInc.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            this.btnMapWidthInc.Values.Text = "W+";
-            this.btnMapWidthInc.Click += new System.EventHandler(this.btnMapWidthInc_Click);
-            // 
-            // btnMapWidthDec
-            // 
-            this.btnMapWidthDec.Location = new System.Drawing.Point(148, 19);
-            this.btnMapWidthDec.Name = "btnMapWidthDec";
-            this.btnMapWidthDec.Size = new System.Drawing.Size(30, 24);
-            this.btnMapWidthDec.TabIndex = 19;
-            this.toolTip1.SetToolTip(this.btnMapWidthDec, "Remove the rightmost column (width -1)");
-            this.btnMapWidthDec.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            this.btnMapWidthDec.Values.Text = "W−";
-            this.btnMapWidthDec.Click += new System.EventHandler(this.btnMapWidthDec_Click);
-            // 
-            // btnMapHeightInc
-            // 
-            this.btnMapHeightInc.Location = new System.Drawing.Point(180, 19);
-            this.btnMapHeightInc.Name = "btnMapHeightInc";
-            this.btnMapHeightInc.Size = new System.Drawing.Size(28, 24);
-            this.btnMapHeightInc.TabIndex = 20;
-            this.toolTip1.SetToolTip(this.btnMapHeightInc, "Add a row to the map (height +1)");
-            this.btnMapHeightInc.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            this.btnMapHeightInc.Values.Text = "H+";
-            this.btnMapHeightInc.Click += new System.EventHandler(this.btnMapHeightInc_Click);
-            // 
-            // btnMapHeightDec
-            // 
-            this.btnMapHeightDec.Location = new System.Drawing.Point(210, 19);
-            this.btnMapHeightDec.Name = "btnMapHeightDec";
-            this.btnMapHeightDec.Size = new System.Drawing.Size(28, 24);
-            this.btnMapHeightDec.TabIndex = 21;
-            this.toolTip1.SetToolTip(this.btnMapHeightDec, "Remove the bottom row (height -1)");
-            this.btnMapHeightDec.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            this.btnMapHeightDec.Values.Text = "H−";
-            this.btnMapHeightDec.Click += new System.EventHandler(this.btnMapHeightDec_Click);
-            // 
             // btnRemoveOverlappingTiles
             // 
-            this.btnRemoveOverlappingTiles.Location = new System.Drawing.Point(8, 49);
+            this.btnRemoveOverlappingTiles.Location = new System.Drawing.Point(603, 3);
             this.btnRemoveOverlappingTiles.Name = "btnRemoveOverlappingTiles";
             this.btnRemoveOverlappingTiles.Size = new System.Drawing.Size(148, 24);
             this.btnRemoveOverlappingTiles.TabIndex = 16;
@@ -1257,473 +1715,28 @@
             this.btnRemoveOverlappingTiles.Values.Text = "Remove overlapping tiles";
             this.btnRemoveOverlappingTiles.Click += new System.EventHandler(this.btnRemoveOverlappingTiles_Click);
             // 
-            // btnDisplayFilters
-            // 
-            this.btnDisplayFilters.Location = new System.Drawing.Point(244, 19);
-            this.btnDisplayFilters.Name = "btnDisplayFilters";
-            this.btnDisplayFilters.Size = new System.Drawing.Size(72, 24);
-            this.btnDisplayFilters.TabIndex = 17;
-            this.toolTip1.SetToolTip(this.btnDisplayFilters, "Configure CRT-style display filters (scanlines, phosphor mask, etc.)");
-            this.btnDisplayFilters.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            this.btnDisplayFilters.Values.Text = "CRT Filters...";
-            this.btnDisplayFilters.Click += new System.EventHandler(this.btnDisplayFilters_Click);
-            // 
-            // checkFilterEnabled
-            // 
-            this.checkFilterEnabled.Location = new System.Drawing.Point(222, 51);
-            this.checkFilterEnabled.Name = "checkFilterEnabled";
-            this.checkFilterEnabled.Size = new System.Drawing.Size(98, 22);
-            this.checkFilterEnabled.TabIndex = 18;
-            this.toolTip1.SetToolTip(this.checkFilterEnabled, "Session-only toggle — bypasses the entire filter pipeline without changing any pe" +
-        "r-filter settings.");
-            this.checkFilterEnabled.Values.Text = "Filter enabled";
-            this.checkFilterEnabled.CheckedChanged += new System.EventHandler(this.checkFilterEnabled_CheckedChanged);
-            // 
-            // groupBoxRevisions
-            // 
-            this.groupBoxRevisions.Controls.Add(this.labelRevision);
-            this.groupBoxRevisions.Controls.Add(this.comboRevisions);
-            this.groupBoxRevisions.Controls.Add(this.btnCreateRevision);
-            this.groupBoxRevisions.Controls.Add(this.btnRevertRevision);
-            this.groupBoxRevisions.Controls.Add(this.btnDeleteRevision);
-            this.groupBoxRevisions.Location = new System.Drawing.Point(14, 573);
-            this.groupBoxRevisions.Name = "groupBoxRevisions";
-            this.groupBoxRevisions.Size = new System.Drawing.Size(331, 82);
-            this.groupBoxRevisions.TabIndex = 39;
-            this.groupBoxRevisions.TabStop = false;
-            this.groupBoxRevisions.Text = "Revisions";
-            // 
-            // labelRevision
-            // 
-            this.labelRevision.AutoSize = true;
-            this.labelRevision.Location = new System.Drawing.Point(10, 24);
-            this.labelRevision.Name = "labelRevision";
-            this.labelRevision.Size = new System.Drawing.Size(51, 13);
-            this.labelRevision.TabIndex = 0;
-            this.labelRevision.Text = "Revision:";
-            // 
-            // comboRevisions
-            // 
-            this.comboRevisions.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboRevisions.DropDownWidth = 250;
-            this.comboRevisions.Location = new System.Drawing.Point(70, 20);
-            this.comboRevisions.Name = "comboRevisions";
-            this.comboRevisions.Size = new System.Drawing.Size(250, 22);
-            this.comboRevisions.TabIndex = 1;
-            this.comboRevisions.SelectedIndexChanged += new System.EventHandler(this.comboRevisions_SelectedIndexChanged);
-            // 
-            // btnCreateRevision
-            // 
-            this.btnCreateRevision.Location = new System.Drawing.Point(10, 48);
-            this.btnCreateRevision.Name = "btnCreateRevision";
-            this.btnCreateRevision.Size = new System.Drawing.Size(110, 23);
-            this.btnCreateRevision.TabIndex = 2;
-            this.toolTip1.SetToolTip(this.btnCreateRevision, "Snapshot the current map as a new revision.");
-            this.btnCreateRevision.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            this.btnCreateRevision.Values.Text = "Create Revision";
-            this.btnCreateRevision.Click += new System.EventHandler(this.btnCreateRevision_Click);
-            // 
-            // btnRevertRevision
-            // 
-            this.btnRevertRevision.Location = new System.Drawing.Point(126, 48);
-            this.btnRevertRevision.Name = "btnRevertRevision";
-            this.btnRevertRevision.Size = new System.Drawing.Size(94, 23);
-            this.btnRevertRevision.TabIndex = 3;
-            this.toolTip1.SetToolTip(this.btnRevertRevision, "Replace the live map with the selected revision (with confirmation).");
-            this.btnRevertRevision.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            this.btnRevertRevision.Values.Text = "Revert to...";
-            this.btnRevertRevision.Click += new System.EventHandler(this.btnRevertRevision_Click);
-            // 
-            // btnDeleteRevision
-            // 
-            this.btnDeleteRevision.Location = new System.Drawing.Point(226, 48);
-            this.btnDeleteRevision.Name = "btnDeleteRevision";
-            this.btnDeleteRevision.Size = new System.Drawing.Size(94, 23);
-            this.btnDeleteRevision.TabIndex = 4;
-            this.toolTip1.SetToolTip(this.btnDeleteRevision, "Delete the selected revision (with confirmation).");
-            this.btnDeleteRevision.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            this.btnDeleteRevision.Values.Text = "Delete";
-            this.btnDeleteRevision.Click += new System.EventHandler(this.btnDeleteRevision_Click);
-            // 
-            // groupBoxShiftClick
-            // 
-            this.groupBoxShiftClick.Controls.Add(this.labelBlankTile);
-            this.groupBoxShiftClick.Controls.Add(this.comboBlankTile);
-            this.groupBoxShiftClick.Controls.Add(this.labelBlankColor);
-            this.groupBoxShiftClick.Controls.Add(this.comboBlankColor);
-            this.groupBoxShiftClick.Location = new System.Drawing.Point(11, 661);
-            this.groupBoxShiftClick.Name = "groupBoxShiftClick";
-            this.groupBoxShiftClick.Size = new System.Drawing.Size(331, 74);
-            this.groupBoxShiftClick.TabIndex = 40;
-            this.groupBoxShiftClick.TabStop = false;
-            this.groupBoxShiftClick.Text = "Shift-click";
-            // 
-            // labelBlankTile
-            // 
-            this.labelBlankTile.AutoSize = true;
-            this.labelBlankTile.Location = new System.Drawing.Point(10, 24);
-            this.labelBlankTile.Name = "labelBlankTile";
-            this.labelBlankTile.Size = new System.Drawing.Size(53, 13);
-            this.labelBlankTile.TabIndex = 0;
-            this.labelBlankTile.Text = "Blank tile:";
-            // 
-            // comboBlankTile
-            // 
-            this.comboBlankTile.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboBlankTile.DropDownWidth = 250;
-            this.comboBlankTile.Location = new System.Drawing.Point(10, 40);
-            this.comboBlankTile.Name = "comboBlankTile";
-            this.comboBlankTile.Size = new System.Drawing.Size(146, 22);
-            this.comboBlankTile.TabIndex = 1;
-            this.comboBlankTile.SelectedIndexChanged += new System.EventHandler(this.comboBlankTile_SelectedIndexChanged);
-            // 
-            // labelBlankColor
-            // 
-            this.labelBlankColor.AutoSize = true;
-            this.labelBlankColor.Location = new System.Drawing.Point(164, 24);
-            this.labelBlankColor.Name = "labelBlankColor";
-            this.labelBlankColor.Size = new System.Drawing.Size(63, 13);
-            this.labelBlankColor.TabIndex = 2;
-            this.labelBlankColor.Text = "Blank color:";
-            // 
-            // comboBlankColor
-            // 
-            this.comboBlankColor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboBlankColor.DropDownWidth = 250;
-            this.comboBlankColor.Location = new System.Drawing.Point(167, 40);
-            this.comboBlankColor.Name = "comboBlankColor";
-            this.comboBlankColor.Size = new System.Drawing.Size(153, 22);
-            this.comboBlankColor.TabIndex = 3;
-            this.comboBlankColor.SelectedIndexChanged += new System.EventHandler(this.comboBlankColor_SelectedIndexChanged);
-            // 
-            // label19
-            // 
-            this.label19.AutoSize = true;
-            this.label19.Location = new System.Drawing.Point(15, 25);
-            this.label19.Name = "label19";
-            this.label19.Size = new System.Drawing.Size(68, 13);
-            this.label19.TabIndex = 25;
-            this.label19.Text = "Current Map:";
-            // 
-            // label25
-            // 
-            this.label25.AutoSize = true;
-            this.label25.Location = new System.Drawing.Point(15, 52);
-            this.label25.Name = "label25";
-            this.label25.Size = new System.Drawing.Size(37, 13);
-            this.label25.TabIndex = 25;
-            this.label25.Text = "Mode:";
-            // 
-            // groupSize
-            // 
-            this.groupSize.Controls.Add(this.comboMapAlternativeMode);
-            this.groupSize.Controls.Add(this.comboMapAlternativeBGColor4);
-            this.groupSize.Controls.Add(this.comboMapMultiColor2);
-            this.groupSize.Controls.Add(this.comboMapBGColor);
-            this.groupSize.Controls.Add(this.comboMapMultiColor1);
-            this.groupSize.Controls.Add(this.btnCopy);
-            this.groupSize.Controls.Add(this.btnMoveMapDown);
-            this.groupSize.Controls.Add(this.btnMoveMapUp);
-            this.groupSize.Controls.Add(this.btnMapAdd);
-            this.groupSize.Controls.Add(this.btnMapDelete);
-            this.groupSize.Controls.Add(this.btnMapApply);
-            this.groupSize.Controls.Add(this.label14);
-            this.groupSize.Controls.Add(this.label1);
-            this.groupSize.Controls.Add(this.label22);
-            this.groupSize.Controls.Add(this.label23);
-            this.groupSize.Controls.Add(this.editMapName);
-            this.groupSize.Controls.Add(this.label13);
-            this.groupSize.Controls.Add(this.label21);
-            this.groupSize.Controls.Add(this.label18);
-            this.groupSize.Controls.Add(this.editTileSpacingH);
-            this.groupSize.Controls.Add(this.editMapHeight);
-            this.groupSize.Controls.Add(this.editTileSpacingW);
-            this.groupSize.Controls.Add(this.label3);
-            this.groupSize.Controls.Add(this.editMapWidth);
-            this.groupSize.Location = new System.Drawing.Point(11, 80);
-            this.groupSize.Name = "groupSize";
-            this.groupSize.Size = new System.Drawing.Size(337, 182);
-            this.groupSize.TabIndex = 28;
-            this.groupSize.TabStop = false;
-            this.groupSize.Text = "Map Details";
-            // 
-            // comboMapAlternativeMode
-            // 
-            this.comboMapAlternativeMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboMapAlternativeMode.DropDownWidth = 121;
-            this.comboMapAlternativeMode.FormattingEnabled = true;
-            this.comboMapAlternativeMode.Location = new System.Drawing.Point(63, 97);
-            this.comboMapAlternativeMode.Name = "comboMapAlternativeMode";
-            this.comboMapAlternativeMode.Size = new System.Drawing.Size(121, 22);
-            this.comboMapAlternativeMode.TabIndex = 11;
-            this.comboMapAlternativeMode.SelectedIndexChanged += new System.EventHandler(this.comboMapAlternativeMode_SelectedIndexChanged);
-            // 
-            // comboMapAlternativeBGColor4
-            // 
-            this.comboMapAlternativeBGColor4.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboMapAlternativeBGColor4.DropDownWidth = 82;
-            this.comboMapAlternativeBGColor4.Location = new System.Drawing.Point(182, 151);
-            this.comboMapAlternativeBGColor4.Name = "comboMapAlternativeBGColor4";
-            this.comboMapAlternativeBGColor4.Size = new System.Drawing.Size(82, 22);
-            this.comboMapAlternativeBGColor4.TabIndex = 16;
-            this.comboMapAlternativeBGColor4.SelectedIndexChanged += new System.EventHandler(this.comboMapBGColor4_SelectedIndexChanged);
-            // 
-            // comboMapMultiColor2
-            // 
-            this.comboMapMultiColor2.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboMapMultiColor2.DropDownWidth = 82;
-            this.comboMapMultiColor2.Location = new System.Drawing.Point(182, 124);
-            this.comboMapMultiColor2.Name = "comboMapMultiColor2";
-            this.comboMapMultiColor2.Size = new System.Drawing.Size(82, 22);
-            this.comboMapMultiColor2.TabIndex = 14;
-            this.comboMapMultiColor2.SelectedIndexChanged += new System.EventHandler(this.comboMapMultiColor2_SelectedIndexChanged);
-            // 
-            // comboMapBGColor
-            // 
-            this.comboMapBGColor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboMapBGColor.DropDownWidth = 82;
-            this.comboMapBGColor.Location = new System.Drawing.Point(63, 151);
-            this.comboMapBGColor.Name = "comboMapBGColor";
-            this.comboMapBGColor.Size = new System.Drawing.Size(82, 22);
-            this.comboMapBGColor.TabIndex = 15;
-            this.comboMapBGColor.SelectedIndexChanged += new System.EventHandler(this.comboMapBGColor_SelectedIndexChanged);
-            // 
-            // comboMapMultiColor1
-            // 
-            this.comboMapMultiColor1.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboMapMultiColor1.DropDownWidth = 82;
-            this.comboMapMultiColor1.Location = new System.Drawing.Point(63, 124);
-            this.comboMapMultiColor1.Name = "comboMapMultiColor1";
-            this.comboMapMultiColor1.Size = new System.Drawing.Size(82, 22);
-            this.comboMapMultiColor1.TabIndex = 13;
-            this.comboMapMultiColor1.SelectedIndexChanged += new System.EventHandler(this.comboMapMultiColor1_SelectedIndexChanged);
-            // 
-            // btnCopy
-            // 
-            this.btnCopy.Location = new System.Drawing.Point(231, 17);
-            this.btnCopy.Name = "btnCopy";
-            this.btnCopy.Size = new System.Drawing.Size(35, 23);
-            this.btnCopy.TabIndex = 5;
-            this.btnCopy.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            this.btnCopy.Values.Text = "Cpy";
-            this.btnCopy.Click += new System.EventHandler(this.btnMapCopy_Click);
-            // 
-            // btnMoveMapDown
-            // 
-            this.btnMoveMapDown.Enabled = false;
-            this.btnMoveMapDown.Location = new System.Drawing.Point(231, 43);
-            this.btnMoveMapDown.Name = "btnMoveMapDown";
-            this.btnMoveMapDown.Size = new System.Drawing.Size(35, 23);
-            this.btnMoveMapDown.TabIndex = 7;
-            this.toolTip1.SetToolTip(this.btnMoveMapDown, "Move Map Down");
-            this.btnMoveMapDown.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            this.btnMoveMapDown.Values.Text = "▼";
-            this.btnMoveMapDown.Click += new System.EventHandler(this.btnMoveMapDown_Click);
-            // 
-            // btnMoveMapUp
-            // 
-            this.btnMoveMapUp.Enabled = false;
-            this.btnMoveMapUp.Location = new System.Drawing.Point(192, 43);
-            this.btnMoveMapUp.Name = "btnMoveMapUp";
-            this.btnMoveMapUp.Size = new System.Drawing.Size(35, 23);
-            this.btnMoveMapUp.TabIndex = 6;
-            this.toolTip1.SetToolTip(this.btnMoveMapUp, "Move Map Up");
-            this.btnMoveMapUp.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            this.btnMoveMapUp.Values.Text = "▲";
-            this.btnMoveMapUp.Click += new System.EventHandler(this.btnMoveMapUp_Click);
-            // 
-            // btnMapAdd
-            // 
-            this.btnMapAdd.Location = new System.Drawing.Point(191, 17);
-            this.btnMapAdd.Name = "btnMapAdd";
-            this.btnMapAdd.Size = new System.Drawing.Size(35, 23);
-            this.btnMapAdd.TabIndex = 4;
-            this.btnMapAdd.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            this.btnMapAdd.Values.Text = "Add";
-            this.btnMapAdd.Click += new System.EventHandler(this.btnMapAdd_Click);
-            // 
-            // btnMapDelete
-            // 
-            this.btnMapDelete.Enabled = false;
-            this.btnMapDelete.Location = new System.Drawing.Point(251, 69);
-            this.btnMapDelete.Name = "btnMapDelete";
-            this.btnMapDelete.Size = new System.Drawing.Size(56, 23);
-            this.btnMapDelete.TabIndex = 10;
-            this.btnMapDelete.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            this.btnMapDelete.Values.Text = "Delete";
-            this.btnMapDelete.Click += new System.EventHandler(this.btnMapDelete_Click);
-            // 
-            // btnMapApply
-            // 
-            this.btnMapApply.Enabled = false;
-            this.btnMapApply.Location = new System.Drawing.Point(192, 69);
-            this.btnMapApply.Name = "btnMapApply";
-            this.btnMapApply.Size = new System.Drawing.Size(53, 23);
-            this.btnMapApply.TabIndex = 9;
-            this.btnMapApply.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            this.btnMapApply.Values.Text = "Apply";
-            this.btnMapApply.Click += new System.EventHandler(this.btnMapApply_Click);
-            // 
-            // label14
-            // 
-            this.label14.AutoSize = true;
-            this.label14.Location = new System.Drawing.Point(148, 154);
-            this.label14.Name = "label14";
-            this.label14.Size = new System.Drawing.Size(31, 13);
-            this.label14.TabIndex = 25;
-            this.label14.Text = "BG4:";
-            // 
-            // label1
-            // 
-            this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(9, 22);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(30, 13);
-            this.label1.TabIndex = 25;
-            this.label1.Text = "Size:";
-            // 
-            // label22
-            // 
-            this.label22.AutoSize = true;
-            this.label22.Location = new System.Drawing.Point(148, 127);
-            this.label22.Name = "label22";
-            this.label22.Size = new System.Drawing.Size(32, 13);
-            this.label22.TabIndex = 25;
-            this.label22.Text = "MC2:";
-            // 
-            // label23
-            // 
-            this.label23.AutoSize = true;
-            this.label23.Location = new System.Drawing.Point(9, 154);
-            this.label23.Name = "label23";
-            this.label23.Size = new System.Drawing.Size(25, 13);
-            this.label23.TabIndex = 25;
-            this.label23.Text = "BG:";
-            // 
-            // editMapName
-            // 
-            this.editMapName.Location = new System.Drawing.Point(63, 71);
-            this.editMapName.Name = "editMapName";
-            this.editMapName.Size = new System.Drawing.Size(122, 23);
-            this.editMapName.TabIndex = 8;
-            // 
-            // label13
-            // 
-            this.label13.AutoSize = true;
-            this.label13.Location = new System.Drawing.Point(9, 100);
-            this.label13.Name = "label13";
-            this.label13.Size = new System.Drawing.Size(37, 13);
-            this.label13.TabIndex = 25;
-            this.label13.Text = "Mode:";
-            // 
-            // label21
-            // 
-            this.label21.AutoSize = true;
-            this.label21.Location = new System.Drawing.Point(9, 127);
-            this.label21.Name = "label21";
-            this.label21.Size = new System.Drawing.Size(32, 13);
-            this.label21.TabIndex = 25;
-            this.label21.Text = "MC1:";
-            // 
-            // label18
-            // 
-            this.label18.AutoSize = true;
-            this.label18.Location = new System.Drawing.Point(9, 74);
-            this.label18.Name = "label18";
-            this.label18.Size = new System.Drawing.Size(38, 13);
-            this.label18.TabIndex = 25;
-            this.label18.Text = "Name:";
-            // 
-            // editTileSpacingH
-            // 
-            this.editTileSpacingH.Location = new System.Drawing.Point(128, 45);
-            this.editTileSpacingH.Name = "editTileSpacingH";
-            this.editTileSpacingH.Size = new System.Drawing.Size(56, 23);
-            this.editTileSpacingH.TabIndex = 3;
-            this.editTileSpacingH.Text = "2";
-            // 
-            // editMapHeight
-            // 
-            this.editMapHeight.Location = new System.Drawing.Point(128, 19);
-            this.editMapHeight.Name = "editMapHeight";
-            this.editMapHeight.Size = new System.Drawing.Size(56, 23);
-            this.editMapHeight.TabIndex = 1;
-            this.editMapHeight.Text = "12";
-            // 
-            // editTileSpacingW
-            // 
-            this.editTileSpacingW.Location = new System.Drawing.Point(63, 45);
-            this.editTileSpacingW.Name = "editTileSpacingW";
-            this.editTileSpacingW.Size = new System.Drawing.Size(60, 23);
-            this.editTileSpacingW.TabIndex = 2;
-            this.editTileSpacingW.Text = "2";
-            // 
-            // label3
-            // 
-            this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(9, 48);
-            this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(45, 13);
-            this.label3.TabIndex = 25;
-            this.label3.Text = "Tilesize:";
-            // 
-            // editMapWidth
-            // 
-            this.editMapWidth.Location = new System.Drawing.Point(63, 19);
-            this.editMapWidth.Name = "editMapWidth";
-            this.editMapWidth.Size = new System.Drawing.Size(60, 23);
-            this.editMapWidth.TabIndex = 0;
-            this.editMapWidth.Text = "20";
-            // 
-            // comboMaps
-            // 
-            this.comboMaps.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboMaps.DropDownWidth = 246;
-            this.comboMaps.Enabled = false;
-            this.comboMaps.FormattingEnabled = true;
-            this.comboMaps.Location = new System.Drawing.Point(89, 22);
-            this.comboMaps.Name = "comboMaps";
-            this.comboMaps.Size = new System.Drawing.Size(246, 22);
-            this.comboMaps.TabIndex = 0;
-            this.comboMaps.SelectedIndexChanged += new System.EventHandler(this.comboMaps_SelectedIndexChanged);
-            // 
-            // comboMapProjectMode
-            // 
-            this.comboMapProjectMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboMapProjectMode.DropDownWidth = 246;
-            this.comboMapProjectMode.FormattingEnabled = true;
-            this.comboMapProjectMode.Location = new System.Drawing.Point(89, 49);
-            this.comboMapProjectMode.Name = "comboMapProjectMode";
-            this.comboMapProjectMode.Size = new System.Drawing.Size(246, 22);
-            this.comboMapProjectMode.TabIndex = 1;
-            this.comboMapProjectMode.SelectedIndexChanged += new System.EventHandler(this.comboMapProjectMode_SelectedIndexChanged);
-            // 
             // flowLayoutPanel1
             // 
+            this.flowLayoutPanel1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.flowLayoutPanel1.Controls.Add(this.btnToolEdit);
             this.flowLayoutPanel1.Controls.Add(this.btnToolRect);
             this.flowLayoutPanel1.Controls.Add(this.btnToolQuad);
             this.flowLayoutPanel1.Controls.Add(this.btnToolFill);
             this.flowLayoutPanel1.Controls.Add(this.btnToolSelect);
-            this.flowLayoutPanel1.Controls.Add(this.btnToolMarker);
             this.flowLayoutPanel1.Controls.Add(this.btnToolPassable);
+            this.flowLayoutPanel1.Controls.Add(this.btnToolEntity);
+            this.flowLayoutPanel1.Controls.Add(this.btnToolMarker);
             this.flowLayoutPanel1.Controls.Add(this.btnBrightnessLinearUp);
             this.flowLayoutPanel1.Controls.Add(this.btnBrightnessLinearDown);
             this.flowLayoutPanel1.Controls.Add(this.btnBrightnessHueUp);
             this.flowLayoutPanel1.Controls.Add(this.btnBrightnessHueDown);
-            this.flowLayoutPanel1.Controls.Add(this.comboTilePlacementColor);
-            this.flowLayoutPanel1.Controls.Add(this.comboMarkerTypes);
-            this.flowLayoutPanel1.Controls.Add(this.labelMarkerValue1);
-            this.flowLayoutPanel1.Controls.Add(this.editMarkerValue1);
-            this.flowLayoutPanel1.Controls.Add(this.labelMarkerValue2);
-            this.flowLayoutPanel1.Controls.Add(this.editMarkerValue2);
-            this.flowLayoutPanel1.Controls.Add(this.btnDeleteSelectedMarker);
-            this.flowLayoutPanel1.Controls.Add(this.comboMarkerColorOverride);
             this.flowLayoutPanel1.Controls.Add(this.checkAutoTiling);
             this.flowLayoutPanel1.Controls.Add(this.btnZoomOut);
             this.flowLayoutPanel1.Controls.Add(this.btnZoomIn);
             this.flowLayoutPanel1.Controls.Add(this.labelZoom);
             this.flowLayoutPanel1.Controls.Add(this.checkShowGrid);
+            this.flowLayoutPanel1.Controls.Add(this.btnRemoveOverlappingTiles);
             this.flowLayoutPanel1.Controls.Add(this.labelEditInfo);
             this.flowLayoutPanel1.Location = new System.Drawing.Point(177, 10);
             this.flowLayoutPanel1.Name = "flowLayoutPanel1";
@@ -1788,7 +1801,7 @@
             // 
             // btnToolMarker
             // 
-            this.btnToolMarker.Location = new System.Drawing.Point(153, 3);
+            this.btnToolMarker.Location = new System.Drawing.Point(213, 3);
             this.btnToolMarker.Name = "btnToolMarker";
             this.btnToolMarker.Size = new System.Drawing.Size(24, 24);
             this.btnToolMarker.TabIndex = 8;
@@ -1799,7 +1812,7 @@
             // 
             // btnToolPassable
             // 
-            this.btnToolPassable.Location = new System.Drawing.Point(183, 3);
+            this.btnToolPassable.Location = new System.Drawing.Point(153, 3);
             this.btnToolPassable.Name = "btnToolPassable";
             this.btnToolPassable.Size = new System.Drawing.Size(24, 24);
             this.btnToolPassable.TabIndex = 9;
@@ -1807,10 +1820,10 @@
             this.btnToolPassable.Values.DropDownArrowColor = System.Drawing.Color.Empty;
             this.btnToolPassable.Values.Text = "P";
             this.btnToolPassable.CheckedChanged += new System.EventHandler(this.btnToolPassable_CheckedChanged);
-            //
+            // 
             // btnBrightnessLinearUp
-            //
-            this.btnBrightnessLinearUp.Location = new System.Drawing.Point(213, 3);
+            // 
+            this.btnBrightnessLinearUp.Location = new System.Drawing.Point(243, 3);
             this.btnBrightnessLinearUp.Name = "btnBrightnessLinearUp";
             this.btnBrightnessLinearUp.Size = new System.Drawing.Size(24, 24);
             this.btnBrightnessLinearUp.TabIndex = 10;
@@ -1818,10 +1831,10 @@
             this.btnBrightnessLinearUp.Values.DropDownArrowColor = System.Drawing.Color.Empty;
             this.btnBrightnessLinearUp.Values.Text = "↑";
             this.btnBrightnessLinearUp.Click += new System.EventHandler(this.btnBrightnessLinearUp_Click);
-            //
+            // 
             // btnBrightnessLinearDown
-            //
-            this.btnBrightnessLinearDown.Location = new System.Drawing.Point(243, 3);
+            // 
+            this.btnBrightnessLinearDown.Location = new System.Drawing.Point(273, 3);
             this.btnBrightnessLinearDown.Name = "btnBrightnessLinearDown";
             this.btnBrightnessLinearDown.Size = new System.Drawing.Size(24, 24);
             this.btnBrightnessLinearDown.TabIndex = 11;
@@ -1829,10 +1842,10 @@
             this.btnBrightnessLinearDown.Values.DropDownArrowColor = System.Drawing.Color.Empty;
             this.btnBrightnessLinearDown.Values.Text = "↓";
             this.btnBrightnessLinearDown.Click += new System.EventHandler(this.btnBrightnessLinearDown_Click);
-            //
+            // 
             // btnBrightnessHueUp
-            //
-            this.btnBrightnessHueUp.Location = new System.Drawing.Point(273, 3);
+            // 
+            this.btnBrightnessHueUp.Location = new System.Drawing.Point(303, 3);
             this.btnBrightnessHueUp.Name = "btnBrightnessHueUp";
             this.btnBrightnessHueUp.Size = new System.Drawing.Size(24, 24);
             this.btnBrightnessHueUp.TabIndex = 12;
@@ -1840,10 +1853,10 @@
             this.btnBrightnessHueUp.Values.DropDownArrowColor = System.Drawing.Color.Empty;
             this.btnBrightnessHueUp.Values.Text = "⇈";
             this.btnBrightnessHueUp.Click += new System.EventHandler(this.btnBrightnessHueUp_Click);
-            //
+            // 
             // btnBrightnessHueDown
-            //
-            this.btnBrightnessHueDown.Location = new System.Drawing.Point(303, 3);
+            // 
+            this.btnBrightnessHueDown.Location = new System.Drawing.Point(333, 3);
             this.btnBrightnessHueDown.Name = "btnBrightnessHueDown";
             this.btnBrightnessHueDown.Size = new System.Drawing.Size(24, 24);
             this.btnBrightnessHueDown.TabIndex = 13;
@@ -1851,12 +1864,12 @@
             this.btnBrightnessHueDown.Values.DropDownArrowColor = System.Drawing.Color.Empty;
             this.btnBrightnessHueDown.Values.Text = "⇊";
             this.btnBrightnessHueDown.Click += new System.EventHandler(this.btnBrightnessHueDown_Click);
-            //
+            // 
             // comboTilePlacementColor
-            //
+            // 
             this.comboTilePlacementColor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboTilePlacementColor.DropDownWidth = 110;
-            this.comboTilePlacementColor.Location = new System.Drawing.Point(213, 3);
+            this.comboTilePlacementColor.Location = new System.Drawing.Point(78, 3);
             this.comboTilePlacementColor.Name = "comboTilePlacementColor";
             this.comboTilePlacementColor.Size = new System.Drawing.Size(80, 22);
             this.comboTilePlacementColor.TabIndex = 49;
@@ -1867,7 +1880,7 @@
             // 
             this.comboMarkerTypes.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboMarkerTypes.DropDownWidth = 150;
-            this.comboMarkerTypes.Location = new System.Drawing.Point(299, 3);
+            this.comboMarkerTypes.Location = new System.Drawing.Point(470, 3);
             this.comboMarkerTypes.Name = "comboMarkerTypes";
             this.comboMarkerTypes.Size = new System.Drawing.Size(150, 22);
             this.comboMarkerTypes.TabIndex = 3;
@@ -1876,7 +1889,7 @@
             // labelMarkerValue1
             // 
             this.labelMarkerValue1.AutoSize = true;
-            this.labelMarkerValue1.Location = new System.Drawing.Point(455, 7);
+            this.labelMarkerValue1.Location = new System.Drawing.Point(421, 7);
             this.labelMarkerValue1.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
             this.labelMarkerValue1.Name = "labelMarkerValue1";
             this.labelMarkerValue1.Size = new System.Drawing.Size(46, 13);
@@ -1890,7 +1903,7 @@
             0,
             0,
             0});
-            this.editMarkerValue1.Location = new System.Drawing.Point(504, 3);
+            this.editMarkerValue1.Location = new System.Drawing.Point(360, 3);
             this.editMarkerValue1.Maximum = new decimal(new int[] {
             255,
             0,
@@ -1914,7 +1927,7 @@
             // labelMarkerValue2
             // 
             this.labelMarkerValue2.AutoSize = true;
-            this.labelMarkerValue2.Location = new System.Drawing.Point(565, 7);
+            this.labelMarkerValue2.Location = new System.Drawing.Point(311, 7);
             this.labelMarkerValue2.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
             this.labelMarkerValue2.Name = "labelMarkerValue2";
             this.labelMarkerValue2.Size = new System.Drawing.Size(46, 13);
@@ -1928,7 +1941,7 @@
             0,
             0,
             0});
-            this.editMarkerValue2.Location = new System.Drawing.Point(614, 3);
+            this.editMarkerValue2.Location = new System.Drawing.Point(250, 3);
             this.editMarkerValue2.Maximum = new decimal(new int[] {
             255,
             0,
@@ -1952,7 +1965,7 @@
             // btnDeleteSelectedMarker
             // 
             this.btnDeleteSelectedMarker.Enabled = false;
-            this.btnDeleteSelectedMarker.Location = new System.Drawing.Point(675, 3);
+            this.btnDeleteSelectedMarker.Location = new System.Drawing.Point(218, 3);
             this.btnDeleteSelectedMarker.Margin = new System.Windows.Forms.Padding(3, 3, 3, 0);
             this.btnDeleteSelectedMarker.Name = "btnDeleteSelectedMarker";
             this.btnDeleteSelectedMarker.Size = new System.Drawing.Size(26, 24);
@@ -1967,7 +1980,7 @@
             // 
             this.comboMarkerColorOverride.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboMarkerColorOverride.DropDownWidth = 48;
-            this.comboMarkerColorOverride.Location = new System.Drawing.Point(707, 3);
+            this.comboMarkerColorOverride.Location = new System.Drawing.Point(164, 3);
             this.comboMarkerColorOverride.Name = "comboMarkerColorOverride";
             this.comboMarkerColorOverride.Size = new System.Drawing.Size(48, 22);
             this.comboMarkerColorOverride.TabIndex = 4;
@@ -1975,7 +1988,7 @@
             // 
             // checkAutoTiling
             // 
-            this.checkAutoTiling.Location = new System.Drawing.Point(761, 3);
+            this.checkAutoTiling.Location = new System.Drawing.Point(363, 3);
             this.checkAutoTiling.Name = "checkAutoTiling";
             this.checkAutoTiling.Size = new System.Drawing.Size(82, 27);
             this.checkAutoTiling.TabIndex = 16;
@@ -1983,7 +1996,7 @@
             // 
             // btnZoomOut
             // 
-            this.btnZoomOut.Location = new System.Drawing.Point(849, 3);
+            this.btnZoomOut.Location = new System.Drawing.Point(451, 3);
             this.btnZoomOut.Name = "btnZoomOut";
             this.btnZoomOut.Size = new System.Drawing.Size(24, 24);
             this.btnZoomOut.TabIndex = 10;
@@ -1994,7 +2007,7 @@
             // 
             // btnZoomIn
             // 
-            this.btnZoomIn.Location = new System.Drawing.Point(879, 3);
+            this.btnZoomIn.Location = new System.Drawing.Point(481, 3);
             this.btnZoomIn.Name = "btnZoomIn";
             this.btnZoomIn.Size = new System.Drawing.Size(24, 24);
             this.btnZoomIn.TabIndex = 11;
@@ -2005,7 +2018,7 @@
             // 
             // labelZoom
             // 
-            this.labelZoom.Location = new System.Drawing.Point(909, 0);
+            this.labelZoom.Location = new System.Drawing.Point(511, 0);
             this.labelZoom.Name = "labelZoom";
             this.labelZoom.Size = new System.Drawing.Size(33, 30);
             this.labelZoom.TabIndex = 9;
@@ -2014,7 +2027,7 @@
             // 
             // checkShowGrid
             // 
-            this.checkShowGrid.Location = new System.Drawing.Point(948, 3);
+            this.checkShowGrid.Location = new System.Drawing.Point(550, 3);
             this.checkShowGrid.Name = "checkShowGrid";
             this.checkShowGrid.Size = new System.Drawing.Size(47, 20);
             this.checkShowGrid.TabIndex = 12;
@@ -2024,7 +2037,7 @@
             // labelEditInfo
             // 
             this.labelEditInfo.Anchor = System.Windows.Forms.AnchorStyles.None;
-            this.labelEditInfo.Location = new System.Drawing.Point(3, 33);
+            this.labelEditInfo.Location = new System.Drawing.Point(757, 5);
             this.labelEditInfo.Name = "labelEditInfo";
             this.labelEditInfo.Size = new System.Drawing.Size(146, 23);
             this.labelEditInfo.TabIndex = 9;
@@ -2072,11 +2085,11 @@
             this.mapVScroll.DisplayType = DecentForms.ScrollBar.SBDisplayType.RAISED;
             this.mapVScroll.Enabled = false;
             this.mapVScroll.LargeChange = 10;
-            this.mapVScroll.Location = new System.Drawing.Point(1178, 78);
+            this.mapVScroll.Location = new System.Drawing.Point(1178, 111);
             this.mapVScroll.Maximum = 100;
             this.mapVScroll.Minimum = 0;
             this.mapVScroll.Name = "mapVScroll";
-            this.mapVScroll.Size = new System.Drawing.Size(21, 770);
+            this.mapVScroll.Size = new System.Drawing.Size(21, 737);
             this.mapVScroll.SmallChange = 1;
             this.mapVScroll.TabIndex = 23;
             this.mapVScroll.Value = 0;
@@ -2600,7 +2613,7 @@
             // 
             this.panelCharColors.AutoResize = false;
             this.panelCharColors.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.panelCharColors.DisplayPage = fastImage2;
+            this.panelCharColors.DisplayPage = fastImage7;
             this.panelCharColors.Image = null;
             this.panelCharColors.Location = new System.Drawing.Point(725, 271);
             this.panelCharColors.Name = "panelCharColors";
@@ -2614,7 +2627,7 @@
             // 
             this.pictureTileDisplay.AutoResize = false;
             this.pictureTileDisplay.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.pictureTileDisplay.DisplayPage = fastImage3;
+            this.pictureTileDisplay.DisplayPage = fastImage8;
             this.pictureTileDisplay.Image = null;
             this.pictureTileDisplay.Location = new System.Drawing.Point(996, 5);
             this.pictureTileDisplay.Name = "pictureTileDisplay";
@@ -2941,7 +2954,7 @@
             // 
             this.fastPictureBox1.AutoResize = false;
             this.fastPictureBox1.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.fastPictureBox1.DisplayPage = fastImage4;
+            this.fastPictureBox1.DisplayPage = fastImage9;
             this.fastPictureBox1.Image = null;
             this.fastPictureBox1.Location = new System.Drawing.Point(658, 390);
             this.fastPictureBox1.Name = "fastPictureBox1";
@@ -2953,7 +2966,7 @@
             // 
             this.fastPictureBox2.AutoResize = false;
             this.fastPictureBox2.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.fastPictureBox2.DisplayPage = fastImage5;
+            this.fastPictureBox2.DisplayPage = fastImage10;
             this.fastPictureBox2.Image = null;
             this.fastPictureBox2.Location = new System.Drawing.Point(8, 6);
             this.fastPictureBox2.Name = "fastPictureBox2";
@@ -2970,6 +2983,42 @@
             this.label8.TabIndex = 22;
             this.label8.Text = "Multicolor 1:";
             // 
+            // flowLayoutPanel4
+            // 
+            this.flowLayoutPanel4.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.flowLayoutPanel4.Controls.Add(this.kryptonLabel1);
+            this.flowLayoutPanel4.Controls.Add(this.comboTilePlacementColor);
+            this.flowLayoutPanel4.Controls.Add(this.comboMarkerColorOverride);
+            this.flowLayoutPanel4.Controls.Add(this.btnDeleteSelectedMarker);
+            this.flowLayoutPanel4.Controls.Add(this.editMarkerValue2);
+            this.flowLayoutPanel4.Controls.Add(this.labelMarkerValue2);
+            this.flowLayoutPanel4.Controls.Add(this.editMarkerValue1);
+            this.flowLayoutPanel4.Controls.Add(this.labelMarkerValue1);
+            this.flowLayoutPanel4.Controls.Add(this.comboMarkerTypes);
+            this.flowLayoutPanel4.Location = new System.Drawing.Point(177, 77);
+            this.flowLayoutPanel4.Name = "flowLayoutPanel4";
+            this.flowLayoutPanel4.Size = new System.Drawing.Size(1021, 30);
+            this.flowLayoutPanel4.TabIndex = 1;
+            // 
+            // kryptonLabel2
+            // 
+            this.kryptonLabel2.AutoSize = false;
+            this.kryptonLabel2.Location = new System.Drawing.Point(3, 3);
+            this.kryptonLabel2.Name = "kryptonLabel2";
+            this.kryptonLabel2.Size = new System.Drawing.Size(69, 25);
+            this.kryptonLabel2.TabIndex = 50;
+            this.kryptonLabel2.Values.Text = "Entities: ";
+            // 
+            // kryptonLabel1
+            // 
+            this.kryptonLabel1.AutoSize = false;
+            this.kryptonLabel1.Location = new System.Drawing.Point(3, 3);
+            this.kryptonLabel1.Name = "kryptonLabel1";
+            this.kryptonLabel1.Size = new System.Drawing.Size(69, 25);
+            this.kryptonLabel1.TabIndex = 51;
+            this.kryptonLabel1.Values.Text = "Markers: ";
+            // 
             // MapEditor
             // 
             this.ClientSize = new System.Drawing.Size(1576, 934);
@@ -2977,7 +3026,7 @@
             this.Controls.Add(this.menuStrip1);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "MapEditor";
-            this.Text = "Map Editor";
+            this.Text = "e s";
             ((System.ComponentModel.ISupportInitialize)(this.m_FileWatcher)).EndInit();
             this.panelMapContainer.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.pictureEditor)).EndInit();
@@ -2994,32 +3043,31 @@
             this.menuStrip1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.tabEditor)).EndInit();
             this.tabEditor.ResumeLayout(false);
-            this.flowLayoutPanel2.ResumeLayout(false);
-            this.flowLayoutPanel2.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.comboEntityTypes)).EndInit();
-            this.groupBox1.ResumeLayout(false);
-            this.groupBox1.PerformLayout();
-            this.groupBox3.ResumeLayout(false);
-            this.groupBox3.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.comboRightClickBehavior)).EndInit();
-            this.groupBox2.ResumeLayout(false);
-            this.groupBox2.PerformLayout();
-            this.groupBoxRevisions.ResumeLayout(false);
-            this.groupBoxRevisions.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.comboRevisions)).EndInit();
-            this.groupBoxShiftClick.ResumeLayout(false);
-            this.groupBoxShiftClick.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.comboBlankTile)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.comboBlankColor)).EndInit();
-            this.groupSize.ResumeLayout(false);
-            this.groupSize.PerformLayout();
+            this.flowLayoutPanel3.ResumeLayout(false);
+            this.groupBox4.ResumeLayout(false);
+            this.groupBox4.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.comboMaps)).EndInit();
+            this.collapsiblePanel1.ResumeLayout(false);
+            this.collapsiblePanel1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.comboMapAlternativeMode)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.comboMapProjectMode)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.comboMapAlternativeBGColor4)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.comboMapMultiColor2)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.comboMapBGColor)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.comboMapMultiColor1)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.comboMaps)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.comboMapProjectMode)).EndInit();
+            this.collapsiblePanel3.ResumeLayout(false);
+            this.collapsiblePanel3.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.comboRevisions)).EndInit();
+            this.collapsiblePanelMapTab.ResumeLayout(false);
+            this.collapsiblePanelMapTab.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.comboBlankTile)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.comboBlankColor)).EndInit();
+            this.collapsiblePanel2.ResumeLayout(false);
+            this.collapsiblePanel2.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.comboRightClickBehavior)).EndInit();
+            this.flowLayoutPanel2.ResumeLayout(false);
+            this.flowLayoutPanel2.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.comboEntityTypes)).EndInit();
             this.flowLayoutPanel1.ResumeLayout(false);
             this.flowLayoutPanel1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.comboTilePlacementColor)).EndInit();
@@ -3044,6 +3092,8 @@
             this.tabPage1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.fastPictureBox1)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.fastPictureBox2)).EndInit();
+            this.flowLayoutPanel4.ResumeLayout(false);
+            this.flowLayoutPanel4.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -3162,8 +3212,7 @@
     private Krypton.Toolkit.KryptonButton btnRemoveOverlappingTiles;
     private Krypton.Toolkit.KryptonButton btnDisplayFilters;
     private Krypton.Toolkit.KryptonCheckBox checkFilterEnabled;
-    private System.Windows.Forms.GroupBox groupBoxRevisions;
-    private System.Windows.Forms.GroupBox groupBoxShiftClick;
+    private RetroDevStudio.Controls.CollapsiblePanel collapsiblePanelMapTab;
     private System.Windows.Forms.Label labelBlankTile;
     private Krypton.Toolkit.KryptonComboBox comboBlankTile;
     private System.Windows.Forms.Label labelBlankColor;
@@ -3194,7 +3243,6 @@
     private System.Windows.Forms.ComboBox comboImportMethod;
     private System.Windows.Forms.Label label2;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel1;
-        private System.Windows.Forms.GroupBox groupBox1;
         private System.Windows.Forms.Label label19;
         private System.Windows.Forms.Label label25;
         private Krypton.Toolkit.KryptonTrackBar dimSlider;
@@ -3204,7 +3252,6 @@
         private Krypton.Toolkit.KryptonNumericUpDown editTileListRowSpacing;
         private System.Windows.Forms.Label labelTileListRowSeparatorColor;
         private System.Windows.Forms.Button btnTileListRowSeparatorColor;
-        private System.Windows.Forms.GroupBox groupSize;
         private Krypton.Toolkit.KryptonCheckBox checkShowGrid;
         private Krypton.Toolkit.KryptonComboBox comboMapAlternativeMode;
         private Krypton.Toolkit.KryptonComboBox comboMapAlternativeBGColor4;
@@ -3263,8 +3310,6 @@
         private System.Windows.Forms.TextBox editTileGroupId;
         private System.Windows.Forms.Label labelTileGroupId;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel2;
-        private System.Windows.Forms.GroupBox groupBox2;
-        private System.Windows.Forms.GroupBox groupBox3;
         private System.Windows.Forms.Label labelRightClickBehavior;
         private Krypton.Toolkit.KryptonComboBox comboRightClickBehavior;
         private System.Windows.Forms.Button btnDesignerBackground;
@@ -3274,5 +3319,13 @@
         private System.Windows.Forms.ToolStripMenuItem clearMarkerTypeMenuItem;
         private System.Windows.Forms.ToolStripMenuItem createImageOfMapToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
+        private Controls.CollapsiblePanel collapsiblePanel1;
+        private System.Windows.Forms.GroupBox groupBox4;
+        private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel3;
+        private Controls.CollapsiblePanel collapsiblePanel2;
+        private Controls.CollapsiblePanel collapsiblePanel3;
+        private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel4;
+        private Krypton.Toolkit.KryptonLabel kryptonLabel1;
+        private Krypton.Toolkit.KryptonLabel kryptonLabel2;
     }
 }
