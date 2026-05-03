@@ -602,6 +602,8 @@ namespace RetroDevStudio.Controls
                   line += " enabled=" + buf.ByteAt( mFilePos + 5 );
                 if ( markerStride >= 7 )
                   line += " triggered=" + buf.ByteAt( mFilePos + 6 );
+                if ( markerStride >= 8 )
+                  line += " group=" + buf.ByteAt( mFilePos + 7 );
                 sb.AppendLine( line );
               }
             }

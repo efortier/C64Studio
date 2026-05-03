@@ -56,19 +56,6 @@ namespace RetroDevStudio.Dialogs
     private KryptonButton             m_BtnRevert;
     private KryptonButton             m_BtnClose;
 
-    // Guards against reentry while we programmatically mutate the list
-    // (RefreshList sets Items and CheckedState, which both fire events).
-    private bool                      m_SuppressListEvents = false;
-
-    // ListView with CheckBoxes has a well-known quirk: a rapid second click
-    // anywhere on an item — including the label area of a DIFFERENT row —
-    // is treated as a double-click and toggles that row's checkbox. We want
-    // strict "only clicks on the checkbox itself toggle it", so we track
-    // each MouseDown's hit-test location and cancel ItemCheck if the click
-    // didn't land on the state image. Space-bar toggles are preserved via
-    // the KeyDown hook.
-    private bool                      m_AllowNextItemCheck = false;
-
     // True once RestoreGeometry has finished setting initial bounds. Before
     // this flag flips, OnMove/OnResize events (which fire during Show with
     // Location still at (0,0)) would otherwise clobber the previously
@@ -94,19 +81,24 @@ namespace RetroDevStudio.Dialogs
       BuildUI();
       PopulateAddCombo();
       PopulatePresetCombo();
-      RefreshList();
-      RefreshParamPanel();
 
       RestoreGeometry();
 
+      // Apply themes BEFORE populating the listview. Win32's
+      // SetWindowTheme (called by ApplyDarkScrollBarsTo) re-themes the
+      // native ListView and clears subitem state — including Checked.
+      // If we populate first and theme second, every previously-
+      // enabled filter loses its checkbox tick. Theming an empty
+      // listview is safe; subsequent Items.Add calls inherit the
+      // already-applied theme.
       if ( core != null )
       {
         core.Theming.ApplyTheme( this );
       }
-
-      // ListView scrollbars need the DarkMode_Explorer theme opt-in to
-      // render dark; without this they stay bright even after ApplyTheme.
       RetroDevStudio.CustomRenderer.DarkTheme.ApplyDarkScrollBarsTo( m_ListFilters );
+
+      RefreshList();
+      RefreshParamPanel();
     }
 
 
@@ -135,40 +127,7 @@ namespace RetroDevStudio.Dialogs
       // the user just sees the filter names.
       m_ListFilters.Columns.Add( "Filter", m_ListFilters.ClientSize.Width - 4 );
       m_ListFilters.ItemSelectionChanged += ( s, e ) => OnListSelectionChanged();
-      // MouseDown fires once per click, before the ListView decides this is
-      // a double-click-on-item (which would auto-toggle the checkbox).
-      // Check the hit location so we can veto the toggle if it wasn't on
-      // the state image.
-      m_ListFilters.MouseDown += ( s, e ) =>
-      {
-        var hit = m_ListFilters.HitTest( e.Location );
-        m_AllowNextItemCheck = ( hit.Location == ListViewHitTestLocations.StateImage );
-      };
-      // Keyboard toggle (space bar) should still work — it bypasses MouseDown.
-      m_ListFilters.KeyDown += ( s, e ) =>
-      {
-        if ( e.KeyCode == Keys.Space )
-        {
-          m_AllowNextItemCheck = true;
-        }
-      };
-      m_ListFilters.ItemCheck += ( s, e ) =>
-      {
-        if ( m_SuppressListEvents )
-        {
-          return;
-        }
-        if ( !m_AllowNextItemCheck )
-        {
-          // Cancel the toggle — the gesture wasn't on the checkbox. Setting
-          // NewValue equal to CurrentValue means "no change", and ItemChecked
-          // won't fire either.
-          e.NewValue = e.CurrentValue;
-        }
-        // Reset so the next user gesture starts fresh.
-        m_AllowNextItemCheck = false;
-      };
-      m_ListFilters.ItemChecked += ( s, e ) => OnListItemChecked( e.Item );
+      m_ListFilters.ItemChecked          += OnListItemCheckedHandler;
       Controls.Add( m_ListFilters );
 
       m_BtnMoveUp = new KryptonButton
@@ -446,15 +405,22 @@ namespace RetroDevStudio.Dialogs
 
     private void RefreshList()
     {
-      m_SuppressListEvents = true;
+      // Detach the ItemChecked handler while we populate so the
+      // programmatic Checked assignments don't ricochet through
+      // OnListItemChecked, which would write item.Checked back into
+      // m_Pipeline.Filters[idx].Enabled (a redundant write that also
+      // calls NotifyChanged for every item — extra repaint storm on
+      // every dialog open). Reattach in finally so user clicks after
+      // populate still update the model normally.
+      m_ListFilters.ItemChecked -= OnListItemCheckedHandler;
       try
       {
         int prevIndex = SelectedListIndex;
+        m_ListFilters.BeginUpdate();
         m_ListFilters.Items.Clear();
         foreach ( var f in m_Pipeline.Filters )
         {
-          var item = new ListViewItem( f.Name );
-          item.Checked = f.Enabled;
+          var item = new ListViewItem( f.Name ) { Checked = f.Enabled };
           m_ListFilters.Items.Add( item );
         }
         if ( ( prevIndex >= 0 )
@@ -466,10 +432,11 @@ namespace RetroDevStudio.Dialogs
         {
           m_ListFilters.Items[0].Selected = true;
         }
+        m_ListFilters.EndUpdate();
       }
       finally
       {
-        m_SuppressListEvents = false;
+        m_ListFilters.ItemChecked += OnListItemCheckedHandler;
       }
       UpdateButtonEnableStates();
     }
@@ -490,10 +457,6 @@ namespace RetroDevStudio.Dialogs
 
     private void OnListSelectionChanged()
     {
-      if ( m_SuppressListEvents )
-      {
-        return;
-      }
       RefreshParamPanel();
       UpdateButtonEnableStates();
     }
@@ -502,10 +465,6 @@ namespace RetroDevStudio.Dialogs
 
     private void OnListItemChecked( ListViewItem item )
     {
-      if ( m_SuppressListEvents )
-      {
-        return;
-      }
       int idx = item.Index;
       if ( ( idx < 0 )
       ||   ( idx >= m_Pipeline.Filters.Count ) )
@@ -514,6 +473,11 @@ namespace RetroDevStudio.Dialogs
       }
       m_Pipeline.Filters[idx].Enabled = item.Checked;
       NotifyChanged();
+    }
+
+    private void OnListItemCheckedHandler( object sender, ItemCheckedEventArgs e )
+    {
+      OnListItemChecked( e.Item );
     }
 
 

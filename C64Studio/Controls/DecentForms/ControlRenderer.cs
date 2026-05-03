@@ -53,6 +53,59 @@ namespace DecentForms
 
 
 
+    /// <summary>
+    /// Recolor the four scrollbar arrow bitmaps so the visible arrow
+    /// pixels match <paramref name="argb"/> (rather than the baked-in
+    /// black). Called by the host application after theme changes —
+    /// without it, the arrows are invisible on a dark theme. Replaces
+    /// every fully-opaque non-background pixel; everything else is
+    /// left alone so the bitmap shape is preserved.
+    /// </summary>
+    public static void RecolorArrowBitmaps( uint argb )
+    {
+      _BitmapArrowUp    = RecolorArrowBitmap( ImageFromHex( _BitmapArrowUpData ),    argb );
+      _BitmapArrowDown  = RecolorArrowBitmap( ImageFromHex( _BitmapArrowDownData ),  argb );
+      _BitmapArrowLeft  = RecolorArrowBitmap( ImageFromHex( _BitmapArrowLeftData ),  argb );
+      _BitmapArrowRight = RecolorArrowBitmap( ImageFromHex( _BitmapArrowRightData ), argb );
+      // Drop the cached grayscale variants — they were derived from
+      // the previous color and would still draw the old (black) tone
+      // even after we recolor the source.
+      _GrayscaledImageCache.Clear();
+    }
+
+    private static Bitmap RecolorArrowBitmap( Bitmap src, uint argb )
+    {
+      int a = (int)( ( argb >> 24 ) & 0xff );
+      int r = (int)( ( argb >> 16 ) & 0xff );
+      int g = (int)( ( argb >> 8  ) & 0xff );
+      int b = (int)( ( argb >> 0  ) & 0xff );
+      // The baked-in arrow color is solid-black (RGB == 0). The rest
+      // of the bitmap is a neutral background color we want to keep
+      // untouched so the bitmap silhouette still works against any
+      // backdrop. Walking GetPixel/SetPixel is fine — these bitmaps
+      // are 12x12.
+      var dst = new Bitmap( src.Width, src.Height, PixelFormat.Format32bppArgb );
+      for ( int y = 0; y < src.Height; ++y )
+      {
+        for ( int x = 0; x < src.Width; ++x )
+        {
+          var p = src.GetPixel( x, y );
+          if ( ( p.R == 0 ) && ( p.G == 0 ) && ( p.B == 0 ) && ( p.A == 0xff ) )
+          {
+            dst.SetPixel( x, y, Color.FromArgb( a, r, g, b ) );
+          }
+          else
+          {
+            dst.SetPixel( x, y, p );
+          }
+        }
+      }
+      src.Dispose();
+      return dst;
+    }
+
+
+
     public static Bitmap ImageFromHex( string ImageData )
     {
       byte[] imageBytes = StringToByteArray( ImageData );
@@ -131,6 +184,16 @@ namespace DecentForms
     static public uint      ColorControlBackground { get; set; }          = 0xffc0c0c0;
     static public uint      ColorControlBackgroundMouseOver { get; set; } = 0xff8080ff;
     static public uint      ColorControlBackgroundSelected { get; set; }  = 0xff80ff80;
+
+    /// <summary>
+    /// Fill color of the scrollbar slider (knob). Themed separately
+    /// from <see cref="ColorControlBackground"/> so it can be lifted
+    /// brighter than the surrounding trough — on a dark theme the
+    /// knob would otherwise blend invisibly into the buttons / track
+    /// (both painted with ColorControlBackground). Default light grey
+    /// matches the prior behaviour; override from theming code.
+    /// </summary>
+    static public uint      ColorScrollSlider { get; set; }               = 0xffe0e0e0;
     static public uint      ColorControlText { get; set; }                = 0xff000000;
     static public uint      ColorControlTextMouseOver { get; set; }       = 0xff000000;
     static public uint      ColorControlTextSelected { get; set; }        = 0xffffffff;
@@ -713,7 +776,11 @@ namespace DecentForms
       }
       else
       {
-        FillRaisedRectangle( X, Y, Width, Height, ColorControlBackground );
+        // Use ColorScrollSlider (themable) rather than
+        // ColorControlBackground — on a dark theme the latter would
+        // make the knob invisible against the trough/buttons that
+        // also paint with ColorControlBackground.
+        FillRaisedRectangle( X, Y, Width, Height, ColorScrollSlider );
       }
     }
 

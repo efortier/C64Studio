@@ -155,6 +155,16 @@ namespace RetroDevStudio.Documents
     // combo to mirror an eyedropped char).
     private bool                        m_SuppressTilePlacementColorAutoApply = false;
 
+    // Set transiently around the right-click-eyedrops-tile path so
+    // comboTiles_SelectedIndexChanged knows the change came from
+    // sampling a map tile (not from a direct user click in the tile
+    // list) and skips the "reset override color to Default" gesture.
+    // Right-clicking on the map should preserve whatever override the
+    // user already had set; only an explicit pick from the tile list
+    // is the "I'm switching to this tile, give me its native colors"
+    // intent.
+    private bool                        m_SuppressTilePickerOverrideReset = false;
+
     // Guards against spurious control-change callbacks firing while we are
     // programmatically copying a selected instance's fields INTO the
     // toolbar controls. Without it, the ValueChanged handlers would
@@ -283,8 +293,13 @@ namespace RetroDevStudio.Documents
       WireOwnerDrawCombo( comboMapMultiColor1,        comboAlternativeColor_DrawItem );
       WireOwnerDrawCombo( comboMapMultiColor2,        comboAlternativeColor_DrawItem );
       WireOwnerDrawCombo( comboMapAlternativeBGColor4, comboAlternativeColor_DrawItem );
-      WireOwnerDrawCombo( comboMarkerColorOverride,   comboMarkerColorOverride_DrawItem );
-      WireOwnerDrawCombo( comboTilePlacementColor,    comboTilePlacementColor_DrawItem );
+      // comboMarkerColorOverride and comboTilePlacementColor are plain
+      // System.Windows.Forms.ComboBox (not KryptonComboBox), so DrawMode
+      // and DrawItem are wired directly in the Designer file — same
+      // pattern the 4 working Tile-tab color combos and comboMarkerColor
+      // use. Krypton-wrapped combos overdraw the closed-face after our
+      // owner-draw fires, which is why these two specifically can't use
+      // the WireOwnerDrawCombo path.
       // Blank-color dropdown (shift-click target color) reuses the same
       // single-color drawer the other "pick a C64 palette index" combos
       // use, so the swatch + "00".."15" label rendering matches.
@@ -298,6 +313,14 @@ namespace RetroDevStudio.Documents
       // flag — they're always declared enabled in the Designer, so
       // we have to actively reflect the user's preference at startup.
       RefreshBrightnessButtonState();
+
+      // Disable marker/entity controls at startup. The Designer leaves
+      // them all enabled by default; UpdateMarkerControlsState reads
+      // the current tool mode (SINGLE_TILE on a fresh editor) and
+      // greys out everything not relevant to it. Without this initial
+      // call the controls would only get disabled the first time the
+      // user switched tools.
+      UpdateMarkerControlsState();
 
       comboTiles.ItemHeight = MapTileListEffectiveItemHeight;
 
@@ -1957,6 +1980,7 @@ namespace RetroDevStudio.Documents
             SetModified();
             RedrawMap();
             pictureEditor.Invalidate();
+            UpdateMarkerOutOfBoundsLabel();
           }
           return;
         }
@@ -2417,6 +2441,7 @@ namespace RetroDevStudio.Documents
                      existingMarker.Value2 = (byte)editMarkerValue2.Value;
                      existingMarker.Enabled = checkMarkerDefaultEnabled.Checked;
                      existingMarker.Triggered = checkMarkerDefaultTriggered.Checked;
+                     existingMarker.GroupId = (byte)editMarkerGroupId.Value;
                    }
                    else
                    {
@@ -2429,11 +2454,13 @@ namespace RetroDevStudio.Documents
                      marker.Value2 = (byte)editMarkerValue2.Value;
                      marker.Enabled = checkMarkerDefaultEnabled.Checked;
                      marker.Triggered = checkMarkerDefaultTriggered.Checked;
+                     marker.GroupId = (byte)editMarkerGroupId.Value;
                      m_CurrentMap.Markers.Add( marker );
                    }
                    RedrawMap();
                    pictureEditor.Invalidate();
                    Modified = true;
+                   UpdateMarkerOutOfBoundsLabel();
                  }
                }
              }
@@ -2734,7 +2761,20 @@ namespace RetroDevStudio.Documents
             if ( ( tileIndex >= 0 )
             &&   ( tileIndex < comboTiles.Items.Count ) )
             {
-              comboTiles.SelectedIndex = tileIndex;
+              // Right-click on a map tile — eyedrops the tile into
+              // the picker but must NOT reset the user's override
+              // color choice. Suppress the reset that
+              // comboTiles_SelectedIndexChanged otherwise applies
+              // for direct picks from the tile list.
+              m_SuppressTilePickerOverrideReset = true;
+              try
+              {
+                comboTiles.SelectedIndex = tileIndex;
+              }
+              finally
+              {
+                m_SuppressTilePickerOverrideReset = false;
+              }
             }
             // Remember which cell got picked so the user can press Delete
             // to clear it. The PostPaint highlight uses the same field.
@@ -3266,6 +3306,15 @@ namespace RetroDevStudio.Documents
       comboTileBGColor4.SelectedIndex = m_MapProject.BGColor4;
       comboMapProjectMode.SelectedIndex = (int)m_MapProject.Mode;
       checkShowGrid.Checked = m_MapProject.ShowGrid;
+      // Restore Auto-tiling toggle. Detach the CheckedChanged handler
+      // so the assignment doesn't ricochet into a write-back and
+      // mark the just-loaded project dirty.
+      if ( checkAutoTiling != null )
+      {
+        checkAutoTiling.CheckedChanged -= checkAutoTiling_CheckedChanged;
+        checkAutoTiling.Checked = m_MapProject.AutoTiling;
+        checkAutoTiling.CheckedChanged += checkAutoTiling_CheckedChanged;
+      }
       // Load the saved grid opacity into the slider. Detach the
       // ValueChanged handler around the assignment so it doesn't write
       // back into m_MapProject and dirty the just-loaded project.
@@ -3757,6 +3806,7 @@ namespace RetroDevStudio.Documents
       m_MapProject.CharactersPerRow = characterEditor.CharactersPerRow;
       m_MapProject.CharacterEditorMode = characterEditor.EditorMode;
       m_MapProject.ColorSwatchSize = characterEditor.SwatchSize;
+      UpdateMarkerOutOfBoundsLabel();
       return m_MapProject.SaveToBuffer();
     }
 
@@ -4436,6 +4486,66 @@ namespace RetroDevStudio.Documents
 
 
     /// <summary>
+    /// Clear every per-character passable override on the current map.
+    /// One <see cref="Undo.UndoMapCharBlockedChange"/> snapshot covers
+    /// the whole layer so Ctrl+Z restores it. Confirms first because
+    /// a full clear is irreversible without undo, and a misclick on a
+    /// large map would otherwise be expensive to redo manually.
+    /// </summary>
+    private void btnClearPassableMap_Click( object sender, EventArgs e )
+    {
+      if ( m_CurrentMap == null ) return;
+      if ( m_IsViewingRevision ) return;
+
+      var blocked = m_CurrentMap.CharBlockedOverrides;
+      if ( ( blocked == null )
+      ||   ( blocked.Width == 0 )
+      ||   ( blocked.Height == 0 ) )
+      {
+        return;
+      }
+
+      // Skip the confirm + undo + repaint when nothing is set.
+      bool anySet = false;
+      for ( int y = 0; y < blocked.Height && !anySet; ++y )
+      {
+        for ( int x = 0; x < blocked.Width; ++x )
+        {
+          if ( blocked[x, y] ) { anySet = true; break; }
+        }
+      }
+      if ( !anySet ) return;
+
+      var confirm = MessageBox.Show( this,
+        "Clear all per-character passable overrides on this map?",
+        "Clear passable overrides",
+        MessageBoxButtons.OKCancel,
+        MessageBoxIcon.Warning,
+        MessageBoxDefaultButton.Button2 );
+      if ( confirm != DialogResult.OK ) return;
+
+      DocumentInfo.UndoManager.AddUndoTask(
+        new Undo.UndoMapCharBlockedChange( this, m_CurrentMap, 0, 0, blocked.Width, blocked.Height ) );
+
+      for ( int y = 0; y < blocked.Height; ++y )
+      {
+        for ( int x = 0; x < blocked.Width; ++x )
+        {
+          blocked[x, y] = false;
+        }
+      }
+
+      // Repaint the whole map — the PASSABLE overlay tints every char
+      // that was previously blocked, so a full redraw is the cheapest
+      // way to flush the visualisation.
+      RedrawMap();
+      pictureEditor.Invalidate();
+      SetModified();
+    }
+
+
+
+    /// <summary>
     /// Walks the map in reading order (left-to-right, top-to-bottom). For each
     /// non-empty tile, determines the tile's footprint in map cells, and clears
     /// (sets to 0) any non-empty cell inside that footprint other than the anchor.
@@ -4748,6 +4858,7 @@ namespace RetroDevStudio.Documents
         shiftedMarkers.Add( marker );
       }
       m_CurrentMap.Markers = shiftedMarkers;
+      UpdateMarkerOutOfBoundsLabel();
 
       // Entities are strictly in-map; in non-roll mode anything past the
       // bounds is dropped, in roll mode it wraps.
@@ -5388,21 +5499,105 @@ namespace RetroDevStudio.Documents
 
     private void btnGetTileCount_Click( DecentForms.ControlBase Sender )
     {
-      RecalcTileUsageInCurrentMap();
+      // Two independent passes:
+      //   currentMapUsage[i] = number of cells in m_CurrentMap that
+      //                        reference tile index i.
+      //   projectUsage[i]    = same, summed across every map in the
+      //                        project.
+      // The "Used" column shows "current/project" so the user can see
+      // both at a glance (e.g. "1/12" = used once in this map, twelve
+      // times across all maps). When there's no current map, the
+      // current count collapses to 0.
+      int tileCount = m_MapProject.Tiles.Count;
+      var currentMapUsage = new int[tileCount];
+      var projectUsage    = new int[tileCount];
+
+      foreach ( var map in m_MapProject.Maps )
+      {
+        bool isCurrent = ( map == m_CurrentMap );
+        for ( int x = 0; x < map.Tiles.Width; ++x )
+        {
+          for ( int y = 0; y < map.Tiles.Height; ++y )
+          {
+            int idx = map.Tiles[x, y];
+            if ( ( idx < 0 ) || ( idx >= tileCount ) ) continue;
+            ++projectUsage[idx];
+            if ( isCurrent ) ++currentMapUsage[idx];
+          }
+        }
+      }
+
+      // Keep the cached _TileUsage in sync with the current map so
+      // other call sites that read it (e.g. the comboTiles painter)
+      // see fresh numbers after a manual recount.
+      _TileUsage.Clear();
+      for ( int i = 0; i < tileCount; ++i )
+      {
+        _TileUsage.Add( currentMapUsage[i] );
+      }
+
+      // Build the "unused" font once, lazily — bold version of the
+      // listview's font, used for tiles whose total project usage is
+      // zero. Keeping it scoped to this method means we don't have to
+      // own the font's lifetime; CSListView's painter doesn't dispose
+      // the SubItem.Font, so the same font instance can persist on
+      // multiple rows without leaking.
+      System.Drawing.Font unusedFont = null;
 
       listTileInfo.BeginUpdate();
       foreach ( ListViewItem item in listTileInfo.Items )
       {
         Formats.MapProject.Tile tile = (Formats.MapProject.Tile)item.Tag;
-        if ( ( tile.Index >= 0 )
-        &&   ( tile.Index < _TileUsage.Count ) )
+        if ( ( tile.Index < 0 )
+        ||   ( tile.Index >= tileCount ) )
         {
-          // SubItem 4 = "Used" column (after the new Preview column at 2
-          // shifted Size and Used down to 3 and 4 respectively).
-          item.SubItems[4].Text = _TileUsage[tile.Index].ToString();
+          continue;
+        }
+
+        // SubItem 4 = "Used" column (after the new Preview column at 2
+        // shifted Size and Used down to 3 and 4 respectively). Promote
+        // the existing subitem to a CSListViewSubItem if it isn't one
+        // already — the OverrideForeColor / Font tweaks below need it.
+        var sub = item.SubItems[4];
+        if ( !( sub is RetroDevStudio.Controls.CSListViewSubItem ) )
+        {
+          var promoted = new RetroDevStudio.Controls.CSListViewSubItem();
+          item.SubItems.RemoveAt( 4 );
+          item.SubItems.Insert( 4, promoted );
+          sub = promoted;
+        }
+        var csSub = (RetroDevStudio.Controls.CSListViewSubItem)sub;
+
+        int curUse = currentMapUsage[tile.Index];
+        int prjUse = projectUsage[tile.Index];
+        csSub.Text = curUse.ToString() + "/" + prjUse.ToString();
+
+        if ( prjUse == 0 )
+        {
+          // Truly unused tile — red bold so it's easy to spot in a
+          // long list. ProjectUsage == 0 implies currentMapUsage is
+          // also 0 (both sums share the same zero-source loop), so
+          // this is the "0/0" case the user asked for.
+          if ( unusedFont == null )
+          {
+            unusedFont = new System.Drawing.Font( listTileInfo.Font, System.Drawing.FontStyle.Bold );
+          }
+          csSub.Font = unusedFont;
+          csSub.OverrideForeColor = System.Drawing.Color.Red;
+        }
+        else
+        {
+          // Used at least once somewhere — restore default styling
+          // so a tile that became used after a previous "0/0" run
+          // doesn't keep the red bold.
+          csSub.Font = listTileInfo.Font;
+          csSub.OverrideForeColor = null;
         }
       }
       listTileInfo.EndUpdate();
+      listTileInfo.Invalidate();
+
+      comboTiles.Invalidate();
     }
 
 
@@ -6033,6 +6228,32 @@ namespace RetroDevStudio.Documents
         return;
       }
       m_CurrentEditorTile = ( (GR.Generic.Tupel<string, Formats.MapProject.Tile>)comboTiles.SelectedItem ).second;
+
+      // Reset the override dropdown to "Default" so subsequent
+      // placement uses the tile's own per-char colors (the user's
+      // intent when picking a fresh tile from the list — without
+      // this, a leftover override color from a previous tile would
+      // silently keep stamping its color over the new tile's chars).
+      // Suppress the auto-apply path so this reset doesn't ricochet
+      // into the right-click-selected tile on the map.
+      // Also skipped when the tile change came from the right-click-
+      // on-map eyedropper (m_SuppressTilePickerOverrideReset) — that
+      // path should mirror the tile but leave the override color
+      // alone.
+      if ( ( comboTilePlacementColor != null )
+      &&   ( comboTilePlacementColor.SelectedIndex != 0 )
+      &&   ( !m_SuppressTilePickerOverrideReset ) )
+      {
+        m_SuppressTilePlacementColorAutoApply = true;
+        try
+        {
+          comboTilePlacementColor.SelectedIndex = 0;
+        }
+        finally
+        {
+          m_SuppressTilePlacementColorAutoApply = false;
+        }
+      }
     }
 
 
@@ -7733,7 +7954,25 @@ namespace RetroDevStudio.Documents
     private void checkShowGrid_CheckedChanged( object sender, EventArgs e )
     {
       m_MapProject.ShowGrid = checkShowGrid.Checked;
+      SetModified();
       Redraw();
+    }
+
+
+
+    /// <summary>
+    /// Mirror the auto-tiling checkbox state into the project so it
+    /// persists in the save file. SetModified marks the project dirty
+    /// so the change actually survives the next save (otherwise a
+    /// pure toggle with no other edits could be silently dropped on
+    /// app close).
+    /// </summary>
+    private void checkAutoTiling_CheckedChanged( object sender, EventArgs e )
+    {
+      if ( m_MapProject == null ) return;
+      if ( m_MapProject.AutoTiling == checkAutoTiling.Checked ) return;
+      m_MapProject.AutoTiling = checkAutoTiling.Checked;
+      SetModified();
     }
 
 
@@ -8943,6 +9182,7 @@ namespace RetroDevStudio.Documents
        pictureEditor.Invalidate();
        RedrawMap();
        SetModified();
+       UpdateMarkerOutOfBoundsLabel();
     }
 
     private void listMarkerTypes_SelectedIndexChanged( object sender, EventArgs e )
@@ -9064,6 +9304,31 @@ namespace RetroDevStudio.Documents
 
 
 
+    /// <summary>
+    /// Live edit / placement-default for the marker GroupId field.
+    /// Same pattern as <see cref="editMarkerValue_ValueChanged"/>:
+    /// when a marker is selected, mutate it directly (with undo); when
+    /// nothing's selected, leave the editor value alone — the left-
+    /// click handler reads it at placement time as the new marker's
+    /// default GroupId.
+    /// </summary>
+    private void editMarkerGroupId_ValueChanged( object sender, EventArgs e )
+    {
+      if ( m_PopulatingFromSelection ) return;
+      if ( m_SelectedMarker == null ) return;
+
+      byte newG = (byte)editMarkerGroupId.Value;
+      if ( m_SelectedMarker.GroupId == newG ) return;
+
+      DocumentInfo.UndoManager.AddUndoTask(
+        new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
+      m_SelectedMarker.GroupId = newG;
+      SetModified();
+      pictureEditor.Invalidate();
+    }
+
+
+
     private void checkMarkerDefaultEnabled_CheckedChanged( object sender, EventArgs e )
     {
       if ( m_PopulatingFromSelection ) return;
@@ -9160,16 +9425,6 @@ namespace RetroDevStudio.Documents
         return;
       }
 
-      var type = m_MapProject.MarkerTypes.FirstOrDefault( t => t.ID == m_SelectedMarker.Type );
-      string typeName = ( type != null ) ? type.Name : "(unknown)";
-      var result = System.Windows.Forms.MessageBox.Show(
-        "Delete the selected marker at (" + m_SelectedMarker.X + ", " + m_SelectedMarker.Y
-          + ") of type '" + typeName + "'?",
-        "Delete marker",
-        System.Windows.Forms.MessageBoxButtons.YesNo,
-        System.Windows.Forms.MessageBoxIcon.Warning );
-      if ( result != System.Windows.Forms.DialogResult.Yes ) return;
-
       DocumentInfo.UndoManager.AddUndoTask(
         new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
       m_CurrentMap.Markers.Remove( m_SelectedMarker );
@@ -9177,6 +9432,118 @@ namespace RetroDevStudio.Documents
       SetModified();
       RedrawMap();
       pictureEditor.Invalidate();
+      UpdateMarkerOutOfBoundsLabel();
+    }
+
+
+
+    private void btnReflowOOBMarkers_Click( object sender, EventArgs e )
+    {
+      if ( m_CurrentMap == null ) return;
+      int w = m_CurrentMap.Tiles.Width;
+      int h = m_CurrentMap.Tiles.Height;
+      if ( ( w <= 0 ) || ( h <= 0 ) ) return;
+
+      // Gather every marker that lies outside the tile grid. Order is the
+      // current Markers-list order — preserved when reassigning positions.
+      var oob = new List<Formats.MapProject.Marker>();
+      foreach ( var marker in m_CurrentMap.Markers )
+      {
+        if ( ( marker.X < 0 ) || ( marker.Y < 0 )
+        ||   ( marker.X >= w ) || ( marker.Y >= h ) )
+        {
+          oob.Add( marker );
+        }
+      }
+      if ( oob.Count == 0 )
+      {
+        UpdateMarkerOutOfBoundsLabel();
+        return;
+      }
+
+      DocumentInfo.UndoManager.AddUndoTask(
+        new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
+
+      // Pack left-to-right, wrap at width. If the count exceeds w*h the
+      // overflow lands past the bottom edge — that becomes its own OOB
+      // count on the next refresh, which is acceptable: the user pressed
+      // "pull in" knowing how many markers exist.
+      for ( int i = 0; i < oob.Count; ++i )
+      {
+        oob[i].X = i % w;
+        oob[i].Y = i / w;
+      }
+
+      SelectMarker( null );
+      SetModified();
+      RedrawMap();
+      pictureEditor.Invalidate();
+      UpdateMarkerOutOfBoundsLabel();
+    }
+
+
+
+    private void UpdateMarkerOutOfBoundsLabel()
+    {
+      if ( labelMarkersOutOfBounds == null ) return;
+
+      int count = 0;
+      if ( m_CurrentMap != null )
+      {
+        int w = m_CurrentMap.Tiles.Width;
+        int h = m_CurrentMap.Tiles.Height;
+        foreach ( var marker in m_CurrentMap.Markers )
+        {
+          if ( ( marker.X < 0 ) || ( marker.Y < 0 )
+          ||   ( marker.X >= w ) || ( marker.Y >= h ) )
+          {
+            ++count;
+          }
+        }
+      }
+      labelMarkersOutOfBounds.Text = "Markers out of bounds: " + count;
+    }
+
+
+
+    private void btnFindNextMarkerGroup_Click( object sender, EventArgs e )
+    {
+      if ( m_CurrentMap == null ) return;
+
+      // Sequential allocator: start at the persisted cursor (clamped to >=1
+      // because GroupId 0 is reserved for "no group"), then skip any ids
+      // currently in use on this map. Cap at 255 — the byte limit of the
+      // exported map binary.
+      var inUse = new System.Collections.Generic.HashSet<int>();
+      foreach ( var marker in m_CurrentMap.Markers )
+      {
+        inUse.Add( marker.GroupId );
+      }
+
+      int candidate = m_CurrentMap.NextMarkerGroupId;
+      if ( candidate < 1 ) candidate = 1;
+      while ( ( candidate <= 255 ) && inUse.Contains( candidate ) )
+      {
+        ++candidate;
+      }
+
+      if ( candidate > 255 )
+      {
+        System.Windows.Forms.MessageBox.Show(
+          "All marker group ids from 1 to 255 are already in use, or the per-map allocator has been advanced past 255. Marker GroupId is a byte in the exported map binary and cannot exceed 255.",
+          "No free marker group id",
+          System.Windows.Forms.MessageBoxButtons.OK,
+          System.Windows.Forms.MessageBoxIcon.Warning );
+        // Park the cursor at the overflow sentinel so re-clicking without
+        // freeing a slot keeps warning rather than silently rolling back.
+        m_CurrentMap.NextMarkerGroupId = 256;
+        SetModified();
+        return;
+      }
+
+      editMarkerGroupId.Value = candidate;
+      m_CurrentMap.NextMarkerGroupId = candidate + 1;
+      SetModified();
     }
 
 
@@ -9263,15 +9630,70 @@ namespace RetroDevStudio.Documents
       }
     }
     
+    /// <summary>
+    /// Sync every Map-tab control whose meaning depends on the
+    /// current tool mode (MARKER, ENTITY) and current selection.
+    ///
+    /// MARKER mode: the marker placement / edit controls in the
+    /// flowLayoutPanel4 row are enabled (type picker, value editors,
+    /// color override). They serve dual purpose — without a selection
+    /// they configure defaults for the next placement, with one they
+    /// edit the selected marker — so they're enabled whenever MARKER
+    /// mode is active. The delete button is additionally
+    /// selection-gated via <see cref="UpdateDeleteSelectedButtonsEnabled"/>.
+    ///
+    /// ENTITY mode: same deal for entity controls in flowLayoutPanel2
+    /// (type picker, default value editors, enabled / triggered
+    /// checkboxes). The visibility toggle (checkShowEntities) is
+    /// always usable since "show entities" is meaningful even when
+    /// you're not actively editing them.
+    ///
+    /// Outside MARKER/ENTITY mode, all of those controls are
+    /// disabled — clicking them in (say) SINGLE_TILE mode would have
+    /// no observable effect anyway, so showing them as enabled was
+    /// just confusing.
+    /// </summary>
     private void UpdateMarkerControlsState()
     {
-       bool enabled = btnToolMarker.Checked;
-       comboMarkerTypes.Enabled = enabled;
-       comboMarkerColorOverride.Enabled = enabled;
-       clearAllMarkersToolStripMenuItem.Enabled = enabled;
-       clearMarkerTypeMenuItem.Enabled = enabled;
+       bool markerMode   = ( btnToolMarker != null )   && btnToolMarker.Checked;
+       bool entityMode   = ( btnToolEntity != null )   && btnToolEntity.Checked;
+       bool passableMode = ( btnToolPassable != null ) && btnToolPassable.Checked;
+
+       // PASSABLE-only commands.
+       if ( btnClearPassableMap != null ) btnClearPassableMap.Enabled = passableMode;
+
+       // ----- MARKER side (flowLayoutPanel4) -----
+       if ( comboMarkerTypes        != null ) comboMarkerTypes.Enabled        = markerMode;
+       if ( comboMarkerColorOverride != null ) comboMarkerColorOverride.Enabled = markerMode;
+       if ( labelMarkerValue1       != null ) labelMarkerValue1.Enabled       = markerMode;
+       if ( editMarkerValue1        != null ) editMarkerValue1.Enabled        = markerMode;
+       if ( labelMarkerValue2       != null ) labelMarkerValue2.Enabled       = markerMode;
+       if ( editMarkerValue2        != null ) editMarkerValue2.Enabled        = markerMode;
+       if ( labelMarkerGroupId      != null ) labelMarkerGroupId.Enabled      = markerMode;
+       if ( editMarkerGroupId       != null ) editMarkerGroupId.Enabled       = markerMode;
+       if ( btnReflowOOBMarkers     != null ) btnReflowOOBMarkers.Enabled     = markerMode;
+       UpdateMarkerOutOfBoundsLabel();
+
+       // Tools menu items that act on markers — only meaningful in
+       // marker mode. Disabled elsewhere so the user can't trip
+       // a wholesale clear from inside, e.g., entity mode.
+       if ( clearAllMarkersToolStripMenuItem != null ) clearAllMarkersToolStripMenuItem.Enabled = markerMode;
+       if ( clearMarkerTypeMenuItem          != null ) clearMarkerTypeMenuItem.Enabled          = markerMode;
+
+       // ----- ENTITY side (flowLayoutPanel2) -----
+       if ( comboEntityTypes          != null ) comboEntityTypes.Enabled          = entityMode;
+       if ( labelEntityValue1         != null ) labelEntityValue1.Enabled         = entityMode;
+       if ( editEntityValue1Default   != null ) editEntityValue1Default.Enabled   = entityMode;
+       if ( labelEntityValue2         != null ) labelEntityValue2.Enabled         = entityMode;
+       if ( editEntityValue2Default   != null ) editEntityValue2Default.Enabled   = entityMode;
+       if ( checkEntityDefaultEnabled != null ) checkEntityDefaultEnabled.Enabled = entityMode;
+       if ( checkEntityDefaultTriggered != null ) checkEntityDefaultTriggered.Enabled = entityMode;
+       // checkShowEntities intentionally NOT gated — the user may
+       // want to see entity icons while painting tiles.
+
        // The dim slider is shared between marker and entity placement modes.
-       dimSlider.Enabled = enabled || btnToolEntity.Checked;
+       if ( dimSlider != null ) dimSlider.Enabled = markerMode || entityMode;
+
        UpdateDeleteSelectedButtonsEnabled();
     }
 
@@ -9350,6 +9772,7 @@ namespace RetroDevStudio.Documents
         {
           editMarkerValue1.Value = marker.Value1;
           editMarkerValue2.Value = marker.Value2;
+          editMarkerGroupId.Value = marker.GroupId;
           checkMarkerDefaultEnabled.Checked = marker.Enabled;
           checkMarkerDefaultTriggered.Checked = marker.Triggered;
 
@@ -10381,6 +10804,51 @@ namespace RetroDevStudio.Documents
         e.SuppressKeyPress = true;
       }
     }
+    /// <summary>
+    /// Find the lowest unused Group Id ≥ 1 across every tile in the
+    /// project and assign it to the currently-edited tile. "Lowest
+    /// unused" walks 1, 2, 3… and returns the first integer that no
+    /// tile is currently using — so holes (1, 3 → free 2) get filled
+    /// before extending the range. The CURRENT tile's existing
+    /// GroupId is treated as free so re-clicking the button on a
+    /// tile that already has a unique id keeps the same id.
+    /// </summary>
+    private void btnFindFreeTileGroupId_Click( object sender, EventArgs e )
+    {
+      if ( m_MapProject == null ) return;
+      if ( m_CurrentEditedTile == null ) return;
+      if ( ( listTileInfo.SelectedIndices == null )
+      ||   ( listTileInfo.SelectedIndices.Count == 0 ) ) return;
+
+      // Build the set of GroupIds in use, excluding the current
+      // tile's own id (so it can keep its slot if already free).
+      var inUse = new System.Collections.Generic.HashSet<int>();
+      for ( int i = 0; i < m_MapProject.Tiles.Count; ++i )
+      {
+        var t = m_MapProject.Tiles[i];
+        if ( t == m_CurrentEditedTile ) continue;
+        inUse.Add( t.GroupId );
+      }
+
+      int candidate = 1;
+      while ( inUse.Contains( candidate ) ) ++candidate;
+
+      if ( m_CurrentEditedTile.GroupId == candidate )
+      {
+        // Already at the lowest free id — nothing to do, no undo
+        // entry, no dirty flag.
+        return;
+      }
+
+      DocumentInfo.UndoManager.AddUndoTask(
+        new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
+      m_CurrentEditedTile.GroupId = candidate;
+      editTileGroupId.Text = candidate.ToString();
+      SetModified();
+    }
+
+
+
     private void editTileGroupId_KeyPress( object sender, KeyPressEventArgs e )
     {
       if ( e.KeyChar == 13 )
@@ -10905,6 +11373,7 @@ namespace RetroDevStudio.Documents
       RedrawMap();
       pictureEditor.Invalidate();
       SetModified();
+      UpdateMarkerOutOfBoundsLabel();
     }
 
 
@@ -10956,6 +11425,7 @@ namespace RetroDevStudio.Documents
             pictureEditor.Invalidate();
             RedrawMap();
             Modified = true;
+            UpdateMarkerOutOfBoundsLabel();
         }
 
         private void clearMarkerTypeMenuItem_Click(object sender, EventArgs e)
@@ -10967,6 +11437,7 @@ namespace RetroDevStudio.Documents
             pictureEditor.Invalidate();
             RedrawMap();
             Modified = true;
+            UpdateMarkerOutOfBoundsLabel();
         }
 
         private void createImageOfMapToolStripMenuItem_Click(object sender, EventArgs e)

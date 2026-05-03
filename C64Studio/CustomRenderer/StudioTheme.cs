@@ -279,10 +279,16 @@ namespace RetroDevStudio.CustomRenderer
           // TEXT color too, which on the dark theme is dark blue — same
           // hue as the highlight tint, leaving the text nearly invisible
           // against a 25%-transparent dark-blue strip on a dark form bg.
-          // The selection BG below stays as the highlight color, made
-          // 25% transparent so it tints the underlying control color.
+          //
+          // Selection BG: pull from the SAME color the scrollbar slider
+          // uses (DecentForms.ControlRenderer.ColorScrollSlider — themed
+          // as a brightened version of BACKGROUND_BUTTON). That color is
+          // explicitly chosen to stand out against the dark theme, so
+          // the row highlight is now visibly distinct from the row body.
+          // Made 25% transparent so the underlying row colors aren't
+          // completely overpainted.
           lv.SelectedTextColor    = Core.Settings.FGColor( ColorableElement.CONTROL_TEXT );
-          lv.SelectedTextBGColor  = Core.Settings.FGColor( ColorableElement.SELECTED_TEXT );
+          lv.SelectedTextBGColor  = DecentForms.ControlRenderer.ColorScrollSlider;
           // make transparent
           if ( ( lv.SelectedTextBGColor & 0xff000000 ) == 0xff000000 )
           {

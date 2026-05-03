@@ -27,6 +27,12 @@ namespace RetroDevStudio.Formats
       public byte       Value2 = 0;
       public bool       Enabled = true;
       public bool       Triggered = false;
+      // Per-marker group identifier. Lets the game runtime
+      // enable/disable batches of markers at once (e.g. "all triggers
+      // for room 5" → GroupId == 5). Default 0 = no group / global.
+      // Persisted as a single byte in both the chunk format and the
+      // game-binary export record.
+      public byte       GroupId = 0;
     };
 
     public class MarkerType
@@ -152,6 +158,14 @@ namespace RetroDevStudio.Formats
       public int                SelectedMarkerType = 0;
       public int                SelectedEntityType = -1;
       public int                MarkerDimOpacity = 100;
+
+      // Per-map sequential allocator for marker GroupId. The "Find next"
+      // button on the marker toolbar dispenses this value, then bumps it.
+      // Starts at 1 (GroupId 0 is reserved for "no group"). Stored as int
+      // so the cursor can sit at 256 to mean "exhausted" — Find next
+      // refuses with a warning at that point because GroupId is a byte
+      // in the exported map binary.
+      public int                NextMarkerGroupId = 1;
 
       /// <summary>
       /// overrides Project.Mode when set (e.g. display MC instead of hires)
@@ -315,6 +329,13 @@ namespace RetroDevStudio.Formats
     public CharsetProject               Charset = new Formats.CharsetProject();
     public bool                         ShowGrid = false;
     /// <summary>
+    /// State of the Auto-tiling toggle on the Map tab. When true, the
+    /// editor's auto-tiling logic runs after each tile placement.
+    /// Persisted per-project so the editor opens with the same toggle
+    /// state the user had when last saving.
+    /// </summary>
+    public bool                         AutoTiling = false;
+    /// <summary>
     /// Opacity of the grid overlay drawn on the map editor (0..100).
     /// 100 = opaque white grid lines (legacy behaviour); 0 = invisible
     /// (equivalent to ShowGrid=false). Each grid pixel is alpha-blended
@@ -389,6 +410,10 @@ namespace RetroDevStudio.Formats
       chunkProjectInfo.AppendI32( ShiftClickBlankColor );
       // Grid opacity (0..100). Append-only.
       chunkProjectInfo.AppendI32( GridOpacity );
+      // Auto-tiling toggle state (per-project). Append-only — old
+      // files without this byte fall through to the default false on
+      // load.
+      chunkProjectInfo.AppendU8( AutoTiling ? (byte)1 : (byte)0 );
       projectFile.Append( chunkProjectInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkCharset = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET );
@@ -630,6 +655,12 @@ namespace RetroDevStudio.Formats
                 GridOpacity = chunkReader.ReadInt32();
                 if ( GridOpacity < 0 )   GridOpacity = 0;
                 if ( GridOpacity > 100 ) GridOpacity = 100;
+              }
+              // Optional appended AutoTiling toggle. Old files default
+              // to false (toggle off) — same as the field's initializer.
+              if ( chunkReader.Size - chunkReader.Position >= 1 )
+              {
+                AutoTiling = ( chunkReader.ReadUInt8() != 0 );
               }
             }
             break;
@@ -1799,7 +1830,7 @@ namespace RetroDevStudio.Formats
       int addrBase = BaseAddress;
 
       // ========== HEADER (52 bytes, 0x34) ==========
-      buf.AppendU8( 7 );    // +$00 marker_stride (bytes per marker record: tag, x, y, value1, value2, enabled, triggered)
+      buf.AppendU8( 8 );    // +$00 marker_stride (bytes per marker record: tag, x, y, value1, value2, enabled, triggered, group_id)
       buf.AppendU8( (byte)Tiles.Count );  // +$01
       buf.AppendU8( (byte)Maps.Count );   // +$02
       // 21 x 2-byte offset placeholders (+$03 .. +$2C)
@@ -2202,6 +2233,7 @@ namespace RetroDevStudio.Formats
             buf.AppendU8( marker.Value2 );
             buf.AppendU8( (byte)( marker.Enabled ? 1 : 0 ) );
             buf.AppendU8( (byte)( marker.Triggered ? 1 : 0 ) );
+            buf.AppendU8( marker.GroupId );
           }
         }
 
@@ -2317,7 +2349,7 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_ENTITIES_HI         = $32" );
       sb.AppendLine( ".const MAP_HEADER_SIZE                           = $34  // total header length" );
       sb.AppendLine();
-      sb.AppendLine( "// ====== Marker record layout (7 bytes per marker) ======" );
+      sb.AppendLine( "// ====== Marker record layout (8 bytes per marker) ======" );
       sb.AppendLine( "// Byte offsets within a single marker record." );
       sb.AppendLine( "// Use MAP_MARKER_SIZE to advance between records." );
       sb.AppendLine( ".const MAP_MARKER_TAG                            = $00" );
@@ -2327,7 +2359,8 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( ".const MAP_MARKER_VALUE2                         = $04" );
       sb.AppendLine( ".const MAP_MARKER_ENABLED                        = $05" );
       sb.AppendLine( ".const MAP_MARKER_TRIGGERED                      = $06" );
-      sb.AppendLine( ".const MAP_MARKER_SIZE                           = $07  // bytes per marker" );
+      sb.AppendLine( ".const MAP_MARKER_GROUP_ID                       = $07" );
+      sb.AppendLine( ".const MAP_MARKER_SIZE                           = $08  // bytes per marker" );
       sb.AppendLine();
       sb.AppendLine( "// ====== Entity record layout (8 bytes per entity) ======" );
       sb.AppendLine( "// Byte offsets within a single entity record." );
@@ -3303,6 +3336,10 @@ namespace RetroDevStudio.Formats
       chunkMapInfo.AppendI32( (int)map.AlternativeMode + 1 );
       chunkMapInfo.AppendI32( map.SelectedMarkerType );
       chunkMapInfo.AppendI32( map.MarkerDimOpacity );
+      // Appended for NextMarkerGroupId — sequential allocator for the
+      // marker toolbar's Find-next button. Forward-compat: older readers
+      // simply stop after MarkerDimOpacity and leave the default of 1.
+      chunkMapInfo.AppendI32( map.NextMarkerGroupId );
       chunkMap.Append( chunkMapInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkMapData = new GR.IO.FileChunk( FileChunkConstants.MAP_DATA );
@@ -3415,6 +3452,8 @@ namespace RetroDevStudio.Formats
         chunkMarker.AppendU8( (byte)( marker.Triggered ? 1 : 0 ) );
         // Appended for Value2 — old files that lack this byte get the default 0.
         chunkMarker.AppendU8( marker.Value2 );
+        // Appended for GroupId — same forward-compat pattern, default 0.
+        chunkMarker.AppendU8( marker.GroupId );
         chunkMap.Append( chunkMarker.ToBuffer() );
       }
 
@@ -3500,6 +3539,11 @@ namespace RetroDevStudio.Formats
             if ( mapChunkReader.Size - mapChunkReader.Position >= 4 )
             {
               map.MarkerDimOpacity = mapChunkReader.ReadInt32();
+            }
+            if ( mapChunkReader.Size - mapChunkReader.Position >= 4 )
+            {
+              map.NextMarkerGroupId = mapChunkReader.ReadInt32();
+              if ( map.NextMarkerGroupId < 1 ) map.NextMarkerGroupId = 1;
             }
             break;
           case FileChunkConstants.MAP_DATA:
@@ -3710,6 +3754,14 @@ namespace RetroDevStudio.Formats
               else
               {
                 marker.Value2 = 0;
+              }
+              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+              {
+                marker.GroupId = mapChunkReader.ReadUInt8();
+              }
+              else
+              {
+                marker.GroupId = 0;
               }
               map.Markers.Add( marker );
             }

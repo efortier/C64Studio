@@ -1030,6 +1030,28 @@ namespace RetroDevStudio
 
 
 
+    /// <summary>
+    /// Linearly interpolate each RGB channel of <paramref name="argb"/>
+    /// toward 255 (white) by <paramref name="t"/> (0..1). Used to lift
+    /// the scrollbar slider color above the dark trough so it stays
+    /// visible on dark themes. Alpha is preserved.
+    /// </summary>
+    private static uint LightenARGBToward( uint argb, float t )
+    {
+      if ( t < 0f ) t = 0f;
+      if ( t > 1f ) t = 1f;
+      uint a = argb & 0xff000000;
+      uint r = ( argb >> 16 ) & 0xff;
+      uint g = ( argb >> 8  ) & 0xff;
+      uint b = ( argb >> 0  ) & 0xff;
+      r = (uint)( r + ( 255 - r ) * t );
+      g = (uint)( g + ( 255 - g ) * t );
+      b = (uint)( b + ( 255 - b ) * t );
+      return a | ( r << 16 ) | ( g << 8 ) | b;
+    }
+
+
+
     internal void RefreshDisplayOnAllDocuments()
     {
       uint colorSelectionBackground = StudioCore.Settings.FGColor( ColorableElement.SELECTED_TEXT );
@@ -1047,6 +1069,17 @@ namespace RetroDevStudio
       DecentForms.ControlRenderer.ColorControlBackgroundSelected  = colorSelectionBackground;
       DecentForms.ControlRenderer.ColorControlActiveBackground    = StudioCore.Settings.BGColor( Types.ColorableElement.BACKGROUND_CONTROL );
       DecentForms.ControlRenderer.ColorControlBorderFlat          = StudioCore.Settings.FGColor( ColorableElement.CONTROL_TEXT );
+
+      // Scrollbars: the arrow bitmaps are baked-in BMP data with
+      // black-pixel arrows (invisible on dark themes), and the slider
+      // knob shares ColorControlBackground with the trough/buttons
+      // (also invisible on dark themes). Recolor the arrows to the
+      // foreground tone, and lift the knob to a brighter shade so it
+      // stands out against the trough.
+      DecentForms.ControlRenderer.RecolorArrowBitmaps(
+        StudioCore.Settings.FGColor( ColorableElement.CONTROL_TEXT ) );
+      DecentForms.ControlRenderer.ColorScrollSlider =
+        LightenARGBToward( StudioCore.Settings.BGColor( ColorableElement.BACKGROUND_BUTTON ), 0.6f );
 
       var bgColor = GR.Color.Helper.FromARGB( StudioCore.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) );
       var fgColor = GR.Color.Helper.FromARGB( StudioCore.Settings.FGColor( ColorableElement.BACKGROUND_CONTROL ) );

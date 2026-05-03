@@ -7,6 +7,57 @@
 
 Certainty bar: cause verified by source inspection, proposed change matches an established pattern, no plausible side effects you haven't enumerated. A clean build is not evidence of correctness — runtime behavior is. Reverts and "small adjustments" need the same bar as new fixes.
 
+## Hard Rule: Complete Problem Analysis
+**When the user reports a problem, do NOT stop at the first cause you find.** A user-reported bug is the *symptom* — the same root cause may be triggering other observable misbehaviors that the user hasn't noticed yet, and adjacent code may have the same flaw.
+
+After identifying a candidate cause, BEFORE applying any fix:
+- Walk the **callers** of the affected code — are there other paths that exercise the same bug?
+- Walk the **callees** — does anything they do compound or hide the issue?
+- Walk **siblings** — code with similar structure / pattern often has the same flaw (e.g. if one event handler has a wrong order, all the parallel handlers usually do too).
+- Cross-check **related state** — settings, persistence, undo, save/load, export — places the buggy data could have leaked.
+
+Only after that audit, decide what to fix. Fix every instance found, not just the one the user pointed at. Then in the user-facing summary, list what was found in addition to the original report.
+
+## Programming Standards
+
+These rules apply to every coding task, in every language. Read them BEFORE writing or modifying code, not as a post-hoc checklist. A violation is grounds to stop and redesign, not patch.
+
+### C#
+
+#### No gating flags
+**Default to NOT introducing a `bool` (field, property, or method-returning-bool) whose purpose is to GATE behavior — to suppress events, allow the next action, mark "we're populating", "we're in a special mode", or otherwise cordon off a code path.** Patterns to watch for: `m_SuppressEvents`, `m_AllowNext...`, `m_PopulatingFromX`, `m_InHandler`, `m_DontFire...`. They are invisible state machines that fail at the edges (events firing in unexpected order, multiple set/clear sites racing, exceptions skipping the clear, the flag leaking across calls). They are the canonical source of "works fine until it doesn't" bugs and they pile up — each new gate exists because the previous one wasn't sufficient, and the result is unmaintainable.
+
+A `bool` that represents the **intrinsic state of a thing** is fine and encouraged: `IsEnabled`, `IsActive`, `IsVisible`, `IsDirty`, `HasFinished`. Those describe what an object IS, not what code is allowed to do.
+
+**Preferred alternatives, in order:**
+1. **Detach the event handler** for the duration of the programmatic action, reattach in `finally`. Synchronous, immune to event-ordering issues, no flag state to lose.
+2. **Pass the value directly** through a parameter instead of stashing it in a field for a downstream method to read.
+3. **Restructure** so the path that "shouldn't fire" doesn't exist — extract the work into a method that doesn't go through the event pipeline. For initialization-time "don't write back to the model while reading FROM the model": put the population in its own method that simply doesn't call the write-back paths.
+4. **Scope-based suppressors** (an `IDisposable` returned by a method, used in a `using` block) when you genuinely cannot detach — they at least bind the suppress lifetime to the stack scope and survive exceptions.
+
+**Initialization-time guards** are a frequent edge case where alternative 1 (detach) feels heavy if there are many event-firing controls in one constructor. Default answer: detach anyway — the verbosity is worth it. If the constructor is so large that detaching is a real readability problem, that's a sign the constructor should be split, not that a flag is justified.
+
+**Teeth test.** When you reach for a gating flag, write one of the four alternatives FIRST. If after a serious attempt no alternative works (third-party library where you don't own the event source; framework layer you can't intercept; a real architectural force), write a one-paragraph comment in the file explaining what specifically forces the flag and why each alternative fails. The comment is the price of admission. The flag without the comment is a bug waiting to happen.
+
+**Smell test.** ANY `bool` whose name suggests behavior gating rather than intrinsic state — anywhere in the code, not just near event handlers — is a smell to audit before reading further. The proximity-to-event-handler qualifier is wrong: deeply private gating flags are often worse because they're harder to find.
+
+#### Visual controls live in the Designer, not in code
+**When adding a persistent visual control to a form or user control, add it through the Designer file (`Foo.Designer.cs`) — not by hand-rolling `new Krypton...()` in the constructor or a hand-written init method in `Foo.cs`.** The user works in the visual designer; controls created in code are invisible there, can't be selected, can't have their properties edited from the property grid, and don't show up in the layout preview. That defeats the entire reason WinForms has a designer.
+
+For each new persistent control, add to `Foo.Designer.cs`:
+- The field declaration at the bottom of the file (`private Krypton... m_FooButton;`)
+- The instantiation in `InitializeComponent` (`m_FooButton = new Krypton...()`)
+- The `// m_FooButton //` per-control block setting **all static properties** (Text, Location, Size, Anchor, TabIndex, etc.) — these are what the property grid reads and writes
+- The `Controls.Add( m_FooButton )` call on the parent panel/form, in the desired tab order
+
+In the constructor or `Foo.cs`, only set properties whose values are **runtime-determined** (e.g. theming colors, data-bound labels, dynamically computed positions). Static, design-time properties belong in the Designer block so the user can see and edit them visually.
+
+**Legitimate exceptions** — controls that genuinely cannot be Designer-authored:
+- **Data-driven dynamic controls** — one row/button/swatch per item in a runtime collection (a button per filter, a palette swatch grid, a per-character editor row). The count is unknown at design time, so they must be created in code. Use a container (FlowLayoutPanel, TableLayoutPanel) that IS in the Designer, and populate it in code.
+- **Composite custom controls** — internal child controls of a `UserControl` whose layout is hidden behind the control's public API. These are part of the control's implementation, not a host form's surface.
+
+Hand-coding a static button into a form's constructor because "it's faster than opening the designer" is the failure mode this rule prevents.
+
 ## Project Overview
 C64Studio is a Windows Forms IDE for Commodore 64 / retro computer development. The solution (`C64Studio.sln`) is a .NET project targeting both `net3.5` and `net8.0-windows`.
 

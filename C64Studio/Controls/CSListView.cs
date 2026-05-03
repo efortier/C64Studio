@@ -152,7 +152,17 @@ namespace RetroDevStudio.Controls
           textBounds = new Rectangle( textBounds.Left + image.Width + 6, textBounds.Top, textBounds.Width - image.Width - 6, textBounds.Height );
         }
 
-        e.Graphics.DrawString( e.SubItem.Text, e.SubItem.Font, new SolidBrush( ForeColor ), textBounds,
+        // CSListViewSubItem can carry an OverrideForeColor — use it
+        // when set so callers can tint individual cells without
+        // having to flip UseItemStyleForSubItems off (which would
+        // require re-themeing every other subitem on the row).
+        Color textColor = ForeColor;
+        if ( ( e.SubItem is CSListViewSubItem csSub )
+        &&   ( csSub.OverrideForeColor.HasValue ) )
+        {
+          textColor = csSub.OverrideForeColor.Value;
+        }
+        e.Graphics.DrawString( e.SubItem.Text, e.SubItem.Font, new SolidBrush( textColor ), textBounds,
           new StringFormat() { Trimming = trimming, LineAlignment = StringAlignment.Center, FormatFlags = StringFormatFlags.NoWrap } );
       }
 
@@ -170,6 +180,18 @@ namespace RetroDevStudio.Controls
   public class CSListViewSubItem : ListViewItem.ListViewSubItem
   {
     public StringTrimming Trimming { get; set; } = StringTrimming.None;
+
+    /// <summary>
+    /// Optional per-subitem text color override. When non-null,
+    /// CSListView's painter uses this color for the unselected-text
+    /// draw instead of the listview's <see cref="Control.ForeColor"/>.
+    /// Lets callers tint individual cells (e.g. red text for an
+    /// "unused" tile in the Tiles tab) without disabling
+    /// <see cref="ListViewItem.UseItemStyleForSubItems"/> or
+    /// re-implementing the painter. Selected-state still uses the
+    /// listview's SelectedTextColor for legibility.
+    /// </summary>
+    public Color? OverrideForeColor { get; set; } = null;
 
 
     public CSListViewSubItem()
