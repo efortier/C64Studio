@@ -67,6 +67,14 @@ namespace RetroDevStudio.Controls
       this.editEntityLabelsFilename = new System.Windows.Forms.TextBox();
       this.labelEntityLabelsPrefix = new System.Windows.Forms.Label();
       this.editEntityLabelsPrefix = new System.Windows.Forms.TextBox();
+      this.checkExportMapStrings = new System.Windows.Forms.CheckBox();
+      this.labelMapStringsDirectory = new System.Windows.Forms.Label();
+      this.editMapStringsDirectory = new System.Windows.Forms.TextBox();
+      this.btnBrowseMapStringsDirectory = new System.Windows.Forms.Button();
+      this.labelMapStringsFilename = new System.Windows.Forms.Label();
+      this.editMapStringsFilename = new System.Windows.Forms.TextBox();
+      this.labelMapStringsPrefix = new System.Windows.Forms.Label();
+      this.editMapStringsPrefix = new System.Windows.Forms.TextBox();
       this.groupCharset = new System.Windows.Forms.GroupBox();
       this.checkExportCharset = new System.Windows.Forms.CheckBox();
       this.labelCharsetExportDirectory = new System.Windows.Forms.Label();
@@ -457,6 +465,84 @@ namespace RetroDevStudio.Controls
       this.editEntityLabelsPrefix.TabIndex = 38;
       this.editEntityLabelsPrefix.Font = new System.Drawing.Font("Courier New", 8.25F);
       //
+      // checkExportMapStrings
+      //
+      this.checkExportMapStrings.AutoSize = true;
+      this.checkExportMapStrings.Checked = false;
+      this.checkExportMapStrings.CheckState = System.Windows.Forms.CheckState.Unchecked;
+      this.checkExportMapStrings.Location = new System.Drawing.Point(3, 475);
+      this.checkExportMapStrings.Name = "checkExportMapStrings";
+      this.checkExportMapStrings.Size = new System.Drawing.Size(220, 17);
+      this.checkExportMapStrings.TabIndex = 39;
+      this.checkExportMapStrings.Text = "Generate map strings sidecar file";
+      this.checkExportMapStrings.UseVisualStyleBackColor = true;
+      this.checkExportMapStrings.CheckedChanged += new System.EventHandler(this.checkExportMapStrings_CheckedChanged);
+      //
+      // labelMapStringsDirectory
+      //
+      this.labelMapStringsDirectory.AutoSize = true;
+      this.labelMapStringsDirectory.Location = new System.Drawing.Point(20, 499);
+      this.labelMapStringsDirectory.Name = "labelMapStringsDirectory";
+      this.labelMapStringsDirectory.Size = new System.Drawing.Size(52, 13);
+      this.labelMapStringsDirectory.TabIndex = 40;
+      this.labelMapStringsDirectory.Text = "Directory:";
+      //
+      // editMapStringsDirectory
+      //
+      this.editMapStringsDirectory.Enabled = false;
+      this.editMapStringsDirectory.Location = new System.Drawing.Point(78, 496);
+      this.editMapStringsDirectory.Name = "editMapStringsDirectory";
+      this.editMapStringsDirectory.Size = new System.Drawing.Size(195, 20);
+      this.editMapStringsDirectory.TabIndex = 41;
+      //
+      // btnBrowseMapStringsDirectory
+      //
+      this.btnBrowseMapStringsDirectory.Enabled = false;
+      this.btnBrowseMapStringsDirectory.Location = new System.Drawing.Point(279, 494);
+      this.btnBrowseMapStringsDirectory.Name = "btnBrowseMapStringsDirectory";
+      this.btnBrowseMapStringsDirectory.Size = new System.Drawing.Size(30, 23);
+      this.btnBrowseMapStringsDirectory.TabIndex = 42;
+      this.btnBrowseMapStringsDirectory.Text = "...";
+      this.btnBrowseMapStringsDirectory.UseVisualStyleBackColor = true;
+      this.btnBrowseMapStringsDirectory.Click += new System.EventHandler(this.btnBrowseMapStringsDirectory_Click);
+      //
+      // labelMapStringsFilename
+      //
+      this.labelMapStringsFilename.AutoSize = true;
+      this.labelMapStringsFilename.Location = new System.Drawing.Point(20, 525);
+      this.labelMapStringsFilename.Name = "labelMapStringsFilename";
+      this.labelMapStringsFilename.Size = new System.Drawing.Size(52, 13);
+      this.labelMapStringsFilename.TabIndex = 43;
+      this.labelMapStringsFilename.Text = "Filename:";
+      //
+      // editMapStringsFilename
+      //
+      this.editMapStringsFilename.Enabled = false;
+      this.editMapStringsFilename.Location = new System.Drawing.Point(78, 522);
+      this.editMapStringsFilename.Name = "editMapStringsFilename";
+      this.editMapStringsFilename.Size = new System.Drawing.Size(195, 20);
+      this.editMapStringsFilename.TabIndex = 44;
+      //
+      // labelMapStringsPrefix
+      //
+      this.labelMapStringsPrefix.AutoSize = true;
+      this.labelMapStringsPrefix.Location = new System.Drawing.Point(325, 478);
+      this.labelMapStringsPrefix.Name = "labelMapStringsPrefix";
+      this.labelMapStringsPrefix.Size = new System.Drawing.Size(62, 13);
+      this.labelMapStringsPrefix.TabIndex = 45;
+      this.labelMapStringsPrefix.Text = "Prefix text:";
+      //
+      // editMapStringsPrefix
+      //
+      this.editMapStringsPrefix.Enabled = false;
+      this.editMapStringsPrefix.Location = new System.Drawing.Point(325, 496);
+      this.editMapStringsPrefix.Multiline = true;
+      this.editMapStringsPrefix.Name = "editMapStringsPrefix";
+      this.editMapStringsPrefix.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+      this.editMapStringsPrefix.Size = new System.Drawing.Size(280, 46);
+      this.editMapStringsPrefix.TabIndex = 46;
+      this.editMapStringsPrefix.Font = new System.Drawing.Font("Courier New", 8.25F);
+      //
       // groupCharset
       //
       this.groupCharset.Controls.Add(this.checkExportCharset);
@@ -467,7 +553,7 @@ namespace RetroDevStudio.Controls
       this.groupCharset.Controls.Add(this.editCharsetExportFilename);
       this.groupCharset.Controls.Add(this.checkCharsetPrefixLoadAddress);
       this.groupCharset.Controls.Add(this.editCharsetPrefixLoadAddress);
-      this.groupCharset.Location = new System.Drawing.Point(3, 457);
+      this.groupCharset.Location = new System.Drawing.Point(3, 552);
       this.groupCharset.Name = "groupCharset";
       this.groupCharset.Size = new System.Drawing.Size(316, 148);
       this.groupCharset.TabIndex = 14;
@@ -571,6 +657,14 @@ namespace RetroDevStudio.Controls
       this.Controls.Add(this.editEntityLabelsDirectory);
       this.Controls.Add(this.labelEntityLabelsDirectory);
       this.Controls.Add(this.checkExportEntityLabels);
+      this.Controls.Add(this.editMapStringsPrefix);
+      this.Controls.Add(this.labelMapStringsPrefix);
+      this.Controls.Add(this.editMapStringsFilename);
+      this.Controls.Add(this.labelMapStringsFilename);
+      this.Controls.Add(this.btnBrowseMapStringsDirectory);
+      this.Controls.Add(this.editMapStringsDirectory);
+      this.Controls.Add(this.labelMapStringsDirectory);
+      this.Controls.Add(this.checkExportMapStrings);
       this.Controls.Add(this.editHeaderAsmPrefix);
       this.Controls.Add(this.labelHeaderAsmPrefix);
       this.Controls.Add(this.editHeaderAsmFilename);
@@ -594,7 +688,7 @@ namespace RetroDevStudio.Controls
       this.Controls.Add(this.checkExportColors);
       this.Controls.Add(this.checkExportMarkers);
       this.Name = "ExportMapAsGameBinary";
-      this.Size = new System.Drawing.Size(620, 615);
+      this.Size = new System.Drawing.Size(620, 710);
       this.groupCharset.ResumeLayout(false);
       this.groupCharset.PerformLayout();
       this.ResumeLayout(false);
@@ -642,6 +736,14 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.TextBox editEntityLabelsFilename;
     private System.Windows.Forms.Label labelEntityLabelsPrefix;
     private System.Windows.Forms.TextBox editEntityLabelsPrefix;
+    private System.Windows.Forms.CheckBox checkExportMapStrings;
+    private System.Windows.Forms.Label labelMapStringsDirectory;
+    private System.Windows.Forms.TextBox editMapStringsDirectory;
+    private System.Windows.Forms.Button btnBrowseMapStringsDirectory;
+    private System.Windows.Forms.Label labelMapStringsFilename;
+    private System.Windows.Forms.TextBox editMapStringsFilename;
+    private System.Windows.Forms.Label labelMapStringsPrefix;
+    private System.Windows.Forms.TextBox editMapStringsPrefix;
     private System.Windows.Forms.GroupBox groupCharset;
     private System.Windows.Forms.CheckBox checkExportCharset;
     private System.Windows.Forms.Label labelCharsetExportDirectory;

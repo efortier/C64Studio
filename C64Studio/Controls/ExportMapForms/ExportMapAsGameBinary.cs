@@ -49,6 +49,9 @@ namespace RetroDevStudio.Controls
       editEntityLabelsDirectory.TextChanged += HandleSettingsChanged;
       editEntityLabelsFilename.TextChanged += HandleSettingsChanged;
       editEntityLabelsPrefix.TextChanged += HandleSettingsChanged;
+      editMapStringsDirectory.TextChanged += HandleSettingsChanged;
+      editMapStringsFilename.TextChanged += HandleSettingsChanged;
+      editMapStringsPrefix.TextChanged += HandleSettingsChanged;
     }
 
 
@@ -183,6 +186,21 @@ namespace RetroDevStudio.Controls
           "map_entities.asm",
           targetPath,
           () => map.GenerateEntityLabelsAsm( entityPrefix ) );
+      }
+
+      // Optional map-strings sidecar — Dreadhold-style byte-stream messages
+      // plus MAP_STRING_LO/HI pointer tables and per-message index consts.
+      if ( checkExportMapStrings.Checked )
+      {
+        string mapStringsPrefix = editMapStringsPrefix.Text;
+        var map = Info.Map;
+        WriteAsmSidecar(
+          "map strings",
+          editMapStringsDirectory.Text,
+          editMapStringsFilename.Text,
+          "map_strings.asm",
+          targetPath,
+          () => map.GenerateMapStringsAsm( mapStringsPrefix ) );
       }
 
       // Optional character set export (port of the old "As assembly" method's Character Set block)
@@ -950,6 +968,54 @@ namespace RetroDevStudio.Controls
 
 
 
+    private void checkExportMapStrings_CheckedChanged( object sender, EventArgs e )
+    {
+      editMapStringsDirectory.Enabled = checkExportMapStrings.Checked;
+      btnBrowseMapStringsDirectory.Enabled = checkExportMapStrings.Checked;
+      editMapStringsFilename.Enabled = checkExportMapStrings.Checked;
+      editMapStringsPrefix.Enabled = checkExportMapStrings.Checked;
+
+      if ( ( checkExportMapStrings.Checked )
+      &&   ( string.IsNullOrEmpty( editMapStringsDirectory.Text ) )
+      &&   ( !string.IsNullOrEmpty( editExportDirectory.Text ) ) )
+      {
+        editMapStringsDirectory.Text = editExportDirectory.Text;
+      }
+      if ( ( checkExportMapStrings.Checked )
+      &&   ( string.IsNullOrEmpty( editMapStringsFilename.Text ) ) )
+      {
+        editMapStringsFilename.Text = "map_strings.asm";
+      }
+      if ( !m_ApplyingSettings )
+      {
+        RaiseSettingsChanged();
+      }
+    }
+
+
+
+    private void btnBrowseMapStringsDirectory_Click( object sender, EventArgs e )
+    {
+      using ( var dlg = new FolderBrowserDialog() )
+      {
+        dlg.Description = "Select directory for map strings sidecar";
+        if ( !string.IsNullOrEmpty( editMapStringsDirectory.Text ) )
+        {
+          dlg.SelectedPath = editMapStringsDirectory.Text;
+        }
+        else if ( !string.IsNullOrEmpty( editExportDirectory.Text ) )
+        {
+          dlg.SelectedPath = editExportDirectory.Text;
+        }
+        if ( dlg.ShowDialog() == DialogResult.OK )
+        {
+          editMapStringsDirectory.Text = dlg.SelectedPath;
+        }
+      }
+    }
+
+
+
     private void HandleSettingsChanged( object sender, EventArgs e )
     {
       if ( !m_ApplyingSettings )
@@ -1015,6 +1081,15 @@ namespace RetroDevStudio.Controls
         editEntityLabelsFilename.Enabled = checkExportEntityLabels.Checked;
         editEntityLabelsPrefix.Enabled = checkExportEntityLabels.Checked;
 
+        checkExportMapStrings.Checked = s.ExportMapStrings;
+        editMapStringsDirectory.Text = s.MapStringsDirectory ?? "";
+        editMapStringsFilename.Text = string.IsNullOrEmpty( s.MapStringsFilename ) ? "map_strings.asm" : s.MapStringsFilename;
+        editMapStringsPrefix.Text = s.MapStringsPrefix ?? "";
+        editMapStringsDirectory.Enabled = checkExportMapStrings.Checked;
+        btnBrowseMapStringsDirectory.Enabled = checkExportMapStrings.Checked;
+        editMapStringsFilename.Enabled = checkExportMapStrings.Checked;
+        editMapStringsPrefix.Enabled = checkExportMapStrings.Checked;
+
         checkExportCharset.Checked = s.ExportCharset;
         editCharsetExportDirectory.Text = s.CharsetExportDirectory ?? "";
         editCharsetExportFilename.Text = s.CharsetExportFilename ?? "";
@@ -1064,6 +1139,10 @@ namespace RetroDevStudio.Controls
       s.EntityLabelsDirectory = editEntityLabelsDirectory.Text ?? "";
       s.EntityLabelsFilename = string.IsNullOrEmpty( editEntityLabelsFilename.Text ) ? "map_entities.asm" : editEntityLabelsFilename.Text;
       s.EntityLabelsPrefix = editEntityLabelsPrefix.Text ?? "";
+      s.ExportMapStrings = checkExportMapStrings.Checked;
+      s.MapStringsDirectory = editMapStringsDirectory.Text ?? "";
+      s.MapStringsFilename = string.IsNullOrEmpty( editMapStringsFilename.Text ) ? "map_strings.asm" : editMapStringsFilename.Text;
+      s.MapStringsPrefix = editMapStringsPrefix.Text ?? "";
       s.ExportCharset = checkExportCharset.Checked;
       s.CharsetExportDirectory = editCharsetExportDirectory.Text ?? "";
       s.CharsetExportFilename = editCharsetExportFilename.Text ?? "";

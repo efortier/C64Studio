@@ -55,6 +55,11 @@
     // (1 byte per cell, 0/1). Defers to Tile.Passable when absent or when
     // the cell value is false. See MapProject.Map.CharBlockedOverrides.
     public const ushort    MAP_CHAR_BLOCKED_OVERRIDES     = 0x1333;
+    // One per-project named text script for the in-game 4-line UI text area.
+    // See MapProject.MapString. Body: [string Label][byte ClearTextAreaAtEnd]
+    // then 4 × [string Text][byte Terminator]. New chunk — no MAP_PROJECT_INFO
+    // version bump (absent chunk = empty MapStrings list, fully back-compat).
+    public const ushort    MAP_STRING                     = 0x1334;
 
     public const ushort    CHARSET_PROJECT                = 0x1340;
     public const ushort    CHARSET_INFO                   = 0x1341;

@@ -464,6 +464,7 @@ namespace RetroDevStudio.Documents
       comboMarkerColor.BeginUpdate();
       comboMarkerColorOverride.BeginUpdate();
       comboBlankColor.BeginUpdate();
+      comboMapStringColor.BeginUpdate();
       try
       {
         comboMapMultiColor1.Items.Add( "From charset" );
@@ -484,6 +485,7 @@ namespace RetroDevStudio.Documents
           comboMarkerColor.Items.Add( label );
           comboMarkerColorOverride.Items.Add( label );
           comboBlankColor.Items.Add( label );
+          comboMapStringColor.Items.Add( label );
         }
       }
       finally
@@ -499,6 +501,7 @@ namespace RetroDevStudio.Documents
         comboMarkerColor.EndUpdate();
         comboMarkerColorOverride.EndUpdate();
         comboBlankColor.EndUpdate();
+        comboMapStringColor.EndUpdate();
       }
       comboTileBackground.SelectedIndex = 0;
       comboTileMulticolor1.SelectedIndex = 0;
@@ -511,6 +514,9 @@ namespace RetroDevStudio.Documents
       comboMapAlternativeBGColor4.SelectedIndex = 0;
       comboMarkerColor.SelectedIndex = 0;
       comboMarkerColorOverride.SelectedIndex = 0;
+      comboMapStringColor.SelectedIndex = 1;   // default to white — sensible neutral on dark-bg preview
+
+      InitMapStringsTab();
 
       // "Default" + 16 C64 colors for the tile placement color override.
       // Default index 0 means no override; placing leaves the tile's
@@ -3557,6 +3563,9 @@ namespace RetroDevStudio.Documents
       RefreshMarkerTypes();
       RefreshEntityTypes();
       RefreshEntityTileIndexRange();
+      RefreshMapStrings();
+      PopulateMapStringPreviewIndices();
+      LoadMapStringPreviewFont();
     }
 
     /// <summary>
@@ -9013,6 +9022,884 @@ namespace RetroDevStudio.Documents
 
     private void characterEditor_Load( object sender, EventArgs e )
     {
+    }
+
+
+
+    // =================================================================
+    // Map Strings tab — per-project named text scripts for the in-game
+    // 4-line UI message area. List on the left, fields on the right,
+    // live preview canvas. Authored text uses inline color tokens:
+    // $X (X = 0..F) sets foreground color; $$ emits a literal '$'.
+    // Exported by MapProject.GenerateMapStringsAsm; round-trips through
+    // the MAP_STRING file chunk.
+    // =================================================================
+
+    /// <summary>
+    /// Tracks which line textbox the user was last typing in, so the
+    /// "Insert color" button knows where to inject the $X token. Set on
+    /// each line's Enter event. This is intrinsic state ("which control is
+    /// focused"), not a behavior-gating flag.
+    /// </summary>
+    private System.Windows.Forms.TextBox m_LastFocusedMapStringLine = null;
+
+    /// <summary>
+    /// Cached glyph data from <see cref="MapProject.MapStringsPreviewFontPath"/>.
+    /// Reloaded on path change. null when no font is selected (or the load
+    /// failed) — preview falls back to the project's main charset.
+    /// File format: 2-byte little-endian load-address header followed by
+    /// 8 bytes per glyph (raw 1-bpp char rows).
+    /// </summary>
+    private byte[] m_MapStringPreviewFont = null;
+
+
+
+    private void InitMapStringsTab()
+    {
+      // Track which line textbox last had focus so the Insert-color button
+      // can find the right caret position.
+      var lineBoxes = new System.Windows.Forms.TextBox[]
+      {
+        editMapStringLine0, editMapStringLine1, editMapStringLine2, editMapStringLine3
+      };
+      foreach ( var tb in lineBoxes )
+      {
+        tb.Enter += editMapStringLine_Enter;
+      }
+      // Initialize to line 0 so a click before any textbox-focus still works.
+      m_LastFocusedMapStringLine = editMapStringLine0;
+
+      AttachMapStringEditFieldHandlers();
+      RefreshMapStrings();
+      UpdateMapStringButtonStates();
+      LoadMapStringPreviewFont();   // also refreshes the path textbox + preview
+    }
+
+
+
+    /// <summary>
+    /// (Re)load the binary font file at
+    /// <see cref="MapProject.MapStringsPreviewFontPath"/> into
+    /// <see cref="m_MapStringPreviewFont"/>. Skips silently if the path
+    /// is empty or the file can't be read; the preview falls through to
+    /// the project's main charset in that case. Always rebuilds the
+    /// preview at the end so the canvas reflects the new font.
+    /// </summary>
+    private void LoadMapStringPreviewFont()
+    {
+      m_MapStringPreviewFont = null;
+      if ( m_MapProject != null )
+      {
+        editMapStringFont.Text = m_MapProject.MapStringsPreviewFontPath ?? "";
+        string path = m_MapProject.MapStringsPreviewFontPath;
+        if ( !string.IsNullOrEmpty( path ) && System.IO.File.Exists( path ) )
+        {
+          try
+          {
+            byte[] raw = System.IO.File.ReadAllBytes( path );
+            // 2-byte load-address header — strip it.
+            if ( raw.Length > 2 )
+            {
+              m_MapStringPreviewFont = new byte[raw.Length - 2];
+              Array.Copy( raw, 2, m_MapStringPreviewFont, 0, raw.Length - 2 );
+            }
+          }
+          catch
+          {
+            // Bad file / IO error — leave the field null so the preview
+            // falls back to the project charset. No exception propagates
+            // because preview rendering is non-essential.
+            m_MapStringPreviewFont = null;
+          }
+        }
+      }
+      else
+      {
+        editMapStringFont.Text = "";
+      }
+      RebuildMapStringPreview();
+    }
+
+
+
+    /// <summary>
+    /// Mirror the project's preview-charset offsets into the 3 NumericUpDown
+    /// controls. Detaches the ValueChanged handlers for the duration so
+    /// populating the controls doesn't dirty the project. Called from the
+    /// project-load lifecycle alongside <see cref="LoadMapStringPreviewFont"/>.
+    /// </summary>
+    private void PopulateMapStringPreviewIndices()
+    {
+      if ( m_MapProject == null ) return;
+      editMapStringLowercase.ValueChanged -= editMapStringLowercase_ValueChanged;
+      editMapStringUppercase.ValueChanged -= editMapStringUppercase_ValueChanged;
+      editMapStringNumbers.ValueChanged   -= editMapStringNumbers_ValueChanged;
+      try
+      {
+        editMapStringLowercase.Value = ClampNudByte( m_MapProject.MapStringsLowercaseIndex );
+        editMapStringUppercase.Value = ClampNudByte( m_MapProject.MapStringsUppercaseIndex );
+        editMapStringNumbers.Value   = ClampNudByte( m_MapProject.MapStringsNumbersIndex );
+      }
+      finally
+      {
+        editMapStringLowercase.ValueChanged += editMapStringLowercase_ValueChanged;
+        editMapStringUppercase.ValueChanged += editMapStringUppercase_ValueChanged;
+        editMapStringNumbers.ValueChanged   += editMapStringNumbers_ValueChanged;
+      }
+    }
+
+
+
+    private static decimal ClampNudByte( int Value )
+    {
+      if ( Value < 0 ) return 0m;
+      if ( Value > 255 ) return 255m;
+      return (decimal)Value;
+    }
+
+
+
+    private void editMapStringLowercase_ValueChanged( object sender, EventArgs e )
+    {
+      if ( m_MapProject == null ) return;
+      m_MapProject.MapStringsLowercaseIndex = (int)editMapStringLowercase.Value;
+      SetModified();
+      RebuildMapStringPreview();
+    }
+
+
+
+    private void editMapStringUppercase_ValueChanged( object sender, EventArgs e )
+    {
+      if ( m_MapProject == null ) return;
+      m_MapProject.MapStringsUppercaseIndex = (int)editMapStringUppercase.Value;
+      SetModified();
+      RebuildMapStringPreview();
+    }
+
+
+
+    private void editMapStringNumbers_ValueChanged( object sender, EventArgs e )
+    {
+      if ( m_MapProject == null ) return;
+      m_MapProject.MapStringsNumbersIndex = (int)editMapStringNumbers.Value;
+      SetModified();
+      RebuildMapStringPreview();
+    }
+
+
+
+    private void btnBrowseMapStringFont_Click( object sender, EventArgs e )
+    {
+      if ( m_MapProject == null ) return;
+
+      using ( var dlg = new System.Windows.Forms.OpenFileDialog() )
+      {
+        dlg.Title  = "Select preview font binary";
+        dlg.Filter = "Binary font files (*.bin;*.fnt;*.cset;*.prg)|*.bin;*.fnt;*.cset;*.prg|All files (*.*)|*.*";
+        if ( !string.IsNullOrEmpty( m_MapProject.MapStringsPreviewFontPath ) )
+        {
+          string dir = System.IO.Path.GetDirectoryName( m_MapProject.MapStringsPreviewFontPath );
+          if ( !string.IsNullOrEmpty( dir ) && System.IO.Directory.Exists( dir ) )
+          {
+            dlg.InitialDirectory = dir;
+          }
+        }
+        if ( dlg.ShowDialog( this ) != System.Windows.Forms.DialogResult.OK ) return;
+
+        m_MapProject.MapStringsPreviewFontPath = dlg.FileName ?? "";
+        LoadMapStringPreviewFont();
+        SetModified();
+      }
+    }
+
+
+
+    /// <summary>
+    /// Subscribe the live-edit handlers that mutate the currently selected
+    /// MapString. Paired with <see cref="DetachMapStringEditFieldHandlers"/>
+    /// so the listbox-driven populate (which writes into these same
+    /// controls) doesn't dirty the model. This is the explicit detach
+    /// pattern the project mandates instead of a m_Populating gating flag.
+    /// </summary>
+    private void AttachMapStringEditFieldHandlers()
+    {
+      editMapStringLabel.TextChanged                  += editMapStringLabel_TextChanged;
+      editMapStringLine0.TextChanged                  += editMapStringLine_TextChanged;
+      editMapStringLine1.TextChanged                  += editMapStringLine_TextChanged;
+      editMapStringLine2.TextChanged                  += editMapStringLine_TextChanged;
+      editMapStringLine3.TextChanged                  += editMapStringLine_TextChanged;
+      comboMapStringTerminator0.SelectedIndexChanged  += comboMapStringTerminator_SelectedIndexChanged;
+      comboMapStringTerminator1.SelectedIndexChanged  += comboMapStringTerminator_SelectedIndexChanged;
+      comboMapStringTerminator2.SelectedIndexChanged  += comboMapStringTerminator_SelectedIndexChanged;
+      comboMapStringTerminator3.SelectedIndexChanged  += comboMapStringTerminator_SelectedIndexChanged;
+      checkMapStringClearAtEnd.CheckedChanged         += checkMapStringClearAtEnd_CheckedChanged;
+    }
+
+
+
+    private void DetachMapStringEditFieldHandlers()
+    {
+      editMapStringLabel.TextChanged                  -= editMapStringLabel_TextChanged;
+      editMapStringLine0.TextChanged                  -= editMapStringLine_TextChanged;
+      editMapStringLine1.TextChanged                  -= editMapStringLine_TextChanged;
+      editMapStringLine2.TextChanged                  -= editMapStringLine_TextChanged;
+      editMapStringLine3.TextChanged                  -= editMapStringLine_TextChanged;
+      comboMapStringTerminator0.SelectedIndexChanged  -= comboMapStringTerminator_SelectedIndexChanged;
+      comboMapStringTerminator1.SelectedIndexChanged  -= comboMapStringTerminator_SelectedIndexChanged;
+      comboMapStringTerminator2.SelectedIndexChanged  -= comboMapStringTerminator_SelectedIndexChanged;
+      comboMapStringTerminator3.SelectedIndexChanged  -= comboMapStringTerminator_SelectedIndexChanged;
+      checkMapStringClearAtEnd.CheckedChanged         -= checkMapStringClearAtEnd_CheckedChanged;
+    }
+
+
+
+    /// <summary>
+    /// Refresh the listbox + per-string field pane after any structural
+    /// change (add / delete / reorder / undo / project load). Preserves
+    /// the previously-selected index when possible.
+    /// </summary>
+    public void RefreshMapStrings()
+    {
+      if ( listMapStrings == null ) return;
+      if ( m_MapProject == null )
+      {
+        listMapStrings.Items.Clear();
+        UpdateMapStringButtonStates();
+        return;
+      }
+
+      int prevIndex = listMapStrings.SelectedIndex;
+
+      // Detach the listbox handler — clearing/repopulating fires
+      // SelectedIndexChanged with index -1 mid-rebuild and would
+      // wipe the field pane to defaults.
+      listMapStrings.SelectedIndexChanged -= listMapStrings_SelectedIndexChanged;
+      try
+      {
+        listMapStrings.BeginUpdate();
+        listMapStrings.Items.Clear();
+        foreach ( var ms in m_MapProject.MapStrings )
+        {
+          listMapStrings.Items.Add( string.IsNullOrEmpty( ms.Label ) ? "(no label)" : ms.Label );
+        }
+        listMapStrings.EndUpdate();
+
+        if ( prevIndex >= 0 && prevIndex < listMapStrings.Items.Count )
+        {
+          listMapStrings.SelectedIndex = prevIndex;
+        }
+        else if ( listMapStrings.Items.Count > 0 )
+        {
+          listMapStrings.SelectedIndex = 0;
+        }
+      }
+      finally
+      {
+        listMapStrings.SelectedIndexChanged += listMapStrings_SelectedIndexChanged;
+      }
+
+      PopulateMapStringFieldsFromSelection();
+      UpdateMapStringButtonStates();
+      RebuildMapStringPreview();
+    }
+
+
+
+    private void listMapStrings_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      PopulateMapStringFieldsFromSelection();
+      UpdateMapStringButtonStates();
+      RebuildMapStringPreview();
+    }
+
+
+
+    /// <summary>
+    /// Mirror the selected MapString's data into the field pane.
+    /// Detaches the live-edit handlers for the duration so writing into
+    /// the controls doesn't dirty the model or push spurious undo entries.
+    /// </summary>
+    private void PopulateMapStringFieldsFromSelection()
+    {
+      var ms = GetSelectedMapString();
+      DetachMapStringEditFieldHandlers();
+      try
+      {
+        if ( ms == null )
+        {
+          editMapStringLabel.Text = "";
+          editMapStringLine0.Text = "";
+          editMapStringLine1.Text = "";
+          editMapStringLine2.Text = "";
+          editMapStringLine3.Text = "";
+          comboMapStringTerminator0.SelectedIndex = 0;
+          comboMapStringTerminator1.SelectedIndex = 0;
+          comboMapStringTerminator2.SelectedIndex = 0;
+          comboMapStringTerminator3.SelectedIndex = 0;
+          checkMapStringClearAtEnd.Checked = false;
+          return;
+        }
+
+        editMapStringLabel.Text = ms.Label ?? "";
+        var lineBoxes = new System.Windows.Forms.TextBox[]
+        {
+          editMapStringLine0, editMapStringLine1, editMapStringLine2, editMapStringLine3
+        };
+        var termCombos = new System.Windows.Forms.ComboBox[]
+        {
+          comboMapStringTerminator0, comboMapStringTerminator1, comboMapStringTerminator2, comboMapStringTerminator3
+        };
+        for ( int i = 0; i < 4; ++i )
+        {
+          lineBoxes[i].Text       = ms.Lines[i].Text ?? "";
+          termCombos[i].SelectedIndex =
+            ( ms.Lines[i].Terminator == Formats.MapProject.MAP_STRING_PRESS_FIRE ) ? 1 : 0;
+        }
+        checkMapStringClearAtEnd.Checked = ms.ClearTextAreaAtEnd;
+      }
+      finally
+      {
+        AttachMapStringEditFieldHandlers();
+      }
+    }
+
+
+
+    private Formats.MapProject.MapString GetSelectedMapString()
+    {
+      if ( m_MapProject == null ) return null;
+      int idx = listMapStrings.SelectedIndex;
+      if ( idx < 0 || idx >= m_MapProject.MapStrings.Count ) return null;
+      return m_MapProject.MapStrings[idx];
+    }
+
+
+
+    private void UpdateMapStringButtonStates()
+    {
+      bool hasSelection = ( listMapStrings.SelectedIndex >= 0 )
+                       && ( m_MapProject != null )
+                       && ( listMapStrings.SelectedIndex < m_MapProject.MapStrings.Count );
+      btnUpdateMapString.Enabled    = hasSelection;
+      btnDeleteMapString.Enabled    = hasSelection;
+      btnDuplicateMapString.Enabled = hasSelection;
+      btnMoveMapStringUp.Enabled    = hasSelection && ( listMapStrings.SelectedIndex > 0 );
+      btnMoveMapStringDown.Enabled  = hasSelection
+                                   && ( listMapStrings.SelectedIndex < m_MapProject.MapStrings.Count - 1 );
+    }
+
+
+
+    // -------- Focus tracking for the Insert-color button --------
+
+    private void editMapStringLine_Enter( object sender, EventArgs e )
+    {
+      m_LastFocusedMapStringLine = sender as System.Windows.Forms.TextBox;
+    }
+
+
+
+    // -------- Live edit handlers --------
+
+    private void editMapStringLabel_TextChanged( object sender, EventArgs e )
+    {
+      var ms = GetSelectedMapString();
+      if ( ms == null ) return;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+      ms.Label = editMapStringLabel.Text ?? "";
+
+      // Reflect label change in the listbox without churning selection.
+      int idx = listMapStrings.SelectedIndex;
+      if ( idx >= 0 && idx < listMapStrings.Items.Count )
+      {
+        listMapStrings.Items[idx] = string.IsNullOrEmpty( ms.Label ) ? "(no label)" : ms.Label;
+      }
+      SetModified();
+    }
+
+
+
+    private void editMapStringLine_TextChanged( object sender, EventArgs e )
+    {
+      var ms = GetSelectedMapString();
+      if ( ms == null ) return;
+      int lineIdx = MapStringLineIndexOf( sender );
+      if ( lineIdx < 0 ) return;
+
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+      ms.Lines[lineIdx].Text = ( (System.Windows.Forms.TextBox)sender ).Text ?? "";
+      SetModified();
+      RebuildMapStringPreview();
+    }
+
+
+
+    private void comboMapStringTerminator_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      var ms = GetSelectedMapString();
+      if ( ms == null ) return;
+      int lineIdx = MapStringTerminatorIndexOf( sender );
+      if ( lineIdx < 0 ) return;
+      var combo = (System.Windows.Forms.ComboBox)sender;
+
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+      ms.Lines[lineIdx].Terminator = ( combo.SelectedIndex == 1 )
+                                     ? Formats.MapProject.MAP_STRING_PRESS_FIRE
+                                     : Formats.MapProject.MAP_STRING_END_OF_LINE;
+      SetModified();
+      RebuildMapStringPreview();
+    }
+
+
+
+    private void checkMapStringClearAtEnd_CheckedChanged( object sender, EventArgs e )
+    {
+      var ms = GetSelectedMapString();
+      if ( ms == null ) return;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+      ms.ClearTextAreaAtEnd = checkMapStringClearAtEnd.Checked;
+      SetModified();
+    }
+
+
+
+    private int MapStringLineIndexOf( object sender )
+    {
+      if ( sender == editMapStringLine0 ) return 0;
+      if ( sender == editMapStringLine1 ) return 1;
+      if ( sender == editMapStringLine2 ) return 2;
+      if ( sender == editMapStringLine3 ) return 3;
+      return -1;
+    }
+
+
+
+    private int MapStringTerminatorIndexOf( object sender )
+    {
+      if ( sender == comboMapStringTerminator0 ) return 0;
+      if ( sender == comboMapStringTerminator1 ) return 1;
+      if ( sender == comboMapStringTerminator2 ) return 2;
+      if ( sender == comboMapStringTerminator3 ) return 3;
+      return -1;
+    }
+
+
+
+    // -------- Action buttons --------
+
+    private void btnAddMapString_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_MapProject == null ) return;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+
+      var ms = new Formats.MapProject.MapString();
+      // Auto-label MSG_<n>, bumping until unique.
+      var existing = new HashSet<string>( StringComparer.Ordinal );
+      foreach ( var x in m_MapProject.MapStrings )
+      {
+        if ( !string.IsNullOrEmpty( x.Label ) ) existing.Add( x.Label );
+      }
+      int n = m_MapProject.MapStrings.Count + 1;
+      string candidate;
+      do
+      {
+        candidate = "MSG_" + n;
+        ++n;
+      }
+      while ( existing.Contains( candidate ) );
+      ms.Label = candidate;
+
+      m_MapProject.MapStrings.Add( ms );
+      RefreshMapStrings();
+      listMapStrings.SelectedIndex = m_MapProject.MapStrings.Count - 1;
+      SetModified();
+      editMapStringLabel.Focus();
+      editMapStringLabel.SelectAll();
+    }
+
+
+
+    private void btnUpdateMapString_Click( DecentForms.ControlBase Sender )
+    {
+      // Live editing already commits to the model on every keystroke; this
+      // button exists for parity with the other tabs and to give a single
+      // explicit-validation moment. Refresh the listbox label in case the
+      // user has been editing the Label field.
+      int idx = listMapStrings.SelectedIndex;
+      var ms = GetSelectedMapString();
+      if ( ms == null ) return;
+      if ( idx >= 0 && idx < listMapStrings.Items.Count )
+      {
+        listMapStrings.Items[idx] = string.IsNullOrEmpty( ms.Label ) ? "(no label)" : ms.Label;
+      }
+
+      // Soft warning on duplicate label so the user knows export will skip.
+      string label = ms.Label ?? "";
+      if ( !string.IsNullOrEmpty( label ) )
+      {
+        int dupCount = 0;
+        foreach ( var x in m_MapProject.MapStrings )
+        {
+          if ( x.Label == label ) ++dupCount;
+        }
+        if ( dupCount > 1 )
+        {
+          System.Windows.Forms.MessageBox.Show(
+            "Label '" + label + "' is used by more than one Map String. Export will skip the duplicates.",
+            "Duplicate Map String label",
+            System.Windows.Forms.MessageBoxButtons.OK,
+            System.Windows.Forms.MessageBoxIcon.Warning );
+        }
+      }
+    }
+
+
+
+    private void btnDeleteMapString_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_MapProject == null ) return;
+      int idx = listMapStrings.SelectedIndex;
+      if ( idx < 0 || idx >= m_MapProject.MapStrings.Count ) return;
+
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+      m_MapProject.MapStrings.RemoveAt( idx );
+      RefreshMapStrings();
+      // Restore selection close to where the user was (clamped).
+      if ( m_MapProject.MapStrings.Count > 0 )
+      {
+        listMapStrings.SelectedIndex = Math.Min( idx, m_MapProject.MapStrings.Count - 1 );
+      }
+      SetModified();
+    }
+
+
+
+    private void btnMoveMapStringUp_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_MapProject == null ) return;
+      int idx = listMapStrings.SelectedIndex;
+      if ( idx <= 0 || idx >= m_MapProject.MapStrings.Count ) return;
+
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+      var ms = m_MapProject.MapStrings[idx];
+      m_MapProject.MapStrings.RemoveAt( idx );
+      m_MapProject.MapStrings.Insert( idx - 1, ms );
+      RefreshMapStrings();
+      listMapStrings.SelectedIndex = idx - 1;
+      SetModified();
+    }
+
+
+
+    private void btnMoveMapStringDown_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_MapProject == null ) return;
+      int idx = listMapStrings.SelectedIndex;
+      if ( idx < 0 || idx >= m_MapProject.MapStrings.Count - 1 ) return;
+
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+      var ms = m_MapProject.MapStrings[idx];
+      m_MapProject.MapStrings.RemoveAt( idx );
+      m_MapProject.MapStrings.Insert( idx + 1, ms );
+      RefreshMapStrings();
+      listMapStrings.SelectedIndex = idx + 1;
+      SetModified();
+    }
+
+
+
+    private void btnDuplicateMapString_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_MapProject == null ) return;
+      var src = GetSelectedMapString();
+      if ( src == null ) return;
+
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+      var copy = new Formats.MapProject.MapString
+      {
+        Label              = MakeUniqueMapStringLabel( ( src.Label ?? "" ) + "_COPY" ),
+        ClearTextAreaAtEnd = src.ClearTextAreaAtEnd
+      };
+      for ( int i = 0; i < 4; ++i )
+      {
+        copy.Lines[i] = new Formats.MapProject.MapStringLine
+        {
+          Text       = src.Lines[i].Text,
+          Terminator = src.Lines[i].Terminator
+        };
+      }
+      m_MapProject.MapStrings.Add( copy );
+      RefreshMapStrings();
+      listMapStrings.SelectedIndex = m_MapProject.MapStrings.Count - 1;
+      SetModified();
+    }
+
+
+
+    private string MakeUniqueMapStringLabel( string Base )
+    {
+      var existing = new HashSet<string>( StringComparer.Ordinal );
+      foreach ( var x in m_MapProject.MapStrings )
+      {
+        if ( !string.IsNullOrEmpty( x.Label ) ) existing.Add( x.Label );
+      }
+      if ( !existing.Contains( Base ) ) return Base;
+      int n = 2;
+      string candidate;
+      do
+      {
+        candidate = Base + "_" + n;
+        ++n;
+      }
+      while ( existing.Contains( candidate ) );
+      return candidate;
+    }
+
+
+
+    private void btnMapStringInsertColor_Click( DecentForms.ControlBase Sender )
+    {
+      // Inject a $X token at the caret of the most-recently-focused line.
+      var target = m_LastFocusedMapStringLine ?? editMapStringLine0;
+      if ( target == null ) return;
+      int colorIdx = comboMapStringColor.SelectedIndex;
+      if ( colorIdx < 0 || colorIdx > 15 ) return;
+
+      string token = "$" + colorIdx.ToString( "X" );
+      int caret = target.SelectionStart;
+      string before = target.Text.Substring( 0, caret );
+      string after  = target.Text.Substring( caret + target.SelectionLength );
+      target.Text = before + token + after;
+      target.SelectionStart  = caret + token.Length;
+      target.SelectionLength = 0;
+      // Returning focus keeps the caret visible for follow-up typing.
+      target.Focus();
+    }
+
+
+
+    // -------- Live preview --------
+
+    /// <summary>
+    /// Render the currently-selected MapString into picMapStringPreview.
+    /// Best-effort static rendering: text and color tokens only — runtime
+    /// PRESS_FIRE / CLEAR_TEXT_AREA semantics are not simulated. Glyphs
+    /// come from the project's charset via the C64 screen-code mapping.
+    /// </summary>
+    private void RebuildMapStringPreview()
+    {
+      if ( picMapStringPreview == null ) return;
+
+      const int CharsPerLine = 40;
+      const int LineCount    = 4;
+      const int CellW        = 8;
+      const int CellH        = 8;
+
+      var bmp = new System.Drawing.Bitmap( CharsPerLine * CellW, LineCount * CellH );
+      using ( var g = System.Drawing.Graphics.FromImage( bmp ) )
+      {
+        g.Clear( System.Drawing.Color.Black );
+
+        var ms = GetSelectedMapString();
+        if ( ms == null )
+        {
+          var prev = picMapStringPreview.Image;
+          picMapStringPreview.Image = bmp;
+          if ( prev != null ) prev.Dispose();
+          return;
+        }
+
+        // Default starting color — white, sensible neutral on black bg.
+        // Color persists across lines (matches Dreadhold runtime behavior).
+        int currentColor = 1;
+        var palette = ConstantData.Palette;
+        int lowerStart   = m_MapProject.MapStringsLowercaseIndex;
+        int upperStart   = m_MapProject.MapStringsUppercaseIndex;
+        int numbersStart = m_MapProject.MapStringsNumbersIndex;
+
+        for ( int li = 0; li < LineCount; ++li )
+        {
+          string text = ms.Lines[li].Text ?? "";
+          int col = 0;
+          int p = 0;
+          while ( p < text.Length && col < CharsPerLine )
+          {
+            char c = text[p];
+            if ( c == '$' )
+            {
+              if ( p + 1 < text.Length && text[p + 1] == '$' )
+              {
+                DrawMapStringPreviewChar( g, '$', col, li, currentColor, palette,
+                                          lowerStart, upperStart, numbersStart );
+                ++col;
+                p += 2;
+                continue;
+              }
+              if ( p + 1 < text.Length && IsHexDigitChar( text[p + 1] ) )
+              {
+                currentColor = HexCharValue( text[p + 1] );
+                p += 2;
+                continue;
+              }
+              // Bare $ — best-effort render as literal.
+              DrawMapStringPreviewChar( g, '$', col, li, currentColor, palette,
+                                        lowerStart, upperStart, numbersStart );
+              ++col;
+              ++p;
+              continue;
+            }
+            DrawMapStringPreviewChar( g, c, col, li, currentColor, palette,
+                                      lowerStart, upperStart, numbersStart );
+            ++col;
+            ++p;
+          }
+        }
+      }
+
+      var prevImg = picMapStringPreview.Image;
+      picMapStringPreview.Image = bmp;
+      if ( prevImg != null ) prevImg.Dispose();
+    }
+
+
+
+    private void DrawMapStringPreviewChar( System.Drawing.Graphics G, char Ch, int Col, int Row, int ColorIdx, Palette Pal,
+                                           int LowerStart, int UpperStart, int NumbersStart )
+    {
+      // Map ASCII -> charset index using the user-supplied per-project
+      // offsets for letters and digits. Punctuation falls through to fixed
+      // C64 screen-code values inside AsciiToScreenCode.
+      int screenCode = AsciiToScreenCode( Ch, LowerStart, UpperStart, NumbersStart );
+      if ( screenCode < 0 ) return;
+
+      // Find the project's charset bytes. Fall back to a hardcoded glyph
+      // if the project has none yet — at least the preview shows columns.
+      byte[] glyph = GetMapStringPreviewGlyph( screenCode );
+      if ( glyph == null ) return;
+
+      System.Drawing.Color fg = ( ColorIdx >= 0 && ColorIdx < 16 )
+                                ? Pal.Colors[ColorIdx]
+                                : System.Drawing.Color.White;
+
+      int baseX = Col * 8;
+      int baseY = Row * 8;
+      for ( int y = 0; y < 8; ++y )
+      {
+        byte b = glyph[y];
+        for ( int x = 0; x < 8; ++x )
+        {
+          if ( ( b & ( 0x80 >> x ) ) != 0 )
+          {
+            G.FillRectangle( new System.Drawing.SolidBrush( fg ), baseX + x, baseY + y, 1, 1 );
+          }
+        }
+      }
+    }
+
+
+
+    /// <summary>
+    /// Convert an authored char to a charset index for the preview canvas.
+    /// Letters and digits use the per-project user-supplied offsets
+    /// (lowercase / uppercase / numbers) — so a custom charset that puts
+    /// 'a' at index 65 gets the right glyph. Punctuation and the
+    /// space / @ / [ / ] characters keep their fixed C64 screen-code
+    /// mapping ("normal C64 characters" — per the user's spec). Returns
+    /// -1 for unsupported chars (preview just skips them).
+    /// </summary>
+    private static int AsciiToScreenCode( char Ch, int LowerStart, int UpperStart, int NumbersStart )
+    {
+      if ( Ch >= 'A' && Ch <= 'Z' ) return Ch - 'A' + UpperStart;
+      if ( Ch >= 'a' && Ch <= 'z' ) return Ch - 'a' + LowerStart;
+      if ( Ch >= '0' && Ch <= '9' ) return Ch - '0' + NumbersStart;
+      if ( Ch == ' ' )  return 0x20;
+      if ( Ch == '!' )  return 0x21;
+      if ( Ch == '"' )  return 0x22;
+      if ( Ch == '#' )  return 0x23;
+      if ( Ch == '$' )  return 0x24;
+      if ( Ch == '%' )  return 0x25;
+      if ( Ch == '&' )  return 0x26;
+      if ( Ch == '\'' ) return 0x27;
+      if ( Ch == '(' )  return 0x28;
+      if ( Ch == ')' )  return 0x29;
+      if ( Ch == '*' )  return 0x2A;
+      if ( Ch == '+' )  return 0x2B;
+      if ( Ch == ',' )  return 0x2C;
+      if ( Ch == '-' )  return 0x2D;
+      if ( Ch == '.' )  return 0x2E;
+      if ( Ch == '/' )  return 0x2F;
+      if ( Ch == ':' )  return 0x3A;
+      if ( Ch == ';' )  return 0x3B;
+      if ( Ch == '<' )  return 0x3C;
+      if ( Ch == '=' )  return 0x3D;
+      if ( Ch == '>' )  return 0x3E;
+      if ( Ch == '?' )  return 0x3F;
+      if ( Ch == '@' )  return 0x00;
+      if ( Ch == '[' )  return 0x1B;
+      if ( Ch == ']' )  return 0x1D;
+      return -1;
+    }
+
+
+
+    /// <summary>
+    /// Look up an 8-byte glyph for the given screen code. Prefers the
+    /// user-selected preview font (if loaded) since that's what will
+    /// actually render in-game; otherwise falls back to the project's
+    /// main charset; otherwise null (caller skips drawing).
+    /// </summary>
+    private byte[] GetMapStringPreviewGlyph( int ScreenCode )
+    {
+      // 1. Preview font — user-selected binary file (header stripped on load).
+      if ( m_MapStringPreviewFont != null )
+      {
+        int offset = ScreenCode * 8;
+        if ( offset >= 0 && offset + 8 <= m_MapStringPreviewFont.Length )
+        {
+          var glyph = new byte[8];
+          Array.Copy( m_MapStringPreviewFont, offset, glyph, 0, 8 );
+          return glyph;
+        }
+        // Screen code out of range for the loaded font — fall through to
+        // the project charset rather than returning null, so a glyph still
+        // appears if the project's charset is broader.
+      }
+
+      // 2. Project charset fallback.
+      if ( m_MapProject == null ) return null;
+      if ( m_MapProject.Charset == null ) return null;
+      if ( m_MapProject.Charset.Characters == null ) return null;
+      if ( ScreenCode < 0 || ScreenCode >= m_MapProject.Charset.Characters.Count ) return null;
+      var ch = m_MapProject.Charset.Characters[ScreenCode];
+      if ( ch == null || ch.Tile == null ) return null;
+      var data = ch.Tile.Data;
+      if ( data == null || data.Length < 8 ) return null;
+      var glyphFromCharset = new byte[8];
+      for ( int i = 0; i < 8; ++i )
+      {
+        glyphFromCharset[i] = data.ByteAt( i );
+      }
+      return glyphFromCharset;
+    }
+
+
+
+    private static bool IsHexDigitChar( char c )
+    {
+      return ( c >= '0' && c <= '9' )
+          || ( c >= 'A' && c <= 'F' )
+          || ( c >= 'a' && c <= 'f' );
+    }
+
+
+
+    private static int HexCharValue( char c )
+    {
+      if ( c >= '0' && c <= '9' ) return c - '0';
+      if ( c >= 'A' && c <= 'F' ) return 10 + ( c - 'A' );
+      if ( c >= 'a' && c <= 'f' ) return 10 + ( c - 'a' );
+      return 0;
     }
 
 

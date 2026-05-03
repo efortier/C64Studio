@@ -64,6 +64,53 @@ namespace RetroDevStudio.Formats
       public int        TagID = 0;
     };
 
+    /// <summary>
+    /// Runtime control-byte values for <see cref="MapStringLine.Terminator"/>
+    /// and the asm exporter. Values match Dreadhold's map-string runtime
+    /// (see Z:\DevC64\Dreadhold\src\map_strings.asm:11-17). Color bytes are
+    /// $00..$0F (the 16 C64 palette indices) and bytes $20..$FA are
+    /// screen-code character data — neither needs a constant here.
+    /// </summary>
+    public const byte MAP_STRING_END_OF_TEXT     = 0xFF;
+    public const byte MAP_STRING_END_OF_LINE     = 0xFD;
+    public const byte MAP_STRING_PRESS_FIRE      = 0xFC;
+    public const byte MAP_STRING_CLEAR_TEXT_AREA = 0xFB;
+
+    /// <summary>
+    /// One of up to 4 lines in a <see cref="MapString"/>. <see cref="Text"/>
+    /// is the raw authored string with optional inline color tokens: <c>$X</c>
+    /// (X = 0..F hex) sets the foreground color to palette index X, and <c>$$</c>
+    /// emits a literal <c>$</c> glyph. <see cref="Terminator"/> is the control
+    /// byte emitted after this line — END_OF_LINE for a normal line break or
+    /// PRESS_FIRE to render the static "Press Fire to continue" prompt and
+    /// block until the user presses fire.
+    /// </summary>
+    public class MapStringLine
+    {
+      public string Text       = "";
+      public byte   Terminator = MAP_STRING_END_OF_LINE;
+    };
+
+    /// <summary>
+    /// One named, exportable game-message script. Up to 4 lines of text
+    /// rendered into the C64 game's 4-line UI text area. <see cref="Label"/>
+    /// is the user-supplied asm identifier (e.g. <c>TEXT_HIT</c>) used to
+    /// emit a <c>.const &lt;Label&gt; = &lt;index&gt;</c> in the sidecar; must be a
+    /// valid asm identifier to be included on export. <see cref="Lines"/> is
+    /// always 4 slots — empty trailing slots are dropped at export time. When
+    /// <see cref="ClearTextAreaAtEnd"/> is true, a CLEAR_TEXT_AREA byte is
+    /// emitted right before the mandatory END_OF_TEXT terminator.
+    /// </summary>
+    public class MapString
+    {
+      public string          Label              = "";
+      public MapStringLine[] Lines              = new MapStringLine[4]
+      {
+        new MapStringLine(), new MapStringLine(), new MapStringLine(), new MapStringLine()
+      };
+      public bool            ClearTextAreaAtEnd = false;
+    };
+
     public class Tile
     {
       public GR.Game.Layer<TileChar> Chars = new GR.Game.Layer<TileChar>();
@@ -260,6 +307,12 @@ namespace RetroDevStudio.Formats
         public string EntityLabelsDirectory = "";
         public string EntityLabelsFilename = "map_entities.asm";
         public string EntityLabelsPrefix = "";
+        // v24: opt-in map-strings sidecar (per-project named text scripts ->
+        // Dreadhold-style byte stream + MAP_STRING_LO/HI tables + index consts).
+        public bool   ExportMapStrings = false;
+        public string MapStringsDirectory = "";
+        public string MapStringsFilename = "map_strings.asm";
+        public string MapStringsPrefix = "";
       }
 
       public class TargetSettings
@@ -283,6 +336,7 @@ namespace RetroDevStudio.Formats
     public List<Tile>                   Tiles = new List<Tile>();
     public List<MarkerType>             MarkerTypes = new List<MarkerType>();
     public List<EntityType>             EntityTypes = new List<EntityType>();
+    public List<MapString>              MapStrings = new List<MapString>();
     public List<Map>                    Maps = new List<Map>();
 
     public string                       ExternalCharset = "";
@@ -335,6 +389,34 @@ namespace RetroDevStudio.Formats
     /// state the user had when last saving.
     /// </summary>
     public bool                         AutoTiling = false;
+
+    /// <summary>
+    /// Optional path to a binary font file used when rendering the Map
+    /// Strings tab's preview canvas. The expected format matches what the
+    /// game-binary export emits: a 2-byte little-endian load-address header
+    /// followed by 8 bytes per glyph. When empty (or the file can't be
+    /// loaded), the preview falls back to the project's main charset.
+    /// </summary>
+    public string                       MapStringsPreviewFontPath = "";
+
+    /// <summary>
+    /// Map Strings preview: starting charset index for the lowercase letter
+    /// run (a..z). Used so 'a' renders at <c>MapStringsLowercaseIndex</c>,
+    /// 'b' at +1, etc. Defaults to 1, matching the C64 unshifted charset
+    /// where there is no separate lowercase block — users with a custom
+    /// upper+lower charset (e.g. Dreadhold's UICharset) override this.
+    /// </summary>
+    public int                          MapStringsLowercaseIndex = 1;
+    /// <summary>
+    /// Map Strings preview: starting charset index for the uppercase letter
+    /// run (A..Z). Defaults to 1 (C64 standard: 'A' = $01).
+    /// </summary>
+    public int                          MapStringsUppercaseIndex = 1;
+    /// <summary>
+    /// Map Strings preview: starting charset index for the digit run (0..9).
+    /// Defaults to 48 ($30, C64 standard).
+    /// </summary>
+    public int                          MapStringsNumbersIndex = 48;
     /// <summary>
     /// Opacity of the grid overlay drawn on the map editor (0..100).
     /// 100 = opaque white grid lines (legacy behaviour); 0 = invisible
@@ -377,6 +459,7 @@ namespace RetroDevStudio.Formats
     {
       Tiles.Clear();
       Maps.Clear();
+      MapStrings.Clear();
       ExternalCharset = "";
       RightClickAction = "";
       CharactersPerRow = 16;
@@ -414,6 +497,14 @@ namespace RetroDevStudio.Formats
       // files without this byte fall through to the default false on
       // load.
       chunkProjectInfo.AppendU8( AutoTiling ? (byte)1 : (byte)0 );
+      // Map Strings preview font path. Append-only; old files fall through
+      // to the default empty string (preview renders from project charset).
+      chunkProjectInfo.AppendString( MapStringsPreviewFontPath ?? "" );
+      // Map Strings preview charset offsets (lowercase / uppercase / digits).
+      // Append-only; old files fall through to the field defaults (1, 1, 48).
+      chunkProjectInfo.AppendI32( MapStringsLowercaseIndex );
+      chunkProjectInfo.AppendI32( MapStringsUppercaseIndex );
+      chunkProjectInfo.AppendI32( MapStringsNumbersIndex );
       projectFile.Append( chunkProjectInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkCharset = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET );
@@ -452,6 +543,20 @@ namespace RetroDevStudio.Formats
         chunkProjectData.Append( chunkEntityType.ToBuffer() );
       }
 
+      foreach ( var ms in MapStrings )
+      {
+        GR.IO.FileChunk chunkMapString = new GR.IO.FileChunk( FileChunkConstants.MAP_STRING );
+        chunkMapString.AppendString( ms.Label ?? "" );
+        chunkMapString.AppendU8( ms.ClearTextAreaAtEnd ? (byte)1 : (byte)0 );
+        for ( int i = 0; i < 4; ++i )
+        {
+          var line = ms.Lines[i] ?? new MapStringLine();
+          chunkMapString.AppendString( line.Text ?? "" );
+          chunkMapString.AppendU8( line.Terminator );
+        }
+        chunkProjectData.Append( chunkMapString.ToBuffer() );
+      }
+
       foreach ( Tile tile in Tiles )
       {
         GR.IO.FileChunk chunkTile = new GR.IO.FileChunk( FileChunkConstants.MAP_TILE );
@@ -484,7 +589,7 @@ namespace RetroDevStudio.Formats
       projectFile.Append( chunkProjectData.ToBuffer() );
 
       GR.IO.FileChunk chunkExportSettings = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS );
-      chunkExportSettings.AppendU32( 23 );
+      chunkExportSettings.AppendU32( 24 );
       chunkExportSettings.AppendI32(Settings.ExportDataIndex );
       chunkExportSettings.AppendI32(Settings.ExportOrientationIndex );
       chunkExportSettings.AppendI32( Settings.ExportMethodIndex );
@@ -560,6 +665,11 @@ namespace RetroDevStudio.Formats
       chunkExportSettings.AppendString( Settings.GameBinary.EntityLabelsDirectory ?? "" );
       chunkExportSettings.AppendString( Settings.GameBinary.EntityLabelsFilename ?? "map_entities.asm" );
       chunkExportSettings.AppendString( Settings.GameBinary.EntityLabelsPrefix ?? "" );
+      // version 24: map-strings sidecar
+      chunkExportSettings.AppendI32( Settings.GameBinary.ExportMapStrings ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.GameBinary.MapStringsDirectory ?? "" );
+      chunkExportSettings.AppendString( Settings.GameBinary.MapStringsFilename ?? "map_strings.asm" );
+      chunkExportSettings.AppendString( Settings.GameBinary.MapStringsPrefix ?? "" );
       // True ARGB designer canvas color. Appended at the end of the chunk
       // (no version bump per the project's append-only convention). Older
       // readers stop here and use the legacy palette-index field above.
@@ -662,6 +772,28 @@ namespace RetroDevStudio.Formats
               {
                 AutoTiling = ( chunkReader.ReadUInt8() != 0 );
               }
+              // Optional Map Strings preview font path. ReadString on a
+              // truncated stream is safer than guessing a length, so guard
+              // with a position check first. Empty string is the default.
+              if ( chunkReader.Size - chunkReader.Position >= 1 )
+              {
+                MapStringsPreviewFontPath = chunkReader.ReadString();
+              }
+              // Optional Map Strings preview charset offsets. Read all 3
+              // together — if any are missing, we keep all field defaults
+              // rather than partially overwriting.
+              if ( chunkReader.Size - chunkReader.Position >= 12 )
+              {
+                MapStringsLowercaseIndex = chunkReader.ReadInt32();
+                MapStringsUppercaseIndex = chunkReader.ReadInt32();
+                MapStringsNumbersIndex   = chunkReader.ReadInt32();
+                if ( MapStringsLowercaseIndex < 0 ) MapStringsLowercaseIndex = 0;
+                if ( MapStringsLowercaseIndex > 255 ) MapStringsLowercaseIndex = 255;
+                if ( MapStringsUppercaseIndex < 0 ) MapStringsUppercaseIndex = 0;
+                if ( MapStringsUppercaseIndex > 255 ) MapStringsUppercaseIndex = 255;
+                if ( MapStringsNumbersIndex < 0 ) MapStringsNumbersIndex = 0;
+                if ( MapStringsNumbersIndex > 255 ) MapStringsNumbersIndex = 255;
+              }
             }
             break;
           case FileChunkConstants.MAP_CHARSET:
@@ -723,6 +855,33 @@ namespace RetroDevStudio.Formats
                         eType.TagID = subChunkReader.ReadUInt8();
                       }
                       EntityTypes.Add( eType );
+                    }
+                    break;
+                  case FileChunkConstants.MAP_STRING:
+                    {
+                      MapString ms = new MapString();
+                      ms.Label = subChunkReader.ReadString();
+                      if ( subChunkReader.Position < subChunkReader.Size )
+                      {
+                        ms.ClearTextAreaAtEnd = ( subChunkReader.ReadUInt8() != 0 );
+                      }
+                      for ( int li = 0; li < 4; ++li )
+                      {
+                        if ( subChunkReader.Position < subChunkReader.Size )
+                        {
+                          ms.Lines[li].Text = subChunkReader.ReadString();
+                        }
+                        if ( subChunkReader.Position < subChunkReader.Size )
+                        {
+                          ms.Lines[li].Terminator = subChunkReader.ReadUInt8();
+                        }
+                        if ( ( ms.Lines[li].Terminator != MAP_STRING_END_OF_LINE )
+                        &&   ( ms.Lines[li].Terminator != MAP_STRING_PRESS_FIRE ) )
+                        {
+                          ms.Lines[li].Terminator = MAP_STRING_END_OF_LINE;
+                        }
+                      }
+                      MapStrings.Add( ms );
                     }
                     break;
                   case FileChunkConstants.MAP_TILE:
@@ -885,6 +1044,17 @@ namespace RetroDevStudio.Formats
                   if ( string.IsNullOrEmpty( Settings.GameBinary.EntityLabelsFilename ) )
                   {
                     Settings.GameBinary.EntityLabelsFilename = "map_entities.asm";
+                  }
+                }
+                if ( version >= 24 )
+                {
+                  Settings.GameBinary.ExportMapStrings = ( chunkReader.ReadInt32() != 0 );
+                  Settings.GameBinary.MapStringsDirectory = chunkReader.ReadString();
+                  Settings.GameBinary.MapStringsFilename = chunkReader.ReadString();
+                  Settings.GameBinary.MapStringsPrefix = chunkReader.ReadString();
+                  if ( string.IsNullOrEmpty( Settings.GameBinary.MapStringsFilename ) )
+                  {
+                    Settings.GameBinary.MapStringsFilename = "map_strings.asm";
                   }
                 }
               }
@@ -2509,6 +2679,279 @@ namespace RetroDevStudio.Formats
       }
 
       return sb.ToString();
+    }
+
+
+
+    /// <summary>
+    /// Generates a KickAssembler-compatible sidecar containing every named
+    /// <see cref="MapString"/> as a Dreadhold-style byte stream, plus the
+    /// MAP_STRING_LO / MAP_STRING_HI pointer tables and one
+    /// <c>.const &lt;Label&gt; = &lt;index&gt;</c> per emitted message.
+    /// <paramref name="UserPrefix"/> is inserted verbatim at the top of the
+    /// file (e.g. for <c>#import</c>s of the COLOR_*/END_OF_LINE/PRESS_FIRE/
+    /// CLEAR_TEXT_AREA/END_OF_TEXT constants the consuming project provides).
+    ///
+    /// Messages whose Label is empty or not a valid asm identifier are
+    /// skipped with a comment in the output (and excluded from both the
+    /// constants block and the pointer tables).
+    /// </summary>
+    public string GenerateMapStringsAsm( string UserPrefix = null )
+    {
+      var sb = new StringBuilder();
+      if ( !string.IsNullOrEmpty( UserPrefix ) )
+      {
+        sb.AppendLine( UserPrefix );
+        if ( !UserPrefix.EndsWith( "\n" ) )
+        {
+          sb.AppendLine();
+        }
+      }
+      sb.AppendLine( "// Auto-generated by C64Studio on game-binary export." );
+      sb.AppendLine( "// Map string messages — byte-stream format consumed by Dreadhold-style runtime." );
+      sb.AppendLine( "// Do not edit by hand — regenerated on every export." );
+      sb.AppendLine( "//" );
+      sb.AppendLine( "// Expects COLOR_*, END_OF_LINE ($FD), PRESS_FIRE ($FC)," );
+      sb.AppendLine( "// CLEAR_TEXT_AREA ($FB) and END_OF_TEXT ($FF) to be defined" );
+      sb.AppendLine( "// by the consuming project (#import its constants file)." );
+      sb.AppendLine();
+
+      // Filter: only well-formed labels make it into the tables. The
+      // skipped-message commentary is emitted up-front so users see why a
+      // label didn't appear without diffing two builds.
+      var labelRegex = new System.Text.RegularExpressions.Regex( "^[A-Za-z_][A-Za-z0-9_]*$" );
+      var seenLabels = new HashSet<string>( StringComparer.Ordinal );
+      var emitted    = new List<MapString>();
+      bool anySkipped = false;
+      foreach ( var ms in MapStrings )
+      {
+        string label = ms.Label ?? "";
+        if ( string.IsNullOrEmpty( label ) )
+        {
+          sb.AppendLine( "// SKIPPED: message with empty label (set a label in the Map Strings tab)." );
+          anySkipped = true;
+          continue;
+        }
+        if ( !labelRegex.IsMatch( label ) )
+        {
+          sb.AppendLine( "// SKIPPED: invalid label '" + label
+                       + "' — must match [A-Za-z_][A-Za-z0-9_]*." );
+          anySkipped = true;
+          continue;
+        }
+        if ( !seenLabels.Add( label ) )
+        {
+          sb.AppendLine( "// SKIPPED: duplicate label '" + label + "'." );
+          anySkipped = true;
+          continue;
+        }
+        emitted.Add( ms );
+      }
+      if ( anySkipped )
+      {
+        sb.AppendLine();
+      }
+
+      if ( emitted.Count == 0 )
+      {
+        sb.AppendLine( "// (no map strings defined)" );
+        return sb.ToString();
+      }
+
+      // Index constants. One .const per emitted message; the constant value
+      // is the index into MAP_STRING_LO/HI (zero-based, matches Dreadhold's
+      // STR_ID_* naming convention).
+      sb.AppendLine( "// String index constants — pass these in A to the message renderer." );
+      for ( int i = 0; i < emitted.Count; ++i )
+      {
+        sb.AppendLine( ".const " + emitted[i].Label.PadRight( 32 )
+                     + " = " + i );
+      }
+      sb.AppendLine();
+
+      // Pointer tables. 8 entries per source line for readability.
+      sb.AppendLine( "MAP_STRING_LO:" );
+      AppendMapStringPointerLine( sb, emitted, isLow: true );
+      sb.AppendLine();
+      sb.AppendLine( "MAP_STRING_HI:" );
+      AppendMapStringPointerLine( sb, emitted, isLow: false );
+      sb.AppendLine();
+
+      // Per-message data blocks.
+      for ( int i = 0; i < emitted.Count; ++i )
+      {
+        string dataLabel = "MAP_STRING_" + ( i + 1 ).ToString( "D2" );
+        sb.AppendLine( dataLabel + ":" );
+
+        // Determine which lines actually contribute. Trailing empty lines
+        // (after the last non-empty line) are dropped — that maps directly
+        // onto the Dreadhold convention where an absent line is simply not
+        // emitted, vs a deliberately blank line which gets a bare END_OF_LINE.
+        var ms = emitted[i];
+        int lastNonEmpty = -1;
+        for ( int li = 3; li >= 0; --li )
+        {
+          if ( !string.IsNullOrEmpty( ms.Lines[li].Text ) )
+          {
+            lastNonEmpty = li;
+            break;
+          }
+        }
+
+        for ( int li = 0; li <= lastNonEmpty; ++li )
+        {
+          var line = ms.Lines[li];
+          if ( string.IsNullOrEmpty( line.Text ) )
+          {
+            // Deliberately-blank line: just the line break.
+            sb.AppendLine( "                .byte END_OF_LINE" );
+            continue;
+          }
+          sb.AppendLine( "                " + EmitMapStringLineAsm( line ) );
+        }
+
+        if ( ms.ClearTextAreaAtEnd )
+        {
+          sb.AppendLine( "                .byte CLEAR_TEXT_AREA" );
+        }
+        sb.AppendLine( "                .byte END_OF_TEXT" );
+        sb.AppendLine();
+      }
+
+      return sb.ToString();
+    }
+
+
+
+    /// <summary>
+    /// Emits one MAP_STRING_LO or MAP_STRING_HI pointer table body. Using
+    /// KickAss <c>.byte &lt;LABEL</c> / <c>.byte &gt;LABEL</c> per entry, 8
+    /// per line. Pulled out so MAP_STRING_LO and MAP_STRING_HI emit
+    /// identically except for the unary operator.
+    /// </summary>
+    private static void AppendMapStringPointerLine( StringBuilder sb, List<MapString> Emitted, bool isLow )
+    {
+      const int PerLine = 8;
+      string op = isLow ? "<" : ">";
+      for ( int start = 0; start < Emitted.Count; start += PerLine )
+      {
+        int end = Math.Min( start + PerLine, Emitted.Count );
+        sb.Append( "                .byte " );
+        for ( int j = start; j < end; ++j )
+        {
+          if ( j > start ) sb.Append( ", " );
+          sb.Append( op );
+          sb.Append( "MAP_STRING_" );
+          sb.Append( ( j + 1 ).ToString( "D2" ) );
+        }
+        sb.AppendLine();
+      }
+    }
+
+
+
+    /// <summary>
+    /// Tokenize one authored line into color-segments and text-runs, then
+    /// emit a single KickAssembler source line of the form
+    /// <c>.byte COLOR_X; .text "..."; .byte TERMINATOR</c>. Color tokens are
+    /// <c>$X</c> (X = 0..9, A..F); <c>$$</c> escapes a literal <c>$</c>; a
+    /// bare <c>$</c> not followed by <c>$</c> or hex is treated as a literal
+    /// <c>$</c> glyph (best-effort — the editor surfaces a soft warning but
+    /// export still produces faithful bytes).
+    /// </summary>
+    private static string EmitMapStringLineAsm( MapStringLine Line )
+    {
+      // Color name table — index 0..15 into the C64 palette. Names match
+      // Dreadhold's src\constants.asm:38-53.
+      string[] colorNames = new string[] {
+        "COLOR_BLACK", "COLOR_WHITE", "COLOR_RED", "COLOR_CYAN",
+        "COLOR_PURPLE", "COLOR_GREEN", "COLOR_BLUE", "COLOR_YELLOW",
+        "COLOR_ORANGE", "COLOR_BROWN", "COLOR_LIGHT_RED", "COLOR_DARK_GRAY",
+        "COLOR_GRAY", "COLOR_LIGHT_GREEN", "COLOR_LIGHT_BLUE", "COLOR_LIGHT_GRAY"
+      };
+
+      var segments = new List<string>();
+      var run      = new StringBuilder();
+
+      string text = Line.Text ?? "";
+      int p = 0;
+      while ( p < text.Length )
+      {
+        char c = text[p];
+        if ( c == '$' )
+        {
+          if ( p + 1 < text.Length && text[p + 1] == '$' )
+          {
+            run.Append( '$' );  // escaped literal
+            p += 2;
+            continue;
+          }
+          if ( p + 1 < text.Length && IsHexDigit( text[p + 1] ) )
+          {
+            int colorIdx = HexValue( text[p + 1] );
+            if ( run.Length > 0 )
+            {
+              segments.Add( ".text \"" + EscapeForKickAssText( run.ToString() ) + "\"" );
+              run.Length = 0;   // .NET 3.5 has no StringBuilder.Clear()
+            }
+            segments.Add( ".byte " + colorNames[colorIdx] );
+            p += 2;
+            continue;
+          }
+          // Bare $ not followed by hex or another $ — treat as literal.
+          run.Append( '$' );
+          p += 1;
+          continue;
+        }
+        run.Append( c );
+        p += 1;
+      }
+      if ( run.Length > 0 )
+      {
+        segments.Add( ".text \"" + EscapeForKickAssText( run.ToString() ) + "\"" );
+      }
+
+      // Terminator — final segment, mandatory.
+      string terminatorName = ( Line.Terminator == MAP_STRING_PRESS_FIRE )
+                              ? "PRESS_FIRE" : "END_OF_LINE";
+      segments.Add( ".byte " + terminatorName );
+
+      // .NET 3.5 lacks string.Join(string, IEnumerable<string>) — convert
+      // to an array first so the call resolves in both target frameworks.
+      return string.Join( "; ", segments.ToArray() );
+    }
+
+
+
+    private static bool IsHexDigit( char c )
+    {
+      return ( c >= '0' && c <= '9' )
+          || ( c >= 'A' && c <= 'F' )
+          || ( c >= 'a' && c <= 'f' );
+    }
+
+
+
+    private static int HexValue( char c )
+    {
+      if ( c >= '0' && c <= '9' ) return c - '0';
+      if ( c >= 'A' && c <= 'F' ) return 10 + ( c - 'A' );
+      if ( c >= 'a' && c <= 'f' ) return 10 + ( c - 'a' );
+      return 0;
+    }
+
+
+
+    /// <summary>
+    /// Escape a text run for KickAssembler's <c>.text "..."</c> directive.
+    /// Doubles embedded quotes (<c>"</c> -> <c>""</c>) for the most portable
+    /// form; backslashes are passed through (KickAss does not interpret
+    /// them inside <c>.text</c>).
+    /// </summary>
+    private static string EscapeForKickAssText( string s )
+    {
+      if ( string.IsNullOrEmpty( s ) ) return s ?? "";
+      return s.Replace( "\"", "\"\"" );
     }
 
 
