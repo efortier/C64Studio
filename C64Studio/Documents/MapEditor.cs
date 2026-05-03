@@ -10849,6 +10849,49 @@ namespace RetroDevStudio.Documents
 
 
 
+    private void btnFindFreeMarkerTagID_Click( object sender, EventArgs e )
+    {
+      if ( m_MapProject == null ) return;
+
+      // Build the set of TagIDs in use across all marker types,
+      // excluding the currently-selected one so the user can keep its
+      // current id if it's already free.
+      Formats.MapProject.MarkerType currentType = null;
+      if ( ( listMarkerTypes.SelectedIndex >= 0 )
+      &&   ( listMarkerTypes.SelectedIndex < m_MapProject.MarkerTypes.Count ) )
+      {
+        currentType = m_MapProject.MarkerTypes[listMarkerTypes.SelectedIndex];
+      }
+      var inUse = new System.Collections.Generic.HashSet<int>();
+      foreach ( var mt in m_MapProject.MarkerTypes )
+      {
+        if ( mt == currentType ) continue;
+        inUse.Add( mt.TagID );
+      }
+
+      int candidate = 0;
+      while ( ( candidate <= 255 ) && inUse.Contains( candidate ) )
+      {
+        ++candidate;
+      }
+      if ( candidate > 255 )
+      {
+        System.Windows.Forms.MessageBox.Show(
+          "All Tag IDs from 0 to 255 are already in use. Marker Tag ID is exported as a single byte and cannot exceed 255.",
+          "No free Tag ID",
+          System.Windows.Forms.MessageBoxButtons.OK,
+          System.Windows.Forms.MessageBoxIcon.Warning );
+        return;
+      }
+
+      // editMarkerTagID is the staging field for Add/Update Type buttons,
+      // not a live binding to the selected type — assigning Value here is
+      // the right surface to drive. The user clicks Update / Add to commit.
+      editMarkerTagID.Value = candidate;
+    }
+
+
+
     private void editTileGroupId_KeyPress( object sender, KeyPressEventArgs e )
     {
       if ( e.KeyChar == 13 )

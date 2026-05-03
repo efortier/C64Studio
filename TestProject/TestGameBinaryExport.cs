@@ -467,7 +467,7 @@ namespace TestProject
       var buf = proj.ExportAsGameBinary( true, false, false );
       Assert.AreEqual( (byte)3, buf.ByteAt( HdrOff( buf, HDR_MAP_MARKER_COUNT ) ) );
       int markersPos = LookupAbsOffset( buf, HDR_MAP_MARKERS_LO, HDR_MAP_MARKERS_HI, 0 );
-      // Stride is now 7 bytes (tag, x, y, value1, value2, enabled, triggered)
+      // Stride is 7 bytes (tag, x, y, value1, value2, flags, group_id) — flags packs Enabled (bit 0) and Triggered (bit 1) into one byte
       Assert.AreEqual( (byte)100, buf.ByteAt( markersPos + 0 ) );
       Assert.AreEqual( (byte)0x11, buf.ByteAt( markersPos + 3 ) );
       Assert.AreEqual( (byte)200, buf.ByteAt( markersPos + 7 ) );

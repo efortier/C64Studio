@@ -45,6 +45,7 @@
             this.labelMarkerExportSymbol = new System.Windows.Forms.Label();
             this.editMarkerTagID = new System.Windows.Forms.NumericUpDown();
             this.labelMarkerTagID = new System.Windows.Forms.Label();
+            this.btnFindFreeMarkerTagID = new System.Windows.Forms.Button();
             this.checkMarkerDefaultEnabled = new System.Windows.Forms.CheckBox();
             this.checkMarkerDefaultTriggered = new System.Windows.Forms.CheckBox();
             this.comboMarkerColor = new System.Windows.Forms.ComboBox();
@@ -360,6 +361,7 @@
             this.tabMarkers.Controls.Add(this.labelMarkerExportSymbol);
             this.tabMarkers.Controls.Add(this.editMarkerTagID);
             this.tabMarkers.Controls.Add(this.labelMarkerTagID);
+            this.tabMarkers.Controls.Add(this.btnFindFreeMarkerTagID);
             this.tabMarkers.Controls.Add(this.checkMarkerDefaultEnabled);
             this.tabMarkers.Controls.Add(this.checkMarkerDefaultTriggered);
             this.tabMarkers.Controls.Add(this.comboMarkerColor);
@@ -458,7 +460,19 @@
             this.labelMarkerTagID.Size = new System.Drawing.Size(43, 13);
             this.labelMarkerTagID.TabIndex = 11;
             this.labelMarkerTagID.Text = "Tag ID:";
-            // 
+            //
+            // btnFindFreeMarkerTagID
+            //
+            // Sits immediately to the right of editMarkerTagID
+            this.btnFindFreeMarkerTagID.Location = new System.Drawing.Point(384, 95);
+            this.btnFindFreeMarkerTagID.Name = "btnFindFreeMarkerTagID";
+            this.btnFindFreeMarkerTagID.Size = new System.Drawing.Size(50, 22);
+            this.btnFindFreeMarkerTagID.TabIndex = 12;
+            this.btnFindFreeMarkerTagID.Text = "Free";
+            this.toolTip1.SetToolTip(this.btnFindFreeMarkerTagID, "Find the lowest unused Tag ID (>= 0, max 255) and assign it");
+            this.btnFindFreeMarkerTagID.UseVisualStyleBackColor = true;
+            this.btnFindFreeMarkerTagID.Click += new System.EventHandler(this.btnFindFreeMarkerTagID_Click);
+            //
             // checkMarkerDefaultEnabled
             // 
             this.checkMarkerDefaultEnabled.AutoSize = true;
@@ -3428,6 +3442,7 @@
         private DecentForms.Button btnDeleteMarkerType;
         private System.Windows.Forms.NumericUpDown editMarkerTagID;
         private System.Windows.Forms.Label labelMarkerTagID;
+        private System.Windows.Forms.Button btnFindFreeMarkerTagID;
         private System.Windows.Forms.TextBox editTileGroupId;
         private System.Windows.Forms.Label labelTileGroupId;
         private System.Windows.Forms.Button btnFindFreeTileGroupId;

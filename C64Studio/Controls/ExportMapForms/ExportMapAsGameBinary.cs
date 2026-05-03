@@ -599,11 +599,17 @@ namespace RetroDevStudio.Controls
                 if ( markerStride >= 5 )
                   line += " value2=" + HexByte( buf.ByteAt( mFilePos + 4 ) );
                 if ( markerStride >= 6 )
-                  line += " enabled=" + buf.ByteAt( mFilePos + 5 );
+                {
+                  byte fb = buf.ByteAt( mFilePos + 5 );
+                  // BIT_FLAGS preview: %hhhh_llll, matching the mask
+                  // constants emitted in the asm sidecar.
+                  line += " flags=%"
+                          + System.Convert.ToString( ( fb >> 4 ) & 0xF, 2 ).PadLeft( 4, '0' )
+                          + "_"
+                          + System.Convert.ToString( fb & 0xF, 2 ).PadLeft( 4, '0' );
+                }
                 if ( markerStride >= 7 )
-                  line += " triggered=" + buf.ByteAt( mFilePos + 6 );
-                if ( markerStride >= 8 )
-                  line += " group=" + buf.ByteAt( mFilePos + 7 );
+                  line += " group=" + buf.ByteAt( mFilePos + 6 );
                 sb.AppendLine( line );
               }
             }

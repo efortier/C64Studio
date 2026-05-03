@@ -1830,7 +1830,7 @@ namespace RetroDevStudio.Formats
       int addrBase = BaseAddress;
 
       // ========== HEADER (52 bytes, 0x34) ==========
-      buf.AppendU8( 8 );    // +$00 marker_stride (bytes per marker record: tag, x, y, value1, value2, enabled, triggered, group_id)
+      buf.AppendU8( 7 );    // +$00 marker_stride (bytes per marker record: tag, x, y, value1, value2, flags, group_id) — flags is a bitfield: bit0 = Enabled, bit1 = Triggered
       buf.AppendU8( (byte)Tiles.Count );  // +$01
       buf.AppendU8( (byte)Maps.Count );   // +$02
       // 21 x 2-byte offset placeholders (+$03 .. +$2C)
@@ -2231,8 +2231,13 @@ namespace RetroDevStudio.Formats
             buf.AppendU8( (byte)marker.Y );
             buf.AppendU8( marker.Value1 );
             buf.AppendU8( marker.Value2 );
-            buf.AppendU8( (byte)( marker.Enabled ? 1 : 0 ) );
-            buf.AppendU8( (byte)( marker.Triggered ? 1 : 0 ) );
+            // Packed flags byte: bit 0 = Enabled, bit 1 = Triggered.
+            // Mask constants are emitted into the asm sidecar as
+            // MAP_MARKER_FLAGS_MASK_ENABLED / MAP_MARKER_FLAGS_MASK_TRIGGERED.
+            byte flags = 0;
+            if ( marker.Enabled )   flags |= 0x01;
+            if ( marker.Triggered ) flags |= 0x02;
+            buf.AppendU8( flags );
             buf.AppendU8( marker.GroupId );
           }
         }
@@ -2349,7 +2354,7 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_ENTITIES_HI         = $32" );
       sb.AppendLine( ".const MAP_HEADER_SIZE                           = $34  // total header length" );
       sb.AppendLine();
-      sb.AppendLine( "// ====== Marker record layout (8 bytes per marker) ======" );
+      sb.AppendLine( "// ====== Marker record layout (7 bytes per marker) ======" );
       sb.AppendLine( "// Byte offsets within a single marker record." );
       sb.AppendLine( "// Use MAP_MARKER_SIZE to advance between records." );
       sb.AppendLine( ".const MAP_MARKER_TAG                            = $00" );
@@ -2357,10 +2362,13 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( ".const MAP_MARKER_Y                              = $02" );
       sb.AppendLine( ".const MAP_MARKER_VALUE1                         = $03" );
       sb.AppendLine( ".const MAP_MARKER_VALUE2                         = $04" );
-      sb.AppendLine( ".const MAP_MARKER_ENABLED                        = $05" );
-      sb.AppendLine( ".const MAP_MARKER_TRIGGERED                      = $06" );
-      sb.AppendLine( ".const MAP_MARKER_GROUP_ID                       = $07" );
-      sb.AppendLine( ".const MAP_MARKER_SIZE                           = $08  // bytes per marker" );
+      sb.AppendLine( ".const MAP_MARKER_FLAGS                          = $05  // bit flags — see masks below" );
+      sb.AppendLine( ".const MAP_MARKER_GROUP_ID                       = $06" );
+      sb.AppendLine( ".const MAP_MARKER_SIZE                           = $07  // bytes per marker" );
+      sb.AppendLine();
+      sb.AppendLine( "// MAP_MARKER_FLAGS bit masks. Test with AND, set with ORA." );
+      sb.AppendLine( ".const MAP_MARKER_FLAGS_MASK_ENABLED             = %0000_0001" );
+      sb.AppendLine( ".const MAP_MARKER_FLAGS_MASK_TRIGGERED           = %0000_0010" );
       sb.AppendLine();
       sb.AppendLine( "// ====== Entity record layout (8 bytes per entity) ======" );
       sb.AppendLine( "// Byte offsets within a single entity record." );
