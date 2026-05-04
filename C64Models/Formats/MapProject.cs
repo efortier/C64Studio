@@ -77,18 +77,29 @@ namespace RetroDevStudio.Formats
     public const byte MAP_STRING_CLEAR_TEXT_AREA = 0xFB;
 
     /// <summary>
-    /// One of up to 4 lines in a <see cref="MapString"/>. <see cref="Text"/>
-    /// is the raw authored string with optional inline color tokens: <c>$X</c>
-    /// (X = 0..F hex) sets the foreground color to palette index X, and <c>$$</c>
-    /// emits a literal <c>$</c> glyph. <see cref="Terminator"/> is the control
-    /// byte emitted after this line — END_OF_LINE for a normal line break or
-    /// PRESS_FIRE to render the static "Press Fire to continue" prompt and
-    /// block until the user presses fire.
+    /// One of up to 4 lines in a <see cref="MapString"/>.
+    ///
+    /// <see cref="ControlCode"/> is the line's leading control byte. The
+    /// runtime's line-start scan (game_message.asm READ_STRING_BYTE) reads
+    /// bytes <c>&lt; $20</c> as the line color, so $00..$0F set the line's
+    /// foreground colour and $10..$1F are reserved for future runtime
+    /// extensions. The byte is only emitted at export time when
+    /// <see cref="Text"/> is non-empty (matches the Dreadhold convention
+    /// where blank middle lines emit just END_OF_LINE).
+    ///
+    /// <see cref="Text"/> is plain authored text — no inline tokens.
+    /// Every char becomes one screen code via the per-project lowercase /
+    /// uppercase / numbers offsets, plus the fixed C64 punctuation map.
+    ///
+    /// <see cref="Terminator"/> is the control byte that ends the line:
+    /// END_OF_LINE for a normal break or PRESS_FIRE to render the static
+    /// "Press Fire to continue" prompt and block until fire.
     /// </summary>
     public class MapStringLine
     {
-      public string Text       = "";
-      public byte   Terminator = MAP_STRING_END_OF_LINE;
+      public byte   ControlCode = 0x01;   // default white — sensible neutral
+      public string Text        = "";
+      public byte   Terminator  = MAP_STRING_END_OF_LINE;
     };
 
     /// <summary>
@@ -553,6 +564,10 @@ namespace RetroDevStudio.Formats
           var line = ms.Lines[i] ?? new MapStringLine();
           chunkMapString.AppendString( line.Text ?? "" );
           chunkMapString.AppendU8( line.Terminator );
+          // Per-line control code (line color byte). Appended; old project
+          // files that lack this byte fall through to the default of $01
+          // (white) on load.
+          chunkMapString.AppendU8( line.ControlCode );
         }
         chunkProjectData.Append( chunkMapString.ToBuffer() );
       }
@@ -879,6 +894,10 @@ namespace RetroDevStudio.Formats
                         &&   ( ms.Lines[li].Terminator != MAP_STRING_PRESS_FIRE ) )
                         {
                           ms.Lines[li].Terminator = MAP_STRING_END_OF_LINE;
+                        }
+                        if ( subChunkReader.Position < subChunkReader.Size )
+                        {
+                          ms.Lines[li].ControlCode = subChunkReader.ReadUInt8();
                         }
                       }
                       MapStrings.Add( ms );
@@ -1999,7 +2018,7 @@ namespace RetroDevStudio.Formats
       var buf = new GR.Memory.ByteBuffer();
       int addrBase = BaseAddress;
 
-      // ========== HEADER (52 bytes, 0x34) ==========
+      // ========== HEADER (57 bytes, 0x39) ==========
       buf.AppendU8( 7 );    // +$00 marker_stride (bytes per marker record: tag, x, y, value1, value2, flags, group_id) — flags is a bitfield: bit0 = Enabled, bit1 = Triggered
       buf.AppendU8( (byte)Tiles.Count );  // +$01
       buf.AppendU8( (byte)Maps.Count );   // +$02
@@ -2010,6 +2029,13 @@ namespace RetroDevStudio.Formats
       // 3 x 2-byte entity offset placeholders (+$2E .. +$33)
       for ( int i = 0; i < 3; ++i )
         buf.AppendU16( 0 );
+      // Map-strings section (v24+): a single byte count followed by two
+      // 2-byte pointers to the MAP_STRING_LO and MAP_STRING_HI tables.
+      // Always emitted — even when the project has no strings — so the
+      // header layout is fixed at 57 bytes regardless of project content.
+      buf.AppendU8( 0 );        // +$34 map_string_count (patched below)
+      buf.AppendU16( 0 );       // +$35 offset_map_string_lo (patched below)
+      buf.AppendU16( 0 );       // +$37 offset_map_string_hi (patched below)
 
       // Header offset positions (byte offset within header for each pointer)
       const int HDR_TILES_WIDTH       = 0x03;
@@ -2036,6 +2062,9 @@ namespace RetroDevStudio.Formats
       const int HDR_MAP_ENTITY_COUNT  = 0x2E;
       const int HDR_MAP_ENTITIES_LO   = 0x30;
       const int HDR_MAP_ENTITIES_HI   = 0x32;
+      const int HDR_MAP_STRING_COUNT  = 0x34;
+      const int HDR_MAP_STRING_LO     = 0x35;
+      const int HDR_MAP_STRING_HI     = 0x37;
 
       // ========== TILE ARRAYS ==========
 
@@ -2457,6 +2486,60 @@ namespace RetroDevStudio.Formats
         }
       }
 
+      // ========== MAP STRINGS (v24+) ==========
+      //
+      // Layout, written sequentially after all per-map data:
+      //   1. MAP_STRING_LO table — N bytes, low byte of each string's address
+      //   2. MAP_STRING_HI table — N bytes, high byte of each string's address
+      //   3. The N concatenated byte streams (one per emitted string)
+      //
+      // The header pointers at +$35 / +$37 hold the absolute addresses of
+      // the LO and HI tables; +$34 holds N. When the project has no
+      // emittable strings the count is 0 and the LO/HI pointers stay
+      // zero (the per-map empty-data convention).
+      List<string> mapStringSkipReasons;
+      var emittableStrings = GetEmittableMapStrings( out mapStringSkipReasons );
+      if ( emittableStrings.Count > 0 )
+      {
+        // Pre-build every byte stream so we know each one's exact length
+        // before we start patching pointers.
+        var streams = new List<GR.Memory.ByteBuffer>( emittableStrings.Count );
+        foreach ( var ms in emittableStrings )
+        {
+          streams.Add( BuildMapStringByteStream(
+            ms,
+            MapStringsLowercaseIndex,
+            MapStringsUppercaseIndex,
+            MapStringsNumbersIndex ) );
+        }
+
+        // LO / HI tables get placeholder bytes; we patch them once we know
+        // each stream's final address.
+        int loTablePos = (int)buf.Length;
+        buf.SetU16At( HDR_MAP_STRING_LO, (ushort)( loTablePos + addrBase ) );
+        for ( int i = 0; i < emittableStrings.Count; ++i ) buf.AppendU8( 0 );
+
+        int hiTablePos = (int)buf.Length;
+        buf.SetU16At( HDR_MAP_STRING_HI, (ushort)( hiTablePos + addrBase ) );
+        for ( int i = 0; i < emittableStrings.Count; ++i ) buf.AppendU8( 0 );
+
+        // Now write the byte streams and patch the LO/HI pointer tables.
+        for ( int i = 0; i < emittableStrings.Count; ++i )
+        {
+          int streamAddr = (int)buf.Length + addrBase;
+          buf.SetU8At( loTablePos + i, (byte)( streamAddr & 0xFF ) );
+          buf.SetU8At( hiTablePos + i, (byte)( ( streamAddr >> 8 ) & 0xFF ) );
+          buf.Append( streams[i] );
+        }
+
+        // Stash the count last — clamp at 255 because the field is one byte.
+        // (The asm sidecar's index constants will exceed that limit too if
+        // there are more than 256 strings; that's an editor-side concern.)
+        int count = emittableStrings.Count;
+        if ( count > 255 ) count = 255;
+        buf.SetU8At( HDR_MAP_STRING_COUNT, (byte)count );
+      }
+
       return buf;
     }
 
@@ -2488,7 +2571,7 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( "// values. To read the stride at runtime: LDA MAP_HEADER + MAP_HEADER_MARKER_STRIDE" );
       sb.AppendLine( "// To step between marker records at compile time, use MAP_MARKER_SIZE." );
       sb.AppendLine();
-      sb.AppendLine( "// ====== Game binary header (45 bytes) ======" );
+      sb.AppendLine( "// ====== Game binary header (57 bytes) ======" );
       sb.AppendLine( "// Direct byte values at the start of the header:" );
       sb.AppendLine( ".const MAP_HEADER_MARKER_STRIDE                  = $00  // byte: marker record size" );
       sb.AppendLine( ".const MAP_HEADER_TILECOUNT                      = $01  // byte: number of tiles" );
@@ -2522,7 +2605,17 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_ENTITY_COUNT        = $2E" );
       sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_ENTITIES_LO         = $30" );
       sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_ENTITIES_HI         = $32" );
-      sb.AppendLine( ".const MAP_HEADER_SIZE                           = $34  // total header length" );
+      sb.AppendLine();
+      sb.AppendLine( "// Map strings section (v24): per-project named text scripts. The" );
+      sb.AppendLine( "// MAP_STRING_LO / MAP_STRING_HI tables and the byte streams they" );
+      sb.AppendLine( "// point to live IN this binary at the offsets below. Pass an index" );
+      sb.AppendLine( "// (see map_strings.asm for the named index constants) to the message" );
+      sb.AppendLine( "// renderer; it reads the address from MAP_STRING_LO/HI[index] and" );
+      sb.AppendLine( "// walks the byte stream until END_OF_TEXT ($FF)." );
+      sb.AppendLine( ".const MAP_HEADER_MAP_STRING_COUNT               = $34  // byte: number of strings" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_STRING_LO           = $35" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_STRING_HI           = $37" );
+      sb.AppendLine( ".const MAP_HEADER_SIZE                           = $39  // total header length" );
       sb.AppendLine();
       sb.AppendLine( "// ====== Marker record layout (7 bytes per marker) ======" );
       sb.AppendLine( "// Byte offsets within a single marker record." );
@@ -2708,46 +2801,20 @@ namespace RetroDevStudio.Formats
         }
       }
       sb.AppendLine( "// Auto-generated by C64Studio on game-binary export." );
-      sb.AppendLine( "// Map string messages — byte-stream format consumed by Dreadhold-style runtime." );
+      sb.AppendLine( "// Map string index constants — runtime pass these in A to look up the" );
+      sb.AppendLine( "// matching message via MAP_STRING_LO / MAP_STRING_HI in the .bin." );
+      sb.AppendLine( "// The actual byte streams + pointer tables live IN the game binary," );
+      sb.AppendLine( "// at the offsets named by MAP_HEADER_OFFSET_MAP_STRING_LO / _HI." );
       sb.AppendLine( "// Do not edit by hand — regenerated on every export." );
-      sb.AppendLine( "//" );
-      sb.AppendLine( "// Expects COLOR_*, END_OF_LINE ($FD), PRESS_FIRE ($FC)," );
-      sb.AppendLine( "// CLEAR_TEXT_AREA ($FB) and END_OF_TEXT ($FF) to be defined" );
-      sb.AppendLine( "// by the consuming project (#import its constants file)." );
       sb.AppendLine();
 
-      // Filter: only well-formed labels make it into the tables. The
-      // skipped-message commentary is emitted up-front so users see why a
-      // label didn't appear without diffing two builds.
-      var labelRegex = new System.Text.RegularExpressions.Regex( "^[A-Za-z_][A-Za-z0-9_]*$" );
-      var seenLabels = new HashSet<string>( StringComparer.Ordinal );
-      var emitted    = new List<MapString>();
-      bool anySkipped = false;
-      foreach ( var ms in MapStrings )
+      List<string> skipped;
+      var emitted = GetEmittableMapStrings( out skipped );
+      foreach ( var s in skipped )
       {
-        string label = ms.Label ?? "";
-        if ( string.IsNullOrEmpty( label ) )
-        {
-          sb.AppendLine( "// SKIPPED: message with empty label (set a label in the Map Strings tab)." );
-          anySkipped = true;
-          continue;
-        }
-        if ( !labelRegex.IsMatch( label ) )
-        {
-          sb.AppendLine( "// SKIPPED: invalid label '" + label
-                       + "' — must match [A-Za-z_][A-Za-z0-9_]*." );
-          anySkipped = true;
-          continue;
-        }
-        if ( !seenLabels.Add( label ) )
-        {
-          sb.AppendLine( "// SKIPPED: duplicate label '" + label + "'." );
-          anySkipped = true;
-          continue;
-        }
-        emitted.Add( ms );
+        sb.AppendLine( "// SKIPPED: " + s );
       }
-      if ( anySkipped )
+      if ( skipped.Count > 0 )
       {
         sb.AppendLine();
       }
@@ -2758,64 +2825,11 @@ namespace RetroDevStudio.Formats
         return sb.ToString();
       }
 
-      // Index constants. One .const per emitted message; the constant value
-      // is the index into MAP_STRING_LO/HI (zero-based, matches Dreadhold's
-      // STR_ID_* naming convention).
       sb.AppendLine( "// String index constants — pass these in A to the message renderer." );
       for ( int i = 0; i < emitted.Count; ++i )
       {
         sb.AppendLine( ".const " + emitted[i].Label.PadRight( 32 )
                      + " = " + i );
-      }
-      sb.AppendLine();
-
-      // Pointer tables. 8 entries per source line for readability.
-      sb.AppendLine( "MAP_STRING_LO:" );
-      AppendMapStringPointerLine( sb, emitted, isLow: true );
-      sb.AppendLine();
-      sb.AppendLine( "MAP_STRING_HI:" );
-      AppendMapStringPointerLine( sb, emitted, isLow: false );
-      sb.AppendLine();
-
-      // Per-message data blocks.
-      for ( int i = 0; i < emitted.Count; ++i )
-      {
-        string dataLabel = "MAP_STRING_" + ( i + 1 ).ToString( "D2" );
-        sb.AppendLine( dataLabel + ":" );
-
-        // Determine which lines actually contribute. Trailing empty lines
-        // (after the last non-empty line) are dropped — that maps directly
-        // onto the Dreadhold convention where an absent line is simply not
-        // emitted, vs a deliberately blank line which gets a bare END_OF_LINE.
-        var ms = emitted[i];
-        int lastNonEmpty = -1;
-        for ( int li = 3; li >= 0; --li )
-        {
-          if ( !string.IsNullOrEmpty( ms.Lines[li].Text ) )
-          {
-            lastNonEmpty = li;
-            break;
-          }
-        }
-
-        for ( int li = 0; li <= lastNonEmpty; ++li )
-        {
-          var line = ms.Lines[li];
-          if ( string.IsNullOrEmpty( line.Text ) )
-          {
-            // Deliberately-blank line: just the line break.
-            sb.AppendLine( "                .byte END_OF_LINE" );
-            continue;
-          }
-          sb.AppendLine( "                " + EmitMapStringLineAsm( line ) );
-        }
-
-        if ( ms.ClearTextAreaAtEnd )
-        {
-          sb.AppendLine( "                .byte CLEAR_TEXT_AREA" );
-        }
-        sb.AppendLine( "                .byte END_OF_TEXT" );
-        sb.AppendLine();
       }
 
       return sb.ToString();
@@ -2824,134 +2838,154 @@ namespace RetroDevStudio.Formats
 
 
     /// <summary>
-    /// Emits one MAP_STRING_LO or MAP_STRING_HI pointer table body. Using
-    /// KickAss <c>.byte &lt;LABEL</c> / <c>.byte &gt;LABEL</c> per entry, 8
-    /// per line. Pulled out so MAP_STRING_LO and MAP_STRING_HI emit
-    /// identically except for the unary operator.
+    /// Filter <see cref="MapStrings"/> down to the subset that's safe to
+    /// emit as numbered indices in both the binary and the asm sidecar:
+    /// non-empty Label, valid asm identifier, no duplicate labels (first
+    /// occurrence wins). The <paramref name="SkipReasons"/> list contains
+    /// one human-readable reason per dropped entry, in source order, so
+    /// the sidecar can show users exactly why a string didn't make it.
+    /// Both the binary writer and the asm sidecar share this filter so
+    /// the index constants always match the binary's pointer table.
     /// </summary>
-    private static void AppendMapStringPointerLine( StringBuilder sb, List<MapString> Emitted, bool isLow )
+    public List<MapString> GetEmittableMapStrings( out List<string> SkipReasons )
     {
-      const int PerLine = 8;
-      string op = isLow ? "<" : ">";
-      for ( int start = 0; start < Emitted.Count; start += PerLine )
+      SkipReasons = new List<string>();
+      var labelRegex = new System.Text.RegularExpressions.Regex( "^[A-Za-z_][A-Za-z0-9_]*$" );
+      var seenLabels = new HashSet<string>( StringComparer.Ordinal );
+      var emitted    = new List<MapString>();
+      foreach ( var ms in MapStrings )
       {
-        int end = Math.Min( start + PerLine, Emitted.Count );
-        sb.Append( "                .byte " );
-        for ( int j = start; j < end; ++j )
+        string label = ms.Label ?? "";
+        if ( string.IsNullOrEmpty( label ) )
         {
-          if ( j > start ) sb.Append( ", " );
-          sb.Append( op );
-          sb.Append( "MAP_STRING_" );
-          sb.Append( ( j + 1 ).ToString( "D2" ) );
-        }
-        sb.AppendLine();
-      }
-    }
-
-
-
-    /// <summary>
-    /// Tokenize one authored line into color-segments and text-runs, then
-    /// emit a single KickAssembler source line of the form
-    /// <c>.byte COLOR_X; .text "..."; .byte TERMINATOR</c>. Color tokens are
-    /// <c>$X</c> (X = 0..9, A..F); <c>$$</c> escapes a literal <c>$</c>; a
-    /// bare <c>$</c> not followed by <c>$</c> or hex is treated as a literal
-    /// <c>$</c> glyph (best-effort — the editor surfaces a soft warning but
-    /// export still produces faithful bytes).
-    /// </summary>
-    private static string EmitMapStringLineAsm( MapStringLine Line )
-    {
-      // Color name table — index 0..15 into the C64 palette. Names match
-      // Dreadhold's src\constants.asm:38-53.
-      string[] colorNames = new string[] {
-        "COLOR_BLACK", "COLOR_WHITE", "COLOR_RED", "COLOR_CYAN",
-        "COLOR_PURPLE", "COLOR_GREEN", "COLOR_BLUE", "COLOR_YELLOW",
-        "COLOR_ORANGE", "COLOR_BROWN", "COLOR_LIGHT_RED", "COLOR_DARK_GRAY",
-        "COLOR_GRAY", "COLOR_LIGHT_GREEN", "COLOR_LIGHT_BLUE", "COLOR_LIGHT_GRAY"
-      };
-
-      var segments = new List<string>();
-      var run      = new StringBuilder();
-
-      string text = Line.Text ?? "";
-      int p = 0;
-      while ( p < text.Length )
-      {
-        char c = text[p];
-        if ( c == '$' )
-        {
-          if ( p + 1 < text.Length && text[p + 1] == '$' )
-          {
-            run.Append( '$' );  // escaped literal
-            p += 2;
-            continue;
-          }
-          if ( p + 1 < text.Length && IsHexDigit( text[p + 1] ) )
-          {
-            int colorIdx = HexValue( text[p + 1] );
-            if ( run.Length > 0 )
-            {
-              segments.Add( ".text \"" + EscapeForKickAssText( run.ToString() ) + "\"" );
-              run.Length = 0;   // .NET 3.5 has no StringBuilder.Clear()
-            }
-            segments.Add( ".byte " + colorNames[colorIdx] );
-            p += 2;
-            continue;
-          }
-          // Bare $ not followed by hex or another $ — treat as literal.
-          run.Append( '$' );
-          p += 1;
+          SkipReasons.Add( "message with empty label (set a label in the Map Strings tab)." );
           continue;
         }
-        run.Append( c );
-        p += 1;
+        if ( !labelRegex.IsMatch( label ) )
+        {
+          SkipReasons.Add( "invalid label '" + label + "' — must match [A-Za-z_][A-Za-z0-9_]*." );
+          continue;
+        }
+        if ( !seenLabels.Add( label ) )
+        {
+          SkipReasons.Add( "duplicate label '" + label + "'." );
+          continue;
+        }
+        emitted.Add( ms );
       }
-      if ( run.Length > 0 )
-      {
-        segments.Add( ".text \"" + EscapeForKickAssText( run.ToString() ) + "\"" );
-      }
-
-      // Terminator — final segment, mandatory.
-      string terminatorName = ( Line.Terminator == MAP_STRING_PRESS_FIRE )
-                              ? "PRESS_FIRE" : "END_OF_LINE";
-      segments.Add( ".byte " + terminatorName );
-
-      // .NET 3.5 lacks string.Join(string, IEnumerable<string>) — convert
-      // to an array first so the call resolves in both target frameworks.
-      return string.Join( "; ", segments.ToArray() );
-    }
-
-
-
-    private static bool IsHexDigit( char c )
-    {
-      return ( c >= '0' && c <= '9' )
-          || ( c >= 'A' && c <= 'F' )
-          || ( c >= 'a' && c <= 'f' );
-    }
-
-
-
-    private static int HexValue( char c )
-    {
-      if ( c >= '0' && c <= '9' ) return c - '0';
-      if ( c >= 'A' && c <= 'F' ) return 10 + ( c - 'A' );
-      if ( c >= 'a' && c <= 'f' ) return 10 + ( c - 'a' );
-      return 0;
+      return emitted;
     }
 
 
 
     /// <summary>
-    /// Escape a text run for KickAssembler's <c>.text "..."</c> directive.
-    /// Doubles embedded quotes (<c>"</c> -> <c>""</c>) for the most portable
-    /// form; backslashes are passed through (KickAss does not interpret
-    /// them inside <c>.text</c>).
+    /// Build the runtime byte stream for one <see cref="MapString"/>. The
+    /// format is the one Dreadhold's renderer consumes:
+    ///   per non-empty line: [ControlCode] [screen codes...] [Terminator]
+    ///   per blank middle line: [Terminator]
+    ///   optional [CLEAR_TEXT_AREA]
+    ///   [END_OF_TEXT] (mandatory)
+    ///
+    /// ControlCode is the line's leading byte (game_message.asm's "line
+    /// color"). $00..$0F set the foreground color; $10..$1F are reserved
+    /// for future runtime extensions but already round-trip through the
+    /// project file.
+    ///
+    /// Text is plain — no inline tokens. Each char becomes one screen
+    /// code via the per-project lowercase / uppercase / numbers offsets,
+    /// plus the fixed C64 punctuation map. Chars that don't have a known
+    /// mapping are skipped (matches the editor preview).
     /// </summary>
-    private static string EscapeForKickAssText( string s )
+    public static GR.Memory.ByteBuffer BuildMapStringByteStream(
+      MapString Msg, int LowerStart, int UpperStart, int NumbersStart )
     {
-      if ( string.IsNullOrEmpty( s ) ) return s ?? "";
-      return s.Replace( "\"", "\"\"" );
+      var buf = new GR.Memory.ByteBuffer();
+
+      // Drop trailing empty lines but keep deliberately-blank middle lines.
+      int lastNonEmpty = -1;
+      for ( int li = 3; li >= 0; --li )
+      {
+        if ( !string.IsNullOrEmpty( Msg.Lines[li].Text ) )
+        {
+          lastNonEmpty = li;
+          break;
+        }
+      }
+
+      for ( int li = 0; li <= lastNonEmpty; ++li )
+      {
+        var line = Msg.Lines[li];
+        string text = line.Text ?? "";
+        if ( text.Length > 0 )
+        {
+          // Leading control byte (line color). Skipped for empty middle
+          // lines so blank lines emit as bare END_OF_LINE — matches the
+          // canonical Dreadhold MAP_STRING_01 layout.
+          buf.AppendU8( line.ControlCode );
+          for ( int p = 0; p < text.Length; ++p )
+          {
+            EmitMapStringTextChar( buf, text[p], LowerStart, UpperStart, NumbersStart );
+          }
+        }
+        buf.AppendU8( line.Terminator );
+      }
+
+      if ( Msg.ClearTextAreaAtEnd )
+      {
+        buf.AppendU8( MAP_STRING_CLEAR_TEXT_AREA );
+      }
+      buf.AppendU8( MAP_STRING_END_OF_TEXT );
+      return buf;
+    }
+
+
+
+    /// <summary>
+    /// Convert a single authored char to its on-screen byte value and
+    /// append it to <paramref name="Buf"/>. Skips chars that don't have a
+    /// known C64 mapping (matches the preview's "unsupported chars are
+    /// invisible" behavior — the user sees in the preview what the
+    /// runtime will draw, byte-for-byte).
+    /// </summary>
+    private static void EmitMapStringTextChar( GR.Memory.ByteBuffer Buf, char Ch,
+                                               int LowerStart, int UpperStart, int NumbersStart )
+    {
+      int sc;
+      if ( Ch >= 'A' && Ch <= 'Z' )      sc = Ch - 'A' + UpperStart;
+      else if ( Ch >= 'a' && Ch <= 'z' ) sc = Ch - 'a' + LowerStart;
+      else if ( Ch >= '0' && Ch <= '9' ) sc = Ch - '0' + NumbersStart;
+      else if ( Ch == ' ' )  sc = 0x20;
+      else if ( Ch == '!' )  sc = 0x21;
+      else if ( Ch == '"' )  sc = 0x22;
+      else if ( Ch == '#' )  sc = 0x23;
+      else if ( Ch == '$' )  sc = 0x24;
+      else if ( Ch == '%' )  sc = 0x25;
+      else if ( Ch == '&' )  sc = 0x26;
+      else if ( Ch == '\'' ) sc = 0x27;
+      else if ( Ch == '(' )  sc = 0x28;
+      else if ( Ch == ')' )  sc = 0x29;
+      else if ( Ch == '*' )  sc = 0x2A;
+      else if ( Ch == '+' )  sc = 0x2B;
+      else if ( Ch == ',' )  sc = 0x2C;
+      else if ( Ch == '-' )  sc = 0x2D;
+      else if ( Ch == '.' )  sc = 0x2E;
+      else if ( Ch == '/' )  sc = 0x2F;
+      else if ( Ch == ':' )  sc = 0x3A;
+      else if ( Ch == ';' )  sc = 0x3B;
+      else if ( Ch == '<' )  sc = 0x3C;
+      else if ( Ch == '=' )  sc = 0x3D;
+      else if ( Ch == '>' )  sc = 0x3E;
+      else if ( Ch == '?' )  sc = 0x3F;
+      else if ( Ch == '@' )  sc = 0x00;
+      else if ( Ch == '[' )  sc = 0x1B;
+      else if ( Ch == ']' )  sc = 0x1D;
+      else return;
+
+      // Clamp into a byte. Out-of-range offsets the user might have set
+      // wrap rather than overflow (255 is the highest valid screen code).
+      if ( sc < 0 ) sc = 0;
+      if ( sc > 255 ) sc = 255;
+      Buf.AppendU8( (byte)sc );
     }
 
 

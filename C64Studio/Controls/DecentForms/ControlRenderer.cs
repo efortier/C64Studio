@@ -242,6 +242,32 @@ namespace DecentForms
 
 
 
+    /// <summary>
+    /// Linear blend of two ARGB colors. <paramref name="Factor"/> is the
+    /// weight of <paramref name="ColorB"/> in the result (0 = pure A,
+    /// 1 = pure B). Alpha taken from <paramref name="ColorA"/>. Used by
+    /// <see cref="DrawDisabledText"/> to mute text against the current
+    /// theme's background without losing contrast on either light or
+    /// dark themes.
+    /// </summary>
+    internal static uint BlendColor( uint ColorA, uint ColorB, float Factor )
+    {
+      if ( Factor < 0f ) Factor = 0f;
+      if ( Factor > 1f ) Factor = 1f;
+      uint rA = ( ColorA & 0xff0000 ) >> 16;
+      uint gA = ( ColorA & 0x00ff00 ) >> 8;
+      uint bA = ( ColorA & 0x0000ff );
+      uint rB = ( ColorB & 0xff0000 ) >> 16;
+      uint gB = ( ColorB & 0x00ff00 ) >> 8;
+      uint bB = ( ColorB & 0x0000ff );
+      uint r = (uint)( rA * ( 1f - Factor ) + rB * Factor );
+      uint g = (uint)( gA * ( 1f - Factor ) + gB * Factor );
+      uint b = (uint)( bA * ( 1f - Factor ) + bB * Factor );
+      return ( ColorA & 0xff000000 ) | ( r << 16 ) | ( g << 8 ) | b;
+    }
+
+
+
     public void DrawRaisedRectangle( int X, int Y, int Width, int Height, uint BaseColor )
     {
       var   regularPen    = ColoredPen( BaseColor );
@@ -465,9 +491,13 @@ namespace DecentForms
       BoundsX -= _DisplayOffsetX;
       BoundsY -= _DisplayOffsetY;
 
-      //TextRenderer.DrawText( _G, Text, _Control.Font, new Rectangle( BoundsX + DX, BoundsY + DY, Width, Height ), ToColor( ColorControlText ) );
-      //TextRenderer.DrawText( _G, Text, _Control.Font, new Rectangle( BoundsX + DX + 1, BoundsY + DY, Width, Height ), ToColor( LightenColor( ColorControlBackground ) ) );
-      TextRenderer.DrawText( _G, Text, _Control.Font, new Rectangle( BoundsX + DX, BoundsY + DY, Width, Height ), ToColor( DarkenColor( DarkenColor( ColorControlBackground ) ) ) );
+      // Mix the foreground text color halfway toward the control
+      // background. This stays readable on both light and dark themes —
+      // the previous implementation darkened the BACKGROUND twice, which
+      // produced essentially-invisible disabled labels on dark themes
+      // where the bg is already near-black.
+      uint disabledColor = BlendColor( ColorControlText, ColorControlBackground, 0.55f );
+      TextRenderer.DrawText( _G, Text, _Control.Font, new Rectangle( BoundsX + DX, BoundsY + DY, Width, Height ), ToColor( disabledColor ) );
     }
 
 

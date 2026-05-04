@@ -38,43 +38,6 @@
             this.panelMapContainer = new System.Windows.Forms.Panel();
             this.pictureEditor = new GR.Forms.FastPictureBox();
             this.tabMarkers = new Krypton.Navigator.KryptonPage();
-            this.tabMapStrings = new Krypton.Navigator.KryptonPage();
-            this.listMapStrings = new System.Windows.Forms.ListBox();
-            this.labelMapStringLabel = new System.Windows.Forms.Label();
-            this.editMapStringLabel = new System.Windows.Forms.TextBox();
-            this.labelMapStringLine0 = new System.Windows.Forms.Label();
-            this.labelMapStringLine1 = new System.Windows.Forms.Label();
-            this.labelMapStringLine2 = new System.Windows.Forms.Label();
-            this.labelMapStringLine3 = new System.Windows.Forms.Label();
-            this.editMapStringLine0 = new System.Windows.Forms.TextBox();
-            this.editMapStringLine1 = new System.Windows.Forms.TextBox();
-            this.editMapStringLine2 = new System.Windows.Forms.TextBox();
-            this.editMapStringLine3 = new System.Windows.Forms.TextBox();
-            this.comboMapStringTerminator0 = new System.Windows.Forms.ComboBox();
-            this.comboMapStringTerminator1 = new System.Windows.Forms.ComboBox();
-            this.comboMapStringTerminator2 = new System.Windows.Forms.ComboBox();
-            this.comboMapStringTerminator3 = new System.Windows.Forms.ComboBox();
-            this.checkMapStringClearAtEnd = new System.Windows.Forms.CheckBox();
-            this.labelMapStringInsertColor = new System.Windows.Forms.Label();
-            this.comboMapStringColor = new System.Windows.Forms.ComboBox();
-            this.btnMapStringInsertColor = new DecentForms.Button();
-            this.btnAddMapString = new DecentForms.Button();
-            this.btnUpdateMapString = new DecentForms.Button();
-            this.btnDeleteMapString = new DecentForms.Button();
-            this.btnMoveMapStringUp = new DecentForms.Button();
-            this.btnMoveMapStringDown = new DecentForms.Button();
-            this.btnDuplicateMapString = new DecentForms.Button();
-            this.labelMapStringPreview = new System.Windows.Forms.Label();
-            this.picMapStringPreview = new System.Windows.Forms.PictureBox();
-            this.labelMapStringFont = new System.Windows.Forms.Label();
-            this.editMapStringFont = new System.Windows.Forms.TextBox();
-            this.btnBrowseMapStringFont = new System.Windows.Forms.Button();
-            this.labelMapStringLowercase = new System.Windows.Forms.Label();
-            this.editMapStringLowercase = new System.Windows.Forms.NumericUpDown();
-            this.labelMapStringUppercase = new System.Windows.Forms.Label();
-            this.editMapStringUppercase = new System.Windows.Forms.NumericUpDown();
-            this.labelMapStringNumbers = new System.Windows.Forms.Label();
-            this.editMapStringNumbers = new System.Windows.Forms.NumericUpDown();
             this.btnDeleteMarkerType = new DecentForms.Button();
             this.btnUpdateMarkerType = new DecentForms.Button();
             this.btnAddMarkerType = new DecentForms.Button();
@@ -90,6 +53,44 @@
             this.editMarkerName = new System.Windows.Forms.TextBox();
             this.labelMarkerName = new System.Windows.Forms.Label();
             this.listMarkerTypes = new System.Windows.Forms.ListBox();
+            this.tabMapStrings = new Krypton.Navigator.KryptonPage();
+            this.listMapStrings = new System.Windows.Forms.ListBox();
+            this.labelMapStringLabel = new System.Windows.Forms.Label();
+            this.editMapStringLabel = new System.Windows.Forms.TextBox();
+            this.labelMapStringLine0 = new System.Windows.Forms.Label();
+            this.comboMapStringLineControl0 = new System.Windows.Forms.ComboBox();
+            this.editMapStringLine0 = new System.Windows.Forms.TextBox();
+            this.comboMapStringTerminator0 = new System.Windows.Forms.ComboBox();
+            this.labelMapStringLine1 = new System.Windows.Forms.Label();
+            this.comboMapStringLineControl1 = new System.Windows.Forms.ComboBox();
+            this.editMapStringLine1 = new System.Windows.Forms.TextBox();
+            this.comboMapStringTerminator1 = new System.Windows.Forms.ComboBox();
+            this.labelMapStringLine2 = new System.Windows.Forms.Label();
+            this.comboMapStringLineControl2 = new System.Windows.Forms.ComboBox();
+            this.editMapStringLine2 = new System.Windows.Forms.TextBox();
+            this.comboMapStringTerminator2 = new System.Windows.Forms.ComboBox();
+            this.labelMapStringLine3 = new System.Windows.Forms.Label();
+            this.comboMapStringLineControl3 = new System.Windows.Forms.ComboBox();
+            this.editMapStringLine3 = new System.Windows.Forms.TextBox();
+            this.comboMapStringTerminator3 = new System.Windows.Forms.ComboBox();
+            this.checkMapStringClearAtEnd = new System.Windows.Forms.CheckBox();
+            this.btnAddMapString = new DecentForms.Button();
+            this.btnUpdateMapString = new DecentForms.Button();
+            this.btnDeleteMapString = new DecentForms.Button();
+            this.btnMoveMapStringUp = new DecentForms.Button();
+            this.btnMoveMapStringDown = new DecentForms.Button();
+            this.btnDuplicateMapString = new DecentForms.Button();
+            this.labelMapStringFont = new System.Windows.Forms.Label();
+            this.editMapStringFont = new System.Windows.Forms.TextBox();
+            this.btnBrowseMapStringFont = new System.Windows.Forms.Button();
+            this.labelMapStringLowercase = new System.Windows.Forms.Label();
+            this.editMapStringLowercase = new System.Windows.Forms.NumericUpDown();
+            this.labelMapStringUppercase = new System.Windows.Forms.Label();
+            this.editMapStringUppercase = new System.Windows.Forms.NumericUpDown();
+            this.labelMapStringNumbers = new System.Windows.Forms.Label();
+            this.editMapStringNumbers = new System.Windows.Forms.NumericUpDown();
+            this.labelMapStringPreview = new System.Windows.Forms.Label();
+            this.picMapStringPreview = new System.Windows.Forms.PictureBox();
             this.tabEntities = new Krypton.Navigator.KryptonPage();
             this.btnDeleteEntityType = new DecentForms.Button();
             this.btnUpdateEntityType = new DecentForms.Button();
@@ -311,13 +312,13 @@
             ((System.ComponentModel.ISupportInitialize)(this.pictureEditor)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tabMarkers)).BeginInit();
             this.tabMarkers.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.editMarkerTagID)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tabMapStrings)).BeginInit();
             this.tabMapStrings.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.picMapStringPreview)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringLowercase)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringUppercase)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringNumbers)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.editMarkerTagID)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.picMapStringPreview)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tabEntities)).BeginInit();
             this.tabEntities.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.editEntityTagID)).BeginInit();
@@ -421,433 +422,7 @@
             this.tabMarkers.Text = "Markers";
             this.tabMarkers.ToolTipTitle = "Page ToolTip";
             this.tabMarkers.UniqueName = "a436112468634a089f5ce88df69a36be";
-            //
-            // tabMapStrings
-            //
-            this.tabMapStrings.AutoHiddenSlideSize = new System.Drawing.Size(200, 200);
-            this.tabMapStrings.Controls.Add(this.listMapStrings);
-            this.tabMapStrings.Controls.Add(this.labelMapStringLabel);
-            this.tabMapStrings.Controls.Add(this.editMapStringLabel);
-            this.tabMapStrings.Controls.Add(this.labelMapStringLine0);
-            this.tabMapStrings.Controls.Add(this.editMapStringLine0);
-            this.tabMapStrings.Controls.Add(this.comboMapStringTerminator0);
-            this.tabMapStrings.Controls.Add(this.labelMapStringLine1);
-            this.tabMapStrings.Controls.Add(this.editMapStringLine1);
-            this.tabMapStrings.Controls.Add(this.comboMapStringTerminator1);
-            this.tabMapStrings.Controls.Add(this.labelMapStringLine2);
-            this.tabMapStrings.Controls.Add(this.editMapStringLine2);
-            this.tabMapStrings.Controls.Add(this.comboMapStringTerminator2);
-            this.tabMapStrings.Controls.Add(this.labelMapStringLine3);
-            this.tabMapStrings.Controls.Add(this.editMapStringLine3);
-            this.tabMapStrings.Controls.Add(this.comboMapStringTerminator3);
-            this.tabMapStrings.Controls.Add(this.checkMapStringClearAtEnd);
-            this.tabMapStrings.Controls.Add(this.labelMapStringInsertColor);
-            this.tabMapStrings.Controls.Add(this.comboMapStringColor);
-            this.tabMapStrings.Controls.Add(this.btnMapStringInsertColor);
-            this.tabMapStrings.Controls.Add(this.btnAddMapString);
-            this.tabMapStrings.Controls.Add(this.btnUpdateMapString);
-            this.tabMapStrings.Controls.Add(this.btnDeleteMapString);
-            this.tabMapStrings.Controls.Add(this.btnMoveMapStringUp);
-            this.tabMapStrings.Controls.Add(this.btnMoveMapStringDown);
-            this.tabMapStrings.Controls.Add(this.btnDuplicateMapString);
-            this.tabMapStrings.Controls.Add(this.labelMapStringFont);
-            this.tabMapStrings.Controls.Add(this.editMapStringFont);
-            this.tabMapStrings.Controls.Add(this.btnBrowseMapStringFont);
-            this.tabMapStrings.Controls.Add(this.labelMapStringLowercase);
-            this.tabMapStrings.Controls.Add(this.editMapStringLowercase);
-            this.tabMapStrings.Controls.Add(this.labelMapStringUppercase);
-            this.tabMapStrings.Controls.Add(this.editMapStringUppercase);
-            this.tabMapStrings.Controls.Add(this.labelMapStringNumbers);
-            this.tabMapStrings.Controls.Add(this.editMapStringNumbers);
-            this.tabMapStrings.Controls.Add(this.labelMapStringPreview);
-            this.tabMapStrings.Controls.Add(this.picMapStringPreview);
-            this.tabMapStrings.Flags = 65534;
-            this.tabMapStrings.LastVisibleSet = true;
-            this.tabMapStrings.MinimumSize = new System.Drawing.Size(150, 50);
-            this.tabMapStrings.Name = "tabMapStrings";
-            this.tabMapStrings.Padding = new System.Windows.Forms.Padding(3);
-            this.tabMapStrings.Size = new System.Drawing.Size(1574, 883);
-            this.tabMapStrings.Text = "Map Strings";
-            this.tabMapStrings.ToolTipTitle = "Page ToolTip";
-            this.tabMapStrings.UniqueName = "b3f1a25e7c8d4f12a8b5c4d6e9f01234";
-            //
-            // listMapStrings
-            //
-            this.listMapStrings.IntegralHeight = false;
-            this.listMapStrings.Location = new System.Drawing.Point(8, 8);
-            this.listMapStrings.Name = "listMapStrings";
-            this.listMapStrings.Size = new System.Drawing.Size(160, 600);
-            this.listMapStrings.TabIndex = 0;
-            this.listMapStrings.SelectedIndexChanged += new System.EventHandler(this.listMapStrings_SelectedIndexChanged);
-            //
-            // labelMapStringLabel
-            //
-            this.labelMapStringLabel.AutoSize = true;
-            this.labelMapStringLabel.Location = new System.Drawing.Point(180, 11);
-            this.labelMapStringLabel.Name = "labelMapStringLabel";
-            this.labelMapStringLabel.Size = new System.Drawing.Size(36, 13);
-            this.labelMapStringLabel.TabIndex = 1;
-            this.labelMapStringLabel.Text = "Label:";
-            //
-            // editMapStringLabel
-            //
-            this.editMapStringLabel.Location = new System.Drawing.Point(244, 8);
-            this.editMapStringLabel.Name = "editMapStringLabel";
-            this.editMapStringLabel.Size = new System.Drawing.Size(240, 20);
-            this.editMapStringLabel.TabIndex = 2;
-            this.toolTip1.SetToolTip(this.editMapStringLabel, "Asm identifier — exported as a .const TEXT_LABEL = <index>. Must match [A-Za-z_][A-Za-z0-9_]*.");
-            //
-            // labelMapStringLine0
-            //
-            this.labelMapStringLine0.AutoSize = true;
-            this.labelMapStringLine0.Location = new System.Drawing.Point(180, 41);
-            this.labelMapStringLine0.Name = "labelMapStringLine0";
-            this.labelMapStringLine0.Size = new System.Drawing.Size(40, 13);
-            this.labelMapStringLine0.TabIndex = 3;
-            this.labelMapStringLine0.Text = "Line 1:";
-            //
-            // editMapStringLine0
-            //
-            this.editMapStringLine0.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.editMapStringLine0.Location = new System.Drawing.Point(244, 38);
-            this.editMapStringLine0.MaxLength = 64;
-            this.editMapStringLine0.Name = "editMapStringLine0";
-            this.editMapStringLine0.Size = new System.Drawing.Size(320, 20);
-            this.editMapStringLine0.TabIndex = 4;
-            this.toolTip1.SetToolTip(this.editMapStringLine0, "Up to 40 visible characters per line at runtime. Use $0..$F to switch the C64 foreground color; $$ for a literal $.");
-            //
-            // comboMapStringTerminator0
-            //
-            this.comboMapStringTerminator0.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboMapStringTerminator0.FormattingEnabled = true;
-            this.comboMapStringTerminator0.Items.AddRange(new object[] { "END_OF_LINE", "PRESS_FIRE" });
-            this.comboMapStringTerminator0.Location = new System.Drawing.Point(572, 38);
-            this.comboMapStringTerminator0.Name = "comboMapStringTerminator0";
-            this.comboMapStringTerminator0.Size = new System.Drawing.Size(110, 21);
-            this.comboMapStringTerminator0.TabIndex = 5;
-            //
-            // labelMapStringLine1
-            //
-            this.labelMapStringLine1.AutoSize = true;
-            this.labelMapStringLine1.Location = new System.Drawing.Point(180, 69);
-            this.labelMapStringLine1.Name = "labelMapStringLine1";
-            this.labelMapStringLine1.Size = new System.Drawing.Size(40, 13);
-            this.labelMapStringLine1.TabIndex = 6;
-            this.labelMapStringLine1.Text = "Line 2:";
-            //
-            // editMapStringLine1
-            //
-            this.editMapStringLine1.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.editMapStringLine1.Location = new System.Drawing.Point(244, 66);
-            this.editMapStringLine1.MaxLength = 64;
-            this.editMapStringLine1.Name = "editMapStringLine1";
-            this.editMapStringLine1.Size = new System.Drawing.Size(320, 20);
-            this.editMapStringLine1.TabIndex = 7;
-            //
-            // comboMapStringTerminator1
-            //
-            this.comboMapStringTerminator1.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboMapStringTerminator1.FormattingEnabled = true;
-            this.comboMapStringTerminator1.Items.AddRange(new object[] { "END_OF_LINE", "PRESS_FIRE" });
-            this.comboMapStringTerminator1.Location = new System.Drawing.Point(572, 66);
-            this.comboMapStringTerminator1.Name = "comboMapStringTerminator1";
-            this.comboMapStringTerminator1.Size = new System.Drawing.Size(110, 21);
-            this.comboMapStringTerminator1.TabIndex = 8;
-            //
-            // labelMapStringLine2
-            //
-            this.labelMapStringLine2.AutoSize = true;
-            this.labelMapStringLine2.Location = new System.Drawing.Point(180, 97);
-            this.labelMapStringLine2.Name = "labelMapStringLine2";
-            this.labelMapStringLine2.Size = new System.Drawing.Size(40, 13);
-            this.labelMapStringLine2.TabIndex = 9;
-            this.labelMapStringLine2.Text = "Line 3:";
-            //
-            // editMapStringLine2
-            //
-            this.editMapStringLine2.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.editMapStringLine2.Location = new System.Drawing.Point(244, 94);
-            this.editMapStringLine2.MaxLength = 64;
-            this.editMapStringLine2.Name = "editMapStringLine2";
-            this.editMapStringLine2.Size = new System.Drawing.Size(320, 20);
-            this.editMapStringLine2.TabIndex = 10;
-            //
-            // comboMapStringTerminator2
-            //
-            this.comboMapStringTerminator2.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboMapStringTerminator2.FormattingEnabled = true;
-            this.comboMapStringTerminator2.Items.AddRange(new object[] { "END_OF_LINE", "PRESS_FIRE" });
-            this.comboMapStringTerminator2.Location = new System.Drawing.Point(572, 94);
-            this.comboMapStringTerminator2.Name = "comboMapStringTerminator2";
-            this.comboMapStringTerminator2.Size = new System.Drawing.Size(110, 21);
-            this.comboMapStringTerminator2.TabIndex = 11;
-            //
-            // labelMapStringLine3
-            //
-            this.labelMapStringLine3.AutoSize = true;
-            this.labelMapStringLine3.Location = new System.Drawing.Point(180, 125);
-            this.labelMapStringLine3.Name = "labelMapStringLine3";
-            this.labelMapStringLine3.Size = new System.Drawing.Size(40, 13);
-            this.labelMapStringLine3.TabIndex = 12;
-            this.labelMapStringLine3.Text = "Line 4:";
-            //
-            // editMapStringLine3
-            //
-            this.editMapStringLine3.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.editMapStringLine3.Location = new System.Drawing.Point(244, 122);
-            this.editMapStringLine3.MaxLength = 64;
-            this.editMapStringLine3.Name = "editMapStringLine3";
-            this.editMapStringLine3.Size = new System.Drawing.Size(320, 20);
-            this.editMapStringLine3.TabIndex = 13;
-            //
-            // comboMapStringTerminator3
-            //
-            this.comboMapStringTerminator3.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboMapStringTerminator3.FormattingEnabled = true;
-            this.comboMapStringTerminator3.Items.AddRange(new object[] { "END_OF_LINE", "PRESS_FIRE" });
-            this.comboMapStringTerminator3.Location = new System.Drawing.Point(572, 122);
-            this.comboMapStringTerminator3.Name = "comboMapStringTerminator3";
-            this.comboMapStringTerminator3.Size = new System.Drawing.Size(110, 21);
-            this.comboMapStringTerminator3.TabIndex = 14;
-            //
-            // checkMapStringClearAtEnd
-            //
-            this.checkMapStringClearAtEnd.AutoSize = true;
-            this.checkMapStringClearAtEnd.Location = new System.Drawing.Point(244, 152);
-            this.checkMapStringClearAtEnd.Name = "checkMapStringClearAtEnd";
-            this.checkMapStringClearAtEnd.Size = new System.Drawing.Size(280, 17);
-            this.checkMapStringClearAtEnd.TabIndex = 15;
-            this.checkMapStringClearAtEnd.Text = "Append CLEAR_TEXT_AREA before END_OF_TEXT";
-            this.checkMapStringClearAtEnd.UseVisualStyleBackColor = true;
-            //
-            // labelMapStringInsertColor
-            //
-            this.labelMapStringInsertColor.AutoSize = true;
-            this.labelMapStringInsertColor.Location = new System.Drawing.Point(180, 184);
-            this.labelMapStringInsertColor.Name = "labelMapStringInsertColor";
-            this.labelMapStringInsertColor.Size = new System.Drawing.Size(64, 13);
-            this.labelMapStringInsertColor.TabIndex = 16;
-            this.labelMapStringInsertColor.Text = "Insert color:";
-            //
-            // comboMapStringColor
-            //
-            this.comboMapStringColor.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
-            this.comboMapStringColor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboMapStringColor.FormattingEnabled = true;
-            this.comboMapStringColor.Location = new System.Drawing.Point(244, 181);
-            this.comboMapStringColor.Name = "comboMapStringColor";
-            this.comboMapStringColor.Size = new System.Drawing.Size(60, 21);
-            this.comboMapStringColor.TabIndex = 17;
-            this.comboMapStringColor.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.comboColor_DrawItem);
-            //
-            // btnMapStringInsertColor
-            //
-            this.btnMapStringInsertColor.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            this.btnMapStringInsertColor.BorderStyle = DecentForms.BorderStyle.FLAT;
-            this.btnMapStringInsertColor.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            this.btnMapStringInsertColor.Image = null;
-            this.btnMapStringInsertColor.Location = new System.Drawing.Point(312, 180);
-            this.btnMapStringInsertColor.Name = "btnMapStringInsertColor";
-            this.btnMapStringInsertColor.Size = new System.Drawing.Size(75, 23);
-            this.btnMapStringInsertColor.TabIndex = 18;
-            this.btnMapStringInsertColor.Text = "Insert";
-            this.toolTip1.SetToolTip(this.btnMapStringInsertColor, "Insert a $X color token at the cursor of the most-recently-focused line.");
-            this.btnMapStringInsertColor.Click += new DecentForms.EventHandler(this.btnMapStringInsertColor_Click);
-            //
-            // btnAddMapString
-            //
-            this.btnAddMapString.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            this.btnAddMapString.BorderStyle = DecentForms.BorderStyle.FLAT;
-            this.btnAddMapString.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            this.btnAddMapString.Image = null;
-            this.btnAddMapString.Location = new System.Drawing.Point(180, 216);
-            this.btnAddMapString.Name = "btnAddMapString";
-            this.btnAddMapString.Size = new System.Drawing.Size(75, 23);
-            this.btnAddMapString.TabIndex = 19;
-            this.btnAddMapString.Text = "Add";
-            this.btnAddMapString.Click += new DecentForms.EventHandler(this.btnAddMapString_Click);
-            //
-            // btnUpdateMapString
-            //
-            this.btnUpdateMapString.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            this.btnUpdateMapString.BorderStyle = DecentForms.BorderStyle.FLAT;
-            this.btnUpdateMapString.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            this.btnUpdateMapString.Enabled = false;
-            this.btnUpdateMapString.Image = null;
-            this.btnUpdateMapString.Location = new System.Drawing.Point(261, 216);
-            this.btnUpdateMapString.Name = "btnUpdateMapString";
-            this.btnUpdateMapString.Size = new System.Drawing.Size(75, 23);
-            this.btnUpdateMapString.TabIndex = 20;
-            this.btnUpdateMapString.Text = "Update";
-            this.btnUpdateMapString.Click += new DecentForms.EventHandler(this.btnUpdateMapString_Click);
-            //
-            // btnDeleteMapString
-            //
-            this.btnDeleteMapString.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            this.btnDeleteMapString.BorderStyle = DecentForms.BorderStyle.FLAT;
-            this.btnDeleteMapString.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            this.btnDeleteMapString.Enabled = false;
-            this.btnDeleteMapString.Image = null;
-            this.btnDeleteMapString.Location = new System.Drawing.Point(342, 216);
-            this.btnDeleteMapString.Name = "btnDeleteMapString";
-            this.btnDeleteMapString.Size = new System.Drawing.Size(75, 23);
-            this.btnDeleteMapString.TabIndex = 21;
-            this.btnDeleteMapString.Text = "Delete";
-            this.btnDeleteMapString.Click += new DecentForms.EventHandler(this.btnDeleteMapString_Click);
-            //
-            // btnMoveMapStringUp
-            //
-            this.btnMoveMapStringUp.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            this.btnMoveMapStringUp.BorderStyle = DecentForms.BorderStyle.FLAT;
-            this.btnMoveMapStringUp.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            this.btnMoveMapStringUp.Enabled = false;
-            this.btnMoveMapStringUp.Image = null;
-            this.btnMoveMapStringUp.Location = new System.Drawing.Point(423, 216);
-            this.btnMoveMapStringUp.Name = "btnMoveMapStringUp";
-            this.btnMoveMapStringUp.Size = new System.Drawing.Size(75, 23);
-            this.btnMoveMapStringUp.TabIndex = 22;
-            this.btnMoveMapStringUp.Text = "Move Up";
-            this.btnMoveMapStringUp.Click += new DecentForms.EventHandler(this.btnMoveMapStringUp_Click);
-            //
-            // btnMoveMapStringDown
-            //
-            this.btnMoveMapStringDown.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            this.btnMoveMapStringDown.BorderStyle = DecentForms.BorderStyle.FLAT;
-            this.btnMoveMapStringDown.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            this.btnMoveMapStringDown.Enabled = false;
-            this.btnMoveMapStringDown.Image = null;
-            this.btnMoveMapStringDown.Location = new System.Drawing.Point(504, 216);
-            this.btnMoveMapStringDown.Name = "btnMoveMapStringDown";
-            this.btnMoveMapStringDown.Size = new System.Drawing.Size(85, 23);
-            this.btnMoveMapStringDown.TabIndex = 23;
-            this.btnMoveMapStringDown.Text = "Move Down";
-            this.btnMoveMapStringDown.Click += new DecentForms.EventHandler(this.btnMoveMapStringDown_Click);
-            //
-            // btnDuplicateMapString
-            //
-            this.btnDuplicateMapString.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            this.btnDuplicateMapString.BorderStyle = DecentForms.BorderStyle.FLAT;
-            this.btnDuplicateMapString.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            this.btnDuplicateMapString.Enabled = false;
-            this.btnDuplicateMapString.Image = null;
-            this.btnDuplicateMapString.Location = new System.Drawing.Point(595, 216);
-            this.btnDuplicateMapString.Name = "btnDuplicateMapString";
-            this.btnDuplicateMapString.Size = new System.Drawing.Size(85, 23);
-            this.btnDuplicateMapString.TabIndex = 24;
-            this.btnDuplicateMapString.Text = "Duplicate";
-            this.btnDuplicateMapString.Click += new DecentForms.EventHandler(this.btnDuplicateMapString_Click);
-            //
-            // labelMapStringFont
-            //
-            this.labelMapStringFont.AutoSize = true;
-            this.labelMapStringFont.Location = new System.Drawing.Point(180, 254);
-            this.labelMapStringFont.Name = "labelMapStringFont";
-            this.labelMapStringFont.Size = new System.Drawing.Size(80, 13);
-            this.labelMapStringFont.TabIndex = 25;
-            this.labelMapStringFont.Text = "Preview font:";
-            //
-            // editMapStringFont
-            //
-            this.editMapStringFont.Location = new System.Drawing.Point(264, 251);
-            this.editMapStringFont.Name = "editMapStringFont";
-            this.editMapStringFont.ReadOnly = true;
-            this.editMapStringFont.Size = new System.Drawing.Size(475, 20);
-            this.editMapStringFont.TabIndex = 26;
-            this.toolTip1.SetToolTip(this.editMapStringFont, "Optional binary font file (2-byte header + 8 bytes per glyph) used for the preview only. Leave blank to use the project's main charset.");
-            //
-            // btnBrowseMapStringFont
-            //
-            this.btnBrowseMapStringFont.Location = new System.Drawing.Point(745, 250);
-            this.btnBrowseMapStringFont.Name = "btnBrowseMapStringFont";
-            this.btnBrowseMapStringFont.Size = new System.Drawing.Size(75, 22);
-            this.btnBrowseMapStringFont.TabIndex = 27;
-            this.btnBrowseMapStringFont.Text = "Browse...";
-            this.btnBrowseMapStringFont.UseVisualStyleBackColor = true;
-            this.btnBrowseMapStringFont.Click += new System.EventHandler(this.btnBrowseMapStringFont_Click);
-            //
-            // labelMapStringLowercase
-            //
-            this.labelMapStringLowercase.AutoSize = true;
-            this.labelMapStringLowercase.Location = new System.Drawing.Point(180, 281);
-            this.labelMapStringLowercase.Name = "labelMapStringLowercase";
-            this.labelMapStringLowercase.Size = new System.Drawing.Size(65, 13);
-            this.labelMapStringLowercase.TabIndex = 28;
-            this.labelMapStringLowercase.Text = "Lowercase:";
-            this.toolTip1.SetToolTip(this.labelMapStringLowercase, "Charset index where 'a' lives. 'b' renders at +1, 'c' at +2, etc.");
-            //
-            // editMapStringLowercase
-            //
-            this.editMapStringLowercase.Location = new System.Drawing.Point(250, 278);
-            this.editMapStringLowercase.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
-            this.editMapStringLowercase.Minimum = new decimal(new int[] { 0, 0, 0, 0 });
-            this.editMapStringLowercase.Name = "editMapStringLowercase";
-            this.editMapStringLowercase.Size = new System.Drawing.Size(60, 20);
-            this.editMapStringLowercase.TabIndex = 29;
-            this.editMapStringLowercase.Value = new decimal(new int[] { 1, 0, 0, 0 });
-            this.editMapStringLowercase.ValueChanged += new System.EventHandler(this.editMapStringLowercase_ValueChanged);
-            //
-            // labelMapStringUppercase
-            //
-            this.labelMapStringUppercase.AutoSize = true;
-            this.labelMapStringUppercase.Location = new System.Drawing.Point(320, 281);
-            this.labelMapStringUppercase.Name = "labelMapStringUppercase";
-            this.labelMapStringUppercase.Size = new System.Drawing.Size(65, 13);
-            this.labelMapStringUppercase.TabIndex = 30;
-            this.labelMapStringUppercase.Text = "Uppercase:";
-            this.toolTip1.SetToolTip(this.labelMapStringUppercase, "Charset index where 'A' lives. 'B' renders at +1, etc.");
-            //
-            // editMapStringUppercase
-            //
-            this.editMapStringUppercase.Location = new System.Drawing.Point(390, 278);
-            this.editMapStringUppercase.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
-            this.editMapStringUppercase.Minimum = new decimal(new int[] { 0, 0, 0, 0 });
-            this.editMapStringUppercase.Name = "editMapStringUppercase";
-            this.editMapStringUppercase.Size = new System.Drawing.Size(60, 20);
-            this.editMapStringUppercase.TabIndex = 31;
-            this.editMapStringUppercase.Value = new decimal(new int[] { 1, 0, 0, 0 });
-            this.editMapStringUppercase.ValueChanged += new System.EventHandler(this.editMapStringUppercase_ValueChanged);
-            //
-            // labelMapStringNumbers
-            //
-            this.labelMapStringNumbers.AutoSize = true;
-            this.labelMapStringNumbers.Location = new System.Drawing.Point(460, 281);
-            this.labelMapStringNumbers.Name = "labelMapStringNumbers";
-            this.labelMapStringNumbers.Size = new System.Drawing.Size(55, 13);
-            this.labelMapStringNumbers.TabIndex = 32;
-            this.labelMapStringNumbers.Text = "Numbers:";
-            this.toolTip1.SetToolTip(this.labelMapStringNumbers, "Charset index where '0' lives. '1' renders at +1, etc.");
-            //
-            // editMapStringNumbers
-            //
-            this.editMapStringNumbers.Location = new System.Drawing.Point(525, 278);
-            this.editMapStringNumbers.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
-            this.editMapStringNumbers.Minimum = new decimal(new int[] { 0, 0, 0, 0 });
-            this.editMapStringNumbers.Name = "editMapStringNumbers";
-            this.editMapStringNumbers.Size = new System.Drawing.Size(60, 20);
-            this.editMapStringNumbers.TabIndex = 33;
-            this.editMapStringNumbers.Value = new decimal(new int[] { 48, 0, 0, 0 });
-            this.editMapStringNumbers.ValueChanged += new System.EventHandler(this.editMapStringNumbers_ValueChanged);
-            //
-            // labelMapStringPreview
-            //
-            this.labelMapStringPreview.AutoSize = true;
-            this.labelMapStringPreview.Location = new System.Drawing.Point(180, 308);
-            this.labelMapStringPreview.Name = "labelMapStringPreview";
-            this.labelMapStringPreview.Size = new System.Drawing.Size(110, 13);
-            this.labelMapStringPreview.TabIndex = 34;
-            this.labelMapStringPreview.Text = "Preview (40 x 4 chars):";
-            //
-            // picMapStringPreview
-            //
-            this.picMapStringPreview.BackColor = System.Drawing.Color.Black;
-            this.picMapStringPreview.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.picMapStringPreview.Location = new System.Drawing.Point(180, 326);
-            this.picMapStringPreview.Name = "picMapStringPreview";
-            this.picMapStringPreview.Size = new System.Drawing.Size(640, 80);
-            this.picMapStringPreview.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage;
-            this.picMapStringPreview.TabIndex = 35;
-            this.picMapStringPreview.TabStop = false;
-            //
+            // 
             // btnDeleteMarkerType
             // 
             this.btnDeleteMarkerType.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
@@ -917,6 +492,20 @@
             0,
             0,
             0});
+            // Tag ID 0 is reserved (used as a "no marker" sentinel by the
+            // runtime). Minimum = 1 makes the UI structurally incapable of
+            // setting 0 — no matter what code path writes to the field, the
+            // NumericUpDown clamps the value up to 1 before it's visible.
+            this.editMarkerTagID.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.editMarkerTagID.Value = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
             this.editMarkerTagID.Name = "editMarkerTagID";
             this.editMarkerTagID.Size = new System.Drawing.Size(120, 20);
             this.editMarkerTagID.TabIndex = 10;
@@ -929,19 +518,18 @@
             this.labelMarkerTagID.Size = new System.Drawing.Size(43, 13);
             this.labelMarkerTagID.TabIndex = 11;
             this.labelMarkerTagID.Text = "Tag ID:";
-            //
+            // 
             // btnFindFreeMarkerTagID
-            //
-            // Sits immediately to the right of editMarkerTagID
+            // 
             this.btnFindFreeMarkerTagID.Location = new System.Drawing.Point(384, 95);
             this.btnFindFreeMarkerTagID.Name = "btnFindFreeMarkerTagID";
             this.btnFindFreeMarkerTagID.Size = new System.Drawing.Size(50, 22);
             this.btnFindFreeMarkerTagID.TabIndex = 12;
             this.btnFindFreeMarkerTagID.Text = "Free";
-            this.toolTip1.SetToolTip(this.btnFindFreeMarkerTagID, "Find the lowest unused Tag ID (>= 0, max 255) and assign it");
+            this.toolTip1.SetToolTip(this.btnFindFreeMarkerTagID, "Find the lowest unused Tag ID (>= 1, max 255) and assign it. Tag ID 0 is reserved.");
             this.btnFindFreeMarkerTagID.UseVisualStyleBackColor = true;
             this.btnFindFreeMarkerTagID.Click += new System.EventHandler(this.btnFindFreeMarkerTagID_Click);
-            //
+            // 
             // checkMarkerDefaultEnabled
             // 
             this.checkMarkerDefaultEnabled.AutoSize = true;
@@ -1010,6 +598,483 @@
             this.listMarkerTypes.Size = new System.Drawing.Size(160, 394);
             this.listMarkerTypes.TabIndex = 0;
             this.listMarkerTypes.SelectedIndexChanged += new System.EventHandler(this.listMarkerTypes_SelectedIndexChanged);
+            // 
+            // tabMapStrings
+            // 
+            this.tabMapStrings.AutoHiddenSlideSize = new System.Drawing.Size(200, 200);
+            this.tabMapStrings.Controls.Add(this.listMapStrings);
+            this.tabMapStrings.Controls.Add(this.labelMapStringLabel);
+            this.tabMapStrings.Controls.Add(this.editMapStringLabel);
+            this.tabMapStrings.Controls.Add(this.labelMapStringLine0);
+            this.tabMapStrings.Controls.Add(this.comboMapStringLineControl0);
+            this.tabMapStrings.Controls.Add(this.editMapStringLine0);
+            this.tabMapStrings.Controls.Add(this.comboMapStringTerminator0);
+            this.tabMapStrings.Controls.Add(this.labelMapStringLine1);
+            this.tabMapStrings.Controls.Add(this.comboMapStringLineControl1);
+            this.tabMapStrings.Controls.Add(this.editMapStringLine1);
+            this.tabMapStrings.Controls.Add(this.comboMapStringTerminator1);
+            this.tabMapStrings.Controls.Add(this.labelMapStringLine2);
+            this.tabMapStrings.Controls.Add(this.comboMapStringLineControl2);
+            this.tabMapStrings.Controls.Add(this.editMapStringLine2);
+            this.tabMapStrings.Controls.Add(this.comboMapStringTerminator2);
+            this.tabMapStrings.Controls.Add(this.labelMapStringLine3);
+            this.tabMapStrings.Controls.Add(this.comboMapStringLineControl3);
+            this.tabMapStrings.Controls.Add(this.editMapStringLine3);
+            this.tabMapStrings.Controls.Add(this.comboMapStringTerminator3);
+            this.tabMapStrings.Controls.Add(this.checkMapStringClearAtEnd);
+            this.tabMapStrings.Controls.Add(this.btnAddMapString);
+            this.tabMapStrings.Controls.Add(this.btnUpdateMapString);
+            this.tabMapStrings.Controls.Add(this.btnDeleteMapString);
+            this.tabMapStrings.Controls.Add(this.btnMoveMapStringUp);
+            this.tabMapStrings.Controls.Add(this.btnMoveMapStringDown);
+            this.tabMapStrings.Controls.Add(this.btnDuplicateMapString);
+            this.tabMapStrings.Controls.Add(this.labelMapStringFont);
+            this.tabMapStrings.Controls.Add(this.editMapStringFont);
+            this.tabMapStrings.Controls.Add(this.btnBrowseMapStringFont);
+            this.tabMapStrings.Controls.Add(this.labelMapStringLowercase);
+            this.tabMapStrings.Controls.Add(this.editMapStringLowercase);
+            this.tabMapStrings.Controls.Add(this.labelMapStringUppercase);
+            this.tabMapStrings.Controls.Add(this.editMapStringUppercase);
+            this.tabMapStrings.Controls.Add(this.labelMapStringNumbers);
+            this.tabMapStrings.Controls.Add(this.editMapStringNumbers);
+            this.tabMapStrings.Controls.Add(this.labelMapStringPreview);
+            this.tabMapStrings.Controls.Add(this.picMapStringPreview);
+            this.tabMapStrings.Flags = 65534;
+            this.tabMapStrings.LastVisibleSet = true;
+            this.tabMapStrings.MinimumSize = new System.Drawing.Size(150, 50);
+            this.tabMapStrings.Name = "tabMapStrings";
+            this.tabMapStrings.Padding = new System.Windows.Forms.Padding(3);
+            this.tabMapStrings.Size = new System.Drawing.Size(1574, 883);
+            this.tabMapStrings.Text = "Map Strings";
+            this.tabMapStrings.ToolTipTitle = "Page ToolTip";
+            this.tabMapStrings.UniqueName = "b3f1a25e7c8d4f12a8b5c4d6e9f01234";
+            // 
+            // listMapStrings
+            // 
+            this.listMapStrings.IntegralHeight = false;
+            this.listMapStrings.Location = new System.Drawing.Point(8, 8);
+            this.listMapStrings.Name = "listMapStrings";
+            this.listMapStrings.Size = new System.Drawing.Size(160, 600);
+            this.listMapStrings.TabIndex = 0;
+            this.listMapStrings.SelectedIndexChanged += new System.EventHandler(this.listMapStrings_SelectedIndexChanged);
+            // 
+            // labelMapStringLabel
+            // 
+            this.labelMapStringLabel.AutoSize = true;
+            this.labelMapStringLabel.Location = new System.Drawing.Point(180, 11);
+            this.labelMapStringLabel.Name = "labelMapStringLabel";
+            this.labelMapStringLabel.Size = new System.Drawing.Size(36, 13);
+            this.labelMapStringLabel.TabIndex = 1;
+            this.labelMapStringLabel.Text = "Label:";
+            // 
+            // editMapStringLabel
+            // 
+            this.editMapStringLabel.Location = new System.Drawing.Point(244, 8);
+            this.editMapStringLabel.Name = "editMapStringLabel";
+            this.editMapStringLabel.Size = new System.Drawing.Size(240, 20);
+            this.editMapStringLabel.TabIndex = 2;
+            this.toolTip1.SetToolTip(this.editMapStringLabel, "Asm identifier — exported as a .const TEXT_LABEL = <index>. Must match [A-Za-z_][" +
+        "A-Za-z0-9_]*.");
+            // 
+            // labelMapStringLine0
+            // 
+            this.labelMapStringLine0.AutoSize = true;
+            this.labelMapStringLine0.Location = new System.Drawing.Point(180, 41);
+            this.labelMapStringLine0.Name = "labelMapStringLine0";
+            this.labelMapStringLine0.Size = new System.Drawing.Size(39, 13);
+            this.labelMapStringLine0.TabIndex = 3;
+            this.labelMapStringLine0.Text = "Line 1:";
+            // 
+            // comboMapStringLineControl0
+            // 
+            this.comboMapStringLineControl0.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this.comboMapStringLineControl0.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboMapStringLineControl0.FormattingEnabled = true;
+            this.comboMapStringLineControl0.Location = new System.Drawing.Point(244, 38);
+            this.comboMapStringLineControl0.Name = "comboMapStringLineControl0";
+            this.comboMapStringLineControl0.Size = new System.Drawing.Size(60, 21);
+            this.comboMapStringLineControl0.TabIndex = 4;
+            this.toolTip1.SetToolTip(this.comboMapStringLineControl0, "Per-line control byte. $00..$0F set the line\'s foreground color; $10..$1F are res" +
+        "erved for future runtime extensions.");
+            this.comboMapStringLineControl0.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.comboColor_DrawItem);
+            // 
+            // editMapStringLine0
+            // 
+            this.editMapStringLine0.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.editMapStringLine0.Location = new System.Drawing.Point(308, 38);
+            this.editMapStringLine0.MaxLength = 40;
+            this.editMapStringLine0.Name = "editMapStringLine0";
+            this.editMapStringLine0.Size = new System.Drawing.Size(256, 20);
+            this.editMapStringLine0.TabIndex = 5;
+            this.toolTip1.SetToolTip(this.editMapStringLine0, "Up to 40 visible characters per line at runtime. Plain text — line color is set b" +
+        "y the dropdown to the left.");
+            // 
+            // comboMapStringTerminator0
+            // 
+            this.comboMapStringTerminator0.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboMapStringTerminator0.FormattingEnabled = true;
+            this.comboMapStringTerminator0.Items.AddRange(new object[] {
+            "END_OF_LINE",
+            "PRESS_FIRE"});
+            this.comboMapStringTerminator0.Location = new System.Drawing.Point(572, 38);
+            this.comboMapStringTerminator0.Name = "comboMapStringTerminator0";
+            this.comboMapStringTerminator0.Size = new System.Drawing.Size(110, 21);
+            this.comboMapStringTerminator0.TabIndex = 5;
+            // 
+            // labelMapStringLine1
+            // 
+            this.labelMapStringLine1.AutoSize = true;
+            this.labelMapStringLine1.Location = new System.Drawing.Point(180, 69);
+            this.labelMapStringLine1.Name = "labelMapStringLine1";
+            this.labelMapStringLine1.Size = new System.Drawing.Size(39, 13);
+            this.labelMapStringLine1.TabIndex = 6;
+            this.labelMapStringLine1.Text = "Line 2:";
+            // 
+            // comboMapStringLineControl1
+            // 
+            this.comboMapStringLineControl1.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this.comboMapStringLineControl1.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboMapStringLineControl1.FormattingEnabled = true;
+            this.comboMapStringLineControl1.Location = new System.Drawing.Point(244, 66);
+            this.comboMapStringLineControl1.Name = "comboMapStringLineControl1";
+            this.comboMapStringLineControl1.Size = new System.Drawing.Size(60, 21);
+            this.comboMapStringLineControl1.TabIndex = 7;
+            this.comboMapStringLineControl1.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.comboColor_DrawItem);
+            // 
+            // editMapStringLine1
+            // 
+            this.editMapStringLine1.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.editMapStringLine1.Location = new System.Drawing.Point(308, 66);
+            this.editMapStringLine1.MaxLength = 40;
+            this.editMapStringLine1.Name = "editMapStringLine1";
+            this.editMapStringLine1.Size = new System.Drawing.Size(256, 20);
+            this.editMapStringLine1.TabIndex = 8;
+            // 
+            // comboMapStringTerminator1
+            // 
+            this.comboMapStringTerminator1.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboMapStringTerminator1.FormattingEnabled = true;
+            this.comboMapStringTerminator1.Items.AddRange(new object[] {
+            "END_OF_LINE",
+            "PRESS_FIRE"});
+            this.comboMapStringTerminator1.Location = new System.Drawing.Point(572, 66);
+            this.comboMapStringTerminator1.Name = "comboMapStringTerminator1";
+            this.comboMapStringTerminator1.Size = new System.Drawing.Size(110, 21);
+            this.comboMapStringTerminator1.TabIndex = 8;
+            // 
+            // labelMapStringLine2
+            // 
+            this.labelMapStringLine2.AutoSize = true;
+            this.labelMapStringLine2.Location = new System.Drawing.Point(180, 97);
+            this.labelMapStringLine2.Name = "labelMapStringLine2";
+            this.labelMapStringLine2.Size = new System.Drawing.Size(39, 13);
+            this.labelMapStringLine2.TabIndex = 9;
+            this.labelMapStringLine2.Text = "Line 3:";
+            // 
+            // comboMapStringLineControl2
+            // 
+            this.comboMapStringLineControl2.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this.comboMapStringLineControl2.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboMapStringLineControl2.FormattingEnabled = true;
+            this.comboMapStringLineControl2.Location = new System.Drawing.Point(244, 94);
+            this.comboMapStringLineControl2.Name = "comboMapStringLineControl2";
+            this.comboMapStringLineControl2.Size = new System.Drawing.Size(60, 21);
+            this.comboMapStringLineControl2.TabIndex = 10;
+            this.comboMapStringLineControl2.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.comboColor_DrawItem);
+            // 
+            // editMapStringLine2
+            // 
+            this.editMapStringLine2.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.editMapStringLine2.Location = new System.Drawing.Point(308, 94);
+            this.editMapStringLine2.MaxLength = 40;
+            this.editMapStringLine2.Name = "editMapStringLine2";
+            this.editMapStringLine2.Size = new System.Drawing.Size(256, 20);
+            this.editMapStringLine2.TabIndex = 11;
+            // 
+            // comboMapStringTerminator2
+            // 
+            this.comboMapStringTerminator2.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboMapStringTerminator2.FormattingEnabled = true;
+            this.comboMapStringTerminator2.Items.AddRange(new object[] {
+            "END_OF_LINE",
+            "PRESS_FIRE"});
+            this.comboMapStringTerminator2.Location = new System.Drawing.Point(572, 94);
+            this.comboMapStringTerminator2.Name = "comboMapStringTerminator2";
+            this.comboMapStringTerminator2.Size = new System.Drawing.Size(110, 21);
+            this.comboMapStringTerminator2.TabIndex = 11;
+            // 
+            // labelMapStringLine3
+            // 
+            this.labelMapStringLine3.AutoSize = true;
+            this.labelMapStringLine3.Location = new System.Drawing.Point(180, 125);
+            this.labelMapStringLine3.Name = "labelMapStringLine3";
+            this.labelMapStringLine3.Size = new System.Drawing.Size(39, 13);
+            this.labelMapStringLine3.TabIndex = 12;
+            this.labelMapStringLine3.Text = "Line 4:";
+            // 
+            // comboMapStringLineControl3
+            // 
+            this.comboMapStringLineControl3.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this.comboMapStringLineControl3.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboMapStringLineControl3.FormattingEnabled = true;
+            this.comboMapStringLineControl3.Location = new System.Drawing.Point(244, 122);
+            this.comboMapStringLineControl3.Name = "comboMapStringLineControl3";
+            this.comboMapStringLineControl3.Size = new System.Drawing.Size(60, 21);
+            this.comboMapStringLineControl3.TabIndex = 13;
+            this.comboMapStringLineControl3.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.comboColor_DrawItem);
+            // 
+            // editMapStringLine3
+            // 
+            this.editMapStringLine3.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.editMapStringLine3.Location = new System.Drawing.Point(308, 122);
+            this.editMapStringLine3.MaxLength = 40;
+            this.editMapStringLine3.Name = "editMapStringLine3";
+            this.editMapStringLine3.Size = new System.Drawing.Size(256, 20);
+            this.editMapStringLine3.TabIndex = 14;
+            // 
+            // comboMapStringTerminator3
+            // 
+            this.comboMapStringTerminator3.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboMapStringTerminator3.FormattingEnabled = true;
+            this.comboMapStringTerminator3.Items.AddRange(new object[] {
+            "END_OF_LINE",
+            "PRESS_FIRE"});
+            this.comboMapStringTerminator3.Location = new System.Drawing.Point(572, 122);
+            this.comboMapStringTerminator3.Name = "comboMapStringTerminator3";
+            this.comboMapStringTerminator3.Size = new System.Drawing.Size(110, 21);
+            this.comboMapStringTerminator3.TabIndex = 14;
+            // 
+            // checkMapStringClearAtEnd
+            // 
+            this.checkMapStringClearAtEnd.AutoSize = true;
+            this.checkMapStringClearAtEnd.Location = new System.Drawing.Point(244, 152);
+            this.checkMapStringClearAtEnd.Name = "checkMapStringClearAtEnd";
+            this.checkMapStringClearAtEnd.Size = new System.Drawing.Size(283, 17);
+            this.checkMapStringClearAtEnd.TabIndex = 15;
+            this.checkMapStringClearAtEnd.Text = "Append CLEAR_TEXT_AREA before END_OF_TEXT";
+            this.checkMapStringClearAtEnd.UseVisualStyleBackColor = true;
+            // 
+            // btnAddMapString
+            // 
+            this.btnAddMapString.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnAddMapString.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnAddMapString.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnAddMapString.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnAddMapString.Image = null;
+            this.btnAddMapString.Location = new System.Drawing.Point(180, 216);
+            this.btnAddMapString.Name = "btnAddMapString";
+            this.btnAddMapString.Size = new System.Drawing.Size(75, 23);
+            this.btnAddMapString.TabIndex = 19;
+            this.btnAddMapString.Text = "Add";
+            this.btnAddMapString.Click += new DecentForms.EventHandler(this.btnAddMapString_Click);
+            // 
+            // btnUpdateMapString
+            // 
+            this.btnUpdateMapString.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnUpdateMapString.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnUpdateMapString.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnUpdateMapString.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnUpdateMapString.Enabled = false;
+            this.btnUpdateMapString.Image = null;
+            this.btnUpdateMapString.Location = new System.Drawing.Point(261, 216);
+            this.btnUpdateMapString.Name = "btnUpdateMapString";
+            this.btnUpdateMapString.Size = new System.Drawing.Size(75, 23);
+            this.btnUpdateMapString.TabIndex = 20;
+            this.btnUpdateMapString.Text = "Update";
+            this.btnUpdateMapString.Click += new DecentForms.EventHandler(this.btnUpdateMapString_Click);
+            // 
+            // btnDeleteMapString
+            // 
+            this.btnDeleteMapString.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnDeleteMapString.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnDeleteMapString.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnDeleteMapString.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnDeleteMapString.Enabled = false;
+            this.btnDeleteMapString.Image = null;
+            this.btnDeleteMapString.Location = new System.Drawing.Point(342, 216);
+            this.btnDeleteMapString.Name = "btnDeleteMapString";
+            this.btnDeleteMapString.Size = new System.Drawing.Size(75, 23);
+            this.btnDeleteMapString.TabIndex = 21;
+            this.btnDeleteMapString.Text = "Delete";
+            this.btnDeleteMapString.Click += new DecentForms.EventHandler(this.btnDeleteMapString_Click);
+            // 
+            // btnMoveMapStringUp
+            // 
+            this.btnMoveMapStringUp.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnMoveMapStringUp.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnMoveMapStringUp.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnMoveMapStringUp.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnMoveMapStringUp.Enabled = false;
+            this.btnMoveMapStringUp.Image = null;
+            this.btnMoveMapStringUp.Location = new System.Drawing.Point(423, 216);
+            this.btnMoveMapStringUp.Name = "btnMoveMapStringUp";
+            this.btnMoveMapStringUp.Size = new System.Drawing.Size(75, 23);
+            this.btnMoveMapStringUp.TabIndex = 22;
+            this.btnMoveMapStringUp.Text = "Move Up";
+            this.btnMoveMapStringUp.Click += new DecentForms.EventHandler(this.btnMoveMapStringUp_Click);
+            // 
+            // btnMoveMapStringDown
+            // 
+            this.btnMoveMapStringDown.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnMoveMapStringDown.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnMoveMapStringDown.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnMoveMapStringDown.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnMoveMapStringDown.Enabled = false;
+            this.btnMoveMapStringDown.Image = null;
+            this.btnMoveMapStringDown.Location = new System.Drawing.Point(504, 216);
+            this.btnMoveMapStringDown.Name = "btnMoveMapStringDown";
+            this.btnMoveMapStringDown.Size = new System.Drawing.Size(85, 23);
+            this.btnMoveMapStringDown.TabIndex = 23;
+            this.btnMoveMapStringDown.Text = "Move Down";
+            this.btnMoveMapStringDown.Click += new DecentForms.EventHandler(this.btnMoveMapStringDown_Click);
+            // 
+            // btnDuplicateMapString
+            // 
+            this.btnDuplicateMapString.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnDuplicateMapString.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnDuplicateMapString.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnDuplicateMapString.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnDuplicateMapString.Enabled = false;
+            this.btnDuplicateMapString.Image = null;
+            this.btnDuplicateMapString.Location = new System.Drawing.Point(595, 216);
+            this.btnDuplicateMapString.Name = "btnDuplicateMapString";
+            this.btnDuplicateMapString.Size = new System.Drawing.Size(85, 23);
+            this.btnDuplicateMapString.TabIndex = 24;
+            this.btnDuplicateMapString.Text = "Duplicate";
+            this.btnDuplicateMapString.Click += new DecentForms.EventHandler(this.btnDuplicateMapString_Click);
+            // 
+            // labelMapStringFont
+            // 
+            this.labelMapStringFont.AutoSize = true;
+            this.labelMapStringFont.Location = new System.Drawing.Point(180, 254);
+            this.labelMapStringFont.Name = "labelMapStringFont";
+            this.labelMapStringFont.Size = new System.Drawing.Size(69, 13);
+            this.labelMapStringFont.TabIndex = 25;
+            this.labelMapStringFont.Text = "Preview font:";
+            // 
+            // editMapStringFont
+            // 
+            this.editMapStringFont.Location = new System.Drawing.Point(264, 251);
+            this.editMapStringFont.Name = "editMapStringFont";
+            this.editMapStringFont.ReadOnly = true;
+            this.editMapStringFont.Size = new System.Drawing.Size(475, 20);
+            this.editMapStringFont.TabIndex = 26;
+            this.toolTip1.SetToolTip(this.editMapStringFont, "Optional binary font file (2-byte header + 8 bytes per glyph) used for the previe" +
+        "w only. Leave blank to use the project\'s main charset.");
+            // 
+            // btnBrowseMapStringFont
+            // 
+            this.btnBrowseMapStringFont.Location = new System.Drawing.Point(745, 250);
+            this.btnBrowseMapStringFont.Name = "btnBrowseMapStringFont";
+            this.btnBrowseMapStringFont.Size = new System.Drawing.Size(75, 22);
+            this.btnBrowseMapStringFont.TabIndex = 27;
+            this.btnBrowseMapStringFont.Text = "Browse...";
+            this.btnBrowseMapStringFont.UseVisualStyleBackColor = true;
+            this.btnBrowseMapStringFont.Click += new System.EventHandler(this.btnBrowseMapStringFont_Click);
+            // 
+            // labelMapStringLowercase
+            // 
+            this.labelMapStringLowercase.AutoSize = true;
+            this.labelMapStringLowercase.Location = new System.Drawing.Point(180, 281);
+            this.labelMapStringLowercase.Name = "labelMapStringLowercase";
+            this.labelMapStringLowercase.Size = new System.Drawing.Size(62, 13);
+            this.labelMapStringLowercase.TabIndex = 28;
+            this.labelMapStringLowercase.Text = "Lowercase:";
+            this.toolTip1.SetToolTip(this.labelMapStringLowercase, "Charset index where \'a\' lives. \'b\' renders at +1, \'c\' at +2, etc.");
+            // 
+            // editMapStringLowercase
+            // 
+            this.editMapStringLowercase.Location = new System.Drawing.Point(250, 278);
+            this.editMapStringLowercase.Maximum = new decimal(new int[] {
+            255,
+            0,
+            0,
+            0});
+            this.editMapStringLowercase.Name = "editMapStringLowercase";
+            this.editMapStringLowercase.Size = new System.Drawing.Size(60, 20);
+            this.editMapStringLowercase.TabIndex = 29;
+            this.editMapStringLowercase.Value = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.editMapStringLowercase.ValueChanged += new System.EventHandler(this.editMapStringLowercase_ValueChanged);
+            // 
+            // labelMapStringUppercase
+            // 
+            this.labelMapStringUppercase.AutoSize = true;
+            this.labelMapStringUppercase.Location = new System.Drawing.Point(320, 281);
+            this.labelMapStringUppercase.Name = "labelMapStringUppercase";
+            this.labelMapStringUppercase.Size = new System.Drawing.Size(62, 13);
+            this.labelMapStringUppercase.TabIndex = 30;
+            this.labelMapStringUppercase.Text = "Uppercase:";
+            this.toolTip1.SetToolTip(this.labelMapStringUppercase, "Charset index where \'A\' lives. \'B\' renders at +1, etc.");
+            // 
+            // editMapStringUppercase
+            // 
+            this.editMapStringUppercase.Location = new System.Drawing.Point(390, 278);
+            this.editMapStringUppercase.Maximum = new decimal(new int[] {
+            255,
+            0,
+            0,
+            0});
+            this.editMapStringUppercase.Name = "editMapStringUppercase";
+            this.editMapStringUppercase.Size = new System.Drawing.Size(60, 20);
+            this.editMapStringUppercase.TabIndex = 31;
+            this.editMapStringUppercase.Value = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.editMapStringUppercase.ValueChanged += new System.EventHandler(this.editMapStringUppercase_ValueChanged);
+            // 
+            // labelMapStringNumbers
+            // 
+            this.labelMapStringNumbers.AutoSize = true;
+            this.labelMapStringNumbers.Location = new System.Drawing.Point(460, 281);
+            this.labelMapStringNumbers.Name = "labelMapStringNumbers";
+            this.labelMapStringNumbers.Size = new System.Drawing.Size(52, 13);
+            this.labelMapStringNumbers.TabIndex = 32;
+            this.labelMapStringNumbers.Text = "Numbers:";
+            this.toolTip1.SetToolTip(this.labelMapStringNumbers, "Charset index where \'0\' lives. \'1\' renders at +1, etc.");
+            // 
+            // editMapStringNumbers
+            // 
+            this.editMapStringNumbers.Location = new System.Drawing.Point(525, 278);
+            this.editMapStringNumbers.Maximum = new decimal(new int[] {
+            255,
+            0,
+            0,
+            0});
+            this.editMapStringNumbers.Name = "editMapStringNumbers";
+            this.editMapStringNumbers.Size = new System.Drawing.Size(60, 20);
+            this.editMapStringNumbers.TabIndex = 33;
+            this.editMapStringNumbers.Value = new decimal(new int[] {
+            48,
+            0,
+            0,
+            0});
+            this.editMapStringNumbers.ValueChanged += new System.EventHandler(this.editMapStringNumbers_ValueChanged);
+            // 
+            // labelMapStringPreview
+            // 
+            this.labelMapStringPreview.AutoSize = true;
+            this.labelMapStringPreview.Location = new System.Drawing.Point(180, 308);
+            this.labelMapStringPreview.Name = "labelMapStringPreview";
+            this.labelMapStringPreview.Size = new System.Drawing.Size(115, 13);
+            this.labelMapStringPreview.TabIndex = 34;
+            this.labelMapStringPreview.Text = "Preview (40 x 4 chars):";
+            // 
+            // picMapStringPreview
+            // 
+            this.picMapStringPreview.BackColor = System.Drawing.Color.Black;
+            this.picMapStringPreview.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.picMapStringPreview.Location = new System.Drawing.Point(180, 326);
+            this.picMapStringPreview.Name = "picMapStringPreview";
+            this.picMapStringPreview.Size = new System.Drawing.Size(672, 108);
+            this.picMapStringPreview.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage;
+            this.picMapStringPreview.TabIndex = 35;
+            this.picMapStringPreview.TabStop = false;
             // 
             // tabEntities
             // 
@@ -2736,7 +2801,7 @@
             this.tabMapStrings,
             this.tabMarkers,
             this.tabEntities});
-            this.tabMapEditor.SelectedIndex = 0;
+            this.tabMapEditor.SelectedIndex = 5;
             this.tabMapEditor.Size = new System.Drawing.Size(1576, 910);
             this.tabMapEditor.TabIndex = 0;
             this.tabMapEditor.SelectedPageChanged += new System.EventHandler(this.tabMapEditor_SelectedIndexChanged);
@@ -3634,14 +3699,14 @@
             ((System.ComponentModel.ISupportInitialize)(this.tabMarkers)).EndInit();
             this.tabMarkers.ResumeLayout(false);
             this.tabMarkers.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.editMarkerTagID)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.tabMapStrings)).EndInit();
             this.tabMapStrings.ResumeLayout(false);
             this.tabMapStrings.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.picMapStringPreview)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringLowercase)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringUppercase)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringNumbers)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.editMarkerTagID)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.picMapStringPreview)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.tabEntities)).EndInit();
             this.tabEntities.ResumeLayout(false);
             this.tabEntities.PerformLayout();
@@ -3914,9 +3979,10 @@
         private System.Windows.Forms.ComboBox comboMapStringTerminator2;
         private System.Windows.Forms.ComboBox comboMapStringTerminator3;
         private System.Windows.Forms.CheckBox checkMapStringClearAtEnd;
-        private System.Windows.Forms.Label labelMapStringInsertColor;
-        private System.Windows.Forms.ComboBox comboMapStringColor;
-        private DecentForms.Button btnMapStringInsertColor;
+        private System.Windows.Forms.ComboBox comboMapStringLineControl0;
+        private System.Windows.Forms.ComboBox comboMapStringLineControl1;
+        private System.Windows.Forms.ComboBox comboMapStringLineControl2;
+        private System.Windows.Forms.ComboBox comboMapStringLineControl3;
         private DecentForms.Button btnAddMapString;
         private DecentForms.Button btnUpdateMapString;
         private DecentForms.Button btnDeleteMapString;

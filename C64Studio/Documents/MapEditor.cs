@@ -464,7 +464,10 @@ namespace RetroDevStudio.Documents
       comboMarkerColor.BeginUpdate();
       comboMarkerColorOverride.BeginUpdate();
       comboBlankColor.BeginUpdate();
-      comboMapStringColor.BeginUpdate();
+      comboMapStringLineControl0.BeginUpdate();
+      comboMapStringLineControl1.BeginUpdate();
+      comboMapStringLineControl2.BeginUpdate();
+      comboMapStringLineControl3.BeginUpdate();
       try
       {
         comboMapMultiColor1.Items.Add( "From charset" );
@@ -485,7 +488,10 @@ namespace RetroDevStudio.Documents
           comboMarkerColor.Items.Add( label );
           comboMarkerColorOverride.Items.Add( label );
           comboBlankColor.Items.Add( label );
-          comboMapStringColor.Items.Add( label );
+          comboMapStringLineControl0.Items.Add( label );
+          comboMapStringLineControl1.Items.Add( label );
+          comboMapStringLineControl2.Items.Add( label );
+          comboMapStringLineControl3.Items.Add( label );
         }
       }
       finally
@@ -501,7 +507,10 @@ namespace RetroDevStudio.Documents
         comboMarkerColor.EndUpdate();
         comboMarkerColorOverride.EndUpdate();
         comboBlankColor.EndUpdate();
-        comboMapStringColor.EndUpdate();
+        comboMapStringLineControl0.EndUpdate();
+        comboMapStringLineControl1.EndUpdate();
+        comboMapStringLineControl2.EndUpdate();
+        comboMapStringLineControl3.EndUpdate();
       }
       comboTileBackground.SelectedIndex = 0;
       comboTileMulticolor1.SelectedIndex = 0;
@@ -514,7 +523,12 @@ namespace RetroDevStudio.Documents
       comboMapAlternativeBGColor4.SelectedIndex = 0;
       comboMarkerColor.SelectedIndex = 0;
       comboMarkerColorOverride.SelectedIndex = 0;
-      comboMapStringColor.SelectedIndex = 1;   // default to white — sensible neutral on dark-bg preview
+      // Per-line control-code combos default to $01 (white) — populated
+      // per-string by PopulateMapStringFieldsFromSelection.
+      comboMapStringLineControl0.SelectedIndex = 1;
+      comboMapStringLineControl1.SelectedIndex = 1;
+      comboMapStringLineControl2.SelectedIndex = 1;
+      comboMapStringLineControl3.SelectedIndex = 1;
 
       InitMapStringsTab();
 
@@ -9036,14 +9050,6 @@ namespace RetroDevStudio.Documents
     // =================================================================
 
     /// <summary>
-    /// Tracks which line textbox the user was last typing in, so the
-    /// "Insert color" button knows where to inject the $X token. Set on
-    /// each line's Enter event. This is intrinsic state ("which control is
-    /// focused"), not a behavior-gating flag.
-    /// </summary>
-    private System.Windows.Forms.TextBox m_LastFocusedMapStringLine = null;
-
-    /// <summary>
     /// Cached glyph data from <see cref="MapProject.MapStringsPreviewFontPath"/>.
     /// Reloaded on path change. null when no font is selected (or the load
     /// failed) — preview falls back to the project's main charset.
@@ -9056,19 +9062,6 @@ namespace RetroDevStudio.Documents
 
     private void InitMapStringsTab()
     {
-      // Track which line textbox last had focus so the Insert-color button
-      // can find the right caret position.
-      var lineBoxes = new System.Windows.Forms.TextBox[]
-      {
-        editMapStringLine0, editMapStringLine1, editMapStringLine2, editMapStringLine3
-      };
-      foreach ( var tb in lineBoxes )
-      {
-        tb.Enter += editMapStringLine_Enter;
-      }
-      // Initialize to line 0 so a click before any textbox-focus still works.
-      m_LastFocusedMapStringLine = editMapStringLine0;
-
       AttachMapStringEditFieldHandlers();
       RefreshMapStrings();
       UpdateMapStringButtonStates();
@@ -9224,32 +9217,40 @@ namespace RetroDevStudio.Documents
     /// </summary>
     private void AttachMapStringEditFieldHandlers()
     {
-      editMapStringLabel.TextChanged                  += editMapStringLabel_TextChanged;
-      editMapStringLine0.TextChanged                  += editMapStringLine_TextChanged;
-      editMapStringLine1.TextChanged                  += editMapStringLine_TextChanged;
-      editMapStringLine2.TextChanged                  += editMapStringLine_TextChanged;
-      editMapStringLine3.TextChanged                  += editMapStringLine_TextChanged;
-      comboMapStringTerminator0.SelectedIndexChanged  += comboMapStringTerminator_SelectedIndexChanged;
-      comboMapStringTerminator1.SelectedIndexChanged  += comboMapStringTerminator_SelectedIndexChanged;
-      comboMapStringTerminator2.SelectedIndexChanged  += comboMapStringTerminator_SelectedIndexChanged;
-      comboMapStringTerminator3.SelectedIndexChanged  += comboMapStringTerminator_SelectedIndexChanged;
-      checkMapStringClearAtEnd.CheckedChanged         += checkMapStringClearAtEnd_CheckedChanged;
+      editMapStringLabel.TextChanged                    += editMapStringLabel_TextChanged;
+      editMapStringLine0.TextChanged                    += editMapStringLine_TextChanged;
+      editMapStringLine1.TextChanged                    += editMapStringLine_TextChanged;
+      editMapStringLine2.TextChanged                    += editMapStringLine_TextChanged;
+      editMapStringLine3.TextChanged                    += editMapStringLine_TextChanged;
+      comboMapStringTerminator0.SelectedIndexChanged    += comboMapStringTerminator_SelectedIndexChanged;
+      comboMapStringTerminator1.SelectedIndexChanged    += comboMapStringTerminator_SelectedIndexChanged;
+      comboMapStringTerminator2.SelectedIndexChanged    += comboMapStringTerminator_SelectedIndexChanged;
+      comboMapStringTerminator3.SelectedIndexChanged    += comboMapStringTerminator_SelectedIndexChanged;
+      comboMapStringLineControl0.SelectedIndexChanged   += comboMapStringLineControl_SelectedIndexChanged;
+      comboMapStringLineControl1.SelectedIndexChanged   += comboMapStringLineControl_SelectedIndexChanged;
+      comboMapStringLineControl2.SelectedIndexChanged   += comboMapStringLineControl_SelectedIndexChanged;
+      comboMapStringLineControl3.SelectedIndexChanged   += comboMapStringLineControl_SelectedIndexChanged;
+      checkMapStringClearAtEnd.CheckedChanged           += checkMapStringClearAtEnd_CheckedChanged;
     }
 
 
 
     private void DetachMapStringEditFieldHandlers()
     {
-      editMapStringLabel.TextChanged                  -= editMapStringLabel_TextChanged;
-      editMapStringLine0.TextChanged                  -= editMapStringLine_TextChanged;
-      editMapStringLine1.TextChanged                  -= editMapStringLine_TextChanged;
-      editMapStringLine2.TextChanged                  -= editMapStringLine_TextChanged;
-      editMapStringLine3.TextChanged                  -= editMapStringLine_TextChanged;
-      comboMapStringTerminator0.SelectedIndexChanged  -= comboMapStringTerminator_SelectedIndexChanged;
-      comboMapStringTerminator1.SelectedIndexChanged  -= comboMapStringTerminator_SelectedIndexChanged;
-      comboMapStringTerminator2.SelectedIndexChanged  -= comboMapStringTerminator_SelectedIndexChanged;
-      comboMapStringTerminator3.SelectedIndexChanged  -= comboMapStringTerminator_SelectedIndexChanged;
-      checkMapStringClearAtEnd.CheckedChanged         -= checkMapStringClearAtEnd_CheckedChanged;
+      editMapStringLabel.TextChanged                    -= editMapStringLabel_TextChanged;
+      editMapStringLine0.TextChanged                    -= editMapStringLine_TextChanged;
+      editMapStringLine1.TextChanged                    -= editMapStringLine_TextChanged;
+      editMapStringLine2.TextChanged                    -= editMapStringLine_TextChanged;
+      editMapStringLine3.TextChanged                    -= editMapStringLine_TextChanged;
+      comboMapStringTerminator0.SelectedIndexChanged    -= comboMapStringTerminator_SelectedIndexChanged;
+      comboMapStringTerminator1.SelectedIndexChanged    -= comboMapStringTerminator_SelectedIndexChanged;
+      comboMapStringTerminator2.SelectedIndexChanged    -= comboMapStringTerminator_SelectedIndexChanged;
+      comboMapStringTerminator3.SelectedIndexChanged    -= comboMapStringTerminator_SelectedIndexChanged;
+      comboMapStringLineControl0.SelectedIndexChanged   -= comboMapStringLineControl_SelectedIndexChanged;
+      comboMapStringLineControl1.SelectedIndexChanged   -= comboMapStringLineControl_SelectedIndexChanged;
+      comboMapStringLineControl2.SelectedIndexChanged   -= comboMapStringLineControl_SelectedIndexChanged;
+      comboMapStringLineControl3.SelectedIndexChanged   -= comboMapStringLineControl_SelectedIndexChanged;
+      checkMapStringClearAtEnd.CheckedChanged           -= checkMapStringClearAtEnd_CheckedChanged;
     }
 
 
@@ -9337,6 +9338,10 @@ namespace RetroDevStudio.Documents
           comboMapStringTerminator1.SelectedIndex = 0;
           comboMapStringTerminator2.SelectedIndex = 0;
           comboMapStringTerminator3.SelectedIndex = 0;
+          comboMapStringLineControl0.SelectedIndex = 1;
+          comboMapStringLineControl1.SelectedIndex = 1;
+          comboMapStringLineControl2.SelectedIndex = 1;
+          comboMapStringLineControl3.SelectedIndex = 1;
           checkMapStringClearAtEnd.Checked = false;
           return;
         }
@@ -9350,11 +9355,21 @@ namespace RetroDevStudio.Documents
         {
           comboMapStringTerminator0, comboMapStringTerminator1, comboMapStringTerminator2, comboMapStringTerminator3
         };
+        var ctrlCombos = new System.Windows.Forms.ComboBox[]
+        {
+          comboMapStringLineControl0, comboMapStringLineControl1, comboMapStringLineControl2, comboMapStringLineControl3
+        };
         for ( int i = 0; i < 4; ++i )
         {
           lineBoxes[i].Text       = ms.Lines[i].Text ?? "";
           termCombos[i].SelectedIndex =
             ( ms.Lines[i].Terminator == Formats.MapProject.MAP_STRING_PRESS_FIRE ) ? 1 : 0;
+          // Control-code combo currently only exposes the 16 colors ($00..$0F).
+          // Out-of-range values from the file (e.g. a future reserved code)
+          // get clamped to a visible slot so the UI doesn't ArgumentException.
+          int cc = ms.Lines[i].ControlCode;
+          if ( cc < 0 || cc > 15 ) cc = 1;
+          ctrlCombos[i].SelectedIndex = cc;
         }
         checkMapStringClearAtEnd.Checked = ms.ClearTextAreaAtEnd;
       }
@@ -9387,15 +9402,6 @@ namespace RetroDevStudio.Documents
       btnMoveMapStringUp.Enabled    = hasSelection && ( listMapStrings.SelectedIndex > 0 );
       btnMoveMapStringDown.Enabled  = hasSelection
                                    && ( listMapStrings.SelectedIndex < m_MapProject.MapStrings.Count - 1 );
-    }
-
-
-
-    // -------- Focus tracking for the Insert-color button --------
-
-    private void editMapStringLine_Enter( object sender, EventArgs e )
-    {
-      m_LastFocusedMapStringLine = sender as System.Windows.Forms.TextBox;
     }
 
 
@@ -9453,6 +9459,22 @@ namespace RetroDevStudio.Documents
 
 
 
+    private void comboMapStringLineControl_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      var ms = GetSelectedMapString();
+      if ( ms == null ) return;
+      int lineIdx = MapStringLineControlIndexOf( sender );
+      if ( lineIdx < 0 ) return;
+      var combo = (System.Windows.Forms.ComboBox)sender;
+
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+      ms.Lines[lineIdx].ControlCode = (byte)combo.SelectedIndex;
+      SetModified();
+      RebuildMapStringPreview();
+    }
+
+
+
     private void checkMapStringClearAtEnd_CheckedChanged( object sender, EventArgs e )
     {
       var ms = GetSelectedMapString();
@@ -9481,6 +9503,17 @@ namespace RetroDevStudio.Documents
       if ( sender == comboMapStringTerminator1 ) return 1;
       if ( sender == comboMapStringTerminator2 ) return 2;
       if ( sender == comboMapStringTerminator3 ) return 3;
+      return -1;
+    }
+
+
+
+    private int MapStringLineControlIndexOf( object sender )
+    {
+      if ( sender == comboMapStringLineControl0 ) return 0;
+      if ( sender == comboMapStringLineControl1 ) return 1;
+      if ( sender == comboMapStringLineControl2 ) return 2;
+      if ( sender == comboMapStringLineControl3 ) return 3;
       return -1;
     }
 
@@ -9561,6 +9594,17 @@ namespace RetroDevStudio.Documents
       if ( m_MapProject == null ) return;
       int idx = listMapStrings.SelectedIndex;
       if ( idx < 0 || idx >= m_MapProject.MapStrings.Count ) return;
+
+      string label = m_MapProject.MapStrings[idx].Label;
+      string shown = string.IsNullOrEmpty( label ) ? "(no label)" : label;
+      var confirm = System.Windows.Forms.MessageBox.Show(
+        this,
+        "Delete map string '" + shown + "'?\r\n\r\nThis can be undone.",
+        "Confirm delete",
+        System.Windows.Forms.MessageBoxButtons.OKCancel,
+        System.Windows.Forms.MessageBoxIcon.Warning,
+        System.Windows.Forms.MessageBoxDefaultButton.Button2 );
+      if ( confirm != System.Windows.Forms.DialogResult.OK ) return;
 
       DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
       m_MapProject.MapStrings.RemoveAt( idx );
@@ -9658,27 +9702,6 @@ namespace RetroDevStudio.Documents
 
 
 
-    private void btnMapStringInsertColor_Click( DecentForms.ControlBase Sender )
-    {
-      // Inject a $X token at the caret of the most-recently-focused line.
-      var target = m_LastFocusedMapStringLine ?? editMapStringLine0;
-      if ( target == null ) return;
-      int colorIdx = comboMapStringColor.SelectedIndex;
-      if ( colorIdx < 0 || colorIdx > 15 ) return;
-
-      string token = "$" + colorIdx.ToString( "X" );
-      int caret = target.SelectionStart;
-      string before = target.Text.Substring( 0, caret );
-      string after  = target.Text.Substring( caret + target.SelectionLength );
-      target.Text = before + token + after;
-      target.SelectionStart  = caret + token.Length;
-      target.SelectionLength = 0;
-      // Returning focus keeps the caret visible for follow-up typing.
-      target.Focus();
-    }
-
-
-
     // -------- Live preview --------
 
     /// <summary>
@@ -9691,12 +9714,23 @@ namespace RetroDevStudio.Documents
     {
       if ( picMapStringPreview == null ) return;
 
-      const int CharsPerLine = 40;
-      const int LineCount    = 4;
-      const int CellW        = 8;
-      const int CellH        = 8;
+      const int CharsPerLine  = 40;
+      const int LineCount     = 4;
+      const int CellW         = 8;
+      const int CellH         = 8;
+      // Padding around the rendered text. Reads as visual breathing room
+      // once the bitmap is stretched into the picture box. Glyphs stay
+      // pixel-perfect at 8×8 and the padding scales linearly with them.
+      const int PaddingLeft   = 8;
+      const int PaddingRight  = 8;
+      const int PaddingTop    = 8;
+      const int PaddingBottom = 8;
+      const int LineGap       = 2;
 
-      var bmp = new System.Drawing.Bitmap( CharsPerLine * CellW, LineCount * CellH );
+      int bmpW = PaddingLeft + CharsPerLine * CellW + PaddingRight;
+      int bmpH = PaddingTop + LineCount * CellH + ( LineCount - 1 ) * LineGap + PaddingBottom;
+
+      var bmp = new System.Drawing.Bitmap( bmpW, bmpH );
       using ( var g = System.Drawing.Graphics.FromImage( bmp ) )
       {
         g.Clear( System.Drawing.Color.Black );
@@ -9710,9 +9744,10 @@ namespace RetroDevStudio.Documents
           return;
         }
 
-        // Default starting color — white, sensible neutral on black bg.
-        // Color persists across lines (matches Dreadhold runtime behavior).
-        int currentColor = 1;
+        // Each line has its own ControlCode (the byte the runtime reads at
+        // line start as the line's foreground color). Text is plain — every
+        // char becomes one screen code in the line's color. This mirrors
+        // game_message.asm's WRITE_LOOP exactly.
         var palette = ConstantData.Palette;
         int lowerStart   = m_MapProject.MapStringsLowercaseIndex;
         int upperStart   = m_MapProject.MapStringsUppercaseIndex;
@@ -9720,39 +9755,21 @@ namespace RetroDevStudio.Documents
 
         for ( int li = 0; li < LineCount; ++li )
         {
-          string text = ms.Lines[li].Text ?? "";
+          var line = ms.Lines[li];
+          string text = line.Text ?? "";
+          if ( text.Length == 0 ) continue;
+          int lineColor = line.ControlCode;
+          if ( lineColor < 0 || lineColor > 15 ) lineColor = 1;
+
+          int rowY = PaddingTop + li * ( CellH + LineGap );
           int col = 0;
-          int p = 0;
-          while ( p < text.Length && col < CharsPerLine )
+          for ( int p = 0; p < text.Length && col < CharsPerLine; ++p )
           {
-            char c = text[p];
-            if ( c == '$' )
-            {
-              if ( p + 1 < text.Length && text[p + 1] == '$' )
-              {
-                DrawMapStringPreviewChar( g, '$', col, li, currentColor, palette,
-                                          lowerStart, upperStart, numbersStart );
-                ++col;
-                p += 2;
-                continue;
-              }
-              if ( p + 1 < text.Length && IsHexDigitChar( text[p + 1] ) )
-              {
-                currentColor = HexCharValue( text[p + 1] );
-                p += 2;
-                continue;
-              }
-              // Bare $ — best-effort render as literal.
-              DrawMapStringPreviewChar( g, '$', col, li, currentColor, palette,
-                                        lowerStart, upperStart, numbersStart );
-              ++col;
-              ++p;
-              continue;
-            }
-            DrawMapStringPreviewChar( g, c, col, li, currentColor, palette,
-                                      lowerStart, upperStart, numbersStart );
+            int screenCode = AsciiToScreenCode( text[p], lowerStart, upperStart, numbersStart );
+            if ( screenCode < 0 ) continue;
+            int colX = PaddingLeft + col * CellW;
+            DrawMapStringPreviewGlyphAt( g, (byte)screenCode, colX, rowY, lineColor, palette );
             ++col;
-            ++p;
           }
         }
       }
@@ -9764,14 +9781,9 @@ namespace RetroDevStudio.Documents
 
 
 
-    private void DrawMapStringPreviewChar( System.Drawing.Graphics G, char Ch, int Col, int Row, int ColorIdx, Palette Pal,
-                                           int LowerStart, int UpperStart, int NumbersStart )
+    private void DrawMapStringPreviewGlyphAt( System.Drawing.Graphics G, byte ScreenCode, int BaseX, int BaseY, int ColorIdx, Palette Pal )
     {
-      // Map ASCII -> charset index using the user-supplied per-project
-      // offsets for letters and digits. Punctuation falls through to fixed
-      // C64 screen-code values inside AsciiToScreenCode.
-      int screenCode = AsciiToScreenCode( Ch, LowerStart, UpperStart, NumbersStart );
-      if ( screenCode < 0 ) return;
+      int screenCode = ScreenCode;
 
       // Find the project's charset bytes. Fall back to a hardcoded glyph
       // if the project has none yet — at least the preview shows columns.
@@ -9782,8 +9794,8 @@ namespace RetroDevStudio.Documents
                                 ? Pal.Colors[ColorIdx]
                                 : System.Drawing.Color.White;
 
-      int baseX = Col * 8;
-      int baseY = Row * 8;
+      int baseX = BaseX;
+      int baseY = BaseY;
       for ( int y = 0; y < 8; ++y )
       {
         byte b = glyph[y];
@@ -9881,25 +9893,6 @@ namespace RetroDevStudio.Documents
         glyphFromCharset[i] = data.ByteAt( i );
       }
       return glyphFromCharset;
-    }
-
-
-
-    private static bool IsHexDigitChar( char c )
-    {
-      return ( c >= '0' && c <= '9' )
-          || ( c >= 'A' && c <= 'F' )
-          || ( c >= 'a' && c <= 'f' );
-    }
-
-
-
-    private static int HexCharValue( char c )
-    {
-      if ( c >= '0' && c <= '9' ) return c - '0';
-      if ( c >= 'A' && c <= 'F' ) return 10 + ( c - 'A' );
-      if ( c >= 'a' && c <= 'f' ) return 10 + ( c - 'a' );
-      return 0;
     }
 
 
@@ -10088,7 +10081,13 @@ namespace RetroDevStudio.Documents
        editMarkerName.Text = type.Name;
        comboMarkerColor.SelectedIndex = type.Color;
        editMarkerExportSymbol.Text = type.ExportSymbol ?? "";
-       editMarkerTagID.Value = type.TagID;
+       // Clamp into the NumericUpDown's valid range — legacy projects may
+       // have TagID=0 from before zero was reserved, and assigning a value
+       // outside [Minimum..Maximum] throws ArgumentOutOfRangeException.
+       int displayTagID = type.TagID;
+       if ( displayTagID < (int)editMarkerTagID.Minimum ) displayTagID = (int)editMarkerTagID.Minimum;
+       if ( displayTagID > (int)editMarkerTagID.Maximum ) displayTagID = (int)editMarkerTagID.Maximum;
+       editMarkerTagID.Value = displayTagID;
     }
 
     private void editMarkerExportSymbol_KeyPress( object sender, KeyPressEventArgs e )
@@ -11756,7 +11755,9 @@ namespace RetroDevStudio.Documents
         inUse.Add( mt.TagID );
       }
 
-      int candidate = 0;
+      // Start at 1 — Tag ID 0 is reserved (typically used as a "no marker"
+      // sentinel by the runtime), so the search never assigns it.
+      int candidate = 1;
       while ( ( candidate <= 255 ) && inUse.Contains( candidate ) )
       {
         ++candidate;
@@ -11764,7 +11765,7 @@ namespace RetroDevStudio.Documents
       if ( candidate > 255 )
       {
         System.Windows.Forms.MessageBox.Show(
-          "All Tag IDs from 0 to 255 are already in use. Marker Tag ID is exported as a single byte and cannot exceed 255.",
+          "All Tag IDs from 1 to 255 are already in use. Tag ID 0 is reserved, and the field is exported as a single byte so it cannot exceed 255.",
           "No free Tag ID",
           System.Windows.Forms.MessageBoxButtons.OK,
           System.Windows.Forms.MessageBoxIcon.Warning );

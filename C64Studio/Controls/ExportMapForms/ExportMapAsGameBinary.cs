@@ -124,7 +124,8 @@ namespace RetroDevStudio.Controls
       }
 
       string log = GenerateExportLog( data, baseAddress, targetPath,
-                                      exportMarkers, exportColors, exportPassable );
+                                      exportMarkers, exportColors, exportPassable,
+                                      Info.Map );
 
       // Optional .def sidecar
       if ( checkGenerateDefFile.Checked )
@@ -390,12 +391,14 @@ namespace RetroDevStudio.Controls
 
 
     private string GenerateExportLog( ByteBuffer buf, ushort baseAddr, string targetPath,
-                                       bool exportMarkers, bool exportColors, bool exportPassable )
+                                       bool exportMarkers, bool exportColors, bool exportPassable,
+                                       RetroDevStudio.Formats.MapProject project )
     {
       int markerStride = buf.ByteAt( 0 );
       int tileCount = buf.ByteAt( 1 );
       int mapCount = buf.ByteAt( 2 );
       int entityStride = buf.ByteAt( 0x2D );
+      int mapStringCount = buf.ByteAt( 0x34 );
 
       var sb = new StringBuilder();
       sb.AppendLine( "Exported " + buf.Length + " bytes to " + targetPath );
@@ -407,7 +410,7 @@ namespace RetroDevStudio.Controls
       sb.AppendLine( RetroDevStudio.Formats.MapProject.GenerateGameBinaryHeaderAsm() );
 
       // --- HEADER ---
-      sb.AppendLine( "--- HEADER (52 bytes) ---" );
+      sb.AppendLine( "--- HEADER (57 bytes) ---" );
       sb.AppendLine( Addr( baseAddr, 0x00 ) + ": " + HexByte( buf.ByteAt( 0 ) ).PadRight( 24 ) + "marker_stride = " + markerStride );
       sb.AppendLine( Addr( baseAddr, 0x01 ) + ": " + HexByte( buf.ByteAt( 1 ) ).PadRight( 24 ) + "tile_count = " + tileCount );
       sb.AppendLine( Addr( baseAddr, 0x02 ) + ": " + HexByte( buf.ByteAt( 2 ) ).PadRight( 24 ) + "map_count = " + mapCount );
@@ -446,8 +449,8 @@ namespace RetroDevStudio.Controls
 
       // Entity section (v23+) — one stride byte followed by three 2-byte
       // offset pointers, mirroring the marker section layout. Always printed
-      // so the .def dump reflects the full 52-byte header even when a map
-      // has no entity types defined yet.
+      // so the .def dump reflects the full header even when a map has no
+      // entity types defined yet.
       sb.AppendLine( Addr( baseAddr, 0x2D ) + ": " + HexByte( buf.ByteAt( 0x2D ) ).PadRight( 24 ) + "entity_stride = " + entityStride );
       string[] entHdrNames = {
         "offset_map_entity_count",
@@ -460,6 +463,19 @@ namespace RetroDevStudio.Controls
         ushort val = buf.UInt16At( hdrOff );
         string resolved = ( val != 0 ) ? " -> $" + val.ToString( "X4" ) : " -> (disabled)";
         sb.AppendLine( Addr( baseAddr, hdrOff ) + ": " + HexBytes( buf, hdrOff, 2 ).PadRight( 24 ) + entHdrNames[i] + resolved );
+      }
+      // Map-strings section (v24+) — count byte + LO/HI table pointers.
+      sb.AppendLine( Addr( baseAddr, 0x34 ) + ": " + HexByte( buf.ByteAt( 0x34 ) ).PadRight( 24 ) + "map_string_count = " + mapStringCount );
+      string[] mapStringHdrNames = {
+        "offset_map_string_lo",
+        "offset_map_string_hi",
+      };
+      for ( int i = 0; i < 2; ++i )
+      {
+        int hdrOff = 0x35 + i * 2;
+        ushort val = buf.UInt16At( hdrOff );
+        string resolved = ( val != 0 ) ? " -> $" + val.ToString( "X4" ) : " -> (disabled)";
+        sb.AppendLine( Addr( baseAddr, hdrOff ) + ": " + HexBytes( buf, hdrOff, 2 ).PadRight( 24 ) + mapStringHdrNames[i] + resolved );
       }
       sb.AppendLine();
 
@@ -672,8 +688,213 @@ namespace RetroDevStudio.Controls
         }
       }
 
+      // --- MAP STRINGS (v24+) — pointer tables + per-string byte streams. ---
+      if ( mapStringCount > 0 )
+      {
+        ushort mapStringLoAddr = buf.UInt16At( 0x35 );
+        ushort mapStringHiAddr = buf.UInt16At( 0x37 );
+        if ( mapStringLoAddr != 0 && mapStringHiAddr != 0 )
+        {
+          int loFilePos = mapStringLoAddr - ba;
+          int hiFilePos = mapStringHiAddr - ba;
+
+          sb.AppendLine( "--- MAP STRING POINTER TABLES ---" );
+          sb.AppendLine( "$" + mapStringLoAddr.ToString( "X4" ) + ": map_string_lo[" + mapStringCount + "]"
+                       + "  " + HexBytes( buf, loFilePos, Math.Min( mapStringCount, 24 ) )
+                       + ( mapStringCount > 24 ? " ..." : "" ) );
+          sb.AppendLine( "$" + mapStringHiAddr.ToString( "X4" ) + ": map_string_hi[" + mapStringCount + "]"
+                       + "  " + HexBytes( buf, hiFilePos, Math.Min( mapStringCount, 24 ) )
+                       + ( mapStringCount > 24 ? " ..." : "" ) );
+          sb.AppendLine();
+
+          sb.AppendLine( "--- MAP STRING DATA ---" );
+          // Prefer using the in-memory project for label info — the binary
+          // doesn't carry labels. Falls back to "string N" if the project
+          // reference isn't reachable here.
+          var emittedLabels = new List<string>();
+          if ( project != null )
+          {
+            List<string> skipped;
+            var emittedStrings = project.GetEmittableMapStrings( out skipped );
+            for ( int i = 0; i < emittedStrings.Count; ++i )
+            {
+              emittedLabels.Add( emittedStrings[i].Label );
+            }
+          }
+
+          // Read the per-project charset offsets so we can decode screen
+          // codes back to ASCII for human reading. Without these, lowercase
+          // bytes in the user's UICharset would render as opaque hex.
+          int lowerStart   = ( project != null ) ? project.MapStringsLowercaseIndex : 1;
+          int upperStart   = ( project != null ) ? project.MapStringsUppercaseIndex : 1;
+          int numbersStart = ( project != null ) ? project.MapStringsNumbersIndex   : 48;
+
+          for ( int i = 0; i < mapStringCount; ++i )
+          {
+            ushort streamAddr = (ushort)( buf.ByteAt( loFilePos + i ) | ( buf.ByteAt( hiFilePos + i ) << 8 ) );
+            int streamFilePos = streamAddr - ba;
+            string lbl = ( i < emittedLabels.Count ) ? emittedLabels[i] : ( "string " + i );
+
+            // Walk to find the end of this stream — first $FF (END_OF_TEXT).
+            int len = 0;
+            while ( streamFilePos + len < buf.Length )
+            {
+              byte b = buf.ByteAt( streamFilePos + len );
+              ++len;
+              if ( b == 0xFF ) break;
+            }
+
+            sb.AppendLine( "$" + streamAddr.ToString( "X4" ) + ": " + lbl + " (index " + i + ", " + len + " bytes)" );
+
+            // State machine matching Dreadhold's game_message.asm renderer:
+            //   AT_LINE_START — reads bytes looking for the line color
+            //     ($00..$1F). Recognises $FB/$FD/$FF; anything else >= $20
+            //     is silently skipped (the runtime drops it) — surfaced
+            //     here as "skipped" so the user can see why a stray byte
+            //     ahead of a color marker isn't rendering.
+            //   IN_LINE       — every byte is a screen code written to
+            //     screen RAM, EXCEPT $FF (end), $FD (end-of-line),
+            //     $FC (press-fire). Bytes $01..$1F here are CHARACTERS,
+            //     not colors.
+            bool atLineStart = true;
+            int p = 0;
+            var pendingText = new StringBuilder();
+            int textStart = 0;
+            System.Action flush = delegate ()
+            {
+              if ( pendingText.Length == 0 ) return;
+              sb.AppendLine( "  $" + ( (ushort)( streamAddr + textStart ) ).ToString( "X4" )
+                           + ": text \"" + pendingText.ToString() + "\" (" + pendingText.Length + " bytes)" );
+              pendingText.Length = 0;
+            };
+
+            while ( p < len )
+            {
+              byte b = buf.ByteAt( streamFilePos + p );
+              if ( atLineStart )
+              {
+                if ( b == 0xFF )
+                {
+                  flush();
+                  sb.AppendLine( "  $" + ( (ushort)( streamAddr + p ) ).ToString( "X4" ) + ": $FF END_OF_TEXT" );
+                  ++p;
+                  break;
+                }
+                if ( b == 0xFB )
+                {
+                  flush();
+                  sb.AppendLine( "  $" + ( (ushort)( streamAddr + p ) ).ToString( "X4" ) + ": $FB CLEAR_TEXT_AREA" );
+                  ++p;
+                  continue;
+                }
+                if ( b == 0xFD )
+                {
+                  flush();
+                  sb.AppendLine( "  $" + ( (ushort)( streamAddr + p ) ).ToString( "X4" ) + ": $FD END_OF_LINE  (blank line)" );
+                  ++p;
+                  continue;
+                }
+                if ( b < 0x20 )
+                {
+                  flush();
+                  sb.AppendLine( "  $" + ( (ushort)( streamAddr + p ) ).ToString( "X4" ) + ": " + HexByte( b ) + " line color = " + b );
+                  atLineStart = false;
+                  ++p;
+                  continue;
+                }
+                // Byte >= $20 at line start — runtime skips it without rendering.
+                flush();
+                sb.AppendLine( "  $" + ( (ushort)( streamAddr + p ) ).ToString( "X4" ) + ": " + HexByte( b ) + " skipped (no line color set yet)" );
+                ++p;
+                continue;
+              }
+
+              // IN_LINE
+              if ( b == 0xFF )
+              {
+                flush();
+                sb.AppendLine( "  $" + ( (ushort)( streamAddr + p ) ).ToString( "X4" ) + ": $FF END_OF_TEXT" );
+                ++p;
+                break;
+              }
+              if ( b == 0xFD )
+              {
+                flush();
+                sb.AppendLine( "  $" + ( (ushort)( streamAddr + p ) ).ToString( "X4" ) + ": $FD END_OF_LINE" );
+                atLineStart = true;
+                ++p;
+                continue;
+              }
+              if ( b == 0xFC )
+              {
+                flush();
+                sb.AppendLine( "  $" + ( (ushort)( streamAddr + p ) ).ToString( "X4" ) + ": $FC PRESS_FIRE" );
+                atLineStart = true;
+                ++p;
+                continue;
+              }
+              // Screen code — accumulate. Translate back to ASCII via the
+              // user's per-project charset offsets so the run is readable.
+              if ( pendingText.Length == 0 ) textStart = p;
+              pendingText.Append( ScreenCodeToReadableChar( b, lowerStart, upperStart, numbersStart ) );
+              ++p;
+            }
+            flush();
+          }
+          sb.AppendLine();
+        }
+      }
+
       sb.AppendLine( "--- END (total " + buf.Length + " bytes, " + Addr( baseAddr, 0 ) + " - " + Addr( baseAddr, (int)buf.Length - 1 ) + ") ---" );
       return sb.ToString();
+    }
+
+
+
+    /// <summary>
+    /// Map a screen-code byte back to a readable character for the
+    /// human-readable layout dump. Inverts <c>EmitMapStringTextChar</c>:
+    /// the per-project lowercase/uppercase/numbers offsets locate the
+    /// letter and digit blocks, and the fixed C64 punctuation positions
+    /// cover the rest. Bytes that don't match any known mapping fall
+    /// through to <c>?</c> so the user can see something happened
+    /// without the dump getting cluttered with raw hex.
+    /// </summary>
+    private static string ScreenCodeToReadableChar( byte b, int LowerStart, int UpperStart, int NumbersStart )
+    {
+      if ( LowerStart   <= b && b < LowerStart   + 26 ) return ( (char)( 'a' + b - LowerStart ) ).ToString();
+      if ( UpperStart   <= b && b < UpperStart   + 26 ) return ( (char)( 'A' + b - UpperStart ) ).ToString();
+      if ( NumbersStart <= b && b < NumbersStart + 10 ) return ( (char)( '0' + b - NumbersStart ) ).ToString();
+      switch ( b )
+      {
+        case 0x20: return " ";
+        case 0x21: return "!";
+        case 0x22: return "\"";
+        case 0x23: return "#";
+        case 0x24: return "$";
+        case 0x25: return "%";
+        case 0x26: return "&";
+        case 0x27: return "'";
+        case 0x28: return "(";
+        case 0x29: return ")";
+        case 0x2A: return "*";
+        case 0x2B: return "+";
+        case 0x2C: return ",";
+        case 0x2D: return "-";
+        case 0x2E: return ".";
+        case 0x2F: return "/";
+        case 0x3A: return ":";
+        case 0x3B: return ";";
+        case 0x3C: return "<";
+        case 0x3D: return "=";
+        case 0x3E: return ">";
+        case 0x3F: return "?";
+        case 0x00: return "@";
+        case 0x1B: return "[";
+        case 0x1D: return "]";
+      }
+      // Unknown screen code — show as $XX so the user can spot it.
+      return "$" + b.ToString( "X2" );
     }
 
 
