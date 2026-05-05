@@ -1,4 +1,4 @@
-﻿using RetroDevStudio.Documents;
+using RetroDevStudio.Documents;
 using RetroDevStudio.Formats;
 
 
@@ -48,5 +48,5 @@ namespace RetroDevStudio.Undo
       Editor.LayersChanged();
     }
   }
-  
+
 }

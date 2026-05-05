@@ -72,9 +72,21 @@
     public const ushort    SPRITESET_PROJECT              = 0x13E0;
     public const ushort    SPRITESET_INFO                 = 0x13E1;
     public const ushort    SPRITESET_SPRITE               = 0x13E2;
-    public const ushort    SPRITESET_LAYER                = 0x1400;
-    public const ushort    SPRITESET_LAYER_ENTRY          = 0x1401;
-    public const ushort    SPRITESET_LAYER_INFO           = 0x1402;
+    // 0x1400..0x1402 are abandoned (pre-overlay "Layer/LayerSprite" model).
+    // Do not reuse these numeric values — old project files emit them and a
+    // mistakenly-overlapping new chunk would silently misparse legacy bytes.
+    // Overlay-era replacements live at 0x1410..0x1413.
+    public const ushort    SPRITESET_LAYER_DEPRECATED     = 0x1400;
+    public const ushort    SPRITESET_LAYER_ENTRY_DEPRECATED = 0x1401;
+    public const ushort    SPRITESET_LAYER_INFO_DEPRECATED = 0x1402;
+    // Overlay model: per-project list of Overlay { Slots[8], Frames[] }.
+    // SPRITESET_OVERLAY is a container; INFO carries name+slot count;
+    // SLOT carries one of 8 fixed slots (enabled, X, Y, expand, colors);
+    // FRAME carries the 8 bank-index references + DelayMS for one frame.
+    public const ushort    SPRITESET_OVERLAY              = 0x1410;
+    public const ushort    SPRITESET_OVERLAY_INFO         = 0x1411;
+    public const ushort    SPRITESET_OVERLAY_SLOT         = 0x1412;
+    public const ushort    SPRITESET_OVERLAY_FRAME        = 0x1413;
 
     public const ushort    MULTICOLOR_DATA                = 0x1500;
     public const ushort    CHARSET_DATA                   = 0x1501;   // multicolor-data und binary data

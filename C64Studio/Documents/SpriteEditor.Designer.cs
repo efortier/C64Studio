@@ -36,6 +36,8 @@ namespace RetroDevStudio.Documents
       System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(SpriteEditor));
       GR.Image.FastImage fastImage1 = new GR.Image.FastImage();
       GR.Image.FastImage fastImage2 = new GR.Image.FastImage();
+      GR.Image.FastImage fastImage3 = new GR.Image.FastImage();
+      GR.Image.FastImage fastImage4 = new GR.Image.FastImage();
       this.tabSpriteEditor = new System.Windows.Forms.TabControl();
       this.tabEditor = new System.Windows.Forms.TabPage();
       this.editMoveTargetIndex = new System.Windows.Forms.TextBox();
@@ -50,6 +52,32 @@ namespace RetroDevStudio.Documents
       this.tabSpriteDetails = new System.Windows.Forms.TabControl();
       this.tabPage1 = new System.Windows.Forms.TabPage();
       this.panelSprites = new GR.Forms.ImageListbox();
+      this.tabPageOverlay = new System.Windows.Forms.TabPage();
+      this.btnAddOverlay = new DecentForms.Button();
+      this.btnRemoveOverlay = new DecentForms.Button();
+      this.listOverlays = new System.Windows.Forms.ListBox();
+      this.labelOverlayName = new System.Windows.Forms.Label();
+      this.editOverlayName = new System.Windows.Forms.TextBox();
+      this.panelOverlaySlots = new System.Windows.Forms.Panel();
+      this.picOverlayPreview = new GR.Forms.FastPictureBox();
+      this.btnOverlayZoomOut = new DecentForms.Button();
+      this.btnOverlayZoomIn = new DecentForms.Button();
+      this.labelOverlayZoom = new System.Windows.Forms.Label();
+      this.tabPageAnimation = new System.Windows.Forms.TabPage();
+      this.btnAddFrame = new DecentForms.Button();
+      this.btnRemoveFrame = new DecentForms.Button();
+      this.btnDuplicateFrame = new DecentForms.Button();
+      this.btnPlayAnim = new DecentForms.Button();
+      this.btnPauseAnim = new DecentForms.Button();
+      this.listAnimFrames = new System.Windows.Forms.ListBox();
+      this.labelFrameDelay = new System.Windows.Forms.Label();
+      this.editFrameDelay = new System.Windows.Forms.NumericUpDown();
+      this.btnApplyDelayToAll = new DecentForms.Button();
+      this.panelFrameSlots = new System.Windows.Forms.Panel();
+      this.picAnimPreview = new GR.Forms.FastPictureBox();
+      this.btnAnimZoomOut = new DecentForms.Button();
+      this.btnAnimZoomIn = new DecentForms.Button();
+      this.labelAnimZoom = new System.Windows.Forms.Label();
       this.tabPage2 = new System.Windows.Forms.TabPage();
       this.btnSavePreviewToGIF = new DecentForms.Button();
       this.checkAutoplayAnim = new System.Windows.Forms.CheckBox();
@@ -74,6 +102,8 @@ namespace RetroDevStudio.Documents
       this.layerPreview = new GR.Forms.FastPictureBox();
       this.btnClearSprite = new DecentForms.Button();
       this.btnDeleteSprite = new DecentForms.Button();
+      this.btnBankCopy = new DecentForms.Button();
+      this.btnBankPaste = new DecentForms.Button();
       this.btnInvert = new DecentForms.Button();
       this.btnMirrorY = new DecentForms.Button();
       this.btnMirrorX = new DecentForms.Button();
@@ -162,6 +192,11 @@ namespace RetroDevStudio.Documents
       this.tabEditor.SuspendLayout();
       this.tabSpriteDetails.SuspendLayout();
       this.tabPage1.SuspendLayout();
+      this.tabPageOverlay.SuspendLayout();
+      ((System.ComponentModel.ISupportInitialize)(this.picOverlayPreview)).BeginInit();
+      this.tabPageAnimation.SuspendLayout();
+      ((System.ComponentModel.ISupportInitialize)(this.editFrameDelay)).BeginInit();
+      ((System.ComponentModel.ISupportInitialize)(this.picAnimPreview)).BeginInit();
       this.tabPage2.SuspendLayout();
       ((System.ComponentModel.ISupportInitialize)(this.layerPreview)).BeginInit();
       ((System.ComponentModel.ISupportInitialize)(this.pictureEditor)).BeginInit();
@@ -197,6 +232,8 @@ namespace RetroDevStudio.Documents
       this.tabEditor.Controls.Add(this.tabSpriteDetails);
       this.tabEditor.Controls.Add(this.btnClearSprite);
       this.tabEditor.Controls.Add(this.btnDeleteSprite);
+      this.tabEditor.Controls.Add(this.btnBankCopy);
+      this.tabEditor.Controls.Add(this.btnBankPaste);
       this.tabEditor.Controls.Add(this.btnInvert);
       this.tabEditor.Controls.Add(this.btnMirrorY);
       this.tabEditor.Controls.Add(this.btnMirrorX);
@@ -326,6 +363,8 @@ namespace RetroDevStudio.Documents
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
       this.tabSpriteDetails.Controls.Add(this.tabPage1);
+      this.tabSpriteDetails.Controls.Add(this.tabPageOverlay);
+      this.tabSpriteDetails.Controls.Add(this.tabPageAnimation);
       this.tabSpriteDetails.Controls.Add(this.tabPage2);
       this.tabSpriteDetails.Location = new System.Drawing.Point(480, 2);
       this.tabSpriteDetails.Name = "tabSpriteDetails";
@@ -373,9 +412,351 @@ namespace RetroDevStudio.Documents
       this.panelSprites.SelectedIndexChanged += new System.EventHandler(this.panelSprites_SelectedIndexChanged);
       this.panelSprites.SelectionChanged += new System.EventHandler(this.panelSprites_SelectionChanged);
       this.panelSprites.ClientSizeChanged += new System.EventHandler(this.panelSprites_ClientSizeChanged);
-      // 
+      //
+      // tabPageOverlay
+      //
+      this.tabPageOverlay.Controls.Add(this.btnAddOverlay);
+      this.tabPageOverlay.Controls.Add(this.btnRemoveOverlay);
+      this.tabPageOverlay.Controls.Add(this.listOverlays);
+      this.tabPageOverlay.Controls.Add(this.labelOverlayName);
+      this.tabPageOverlay.Controls.Add(this.editOverlayName);
+      this.tabPageOverlay.Controls.Add(this.panelOverlaySlots);
+      this.tabPageOverlay.Controls.Add(this.picOverlayPreview);
+      this.tabPageOverlay.Controls.Add(this.btnOverlayZoomOut);
+      this.tabPageOverlay.Controls.Add(this.btnOverlayZoomIn);
+      this.tabPageOverlay.Controls.Add(this.labelOverlayZoom);
+      this.tabPageOverlay.Location = new System.Drawing.Point(4, 22);
+      this.tabPageOverlay.Name = "tabPageOverlay";
+      this.tabPageOverlay.Padding = new System.Windows.Forms.Padding(3);
+      this.tabPageOverlay.Size = new System.Drawing.Size(491, 537);
+      this.tabPageOverlay.TabIndex = 2;
+      this.tabPageOverlay.Text = "Overlay";
+      this.tabPageOverlay.UseVisualStyleBackColor = true;
+      //
+      // btnAddOverlay
+      //
+      this.btnAddOverlay.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+      this.btnAddOverlay.BorderStyle = DecentForms.BorderStyle.FLAT;
+      this.btnAddOverlay.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+      this.btnAddOverlay.DialogResult = System.Windows.Forms.DialogResult.OK;
+      this.btnAddOverlay.Image = null;
+      this.btnAddOverlay.Location = new System.Drawing.Point(5, 5);
+      this.btnAddOverlay.Name = "btnAddOverlay";
+      this.btnAddOverlay.Size = new System.Drawing.Size(60, 23);
+      this.btnAddOverlay.TabIndex = 0;
+      this.btnAddOverlay.Text = "Add";
+      this.btnAddOverlay.Click += new DecentForms.EventHandler(this.btnAddOverlay_Click);
+      //
+      // btnRemoveOverlay
+      //
+      this.btnRemoveOverlay.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+      this.btnRemoveOverlay.BorderStyle = DecentForms.BorderStyle.FLAT;
+      this.btnRemoveOverlay.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+      this.btnRemoveOverlay.DialogResult = System.Windows.Forms.DialogResult.OK;
+      this.btnRemoveOverlay.Enabled = false;
+      this.btnRemoveOverlay.Image = null;
+      this.btnRemoveOverlay.Location = new System.Drawing.Point(68, 5);
+      this.btnRemoveOverlay.Name = "btnRemoveOverlay";
+      this.btnRemoveOverlay.Size = new System.Drawing.Size(60, 23);
+      this.btnRemoveOverlay.TabIndex = 1;
+      this.btnRemoveOverlay.Text = "Remove";
+      this.btnRemoveOverlay.Click += new DecentForms.EventHandler(this.btnRemoveOverlay_Click);
+      //
+      // listOverlays
+      //
+      this.listOverlays.FormattingEnabled = true;
+      this.listOverlays.IntegralHeight = false;
+      this.listOverlays.Location = new System.Drawing.Point(5, 33);
+      this.listOverlays.Name = "listOverlays";
+      this.listOverlays.Size = new System.Drawing.Size(130, 470);
+      this.listOverlays.TabIndex = 2;
+      this.listOverlays.SelectedIndexChanged += new System.EventHandler(this.listOverlays_SelectedIndexChanged);
+      //
+      // labelOverlayName
+      //
+      this.labelOverlayName.AutoSize = true;
+      this.labelOverlayName.Location = new System.Drawing.Point(140, 9);
+      this.labelOverlayName.Name = "labelOverlayName";
+      this.labelOverlayName.Size = new System.Drawing.Size(38, 13);
+      this.labelOverlayName.TabIndex = 3;
+      this.labelOverlayName.Text = "Name:";
+      //
+      // editOverlayName
+      //
+      this.editOverlayName.Location = new System.Drawing.Point(180, 6);
+      this.editOverlayName.Name = "editOverlayName";
+      this.editOverlayName.Size = new System.Drawing.Size(200, 20);
+      this.editOverlayName.TabIndex = 4;
+      this.editOverlayName.TextChanged += new System.EventHandler(this.editOverlayName_TextChanged);
+      //
+      // panelOverlaySlots
+      //
+      // Host for the 8 fixed slot rows. Per CLAUDE.md the rows are
+      // identical and 8-of-them is repetitive; they're built in code at
+      // construction time inside this Designer-authored container. The
+      // container has fixed layout (absolute positioning), so the per-row
+      // overlap audit reduces to "row N at y = N * rowHeight, all rows
+      // share width — no overlap by construction."
+      this.panelOverlaySlots.Location = new System.Drawing.Point(140, 33);
+      this.panelOverlaySlots.Name = "panelOverlaySlots";
+      this.panelOverlaySlots.Size = new System.Drawing.Size(345, 180);
+      this.panelOverlaySlots.TabIndex = 5;
+      //
+      // picOverlayPreview
+      //
+      this.picOverlayPreview.AutoResize = false;
+      this.picOverlayPreview.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+      this.picOverlayPreview.DisplayPage = fastImage3;
+      this.picOverlayPreview.Image = null;
+      this.picOverlayPreview.Location = new System.Drawing.Point(140, 220);
+      this.picOverlayPreview.Name = "picOverlayPreview";
+      this.picOverlayPreview.Size = new System.Drawing.Size(320, 240);
+      this.picOverlayPreview.TabIndex = 6;
+      this.picOverlayPreview.TabStop = false;
+      //
+      // btnOverlayZoomOut
+      //
+      this.btnOverlayZoomOut.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+      this.btnOverlayZoomOut.BorderStyle = DecentForms.BorderStyle.FLAT;
+      this.btnOverlayZoomOut.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+      this.btnOverlayZoomOut.DialogResult = System.Windows.Forms.DialogResult.OK;
+      this.btnOverlayZoomOut.Image = null;
+      this.btnOverlayZoomOut.Location = new System.Drawing.Point(140, 465);
+      this.btnOverlayZoomOut.Name = "btnOverlayZoomOut";
+      this.btnOverlayZoomOut.Size = new System.Drawing.Size(30, 23);
+      this.btnOverlayZoomOut.TabIndex = 7;
+      this.btnOverlayZoomOut.Text = "-";
+      this.toolTip1.SetToolTip(this.btnOverlayZoomOut, "Zoom out");
+      this.btnOverlayZoomOut.Click += new DecentForms.EventHandler(this.btnOverlayZoomOut_Click);
+      //
+      // btnOverlayZoomIn
+      //
+      this.btnOverlayZoomIn.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+      this.btnOverlayZoomIn.BorderStyle = DecentForms.BorderStyle.FLAT;
+      this.btnOverlayZoomIn.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+      this.btnOverlayZoomIn.DialogResult = System.Windows.Forms.DialogResult.OK;
+      this.btnOverlayZoomIn.Image = null;
+      this.btnOverlayZoomIn.Location = new System.Drawing.Point(175, 465);
+      this.btnOverlayZoomIn.Name = "btnOverlayZoomIn";
+      this.btnOverlayZoomIn.Size = new System.Drawing.Size(30, 23);
+      this.btnOverlayZoomIn.TabIndex = 8;
+      this.btnOverlayZoomIn.Text = "+";
+      this.toolTip1.SetToolTip(this.btnOverlayZoomIn, "Zoom in");
+      this.btnOverlayZoomIn.Click += new DecentForms.EventHandler(this.btnOverlayZoomIn_Click);
+      //
+      // labelOverlayZoom
+      //
+      this.labelOverlayZoom.AutoSize = true;
+      this.labelOverlayZoom.Location = new System.Drawing.Point(215, 470);
+      this.labelOverlayZoom.Name = "labelOverlayZoom";
+      this.labelOverlayZoom.Size = new System.Drawing.Size(50, 13);
+      this.labelOverlayZoom.TabIndex = 9;
+      this.labelOverlayZoom.Text = "Zoom: 1x";
+      //
+      // tabPageAnimation
+      //
+      this.tabPageAnimation.Controls.Add(this.btnAddFrame);
+      this.tabPageAnimation.Controls.Add(this.btnRemoveFrame);
+      this.tabPageAnimation.Controls.Add(this.btnDuplicateFrame);
+      this.tabPageAnimation.Controls.Add(this.btnPlayAnim);
+      this.tabPageAnimation.Controls.Add(this.btnPauseAnim);
+      this.tabPageAnimation.Controls.Add(this.listAnimFrames);
+      this.tabPageAnimation.Controls.Add(this.labelFrameDelay);
+      this.tabPageAnimation.Controls.Add(this.editFrameDelay);
+      this.tabPageAnimation.Controls.Add(this.btnApplyDelayToAll);
+      this.tabPageAnimation.Controls.Add(this.panelFrameSlots);
+      this.tabPageAnimation.Controls.Add(this.picAnimPreview);
+      this.tabPageAnimation.Controls.Add(this.btnAnimZoomOut);
+      this.tabPageAnimation.Controls.Add(this.btnAnimZoomIn);
+      this.tabPageAnimation.Controls.Add(this.labelAnimZoom);
+      this.tabPageAnimation.Location = new System.Drawing.Point(4, 22);
+      this.tabPageAnimation.Name = "tabPageAnimation";
+      this.tabPageAnimation.Padding = new System.Windows.Forms.Padding(3);
+      this.tabPageAnimation.Size = new System.Drawing.Size(491, 537);
+      this.tabPageAnimation.TabIndex = 3;
+      this.tabPageAnimation.Text = "Animation";
+      this.tabPageAnimation.UseVisualStyleBackColor = true;
+      //
+      // btnAddFrame
+      //
+      this.btnAddFrame.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+      this.btnAddFrame.BorderStyle = DecentForms.BorderStyle.FLAT;
+      this.btnAddFrame.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+      this.btnAddFrame.DialogResult = System.Windows.Forms.DialogResult.OK;
+      this.btnAddFrame.Image = null;
+      this.btnAddFrame.Location = new System.Drawing.Point(5, 5);
+      this.btnAddFrame.Name = "btnAddFrame";
+      this.btnAddFrame.Size = new System.Drawing.Size(60, 23);
+      this.btnAddFrame.TabIndex = 0;
+      this.btnAddFrame.Text = "Add";
+      this.btnAddFrame.Click += new DecentForms.EventHandler(this.btnAddFrame_Click);
+      //
+      // btnRemoveFrame
+      //
+      this.btnRemoveFrame.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+      this.btnRemoveFrame.BorderStyle = DecentForms.BorderStyle.FLAT;
+      this.btnRemoveFrame.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+      this.btnRemoveFrame.DialogResult = System.Windows.Forms.DialogResult.OK;
+      this.btnRemoveFrame.Enabled = false;
+      this.btnRemoveFrame.Image = null;
+      this.btnRemoveFrame.Location = new System.Drawing.Point(68, 5);
+      this.btnRemoveFrame.Name = "btnRemoveFrame";
+      this.btnRemoveFrame.Size = new System.Drawing.Size(60, 23);
+      this.btnRemoveFrame.TabIndex = 1;
+      this.btnRemoveFrame.Text = "Remove";
+      this.btnRemoveFrame.Click += new DecentForms.EventHandler(this.btnRemoveFrame_Click);
+      //
+      // btnDuplicateFrame
+      //
+      this.btnDuplicateFrame.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+      this.btnDuplicateFrame.BorderStyle = DecentForms.BorderStyle.FLAT;
+      this.btnDuplicateFrame.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+      this.btnDuplicateFrame.DialogResult = System.Windows.Forms.DialogResult.OK;
+      this.btnDuplicateFrame.Enabled = false;
+      this.btnDuplicateFrame.Image = null;
+      this.btnDuplicateFrame.Location = new System.Drawing.Point(131, 5);
+      this.btnDuplicateFrame.Name = "btnDuplicateFrame";
+      this.btnDuplicateFrame.Size = new System.Drawing.Size(80, 23);
+      this.btnDuplicateFrame.TabIndex = 2;
+      this.btnDuplicateFrame.Text = "Duplicate";
+      this.btnDuplicateFrame.Click += new DecentForms.EventHandler(this.btnDuplicateFrame_Click);
+      //
+      // btnPlayAnim
+      //
+      this.btnPlayAnim.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+      this.btnPlayAnim.BorderStyle = DecentForms.BorderStyle.FLAT;
+      this.btnPlayAnim.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+      this.btnPlayAnim.DialogResult = System.Windows.Forms.DialogResult.OK;
+      this.btnPlayAnim.Image = null;
+      this.btnPlayAnim.Location = new System.Drawing.Point(340, 5);
+      this.btnPlayAnim.Name = "btnPlayAnim";
+      this.btnPlayAnim.Size = new System.Drawing.Size(60, 23);
+      this.btnPlayAnim.TabIndex = 3;
+      this.btnPlayAnim.Text = "Play";
+      this.btnPlayAnim.Click += new DecentForms.EventHandler(this.btnPlayAnim_Click);
+      //
+      // btnPauseAnim
+      //
+      this.btnPauseAnim.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+      this.btnPauseAnim.BorderStyle = DecentForms.BorderStyle.FLAT;
+      this.btnPauseAnim.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+      this.btnPauseAnim.DialogResult = System.Windows.Forms.DialogResult.OK;
+      this.btnPauseAnim.Enabled = false;
+      this.btnPauseAnim.Image = null;
+      this.btnPauseAnim.Location = new System.Drawing.Point(403, 5);
+      this.btnPauseAnim.Name = "btnPauseAnim";
+      this.btnPauseAnim.Size = new System.Drawing.Size(60, 23);
+      this.btnPauseAnim.TabIndex = 4;
+      this.btnPauseAnim.Text = "Pause";
+      this.btnPauseAnim.Click += new DecentForms.EventHandler(this.btnPauseAnim_Click);
+      //
+      // listAnimFrames
+      //
+      this.listAnimFrames.FormattingEnabled = true;
+      this.listAnimFrames.IntegralHeight = false;
+      this.listAnimFrames.Location = new System.Drawing.Point(5, 33);
+      this.listAnimFrames.Name = "listAnimFrames";
+      this.listAnimFrames.Size = new System.Drawing.Size(130, 300);
+      this.listAnimFrames.TabIndex = 5;
+      this.listAnimFrames.SelectedIndexChanged += new System.EventHandler(this.listAnimFrames_SelectedIndexChanged);
+      //
+      // labelFrameDelay
+      //
+      this.labelFrameDelay.AutoSize = true;
+      this.labelFrameDelay.Location = new System.Drawing.Point(140, 38);
+      this.labelFrameDelay.Name = "labelFrameDelay";
+      this.labelFrameDelay.Size = new System.Drawing.Size(63, 13);
+      this.labelFrameDelay.TabIndex = 6;
+      this.labelFrameDelay.Text = "Delay (ms):";
+      //
+      // editFrameDelay
+      //
+      this.editFrameDelay.Location = new System.Drawing.Point(210, 35);
+      this.editFrameDelay.Maximum = new decimal(new int[] { 60000, 0, 0, 0 });
+      this.editFrameDelay.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+      this.editFrameDelay.Name = "editFrameDelay";
+      this.editFrameDelay.Size = new System.Drawing.Size(80, 20);
+      this.editFrameDelay.TabIndex = 7;
+      this.editFrameDelay.Value = new decimal(new int[] { 100, 0, 0, 0 });
+      this.editFrameDelay.ValueChanged += new System.EventHandler(this.editFrameDelay_ValueChanged);
+      //
+      // btnApplyDelayToAll
+      //
+      this.btnApplyDelayToAll.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+      this.btnApplyDelayToAll.BorderStyle = DecentForms.BorderStyle.FLAT;
+      this.btnApplyDelayToAll.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+      this.btnApplyDelayToAll.DialogResult = System.Windows.Forms.DialogResult.OK;
+      this.btnApplyDelayToAll.Image = null;
+      this.btnApplyDelayToAll.Location = new System.Drawing.Point(295, 33);
+      this.btnApplyDelayToAll.Name = "btnApplyDelayToAll";
+      this.btnApplyDelayToAll.Size = new System.Drawing.Size(100, 23);
+      this.btnApplyDelayToAll.TabIndex = 10;
+      this.btnApplyDelayToAll.Text = "Apply to all";
+      this.toolTip1.SetToolTip(this.btnApplyDelayToAll, "Set every frame in the current overlay to the delay shown above.");
+      this.btnApplyDelayToAll.Click += new DecentForms.EventHandler(this.btnApplyDelayToAll_Click);
+      //
+      // panelFrameSlots
+      //
+      // Host for 8 fixed slot bank-index NUDs. Same pattern as
+      // panelOverlaySlots — rows are identical and built in code.
+      this.panelFrameSlots.Location = new System.Drawing.Point(140, 65);
+      this.panelFrameSlots.Name = "panelFrameSlots";
+      this.panelFrameSlots.Size = new System.Drawing.Size(200, 180);
+      this.panelFrameSlots.TabIndex = 8;
+      //
+      // picAnimPreview
+      //
+      this.picAnimPreview.AutoResize = false;
+      this.picAnimPreview.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+      this.picAnimPreview.DisplayPage = fastImage4;
+      this.picAnimPreview.Image = null;
+      this.picAnimPreview.Location = new System.Drawing.Point(140, 260);
+      this.picAnimPreview.Name = "picAnimPreview";
+      this.picAnimPreview.Size = new System.Drawing.Size(320, 240);
+      this.picAnimPreview.TabIndex = 9;
+      this.picAnimPreview.TabStop = false;
+      //
+      // btnAnimZoomOut
+      //
+      this.btnAnimZoomOut.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+      this.btnAnimZoomOut.BorderStyle = DecentForms.BorderStyle.FLAT;
+      this.btnAnimZoomOut.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+      this.btnAnimZoomOut.DialogResult = System.Windows.Forms.DialogResult.OK;
+      this.btnAnimZoomOut.Image = null;
+      this.btnAnimZoomOut.Location = new System.Drawing.Point(140, 505);
+      this.btnAnimZoomOut.Name = "btnAnimZoomOut";
+      this.btnAnimZoomOut.Size = new System.Drawing.Size(30, 23);
+      this.btnAnimZoomOut.TabIndex = 11;
+      this.btnAnimZoomOut.Text = "-";
+      this.toolTip1.SetToolTip(this.btnAnimZoomOut, "Zoom out");
+      this.btnAnimZoomOut.Click += new DecentForms.EventHandler(this.btnAnimZoomOut_Click);
+      //
+      // btnAnimZoomIn
+      //
+      this.btnAnimZoomIn.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+      this.btnAnimZoomIn.BorderStyle = DecentForms.BorderStyle.FLAT;
+      this.btnAnimZoomIn.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+      this.btnAnimZoomIn.DialogResult = System.Windows.Forms.DialogResult.OK;
+      this.btnAnimZoomIn.Image = null;
+      this.btnAnimZoomIn.Location = new System.Drawing.Point(175, 505);
+      this.btnAnimZoomIn.Name = "btnAnimZoomIn";
+      this.btnAnimZoomIn.Size = new System.Drawing.Size(30, 23);
+      this.btnAnimZoomIn.TabIndex = 12;
+      this.btnAnimZoomIn.Text = "+";
+      this.toolTip1.SetToolTip(this.btnAnimZoomIn, "Zoom in");
+      this.btnAnimZoomIn.Click += new DecentForms.EventHandler(this.btnAnimZoomIn_Click);
+      //
+      // labelAnimZoom
+      //
+      this.labelAnimZoom.AutoSize = true;
+      this.labelAnimZoom.Location = new System.Drawing.Point(215, 510);
+      this.labelAnimZoom.Name = "labelAnimZoom";
+      this.labelAnimZoom.Size = new System.Drawing.Size(50, 13);
+      this.labelAnimZoom.TabIndex = 13;
+      this.labelAnimZoom.Text = "Zoom: 1x";
+      //
       // tabPage2
-      // 
+      //
       this.tabPage2.Controls.Add(this.btnSavePreviewToGIF);
       this.tabPage2.Controls.Add(this.checkAutoplayAnim);
       this.tabPage2.Controls.Add(this.label9);
@@ -693,9 +1074,41 @@ namespace RetroDevStudio.Documents
       this.btnDeleteSprite.TabIndex = 15;
       this.btnDeleteSprite.Text = "Delete";
       this.btnDeleteSprite.Click += new DecentForms.EventHandler(this.btnDeleteSprite_Click);
-      // 
+      //
+      // btnBankCopy
+      //
+      this.btnBankCopy.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+      this.btnBankCopy.BorderStyle = DecentForms.BorderStyle.FLAT;
+      this.btnBankCopy.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+      this.btnBankCopy.DialogResult = System.Windows.Forms.DialogResult.OK;
+      this.btnBankCopy.Enabled = false;
+      this.btnBankCopy.Image = null;
+      this.btnBankCopy.Location = new System.Drawing.Point(269, 595);
+      this.btnBankCopy.Name = "btnBankCopy";
+      this.btnBankCopy.Size = new System.Drawing.Size(57, 23);
+      this.btnBankCopy.TabIndex = 63;
+      this.btnBankCopy.Text = "Bank Cp";
+      this.toolTip1.SetToolTip(this.btnBankCopy, "Copy the selected bank sprites to an in-process clipboard.");
+      this.btnBankCopy.Click += new DecentForms.EventHandler(this.btnBankCopy_Click);
+      //
+      // btnBankPaste
+      //
+      this.btnBankPaste.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+      this.btnBankPaste.BorderStyle = DecentForms.BorderStyle.FLAT;
+      this.btnBankPaste.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+      this.btnBankPaste.DialogResult = System.Windows.Forms.DialogResult.OK;
+      this.btnBankPaste.Enabled = false;
+      this.btnBankPaste.Image = null;
+      this.btnBankPaste.Location = new System.Drawing.Point(333, 595);
+      this.btnBankPaste.Name = "btnBankPaste";
+      this.btnBankPaste.Size = new System.Drawing.Size(57, 23);
+      this.btnBankPaste.TabIndex = 64;
+      this.btnBankPaste.Text = "Bank Pst";
+      this.toolTip1.SetToolTip(this.btnBankPaste, "Paste the in-process clipboard onto the bank starting at the current selection.");
+      this.btnBankPaste.Click += new DecentForms.EventHandler(this.btnBankPaste_Click);
+      //
       // btnInvert
-      // 
+      //
       this.btnInvert.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
       this.btnInvert.BorderStyle = DecentForms.BorderStyle.FLAT;
       this.btnInvert.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
@@ -1453,6 +1866,13 @@ namespace RetroDevStudio.Documents
       this.tabEditor.PerformLayout();
       this.tabSpriteDetails.ResumeLayout(false);
       this.tabPage1.ResumeLayout(false);
+      this.tabPageOverlay.ResumeLayout(false);
+      this.tabPageOverlay.PerformLayout();
+      ((System.ComponentModel.ISupportInitialize)(this.picOverlayPreview)).EndInit();
+      this.tabPageAnimation.ResumeLayout(false);
+      this.tabPageAnimation.PerformLayout();
+      ((System.ComponentModel.ISupportInitialize)(this.editFrameDelay)).EndInit();
+      ((System.ComponentModel.ISupportInitialize)(this.picAnimPreview)).EndInit();
       this.tabPage2.ResumeLayout(false);
       this.tabPage2.PerformLayout();
       ((System.ComponentModel.ISupportInitialize)(this.layerPreview)).EndInit();
@@ -1592,5 +2012,33 @@ namespace RetroDevStudio.Documents
     private System.Windows.Forms.Label labelSelectionInfo;
     private System.Windows.Forms.TextBox editMoveTargetIndex;
     private DecentForms.Button btnMoveSelectionToTarget;
+    private DecentForms.Button btnBankCopy;
+    private DecentForms.Button btnBankPaste;
+    private System.Windows.Forms.TabPage tabPageOverlay;
+    private DecentForms.Button btnAddOverlay;
+    private DecentForms.Button btnRemoveOverlay;
+    private System.Windows.Forms.ListBox listOverlays;
+    private System.Windows.Forms.Label labelOverlayName;
+    private System.Windows.Forms.TextBox editOverlayName;
+    private System.Windows.Forms.Panel panelOverlaySlots;
+    private GR.Forms.FastPictureBox picOverlayPreview;
+    private DecentForms.Button btnOverlayZoomOut;
+    private DecentForms.Button btnOverlayZoomIn;
+    private System.Windows.Forms.Label labelOverlayZoom;
+    private System.Windows.Forms.TabPage tabPageAnimation;
+    private DecentForms.Button btnAddFrame;
+    private DecentForms.Button btnRemoveFrame;
+    private DecentForms.Button btnDuplicateFrame;
+    private DecentForms.Button btnPlayAnim;
+    private DecentForms.Button btnPauseAnim;
+    private System.Windows.Forms.ListBox listAnimFrames;
+    private System.Windows.Forms.Label labelFrameDelay;
+    private System.Windows.Forms.NumericUpDown editFrameDelay;
+    private DecentForms.Button btnApplyDelayToAll;
+    private System.Windows.Forms.Panel panelFrameSlots;
+    private GR.Forms.FastPictureBox picAnimPreview;
+    private DecentForms.Button btnAnimZoomOut;
+    private DecentForms.Button btnAnimZoomIn;
+    private System.Windows.Forms.Label labelAnimZoom;
   }
 }

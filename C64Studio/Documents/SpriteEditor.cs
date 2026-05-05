@@ -34,6 +34,41 @@ namespace RetroDevStudio.Documents
 
     private Formats.SpriteProject.Layer m_CurrentLayer = null;
 
+    // Overlay-tab state. m_CurrentOverlay tracks the user-selected overlay
+    // for the new multi-overlay UI (Phase 2). The 8 slot-row arrays hold
+    // the per-row controls created by BuildOverlaySlotRows() at construction
+    // time — one set per fixed slot 0..7.
+    private Formats.SpriteProject.Overlay  m_CurrentOverlay = null;
+    private System.Windows.Forms.CheckBox[]      m_SlotEnabled       = new System.Windows.Forms.CheckBox[8];
+    private System.Windows.Forms.NumericUpDown[] m_SlotX             = new System.Windows.Forms.NumericUpDown[8];
+    private System.Windows.Forms.NumericUpDown[] m_SlotY             = new System.Windows.Forms.NumericUpDown[8];
+    private System.Windows.Forms.NumericUpDown[] m_SlotBank          = new System.Windows.Forms.NumericUpDown[8];
+    private System.Windows.Forms.ComboBox[]      m_SlotCustomColor   = new System.Windows.Forms.ComboBox[8];
+
+    // Bank-to-bank in-process clipboard (Phase 3). Cleared on Copy with
+    // the multi-selection's deep-cloned SpriteData. Paste writes them
+    // sequentially starting at the first selected bank index, wrapping
+    // would overwrite existing entries — guarded by the Sprites.Count.
+    private List<Formats.SpriteProject.SpriteData> m_BankClipboard = new List<Formats.SpriteProject.SpriteData>();
+
+    // Animation tab (Phase 4). m_CurrentFrame is the user-selected frame
+    // in the current overlay's Frames list; the 8 NUDs hold the per-slot
+    // bank index for that frame. Playback timer ticks at 100ms; each
+    // tick increments m_AnimFrameTicksOverlay by 100 and advances when
+    // it crosses the current frame's DelayMS.
+    private Formats.SpriteProject.OverlayFrame    m_CurrentFrame = null;
+    private System.Windows.Forms.NumericUpDown[] m_FrameSlotBank = new System.Windows.Forms.NumericUpDown[8];
+    private System.Windows.Forms.Timer           m_OverlayAnimTimer = new System.Windows.Forms.Timer();
+    private int                                  m_OverlayAnimFramePos = 0;
+    private int                                  m_OverlayAnimFrameTicks = 0;
+
+    // Preview zoom factors. The picture box stretches its DisplayPage
+    // to fill the client area, so a smaller page = larger apparent
+    // sprites. Default 1x means the page is the box's client size and
+    // sprites render 1:1; at 2x the page is half-size and stretches up.
+    private int                                  m_OverlayPreviewZoom = 1;
+    private int                                  m_AnimPreviewZoom    = 1;
+
     private bool                        m_ButtonReleased = false;
 
     private ToolMode                    m_Mode = ToolMode.SINGLE_PIXEL;
@@ -184,6 +219,12 @@ namespace RetroDevStudio.Documents
       m_AnimTimer.Tick += animTimer_Tick;
       AdjustSpriteSizes();
       UpdateSpriteSelectionInfo();
+
+      BuildOverlaySlotRows();
+      BuildFrameSlotControls();
+      m_OverlayAnimTimer.Interval = 100;
+      m_OverlayAnimTimer.Tick    += overlayAnimTimer_Tick;
+      RefreshOverlaysList();
       ResumeLayout();
     }
 
@@ -857,6 +898,12 @@ namespace RetroDevStudio.Documents
       }
       OnPaletteChanged();
       _ColorSettingsDlg.ActivePalette = m_SpriteProject.Sprites[m_CurrentSprite].Tile.Colors.ActivePalette;
+
+      // Refresh the new Overlay tab from the freshly-loaded project. The
+      // constructor's RefreshOverlaysList() ran against the empty default
+      // project before ReadFromBuffer populated Overlays, so without this
+      // call the listbox stays empty until the user clicks Add.
+      RefreshOverlaysList();
 
       Modified = false;
 
@@ -3773,6 +3820,59 @@ namespace RetroDevStudio.Documents
       int   numSelectedSprites = panelSprites.SelectedIndices.Count;
 
       labelSelectionInfo.Text = $"Selected {numSelectedSprites} sprites";
+      btnBankCopy.Enabled  = ( numSelectedSprites > 0 );
+      btnBankPaste.Enabled = ( numSelectedSprites > 0 ) && ( m_BankClipboard.Count > 0 );
+    }
+
+
+
+    private void btnBankCopy_Click( DecentForms.ControlBase Sender )
+    {
+      var selected = panelSprites.SelectedIndices;
+      if ( ( selected == null ) || ( selected.Count == 0 ) ) return;
+
+      m_BankClipboard.Clear();
+      foreach ( var idx in selected )
+      {
+        if ( idx < 0 || idx >= m_SpriteProject.Sprites.Count ) continue;
+        // Deep-clone via the SpriteData copy constructor — gives us our
+        // own GraphicTile, so subsequent edits to the source bank don't
+        // bleed into the clipboard buffer.
+        m_BankClipboard.Add( new Formats.SpriteProject.SpriteData( m_SpriteProject.Sprites[idx] ) );
+      }
+      btnBankPaste.Enabled = ( m_BankClipboard.Count > 0 );
+    }
+
+
+
+    private void btnBankPaste_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_BankClipboard.Count == 0 ) return;
+
+      int firstSel = panelSprites.SelectedIndex;
+      if ( firstSel < 0 ) firstSel = 0;
+
+      DocumentInfo.UndoManager.StartUndoGroup();
+      bool firstUndo = true;
+      for ( int i = 0; i < m_BankClipboard.Count; ++i )
+      {
+        int target = firstSel + i;
+        if ( target >= m_SpriteProject.Sprites.Count ) break;
+
+        DocumentInfo.UndoManager.AddGroupedUndoTask( new Undo.UndoSpritesetSpriteChange( this, m_SpriteProject, target ) );
+        firstUndo = false;
+
+        // Replace the bank entry with a fresh deep-clone of the clipboard
+        // entry so further pastes from the same buffer don't share state
+        // with the bank.
+        m_SpriteProject.Sprites[target] = new Formats.SpriteProject.SpriteData( m_BankClipboard[i] );
+        // The panelSprites Items collection holds a reference to the
+        // sprite's image; rebind so the grid renders the new content.
+        panelSprites.Items[target].MemoryImage = m_SpriteProject.Sprites[target].Tile.Image;
+        SpriteChanged( target );
+      }
+      RebuildOverlayPreview();
+      SetModified();
     }
 
 
@@ -3926,6 +4026,886 @@ namespace RetroDevStudio.Documents
       // we use active client size, since we want to avoid distorted display (e.g. odd client size can't map *2 factors nicely)
       panelSprites.SetDisplaySize( newWidth / 2, newHeight / 2 );
       panelSprites.SetActiveClientSize( newWidth, newHeight );
+    }
+
+
+
+    // -------- Overlay tab (Phase 2) --------
+
+    /// <summary>
+    /// Build the 8 fixed slot rows inside panelOverlaySlots at construction
+    /// time. The row-building exception in CLAUDE.md applies — 8 identical
+    /// slot rows are repetitive enough that authoring them in code (inside
+    /// a Designer-authored container Panel) is cleaner than 56 explicit
+    /// designer fields. All rows share the same X coordinates, sequential
+    /// Y offsets, and identical widths — overlap-free by construction.
+    /// </summary>
+    private void BuildOverlaySlotRows()
+    {
+      const int rowHeight = 22;
+      const int rowY0     = 4;
+
+      panelOverlaySlots.Controls.Clear();
+
+      // Tightened row layout to make room for a wider color combo at
+      // the right end (the 35 px combo was too narrow for the swatch
+      // plus the dropdown arrow). Combo is now 65 px so the swatch is
+      // legible. All other column widths trimmed slightly to fit
+      // within panelOverlaySlots' 345 px width.
+      for ( int i = 0; i < 8; ++i )
+      {
+        int y = rowY0 + i * rowHeight;
+
+        var lbl = new System.Windows.Forms.Label();
+        lbl.AutoSize = true;
+        lbl.Location = new System.Drawing.Point( 0, y + 4 );
+        lbl.Text     = "Slot " + i + ":";
+        panelOverlaySlots.Controls.Add( lbl );
+
+        var chkEnabled = new System.Windows.Forms.CheckBox();
+        chkEnabled.AutoSize = false;
+        chkEnabled.Size     = new System.Drawing.Size( 18, 18 );
+        chkEnabled.Location = new System.Drawing.Point( 42, y + 1 );
+        chkEnabled.Tag      = i;
+        chkEnabled.CheckedChanged += slotEnabled_CheckedChanged;
+        panelOverlaySlots.Controls.Add( chkEnabled );
+        m_SlotEnabled[i] = chkEnabled;
+
+        var lblX = new System.Windows.Forms.Label();
+        lblX.AutoSize = true;
+        lblX.Location = new System.Drawing.Point( 64, y + 4 );
+        lblX.Text     = "X:";
+        panelOverlaySlots.Controls.Add( lblX );
+
+        var nudX = new System.Windows.Forms.NumericUpDown();
+        nudX.Location = new System.Drawing.Point( 80, y + 1 );
+        nudX.Size     = new System.Drawing.Size( 45, 20 );
+        nudX.Minimum  = -512;
+        nudX.Maximum  = 512;
+        nudX.Tag      = i;
+        nudX.ValueChanged += slotXY_ValueChanged;
+        panelOverlaySlots.Controls.Add( nudX );
+        m_SlotX[i] = nudX;
+
+        var lblY = new System.Windows.Forms.Label();
+        lblY.AutoSize = true;
+        lblY.Location = new System.Drawing.Point( 129, y + 4 );
+        lblY.Text     = "Y:";
+        panelOverlaySlots.Controls.Add( lblY );
+
+        var nudY = new System.Windows.Forms.NumericUpDown();
+        nudY.Location = new System.Drawing.Point( 145, y + 1 );
+        nudY.Size     = new System.Drawing.Size( 45, 20 );
+        nudY.Minimum  = -512;
+        nudY.Maximum  = 512;
+        nudY.Tag      = i;
+        nudY.ValueChanged += slotXY_ValueChanged;
+        panelOverlaySlots.Controls.Add( nudY );
+        m_SlotY[i] = nudY;
+
+        var lblBank = new System.Windows.Forms.Label();
+        lblBank.AutoSize = true;
+        lblBank.Location = new System.Drawing.Point( 194, y + 4 );
+        lblBank.Text     = "Bank:";
+        panelOverlaySlots.Controls.Add( lblBank );
+
+        var nudBank = new System.Windows.Forms.NumericUpDown();
+        nudBank.Location = new System.Drawing.Point( 230, y + 1 );
+        nudBank.Size     = new System.Drawing.Size( 45, 20 );
+        nudBank.Minimum  = 0;
+        nudBank.Maximum  = 255;
+        nudBank.Tag      = i;
+        nudBank.ValueChanged += slotBank_ValueChanged;
+        panelOverlaySlots.Controls.Add( nudBank );
+        m_SlotBank[i] = nudBank;
+
+        var cmbColor = new System.Windows.Forms.ComboBox();
+        cmbColor.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+        cmbColor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+        cmbColor.FormattingEnabled = true;
+        cmbColor.Location = new System.Drawing.Point( 280, y + 1 );
+        cmbColor.Size     = new System.Drawing.Size( 65, 21 );
+        cmbColor.Tag      = i;
+        for ( int c = 0; c < 16; ++c ) cmbColor.Items.Add( c.ToString( "d2" ) );
+        cmbColor.SelectedIndex = 1;
+        cmbColor.DrawItem += new System.Windows.Forms.DrawItemEventHandler( this.comboColor_DrawItem );
+        cmbColor.SelectedIndexChanged += slotCustomColor_SelectedIndexChanged;
+        panelOverlaySlots.Controls.Add( cmbColor );
+        m_SlotCustomColor[i] = cmbColor;
+      }
+    }
+
+
+
+    /// <summary>
+    /// Repopulate listOverlays from m_SpriteProject.Overlays. Detaches
+    /// SelectedIndexChanged during the bulk update so we don't trigger
+    /// stale-index callbacks mid-rebuild.
+    /// </summary>
+    public void RefreshOverlaysList()
+    {
+      if ( listOverlays == null ) return;
+
+      int prev = listOverlays.SelectedIndex;
+      listOverlays.SelectedIndexChanged -= listOverlays_SelectedIndexChanged;
+      try
+      {
+        listOverlays.BeginUpdate();
+        listOverlays.Items.Clear();
+        for ( int i = 0; i < m_SpriteProject.Overlays.Count; ++i )
+        {
+          var ov = m_SpriteProject.Overlays[i];
+          listOverlays.Items.Add( string.IsNullOrEmpty( ov.Name ) ? "(unnamed)" : ov.Name );
+        }
+        listOverlays.EndUpdate();
+
+        if ( prev >= 0 && prev < listOverlays.Items.Count )
+          listOverlays.SelectedIndex = prev;
+        else if ( listOverlays.Items.Count > 0 )
+          listOverlays.SelectedIndex = 0;
+      }
+      finally
+      {
+        listOverlays.SelectedIndexChanged += listOverlays_SelectedIndexChanged;
+      }
+      PopulateOverlayFieldsFromSelection();
+      btnRemoveOverlay.Enabled = ( listOverlays.SelectedIndex >= 0 );
+    }
+
+
+
+    private void listOverlays_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      PopulateOverlayFieldsFromSelection();
+      btnRemoveOverlay.Enabled = ( listOverlays.SelectedIndex >= 0 );
+    }
+
+
+
+    /// <summary>
+    /// Mirror the selected Overlay's data into the field pane (name +
+    /// 8 slot rows). Detaches all the row-control change handlers for
+    /// the duration so writing into the controls doesn't dirty the
+    /// model. Project rule: detach/attach instead of a populating-flag.
+    /// </summary>
+    private void PopulateOverlayFieldsFromSelection()
+    {
+      int idx = ( listOverlays != null ) ? listOverlays.SelectedIndex : -1;
+      m_CurrentOverlay = ( idx >= 0 && idx < m_SpriteProject.Overlays.Count )
+                        ? m_SpriteProject.Overlays[idx]
+                        : null;
+
+      DetachOverlayFieldHandlers();
+      try
+      {
+        if ( m_CurrentOverlay == null )
+        {
+          editOverlayName.Text = "";
+          for ( int i = 0; i < 8; ++i )
+          {
+            m_SlotEnabled[i].Checked     = false;
+            m_SlotX[i].Value             = 0;
+            m_SlotY[i].Value             = 0;
+            m_SlotBank[i].Value          = 0;
+            m_SlotCustomColor[i].SelectedIndex = 1;
+          }
+        }
+        else
+        {
+          editOverlayName.Text = m_CurrentOverlay.Name ?? "";
+          for ( int i = 0; i < 8; ++i )
+          {
+            var slot = m_CurrentOverlay.Slots[i];
+            m_SlotEnabled[i].Checked = slot.Enabled;
+            m_SlotX[i].Value = ClampNudInt( slot.X, (int)m_SlotX[i].Minimum, (int)m_SlotX[i].Maximum );
+            m_SlotY[i].Value = ClampNudInt( slot.Y, (int)m_SlotY[i].Minimum, (int)m_SlotY[i].Maximum );
+
+            // Bank index from frame 0 (Phase 2 single-frame view). The
+            // Animation tab in Phase 4 will manage the full frame list.
+            int bankIdx = 0;
+            if ( m_CurrentOverlay.Frames.Count > 0 )
+            {
+              bankIdx = m_CurrentOverlay.Frames[0].BankIndex[i];
+            }
+            m_SlotBank[i].Value = ClampNudInt( bankIdx, 0, 255 );
+
+            int cc = slot.CustomColor;
+            if ( cc < 0 || cc > 15 ) cc = 1;
+            m_SlotCustomColor[i].SelectedIndex = cc;
+          }
+        }
+      }
+      finally
+      {
+        AttachOverlayFieldHandlers();
+      }
+      RebuildOverlayPreview();
+      RefreshFramesList();
+    }
+
+
+
+    private static decimal ClampNudInt( int Value, int Min, int Max )
+    {
+      if ( Value < Min ) return (decimal)Min;
+      if ( Value > Max ) return (decimal)Max;
+      return (decimal)Value;
+    }
+
+
+
+    private void AttachOverlayFieldHandlers()
+    {
+      editOverlayName.TextChanged += editOverlayName_TextChanged;
+      for ( int i = 0; i < 8; ++i )
+      {
+        m_SlotEnabled[i].CheckedChanged       += slotEnabled_CheckedChanged;
+        m_SlotX[i].ValueChanged               += slotXY_ValueChanged;
+        m_SlotY[i].ValueChanged               += slotXY_ValueChanged;
+        m_SlotBank[i].ValueChanged            += slotBank_ValueChanged;
+        m_SlotCustomColor[i].SelectedIndexChanged += slotCustomColor_SelectedIndexChanged;
+      }
+    }
+
+
+
+    private void DetachOverlayFieldHandlers()
+    {
+      editOverlayName.TextChanged -= editOverlayName_TextChanged;
+      for ( int i = 0; i < 8; ++i )
+      {
+        m_SlotEnabled[i].CheckedChanged       -= slotEnabled_CheckedChanged;
+        m_SlotX[i].ValueChanged               -= slotXY_ValueChanged;
+        m_SlotY[i].ValueChanged               -= slotXY_ValueChanged;
+        m_SlotBank[i].ValueChanged            -= slotBank_ValueChanged;
+        m_SlotCustomColor[i].SelectedIndexChanged -= slotCustomColor_SelectedIndexChanged;
+      }
+    }
+
+
+
+    private void btnAddOverlay_Click( DecentForms.ControlBase Sender )
+    {
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoSpritesetOverlaysChange( this, m_SpriteProject ) );
+
+      var ov = new Formats.SpriteProject.Overlay();
+      ov.Name = "Overlay " + ( m_SpriteProject.Overlays.Count + 1 );
+      // Default: one frame so slot bank-index edits have somewhere to land.
+      ov.Frames.Add( new Formats.SpriteProject.OverlayFrame() { DelayMS = 100 } );
+      m_SpriteProject.Overlays.Add( ov );
+      Modified = true;
+
+      RefreshOverlaysList();
+      listOverlays.SelectedIndex = m_SpriteProject.Overlays.Count - 1;
+    }
+
+
+
+    private void btnRemoveOverlay_Click( DecentForms.ControlBase Sender )
+    {
+      int idx = listOverlays.SelectedIndex;
+      if ( idx < 0 || idx >= m_SpriteProject.Overlays.Count ) return;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoSpritesetOverlaysChange( this, m_SpriteProject ) );
+
+      m_SpriteProject.Overlays.RemoveAt( idx );
+      Modified = true;
+      RefreshOverlaysList();
+    }
+
+
+
+    private void editOverlayName_TextChanged( object sender, EventArgs e )
+    {
+      if ( m_CurrentOverlay == null ) return;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoSpritesetOverlaysChange( this, m_SpriteProject ) );
+
+      m_CurrentOverlay.Name = editOverlayName.Text;
+      Modified = true;
+      int idx = listOverlays.SelectedIndex;
+      if ( idx >= 0 && idx < listOverlays.Items.Count )
+      {
+        // Detach the listbox handler — rewriting Items[idx] fires
+        // SelectedIndexChanged and would re-populate the field pane,
+        // resetting the textbox cursor to position 0 mid-typing.
+        listOverlays.SelectedIndexChanged -= listOverlays_SelectedIndexChanged;
+        try
+        {
+          listOverlays.Items[idx] = string.IsNullOrEmpty( m_CurrentOverlay.Name ) ? "(unnamed)" : m_CurrentOverlay.Name;
+        }
+        finally
+        {
+          listOverlays.SelectedIndexChanged += listOverlays_SelectedIndexChanged;
+        }
+      }
+    }
+
+
+
+    private void slotEnabled_CheckedChanged( object sender, EventArgs e )
+    {
+      if ( m_CurrentOverlay == null ) return;
+      var ctrl = (System.Windows.Forms.CheckBox)sender;
+      int slotIdx = (int)ctrl.Tag;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoSpritesetOverlaysChange( this, m_SpriteProject ) );
+
+      m_CurrentOverlay.Slots[slotIdx].Enabled = ctrl.Checked;
+      Modified = true;
+      RebuildOverlayPreview();
+    }
+
+
+
+    private void slotXY_ValueChanged( object sender, EventArgs e )
+    {
+      if ( m_CurrentOverlay == null ) return;
+      var ctrl = (System.Windows.Forms.NumericUpDown)sender;
+      int slotIdx = (int)ctrl.Tag;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoSpritesetOverlaysChange( this, m_SpriteProject ) );
+
+      var slot = m_CurrentOverlay.Slots[slotIdx];
+      slot.X = (int)m_SlotX[slotIdx].Value;
+      slot.Y = (int)m_SlotY[slotIdx].Value;
+      Modified = true;
+      RebuildOverlayPreview();
+    }
+
+
+
+    private void slotBank_ValueChanged( object sender, EventArgs e )
+    {
+      if ( m_CurrentOverlay == null ) return;
+      var ctrl = (System.Windows.Forms.NumericUpDown)sender;
+      int slotIdx = (int)ctrl.Tag;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoSpritesetOverlaysChange( this, m_SpriteProject ) );
+
+      // Phase 2 view: single-frame model — the bank-index edit goes into
+      // frame 0. Phase 4's animation tab manages the full timeline.
+      if ( m_CurrentOverlay.Frames.Count == 0 )
+      {
+        m_CurrentOverlay.Frames.Add( new Formats.SpriteProject.OverlayFrame() { DelayMS = 100 } );
+      }
+      m_CurrentOverlay.Frames[0].BankIndex[slotIdx] = (int)ctrl.Value;
+      Modified = true;
+      RebuildOverlayPreview();
+    }
+
+
+
+    private void slotCustomColor_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      if ( m_CurrentOverlay == null ) return;
+      var ctrl = (System.Windows.Forms.ComboBox)sender;
+      int slotIdx = (int)ctrl.Tag;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoSpritesetOverlaysChange( this, m_SpriteProject ) );
+
+      m_CurrentOverlay.Slots[slotIdx].CustomColor = ctrl.SelectedIndex;
+      Modified = true;
+      RebuildOverlayPreview();
+    }
+
+
+
+    /// <summary>
+    /// Render the current overlay into picOverlayPreview by walking slots
+    /// 0→7 (slot 0 at the bottom). Each enabled slot is drawn at its
+    /// (X, Y) using the bank sprite named by frame[0]'s BankIndex[slot]
+    /// in the slot's own CustomColor (with project-wide BG/MC1/MC2).
+    /// Reuses the existing DrawSpriteImage helper.
+    /// </summary>
+    public void RebuildOverlayPreview()
+    {
+      if ( picOverlayPreview == null ) return;
+
+      EnsurePreviewPageSized( picOverlayPreview, m_OverlayPreviewZoom );
+      var page = picOverlayPreview.DisplayPage;
+
+      // Background fill: project palette BG color.
+      uint bgRGB = m_SpriteProject.Colors.Palette.ColorValues[m_SpriteProject.Colors.BackgroundColor];
+      page.Box( 0, 0, page.Width, page.Height, bgRGB );
+
+      if ( m_CurrentOverlay != null )
+      {
+        var frame = m_CurrentOverlay.Frames.Count > 0 ? m_CurrentOverlay.Frames[0] : null;
+        for ( int s = 0; s < 8; ++s )
+        {
+          var slot = m_CurrentOverlay.Slots[s];
+          if ( !slot.Enabled ) continue;
+          int bankIdx = ( frame != null ) ? frame.BankIndex[s] : 0;
+          if ( bankIdx < 0 || bankIdx >= m_SpriteProject.Sprites.Count ) continue;
+
+          var bs = m_SpriteProject.Sprites[bankIdx];
+          DrawSpriteImage( page,
+                           slot.X,
+                           slot.Y,
+                           bs.Tile.Data,
+                           bs.Tile.Colors.Palette,
+                           bs.Tile.Width, bs.Tile.Height,
+                           slot.CustomColor,
+                           bs.Mode,
+                           m_SpriteProject.Colors.BackgroundColor,
+                           m_SpriteProject.Colors.MultiColor1,
+                           m_SpriteProject.Colors.MultiColor2,
+                           slot.ExpandX, slot.ExpandY,
+                           true,
+                           bs.Tile.Colors.PaletteOffset );
+        }
+      }
+
+      picOverlayPreview.Invalidate();
+    }
+
+
+
+    // -------- Animation tab (Phase 4) --------
+
+    /// <summary>
+    /// Build the 8 fixed frame-slot NumericUpDown rows inside
+    /// panelFrameSlots at construction time. Same pattern as
+    /// BuildOverlaySlotRows: identical repetitive rows authored in code
+    /// inside a Designer-authored container.
+    /// </summary>
+    private void BuildFrameSlotControls()
+    {
+      const int rowHeight = 22;
+      const int rowY0     = 4;
+
+      panelFrameSlots.Controls.Clear();
+
+      for ( int i = 0; i < 8; ++i )
+      {
+        int y = rowY0 + i * rowHeight;
+
+        var lbl = new System.Windows.Forms.Label();
+        lbl.AutoSize = true;
+        lbl.Location = new System.Drawing.Point( 0, y + 4 );
+        lbl.Text     = "Slot " + i + " bank:";
+        panelFrameSlots.Controls.Add( lbl );
+
+        var nud = new System.Windows.Forms.NumericUpDown();
+        nud.Location = new System.Drawing.Point( 90, y + 1 );
+        nud.Size     = new System.Drawing.Size( 60, 20 );
+        nud.Minimum  = 0;
+        nud.Maximum  = 255;
+        nud.Tag      = i;
+        nud.ValueChanged += frameSlotBank_ValueChanged;
+        panelFrameSlots.Controls.Add( nud );
+        m_FrameSlotBank[i] = nud;
+      }
+    }
+
+
+
+    /// <summary>
+    /// Repopulate listAnimFrames from the current overlay's frames.
+    /// Detaches SelectedIndexChanged during the bulk update so we don't
+    /// trigger stale-index callbacks mid-rebuild.
+    /// </summary>
+    public void RefreshFramesList()
+    {
+      if ( listAnimFrames == null ) return;
+
+      int prev = listAnimFrames.SelectedIndex;
+      listAnimFrames.SelectedIndexChanged -= listAnimFrames_SelectedIndexChanged;
+      try
+      {
+        listAnimFrames.BeginUpdate();
+        listAnimFrames.Items.Clear();
+        if ( m_CurrentOverlay != null )
+        {
+          for ( int i = 0; i < m_CurrentOverlay.Frames.Count; ++i )
+          {
+            listAnimFrames.Items.Add( "Frame " + i + "  (" + m_CurrentOverlay.Frames[i].DelayMS + "ms)" );
+          }
+        }
+        listAnimFrames.EndUpdate();
+
+        if ( prev >= 0 && prev < listAnimFrames.Items.Count )
+          listAnimFrames.SelectedIndex = prev;
+        else if ( listAnimFrames.Items.Count > 0 )
+          listAnimFrames.SelectedIndex = 0;
+      }
+      finally
+      {
+        listAnimFrames.SelectedIndexChanged += listAnimFrames_SelectedIndexChanged;
+      }
+      PopulateFrameFieldsFromSelection();
+      UpdateFrameButtonStates();
+    }
+
+
+
+    private void UpdateFrameButtonStates()
+    {
+      bool hasOverlay = ( m_CurrentOverlay != null );
+      bool hasFrame   = hasOverlay && ( listAnimFrames.SelectedIndex >= 0 );
+      btnAddFrame.Enabled       = hasOverlay;
+      btnRemoveFrame.Enabled    = hasFrame;
+      btnDuplicateFrame.Enabled = hasFrame;
+      btnPlayAnim.Enabled       = hasOverlay && ( m_CurrentOverlay.Frames.Count > 0 ) && !m_OverlayAnimTimer.Enabled;
+      btnPauseAnim.Enabled      = m_OverlayAnimTimer.Enabled;
+    }
+
+
+
+    private void listAnimFrames_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      PopulateFrameFieldsFromSelection();
+      UpdateFrameButtonStates();
+    }
+
+
+
+    /// <summary>
+    /// Mirror the selected frame into the per-slot bank NUDs + delay box.
+    /// Detach/attach handlers around the writes so they don't dirty the
+    /// model.
+    /// </summary>
+    private void PopulateFrameFieldsFromSelection()
+    {
+      int idx = ( listAnimFrames != null ) ? listAnimFrames.SelectedIndex : -1;
+      m_CurrentFrame = ( m_CurrentOverlay != null && idx >= 0 && idx < m_CurrentOverlay.Frames.Count )
+                      ? m_CurrentOverlay.Frames[idx]
+                      : null;
+
+      DetachFrameFieldHandlers();
+      try
+      {
+        if ( m_CurrentFrame == null )
+        {
+          editFrameDelay.Value = ClampNudInt( 100, 1, 60000 );
+          for ( int i = 0; i < 8; ++i ) m_FrameSlotBank[i].Value = 0;
+        }
+        else
+        {
+          editFrameDelay.Value = ClampNudInt( m_CurrentFrame.DelayMS, 1, 60000 );
+          for ( int i = 0; i < 8; ++i )
+          {
+            int v = m_CurrentFrame.BankIndex[i];
+            m_FrameSlotBank[i].Value = ClampNudInt( v, 0, 255 );
+          }
+        }
+      }
+      finally
+      {
+        AttachFrameFieldHandlers();
+      }
+      RebuildAnimPreview();
+    }
+
+
+
+    private void AttachFrameFieldHandlers()
+    {
+      editFrameDelay.ValueChanged += editFrameDelay_ValueChanged;
+      for ( int i = 0; i < 8; ++i )
+      {
+        m_FrameSlotBank[i].ValueChanged += frameSlotBank_ValueChanged;
+      }
+    }
+
+
+
+    private void DetachFrameFieldHandlers()
+    {
+      editFrameDelay.ValueChanged -= editFrameDelay_ValueChanged;
+      for ( int i = 0; i < 8; ++i )
+      {
+        m_FrameSlotBank[i].ValueChanged -= frameSlotBank_ValueChanged;
+      }
+    }
+
+
+
+    private void btnAddFrame_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_CurrentOverlay == null ) return;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoSpritesetOverlaysChange( this, m_SpriteProject ) );
+
+      // Seed the new frame with the slot bank indices of the currently
+      // selected frame (if any) so adding a new frame to a busy overlay
+      // doesn't blank the slots — common ask is "duplicate as starting
+      // point". If no frame selected, start at all-zero.
+      var newFrame = new Formats.SpriteProject.OverlayFrame();
+      newFrame.DelayMS = 100;
+      if ( m_CurrentFrame != null )
+      {
+        for ( int i = 0; i < 8; ++i ) newFrame.BankIndex[i] = m_CurrentFrame.BankIndex[i];
+        newFrame.DelayMS = m_CurrentFrame.DelayMS;
+      }
+      m_CurrentOverlay.Frames.Add( newFrame );
+      Modified = true;
+      RefreshFramesList();
+      listAnimFrames.SelectedIndex = m_CurrentOverlay.Frames.Count - 1;
+    }
+
+
+
+    private void btnRemoveFrame_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_CurrentOverlay == null ) return;
+      int idx = listAnimFrames.SelectedIndex;
+      if ( idx < 0 || idx >= m_CurrentOverlay.Frames.Count ) return;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoSpritesetOverlaysChange( this, m_SpriteProject ) );
+
+      m_CurrentOverlay.Frames.RemoveAt( idx );
+      Modified = true;
+      RefreshFramesList();
+    }
+
+
+
+    private void btnDuplicateFrame_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_CurrentOverlay == null ) return;
+      int idx = listAnimFrames.SelectedIndex;
+      if ( idx < 0 || idx >= m_CurrentOverlay.Frames.Count ) return;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoSpritesetOverlaysChange( this, m_SpriteProject ) );
+
+      var src = m_CurrentOverlay.Frames[idx];
+      var dup = new Formats.SpriteProject.OverlayFrame();
+      dup.DelayMS = src.DelayMS;
+      for ( int i = 0; i < 8; ++i ) dup.BankIndex[i] = src.BankIndex[i];
+      m_CurrentOverlay.Frames.Insert( idx + 1, dup );
+      Modified = true;
+      RefreshFramesList();
+      listAnimFrames.SelectedIndex = idx + 1;
+    }
+
+
+
+    private void btnApplyDelayToAll_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_CurrentOverlay == null ) return;
+      if ( m_CurrentOverlay.Frames.Count == 0 ) return;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoSpritesetOverlaysChange( this, m_SpriteProject ) );
+
+      int delay = (int)editFrameDelay.Value;
+      foreach ( var f in m_CurrentOverlay.Frames )
+      {
+        f.DelayMS = delay;
+      }
+      Modified = true;
+      // Refresh the listbox so each entry's "(Nms)" trailer reflects the
+      // new uniform delay. Detach to avoid re-entering the populate path.
+      int prev = listAnimFrames.SelectedIndex;
+      listAnimFrames.SelectedIndexChanged -= listAnimFrames_SelectedIndexChanged;
+      try
+      {
+        listAnimFrames.BeginUpdate();
+        for ( int i = 0; i < listAnimFrames.Items.Count; ++i )
+        {
+          listAnimFrames.Items[i] = "Frame " + i + "  (" + delay + "ms)";
+        }
+        listAnimFrames.EndUpdate();
+        if ( prev >= 0 && prev < listAnimFrames.Items.Count )
+        {
+          listAnimFrames.SelectedIndex = prev;
+        }
+      }
+      finally
+      {
+        listAnimFrames.SelectedIndexChanged += listAnimFrames_SelectedIndexChanged;
+      }
+    }
+
+
+
+    private void editFrameDelay_ValueChanged( object sender, EventArgs e )
+    {
+      if ( m_CurrentFrame == null ) return;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoSpritesetOverlaysChange( this, m_SpriteProject ) );
+
+      m_CurrentFrame.DelayMS = (int)editFrameDelay.Value;
+      Modified = true;
+      // Refresh the frame's text in the listbox so the "(Nms)" trailer
+      // stays in sync. Detach the handler around the rewrite so we don't
+      // re-enter PopulateFrameFieldsFromSelection mid-typing.
+      int idx = listAnimFrames.SelectedIndex;
+      if ( idx >= 0 && idx < listAnimFrames.Items.Count )
+      {
+        listAnimFrames.SelectedIndexChanged -= listAnimFrames_SelectedIndexChanged;
+        try
+        {
+          listAnimFrames.Items[idx] = "Frame " + idx + "  (" + m_CurrentFrame.DelayMS + "ms)";
+        }
+        finally
+        {
+          listAnimFrames.SelectedIndexChanged += listAnimFrames_SelectedIndexChanged;
+        }
+      }
+    }
+
+
+
+    private void frameSlotBank_ValueChanged( object sender, EventArgs e )
+    {
+      if ( m_CurrentFrame == null ) return;
+      var ctrl = (System.Windows.Forms.NumericUpDown)sender;
+      int slotIdx = (int)ctrl.Tag;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoSpritesetOverlaysChange( this, m_SpriteProject ) );
+
+      m_CurrentFrame.BankIndex[slotIdx] = (int)ctrl.Value;
+      Modified = true;
+      RebuildAnimPreview();
+    }
+
+
+
+    private void btnPlayAnim_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_CurrentOverlay == null ) return;
+      if ( m_CurrentOverlay.Frames.Count == 0 ) return;
+      m_OverlayAnimFramePos   = 0;
+      m_OverlayAnimFrameTicks = 0;
+      m_OverlayAnimTimer.Start();
+      UpdateFrameButtonStates();
+    }
+
+
+
+    private void btnPauseAnim_Click( DecentForms.ControlBase Sender )
+    {
+      m_OverlayAnimTimer.Stop();
+      // After pausing, repaint the preview as the user-selected static
+      // frame so they can keep editing.
+      RebuildAnimPreview();
+      UpdateFrameButtonStates();
+    }
+
+
+
+    private void overlayAnimTimer_Tick( object sender, EventArgs e )
+    {
+      if ( m_CurrentOverlay == null || m_CurrentOverlay.Frames.Count == 0 )
+      {
+        m_OverlayAnimTimer.Stop();
+        UpdateFrameButtonStates();
+        return;
+      }
+      if ( m_OverlayAnimFramePos >= m_CurrentOverlay.Frames.Count )
+      {
+        m_OverlayAnimFramePos = 0;
+        m_OverlayAnimFrameTicks = 0;
+      }
+      m_OverlayAnimFrameTicks += m_OverlayAnimTimer.Interval;
+      var curFrame = m_CurrentOverlay.Frames[m_OverlayAnimFramePos];
+      if ( m_OverlayAnimFrameTicks >= curFrame.DelayMS )
+      {
+        m_OverlayAnimFrameTicks -= curFrame.DelayMS;
+        m_OverlayAnimFramePos = ( m_OverlayAnimFramePos + 1 ) % m_CurrentOverlay.Frames.Count;
+      }
+      RebuildAnimPreviewForFrame( m_CurrentOverlay.Frames[m_OverlayAnimFramePos] );
+    }
+
+
+
+    /// <summary>
+    /// Render the current static frame (the one selected in the listbox)
+    /// into picAnimPreview. Calls RebuildAnimPreviewForFrame internally.
+    /// </summary>
+    public void RebuildAnimPreview()
+    {
+      RebuildAnimPreviewForFrame( m_CurrentFrame );
+    }
+
+
+
+    private void RebuildAnimPreviewForFrame( Formats.SpriteProject.OverlayFrame Frame )
+    {
+      if ( picAnimPreview == null ) return;
+
+      EnsurePreviewPageSized( picAnimPreview, m_AnimPreviewZoom );
+      var page = picAnimPreview.DisplayPage;
+
+      uint bgRGB = m_SpriteProject.Colors.Palette.ColorValues[m_SpriteProject.Colors.BackgroundColor];
+      page.Box( 0, 0, page.Width, page.Height, bgRGB );
+
+      if ( m_CurrentOverlay != null && Frame != null )
+      {
+        for ( int s = 0; s < 8; ++s )
+        {
+          var slot = m_CurrentOverlay.Slots[s];
+          if ( !slot.Enabled ) continue;
+          int bankIdx = Frame.BankIndex[s];
+          if ( bankIdx < 0 || bankIdx >= m_SpriteProject.Sprites.Count ) continue;
+
+          var bs = m_SpriteProject.Sprites[bankIdx];
+          DrawSpriteImage( page,
+                           slot.X,
+                           slot.Y,
+                           bs.Tile.Data,
+                           bs.Tile.Colors.Palette,
+                           bs.Tile.Width, bs.Tile.Height,
+                           slot.CustomColor,
+                           bs.Mode,
+                           m_SpriteProject.Colors.BackgroundColor,
+                           m_SpriteProject.Colors.MultiColor1,
+                           m_SpriteProject.Colors.MultiColor2,
+                           slot.ExpandX, slot.ExpandY,
+                           true,
+                           bs.Tile.Colors.PaletteOffset );
+        }
+      }
+
+      picAnimPreview.Invalidate();
+    }
+
+
+
+    /// <summary>
+    /// Ensure the preview's DisplayPage is sized to (clientW/zoom,
+    /// clientH/zoom). Smaller page → FastPictureBox stretches it up →
+    /// sprites in the page appear larger on screen. Recreates the page
+    /// only when its current size doesn't match the target so we don't
+    /// thrash on every render call.
+    /// </summary>
+    private static void EnsurePreviewPageSized( GR.Forms.FastPictureBox Box, int Zoom )
+    {
+      if ( Zoom < 1 ) Zoom = 1;
+      int targetW = System.Math.Max( 1, Box.ClientRectangle.Width  / Zoom );
+      int targetH = System.Math.Max( 1, Box.ClientRectangle.Height / Zoom );
+
+      var page = Box.DisplayPage;
+      if ( ( page == null ) || ( page.Width != targetW ) || ( page.Height != targetH ) )
+      {
+        Box.DisplayPage.Create( targetW, targetH, GR.Drawing.PixelFormat.Format32bppRgb );
+      }
+    }
+
+
+
+    private void btnOverlayZoomIn_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_OverlayPreviewZoom < 16 ) m_OverlayPreviewZoom *= 2;
+      labelOverlayZoom.Text = "Zoom: " + m_OverlayPreviewZoom + "x";
+      RebuildOverlayPreview();
+    }
+
+
+
+    private void btnOverlayZoomOut_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_OverlayPreviewZoom > 1 ) m_OverlayPreviewZoom /= 2;
+      labelOverlayZoom.Text = "Zoom: " + m_OverlayPreviewZoom + "x";
+      RebuildOverlayPreview();
+    }
+
+
+
+    private void btnAnimZoomIn_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_AnimPreviewZoom < 16 ) m_AnimPreviewZoom *= 2;
+      labelAnimZoom.Text = "Zoom: " + m_AnimPreviewZoom + "x";
+      RebuildAnimPreview();
+    }
+
+
+
+    private void btnAnimZoomOut_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_AnimPreviewZoom > 1 ) m_AnimPreviewZoom /= 2;
+      labelAnimZoom.Text = "Zoom: " + m_AnimPreviewZoom + "x";
+      RebuildAnimPreview();
     }
 
 

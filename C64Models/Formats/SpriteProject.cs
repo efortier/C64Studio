@@ -107,6 +107,71 @@ namespace RetroDevStudio.Formats
 
 
 
+    /// <summary>
+    /// Overlay = a stack of up to 8 hardware sprites at one screen anchor.
+    /// Slot 0 is the bottom of the pile, slot 7 the top. Each slot is an
+    /// independently-enabled spot in the stack with its own (X,Y) pixel
+    /// offset relative to the overlay origin and its own per-slot color
+    /// settings; the actual bitmap+mode for the slot comes from the bank
+    /// index named by the current animation frame.
+    /// </summary>
+    public class Overlay
+    {
+      public string                 Name   = "Overlay";
+      public OverlaySlot[]          Slots  = new OverlaySlot[8] {
+        new OverlaySlot(), new OverlaySlot(), new OverlaySlot(), new OverlaySlot(),
+        new OverlaySlot(), new OverlaySlot(), new OverlaySlot(), new OverlaySlot()
+      };
+      public List<OverlayFrame>     Frames = new List<OverlayFrame>();
+    }
+
+
+
+    /// <summary>
+    /// Structural slot definition inside an Overlay (8 fixed slots per
+    /// overlay, indexed 0..7, slot 0 at the bottom of the visual stack).
+    /// The slot stores per-slot screen offset and per-slot color settings.
+    /// Note: BG/MC1/MC2 are global VIC-II registers on real C64 hardware
+    /// (sprites can't have independent bg/mc colors). The per-slot color
+    /// fields here are editor-only metadata so the user can preview the
+    /// overlay under different palette assumptions when authoring.
+    /// </summary>
+    public class OverlaySlot
+    {
+      public bool       Enabled = false;
+      public int        X = 0;
+      public int        Y = 0;
+      public int        BackgroundColor = 0;
+      public int        MultiColor1 = 0;
+      public int        MultiColor2 = 0;
+      public int        CustomColor = 1;
+      public bool       ExpandX = false;
+      public bool       ExpandY = false;
+    }
+
+
+
+    /// <summary>
+    /// One animation frame in an Overlay. Stores which bank sprite sits
+    /// in each of the 8 slots at this point in time, plus the delay until
+    /// the next frame (in ms). Disabled slots have their bank index
+    /// recorded but it is ignored at render time.
+    /// </summary>
+    public class OverlayFrame
+    {
+      public int[]      BankIndex = new int[8];
+      public int        DelayMS   = 100;
+    }
+
+
+
+    public List<SpriteData>       Sprites  = new List<SpriteData>( 256 );
+    public List<Overlay>          Overlays = new List<Overlay>();
+
+    // Legacy in-memory types retained for the pre-Phase-2 UI while the
+    // new Overlay model takes over the data layer. NOT persisted by
+    // SaveToBuffer/ReadFromBuffer — only the Overlays list above is.
+    // Remove once Phase 2 replaces the legacy layer panel UI.
     public class LayerSprite
     {
       public int        X = 0;
@@ -125,9 +190,6 @@ namespace RetroDevStudio.Formats
       public int                DelayMS = 0;
     }
 
-
-
-    public List<SpriteData>       Sprites = new List<SpriteData>( 256 );
     public List<Layer>            SpriteLayers = new List<Layer>();
 
     public ColorSettings  Colors = new ColorSettings();
@@ -160,7 +222,10 @@ namespace RetroDevStudio.Formats
     {
       GR.Memory.ByteBuffer projectFile = new GR.Memory.ByteBuffer();
 
-      projectFile.AppendU32( 2 );
+      // version 3 = overlay model. Versions <=2 (legacy Layer/LayerSprite)
+      // are no longer readable — the user authorized a clean break. The
+      // reader rejects v<=2 with a clear message.
+      projectFile.AppendU32( 3 );
 
       var chunkProject = new GR.IO.FileChunk( FileChunkConstants.SPRITESET_PROJECT );
 
@@ -200,99 +265,48 @@ namespace RetroDevStudio.Formats
         chunkProject.Append( chunkSprite.ToBuffer() );
       }
 
-      foreach ( var layer in SpriteLayers )
+      foreach ( var overlay in Overlays )
       {
-        GR.IO.FileChunk   chunkLayer = new GR.IO.FileChunk( FileChunkConstants.SPRITESET_LAYER );
+        var chunkOverlay = new GR.IO.FileChunk( FileChunkConstants.SPRITESET_OVERLAY );
 
-        GR.IO.FileChunk   chunkLayerInfo = new GR.IO.FileChunk( FileChunkConstants.SPRITESET_LAYER_INFO );
-        chunkLayerInfo.AppendString( layer.Name );
-        chunkLayerInfo.AppendI32( (byte)layer.BackgroundColor );
-        chunkLayerInfo.AppendI32( layer.DelayMS );
-        chunkLayer.Append( chunkLayerInfo.ToBuffer() );
+        var chunkOverlayInfo = new GR.IO.FileChunk( FileChunkConstants.SPRITESET_OVERLAY_INFO );
+        chunkOverlayInfo.AppendString( overlay.Name ?? "" );
+        chunkOverlayInfo.AppendI32( overlay.Slots.Length );
+        chunkOverlay.Append( chunkOverlayInfo.ToBuffer() );
 
-        foreach ( var sprite in layer.Sprites )
+        for ( int s = 0; s < overlay.Slots.Length; ++s )
         {
-          GR.IO.FileChunk   chunkLayerSprite = new GR.IO.FileChunk( FileChunkConstants.SPRITESET_LAYER_ENTRY );
-          chunkLayerSprite.AppendI32( sprite.Index );
-          chunkLayerSprite.AppendI32( (byte)sprite.Color );
-          chunkLayerSprite.AppendI32( sprite.X );
-          chunkLayerSprite.AppendI32( sprite.Y );
-          chunkLayerSprite.AppendI32( (byte)( sprite.ExpandX ? 1 : 0 ) );
-          chunkLayerSprite.AppendI32( (byte)( sprite.ExpandY ? 1 : 0 ) );
-
-          chunkLayer.Append( chunkLayerSprite.ToBuffer() );
+          var slot = overlay.Slots[s];
+          var chunkSlot = new GR.IO.FileChunk( FileChunkConstants.SPRITESET_OVERLAY_SLOT );
+          chunkSlot.AppendI32( s );
+          chunkSlot.AppendI32( slot.Enabled ? 1 : 0 );
+          chunkSlot.AppendI32( slot.X );
+          chunkSlot.AppendI32( slot.Y );
+          chunkSlot.AppendI32( slot.ExpandX ? 1 : 0 );
+          chunkSlot.AppendI32( slot.ExpandY ? 1 : 0 );
+          chunkSlot.AppendI32( slot.BackgroundColor );
+          chunkSlot.AppendI32( slot.MultiColor1 );
+          chunkSlot.AppendI32( slot.MultiColor2 );
+          chunkSlot.AppendI32( slot.CustomColor );
+          chunkOverlay.Append( chunkSlot.ToBuffer() );
         }
-        chunkProject.Append( chunkLayer.ToBuffer() );
+
+        foreach ( var frame in overlay.Frames )
+        {
+          var chunkFrame = new GR.IO.FileChunk( FileChunkConstants.SPRITESET_OVERLAY_FRAME );
+          chunkFrame.AppendI32( frame.DelayMS );
+          chunkFrame.AppendI32( frame.BankIndex.Length );
+          for ( int s = 0; s < frame.BankIndex.Length; ++s )
+          {
+            chunkFrame.AppendI32( frame.BankIndex[s] );
+          }
+          chunkOverlay.Append( chunkFrame.ToBuffer() );
+        }
+
+        chunkProject.Append( chunkOverlay.ToBuffer() );
       }
       projectFile.Append( chunkProject.ToBuffer() );
 
-      /*
-      // version
-      projectFile.AppendU32( 1 );
-      projectFile.AppendI32( Sprites.Count );
-      // Name
-      projectFile.AppendString( Name );
-      for ( int i = 0; i < Sprites.Count; ++i )
-      {
-        projectFile.AppendI32( Sprites[i].Color );
-      }
-      for ( int i = 0; i < Sprites.Count; ++i )
-      {
-        projectFile.AppendU8( (byte)Sprites[i].Mode );
-      }
-      projectFile.AppendI32( Colors.BackgroundColor );
-      projectFile.AppendI32( Colors.MultiColor1 );
-      projectFile.AppendI32( Colors.MultiColor2 );
-      // generic MC
-      projectFile.AppendU32( 0 );
-      for ( int i = 0; i < Sprites.Count; ++i )
-      {
-        projectFile.Append( Sprites[i].Tile.Data );
-        projectFile.AppendU8( (byte)Sprites[i].Color );
-      }
-      projectFile.AppendU32( ExportSpriteCount );
-
-      // export name
-      projectFile.AppendString( ExportFilename );
-
-      // exportpath
-      projectFile.AppendString( "" );
-
-      // desc
-      for ( int i = 0; i < Sprites.Count; ++i )
-      {
-        projectFile.AppendString( "" );
-      }
-
-      // testbed (not used anymore, write 0 as number of sprites)
-      projectFile.AppendI32( 0 );
-
-
-      foreach ( var layer in SpriteLayers )
-      {
-        GR.IO.FileChunk   chunkLayer = new GR.IO.FileChunk( FileChunkConstants.SPRITESET_LAYER );
-
-        GR.IO.FileChunk   chunkLayerInfo = new GR.IO.FileChunk( FileChunkConstants.SPRITESET_LAYER_INFO );
-        chunkLayerInfo.AppendString( layer.Name );
-        chunkLayerInfo.AppendU8( (byte)layer.BackgroundColor );
-        chunkLayerInfo.AppendI32( layer.DelayMS );
-        chunkLayer.Append( chunkLayerInfo.ToBuffer() );
-
-        foreach ( var sprite in layer.Sprites )
-        {
-          GR.IO.FileChunk   chunkLayerSprite = new GR.IO.FileChunk( FileChunkConstants.SPRITESET_LAYER_ENTRY );
-          chunkLayerSprite.AppendI32( sprite.Index );
-          chunkLayerSprite.AppendU8( (byte)sprite.Color );
-          chunkLayerSprite.AppendI32( sprite.X );
-          chunkLayerSprite.AppendI32( sprite.Y );
-          chunkLayerSprite.AppendU8( (byte)( sprite.ExpandX ? 1 : 0 ) );
-          chunkLayerSprite.AppendU8( (byte)( sprite.ExpandY ? 1 : 0 ) );
-
-          chunkLayer.Append( chunkLayerSprite.ToBuffer() );
-        }
-        projectFile.Append( chunkLayer.ToBuffer() );
-      }*/
-      
       return projectFile;
     }
 
@@ -304,199 +318,36 @@ namespace RetroDevStudio.Formats
       {
         return false;
       }
-      SpriteLayers.Clear();
-      Sprites.Clear();
 
       GR.IO.MemoryReader memIn = DataIn.MemoryReader();
 
       uint     Version = memIn.ReadUInt32();
 
-      if ( Version == 2 )
+      if ( Version < 3 )
       {
-        Colors.Palettes.Clear();
+        // Pre-overlay project files used Layer/LayerSprite. The user
+        // explicitly authorized a clean break — old projects don't load.
+        // Don't clear our state — leave the in-memory project intact so
+        // the editor (which is already showing a default 256-sprite bank)
+        // doesn't crash on the next operation.
+        Debug.Log( "SpriteProject.ReadFromBuffer: project version " + Version + " is too old. Re-create the sprite project." );
+        return false;
+      }
 
-        GR.IO.FileChunk   chunkMain = new GR.IO.FileChunk();
+      // Only clear once we know we have a parseable v3 stream.
+      Overlays.Clear();
+      Sprites.Clear();
+      Colors.Palettes.Clear();
 
-        while ( chunkMain.ReadFromStream( memIn ) )
+      GR.IO.FileChunk   chunkMain = new GR.IO.FileChunk();
+
+      while ( chunkMain.ReadFromStream( memIn ) )
+      {
+        switch ( chunkMain.Type )
         {
-          switch ( chunkMain.Type )
-          {
-            case FileChunkConstants.SPRITESET_PROJECT:
-              {
-                var    chunkReader = chunkMain.MemoryReader();
-
-                GR.IO.FileChunk   subChunk = new GR.IO.FileChunk();
-
-                while ( subChunk.ReadFromStream( chunkReader ) )
-                {
-                  var    subChunkReader = subChunk.MemoryReader();
-
-                  switch ( subChunk.Type )
-                  {
-                    case FileChunkConstants.SPRITESET_INFO:
-                      TotalNumberOfSprites  = subChunkReader.ReadInt32();
-                      Name                  = subChunkReader.ReadString();
-                      ExportFilename        = subChunkReader.ReadString();
-                      ExportStartIndex      = subChunkReader.ReadInt32();
-                      ExportSpriteCount     = subChunkReader.ReadInt32();
-                      break;
-                    case FileChunkConstants.MULTICOLOR_DATA:
-                      Mode = (SpriteProjectMode)subChunkReader.ReadInt32();
-                      Colors.BackgroundColor = subChunkReader.ReadInt32();
-                      Colors.MultiColor1 = subChunkReader.ReadInt32();
-                      Colors.MultiColor2 = subChunkReader.ReadInt32();
-                      Colors.ActivePalette = 0;
-                      break;
-                    case FileChunkConstants.PALETTE:
-                      Colors.Palettes.Add( Palette.Read( subChunkReader ) );
-                      break;
-                    case FileChunkConstants.SPRITESET_SPRITE:
-                      {
-                        var sprite = new SpriteData( new ColorSettings( Colors ) );
-
-                        sprite.Mode = (SpriteMode)subChunkReader.ReadInt32();
-                        sprite.Tile.Mode = (GraphicTileMode)subChunkReader.ReadInt32();
-                        sprite.Tile.CustomColor = (byte)subChunkReader.ReadInt32();
-                        sprite.Tile.Width = subChunkReader.ReadInt32();
-                        sprite.Tile.Height = subChunkReader.ReadInt32();
-                        int dataLength = subChunkReader.ReadInt32();
-                        sprite.Tile.Data = new GR.Memory.ByteBuffer();
-                        subChunkReader.ReadBlock( sprite.Tile.Data, (uint)dataLength );
-                        if ( sprite.Tile.CustomColor == 255 )
-                        {
-                          sprite.Tile.CustomColor = 1;
-                        }
-
-                        sprite.Tile.Colors.ActivePalette = subChunkReader.ReadInt32();
-                        sprite.Tile.Colors.PaletteOffset = subChunkReader.ReadInt32();
-                        sprite.Tile.Image = new GR.Image.MemoryImage( sprite.Tile.Width, sprite.Tile.Height, GR.Drawing.PixelFormat.Format32bppRgb );
-
-                        // bugfix - mega65 sprites have a different mode
-                        if ( sprite.Tile.Mode == GraphicTileMode.MEGA65_NCM_CHARACTERS )
-                        {
-                          sprite.Tile.Mode = GraphicTileMode.MEGA65_NCM_SPRITES;
-                        }
-
-                        Sprites.Add( sprite );
-                      }
-                      break;
-                    case FileChunkConstants.SPRITESET_LAYER:
-                      {
-                        Layer  layer = new Layer();
-
-                        SpriteLayers.Add( layer );
-
-                        GR.IO.FileChunk   subChunkL = new GR.IO.FileChunk();
-
-                        while ( subChunkL.ReadFromStream( subChunkReader ) )
-                        {
-                          var    subChunkReaderL = subChunkL.MemoryReader();
-
-                          if ( subChunkL.Type == FileChunkConstants.SPRITESET_LAYER_ENTRY )
-                          {
-                            LayerSprite sprite = new LayerSprite();
-
-                            sprite.Index = subChunkReaderL.ReadInt32();
-                            sprite.Color = subChunkReaderL.ReadInt32();
-                            sprite.X = subChunkReaderL.ReadInt32();
-                            sprite.Y = subChunkReaderL.ReadInt32();
-                            sprite.ExpandX = ( subChunkReaderL.ReadInt32() != 0 );
-                            sprite.ExpandY = ( subChunkReaderL.ReadInt32() != 0 );
-
-                            layer.Sprites.Add( sprite );
-                          }
-                          else if ( subChunkL.Type == FileChunkConstants.SPRITESET_LAYER_INFO )
-                          {
-                            layer.Name = subChunkReaderL.ReadString();
-                            layer.BackgroundColor = subChunkReaderL.ReadInt32();
-                            layer.DelayMS = subChunkReaderL.ReadInt32();
-                          }
-                        }
-                      }
-                      break;
-                  }
-                }
-              }
-              break;
-            default:
-              Debug.Log( "SpriteProject.ReadFromBuffer unexpected chunk type " + chunkMain.Type.ToString( "X" ) );
-              return false;
-          }
-        }
-
-        return true;
-      }
-
-      int       numSprites = 256;
-      if ( Version >= 1 )
-      {
-        numSprites = memIn.ReadInt32();
-      }
-      Sprites = new List<SpriteData>();
-      for ( int i = 0; i < numSprites; ++i )
-      {
-        Sprites.Add( new SpriteData( Colors ) );
-        PaletteManager.ApplyPalette( Sprites[i].Tile.Image );
-      }
-
-      string name = memIn.ReadString();
-      for ( int i = 0; i < numSprites; ++i )
-      {
-        Sprites[i].Tile.CustomColor = (byte)memIn.ReadInt32();
-        if ( Sprites[i].Tile.CustomColor == 255 )
-        {
-          Sprites[i].Tile.CustomColor = 1;
-        }
-      }
-      for ( int i = 0; i < numSprites; ++i )
-      {
-        Sprites[i].Mode = (SpriteMode)memIn.ReadUInt8();
-        Sprites[i].Tile.Mode = Lookup.GraphicTileModeFromSpriteMode( Sprites[i].Mode );
-      }
-      Colors.BackgroundColor = memIn.ReadInt32();
-      Colors.MultiColor1 = memIn.ReadInt32();
-      Colors.MultiColor2 = memIn.ReadInt32();
-
-      bool genericMultiColor = ( memIn.ReadUInt32() != 0 );
-      for ( int i = 0; i < numSprites; ++i )
-      {
-        GR.Memory.ByteBuffer tempBuffer = new GR.Memory.ByteBuffer();
-
-        memIn.ReadBlock( tempBuffer, 64 );
-        tempBuffer.CopyTo( Sprites[i].Tile.Data, 0, 63 );
-      }
-
-      ExportSpriteCount = memIn.ReadInt32();
-
-      ExportFilename = memIn.ReadString();
-      string exportPathSpriteFile = memIn.ReadString();
-      for ( int i = 0; i < numSprites; ++i )
-      {
-        string desc = memIn.ReadString();
-      }
-      int     spriteTestCount = memIn.ReadInt32();
-      for ( int i = 0; i < spriteTestCount; ++i )
-      {
-        int spriteIndex = memIn.ReadInt32();
-        byte spriteColor = memIn.ReadUInt8();
-        bool spriteMultiColor = ( memIn.ReadUInt8() != 0 );
-        int spriteX = memIn.ReadInt32();
-        int spriteY = memIn.ReadInt32();
-      }
-
-      GR.IO.FileChunk   chunk = new GR.IO.FileChunk();
-
-      while ( chunk.ReadFromStream( memIn ) )
-      {
-        switch ( chunk.Type )
-        {
-          case FileChunkConstants.SPRITESET_LAYER:
+          case FileChunkConstants.SPRITESET_PROJECT:
             {
-              Layer  layer = new Layer();
-
-              SpriteLayers.Add( layer );
-
-              var    chunkReader = chunk.MemoryReader();
+              var    chunkReader = chunkMain.MemoryReader();
 
               GR.IO.FileChunk   subChunk = new GR.IO.FileChunk();
 
@@ -504,28 +355,109 @@ namespace RetroDevStudio.Formats
               {
                 var    subChunkReader = subChunk.MemoryReader();
 
-                if ( subChunk.Type == FileChunkConstants.SPRITESET_LAYER_ENTRY )
+                switch ( subChunk.Type )
                 {
-                  LayerSprite sprite = new LayerSprite();
+                  case FileChunkConstants.SPRITESET_INFO:
+                    TotalNumberOfSprites  = subChunkReader.ReadInt32();
+                    Name                  = subChunkReader.ReadString();
+                    ExportFilename        = subChunkReader.ReadString();
+                    ExportStartIndex      = subChunkReader.ReadInt32();
+                    ExportSpriteCount     = subChunkReader.ReadInt32();
+                    break;
+                  case FileChunkConstants.MULTICOLOR_DATA:
+                    Mode = (SpriteProjectMode)subChunkReader.ReadInt32();
+                    Colors.BackgroundColor = subChunkReader.ReadInt32();
+                    Colors.MultiColor1 = subChunkReader.ReadInt32();
+                    Colors.MultiColor2 = subChunkReader.ReadInt32();
+                    Colors.ActivePalette = 0;
+                    break;
+                  case FileChunkConstants.PALETTE:
+                    Colors.Palettes.Add( Palette.Read( subChunkReader ) );
+                    break;
+                  case FileChunkConstants.SPRITESET_SPRITE:
+                    {
+                      var sprite = new SpriteData( new ColorSettings( Colors ) );
 
-                  sprite.Index = subChunkReader.ReadInt32();
-                  sprite.Color = subChunkReader.ReadUInt8();
-                  sprite.X = subChunkReader.ReadInt32();
-                  sprite.Y = subChunkReader.ReadInt32();
-                  sprite.ExpandX = ( subChunkReader.ReadUInt8() != 0 );
-                  sprite.ExpandY = ( subChunkReader.ReadUInt8() != 0 );
+                      sprite.Mode = (SpriteMode)subChunkReader.ReadInt32();
+                      sprite.Tile.Mode = (GraphicTileMode)subChunkReader.ReadInt32();
+                      sprite.Tile.CustomColor = (byte)subChunkReader.ReadInt32();
+                      sprite.Tile.Width = subChunkReader.ReadInt32();
+                      sprite.Tile.Height = subChunkReader.ReadInt32();
+                      int dataLength = subChunkReader.ReadInt32();
+                      sprite.Tile.Data = new GR.Memory.ByteBuffer();
+                      subChunkReader.ReadBlock( sprite.Tile.Data, (uint)dataLength );
+                      if ( sprite.Tile.CustomColor == 255 )
+                      {
+                        sprite.Tile.CustomColor = 1;
+                      }
 
-                  layer.Sprites.Add( sprite );
-                }
-                else if ( subChunk.Type == FileChunkConstants.SPRITESET_LAYER_INFO )
-                {
-                  layer.Name            = subChunkReader.ReadString();
-                  layer.BackgroundColor = subChunkReader.ReadUInt8();
-                  layer.DelayMS         = subChunkReader.ReadInt32();
+                      sprite.Tile.Colors.ActivePalette = subChunkReader.ReadInt32();
+                      sprite.Tile.Colors.PaletteOffset = subChunkReader.ReadInt32();
+                      sprite.Tile.Image = new GR.Image.MemoryImage( sprite.Tile.Width, sprite.Tile.Height, GR.Drawing.PixelFormat.Format32bppRgb );
+
+                      // bugfix - mega65 sprites have a different mode
+                      if ( sprite.Tile.Mode == GraphicTileMode.MEGA65_NCM_CHARACTERS )
+                      {
+                        sprite.Tile.Mode = GraphicTileMode.MEGA65_NCM_SPRITES;
+                      }
+
+                      Sprites.Add( sprite );
+                    }
+                    break;
+                  case FileChunkConstants.SPRITESET_OVERLAY:
+                    {
+                      var overlay = new Overlay();
+                      Overlays.Add( overlay );
+
+                      GR.IO.FileChunk   subChunkO = new GR.IO.FileChunk();
+
+                      while ( subChunkO.ReadFromStream( subChunkReader ) )
+                      {
+                        var subChunkReaderO = subChunkO.MemoryReader();
+
+                        if ( subChunkO.Type == FileChunkConstants.SPRITESET_OVERLAY_INFO )
+                        {
+                          overlay.Name = subChunkReaderO.ReadString();
+                          // numSlots is informational; we always have 8 fixed slots
+                          subChunkReaderO.ReadInt32();
+                        }
+                        else if ( subChunkO.Type == FileChunkConstants.SPRITESET_OVERLAY_SLOT )
+                        {
+                          int slotIndex = subChunkReaderO.ReadInt32();
+                          if ( slotIndex < 0 || slotIndex >= overlay.Slots.Length ) continue;
+                          var slot = overlay.Slots[slotIndex];
+                          slot.Enabled         = ( subChunkReaderO.ReadInt32() != 0 );
+                          slot.X               = subChunkReaderO.ReadInt32();
+                          slot.Y               = subChunkReaderO.ReadInt32();
+                          slot.ExpandX         = ( subChunkReaderO.ReadInt32() != 0 );
+                          slot.ExpandY         = ( subChunkReaderO.ReadInt32() != 0 );
+                          slot.BackgroundColor = subChunkReaderO.ReadInt32();
+                          slot.MultiColor1     = subChunkReaderO.ReadInt32();
+                          slot.MultiColor2     = subChunkReaderO.ReadInt32();
+                          slot.CustomColor     = subChunkReaderO.ReadInt32();
+                        }
+                        else if ( subChunkO.Type == FileChunkConstants.SPRITESET_OVERLAY_FRAME )
+                        {
+                          var frame = new OverlayFrame();
+                          frame.DelayMS = subChunkReaderO.ReadInt32();
+                          int numRefs = subChunkReaderO.ReadInt32();
+                          for ( int s = 0; s < numRefs; ++s )
+                          {
+                            int v = subChunkReaderO.ReadInt32();
+                            if ( s < frame.BankIndex.Length ) frame.BankIndex[s] = v;
+                          }
+                          overlay.Frames.Add( frame );
+                        }
+                      }
+                    }
+                    break;
                 }
               }
             }
             break;
+          default:
+            Debug.Log( "SpriteProject.ReadFromBuffer unexpected chunk type " + chunkMain.Type.ToString( "X" ) );
+            return false;
         }
       }
 
