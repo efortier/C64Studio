@@ -57,6 +57,10 @@ namespace RetroDevStudio.Formats
 
     public string         Name = "";
     public string         ExportFilename = "";
+    public string         ExportDirectory = "";
+    public int            ExportMethodIndex = 0;
+    public bool           ExportBinaryPrefixLoadAddress = false;
+    public ushort         ExportBinaryLoadAddress = 0x2000;
 
     public uint           UsedTiles = 0;
 
@@ -250,6 +254,11 @@ namespace RetroDevStudio.Formats
       chunkExport.AppendI32( ExportStartCharacter );
       chunkExport.AppendI32( ExportNumCharacters );
       chunkExport.AppendString( ExportFilename );
+      // Appended fields — old readers stop at the position guard.
+      chunkExport.AppendI32( ExportMethodIndex );
+      chunkExport.AppendString( ExportDirectory ?? "" );
+      chunkExport.AppendU8( ExportBinaryPrefixLoadAddress ? (byte)1 : (byte)0 );
+      chunkExport.AppendU16( ExportBinaryLoadAddress );
 
       chunkCharsetProject.Append( chunkExport.ToBuffer() );
 
@@ -609,6 +618,22 @@ namespace RetroDevStudio.Formats
                   ExportStartCharacter = subMemIn.ReadInt32();
                   ExportNumCharacters = subMemIn.ReadInt32();
                   ExportFilename = subMemIn.ReadString();
+                  if ( subMemIn.Size - subMemIn.Position >= 4 )
+                  {
+                    ExportMethodIndex = subMemIn.ReadInt32();
+                  }
+                  if ( subMemIn.Position < subMemIn.Size )
+                  {
+                    ExportDirectory = subMemIn.ReadString();
+                  }
+                  if ( subMemIn.Size - subMemIn.Position >= 1 )
+                  {
+                    ExportBinaryPrefixLoadAddress = ( subMemIn.ReadUInt8() != 0 );
+                  }
+                  if ( subMemIn.Size - subMemIn.Position >= 2 )
+                  {
+                    ExportBinaryLoadAddress = subMemIn.ReadUInt16();
+                  }
                   break;
                 case FileChunkConstants.CHARSET_CHAR:
                   {

@@ -7,5 +7,6 @@ namespace RetroDevStudio.Formats
   {
     public CharsetProject             Charset;
     public List<int>                  ExportIndices;
+    public string                     OutputPath = "";
   }
 }

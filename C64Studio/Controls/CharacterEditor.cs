@@ -1718,9 +1718,12 @@ namespace RetroDevStudio.Controls
           if ( Core.Imaging != null )
           {
             int offset = (int)e.Graphics.MeasureString( labelCharNo.Text, labelCharNo.Font ).Width;
-            e.Graphics.DrawString( "" + ConstantData.ScreenCodeToChar[(byte)m_CurrentChar].CharValue, 
-                                   Core.Imaging.FontFromMachine( MachineType.C64 ), 
-                                   System.Drawing.SystemBrushes.WindowText, offset + 10, 0 );
+            using ( var glyphBrush = new System.Drawing.SolidBrush( labelCharNo.ForeColor ) )
+            {
+              e.Graphics.DrawString( "" + ConstantData.ScreenCodeToChar[(byte)m_CurrentChar].CharValue,
+                                     Core.Imaging.FontFromMachine( MachineType.C64 ),
+                                     glyphBrush, offset + 10, 0 );
+            }
           }
         }
         catch ( Exception ex )

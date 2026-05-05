@@ -34,13 +34,18 @@ namespace RetroDevStudio.Controls
 
     public override bool HandleExport( ExportCharsetInfo Info, TextBox EditOutput, DocumentInfo DocInfo )
     {
-      System.Windows.Forms.SaveFileDialog saveDlg = new System.Windows.Forms.SaveFileDialog();
-
-      saveDlg.Title = "Export Characters to Image";
-      saveDlg.Filter = Core.MainForm.FilterString( RetroDevStudio.Types.Constants.FILEFILTER_IMAGE_FILES );
-      if ( saveDlg.ShowDialog() != System.Windows.Forms.DialogResult.OK )
+      string targetPath = Info.OutputPath;
+      if ( string.IsNullOrEmpty( targetPath ) )
       {
-        return false;
+        System.Windows.Forms.SaveFileDialog saveDlg = new System.Windows.Forms.SaveFileDialog();
+
+        saveDlg.Title = "Export Characters to Image";
+        saveDlg.Filter = Core.MainForm.FilterString( RetroDevStudio.Types.Constants.FILEFILTER_IMAGE_FILES );
+        if ( saveDlg.ShowDialog() != System.Windows.Forms.DialogResult.OK )
+        {
+          return false;
+        }
+        targetPath = saveDlg.FileName;
       }
 
       GR.Image.MemoryImage    targetImg = new GR.Image.MemoryImage( 128, 128, Info.Charset.Characters[0].Tile.Image.PixelFormat );
@@ -53,7 +58,7 @@ namespace RetroDevStudio.Controls
         Info.Charset.Characters[i].Tile.Image.DrawTo( targetImg, ( i % 16 ) * 8, ( i / 16 ) * 8 );
       }
       System.Drawing.Bitmap bmpTarget = targetImg.GetAsBitmap();
-      bmpTarget.Save( saveDlg.FileName, System.Drawing.Imaging.ImageFormat.Png );
+      bmpTarget.Save( targetPath, System.Drawing.Imaging.ImageFormat.Png );
       return true;
     }
 

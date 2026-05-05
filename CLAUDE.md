@@ -131,7 +131,11 @@ When the user asks to add a new field to an element (entity, marker, tile, map, 
 3. **Load (chunk reader)** — guard the new read with `if ( reader.Size - reader.Position >= N )` and assign the default in the `else` branch. This is the forward-compat contract from the File Formats section — old files just fall through to the default. Never bump a chunk version for an appended optional field.
 
 4. **UI control** — if the field has a checkbox/input on a form:
-   - **Don't overlap with existing controls.** Prefer inserting into a FlowLayoutPanel (auto-reflows) over setting an absolute `Location` next to other controls. If you must use absolute positioning, read the surrounding controls' `Location` + `Size` and place the new one past their right edge (plus margin) without pushing it off the panel's own width.
+   - **Don't overlap with existing controls.** Prefer inserting into a FlowLayoutPanel (auto-reflows) over setting an absolute `Location` next to other controls. If you must use absolute positioning:
+     1. **Enumerate every sibling** on the parent (grep `parent.Controls.Add(...)` on the parent form/tab) and list each control's `Location + Size`. Do not skip any — listboxes that span large vertical areas and multi-line panels are the ones that get missed.
+     2. **Compute the proposed rect** as `(X, Y) → (X + W, Y + H)`.
+     3. **Verify zero rect-vs-rect overlap** against every sibling. Both axes — a wide multiline textbox below an existing button row can clear the right-edge check yet still slam into a checkbox below or a listbox to the side.
+     4. **State the check in the response** so it's auditable: "verified no overlap with `listMarkerTypes` (8,8)-(168,402), `btnAddMarkerType` (174,126)-(249,149), …". If you skipped a sibling, the check failed.
    - Declare the control instance (`= new Krypton...()`), add it to the parent panel's `Controls` in the desired tab order, set its properties in its own `// controlName //` block, and declare the private field at the bottom of the Designer.
    - Wire read-handlers (user edits control → field updates) AND write-handlers (existing value loaded → control reflects it). For per-instance fields edited via right-click (entities, markers), update the "pre-populate from clicked instance" branch too, not just the "default for new placement" branch.
 

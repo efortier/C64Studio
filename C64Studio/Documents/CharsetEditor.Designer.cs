@@ -49,6 +49,11 @@ namespace RetroDevStudio.Documents
       this.comboExportMethod = new System.Windows.Forms.ComboBox();
       this.label4 = new System.Windows.Forms.Label();
       this.label11 = new System.Windows.Forms.Label();
+      this.labelExportDirectory = new System.Windows.Forms.Label();
+      this.editExportDirectory = new System.Windows.Forms.TextBox();
+      this.btnBrowseExportDirectory = new System.Windows.Forms.Button();
+      this.labelExportFilename = new System.Windows.Forms.Label();
+      this.editExportFilename = new System.Windows.Forms.TextBox();
       this.tabImport = new System.Windows.Forms.TabPage();
       this.comboImportRange = new System.Windows.Forms.ComboBox();
       this.editImportRangeCount = new System.Windows.Forms.TextBox();
@@ -125,6 +130,11 @@ namespace RetroDevStudio.Documents
       this.tabExport.Controls.Add(this.comboExportMethod);
       this.tabExport.Controls.Add(this.label4);
       this.tabExport.Controls.Add(this.label11);
+      this.tabExport.Controls.Add(this.labelExportDirectory);
+      this.tabExport.Controls.Add(this.editExportDirectory);
+      this.tabExport.Controls.Add(this.btnBrowseExportDirectory);
+      this.tabExport.Controls.Add(this.labelExportFilename);
+      this.tabExport.Controls.Add(this.editExportFilename);
       this.tabExport.Location = new System.Drawing.Point(4, 22);
       this.tabExport.Name = "tabExport";
       this.tabExport.Padding = new System.Windows.Forms.Padding(3);
@@ -208,11 +218,11 @@ namespace RetroDevStudio.Documents
       // 
       // panelExport
       // 
-      this.panelExport.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+      this.panelExport.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
             | System.Windows.Forms.AnchorStyles.Left)));
-      this.panelExport.Location = new System.Drawing.Point(6, 63);
+      this.panelExport.Location = new System.Drawing.Point(6, 113);
       this.panelExport.Name = "panelExport";
-      this.panelExport.Size = new System.Drawing.Size(439, 409);
+      this.panelExport.Size = new System.Drawing.Size(439, 359);
       this.panelExport.TabIndex = 5;
       // 
       // comboExportMethod
@@ -242,7 +252,51 @@ namespace RetroDevStudio.Documents
       this.label11.Size = new System.Drawing.Size(79, 13);
       this.label11.TabIndex = 31;
       this.label11.Text = "Export Method:";
-      // 
+      //
+      // labelExportDirectory
+      //
+      this.labelExportDirectory.AutoSize = true;
+      this.labelExportDirectory.Location = new System.Drawing.Point(8, 66);
+      this.labelExportDirectory.Name = "labelExportDirectory";
+      this.labelExportDirectory.Size = new System.Drawing.Size(55, 13);
+      this.labelExportDirectory.TabIndex = 32;
+      this.labelExportDirectory.Text = "Directory:";
+      //
+      // editExportDirectory
+      //
+      this.editExportDirectory.Location = new System.Drawing.Point(90, 63);
+      this.editExportDirectory.Name = "editExportDirectory";
+      this.editExportDirectory.Size = new System.Drawing.Size(193, 20);
+      this.editExportDirectory.TabIndex = 7;
+      this.editExportDirectory.TextChanged += new System.EventHandler(this.editExportDirectory_TextChanged);
+      //
+      // btnBrowseExportDirectory
+      //
+      this.btnBrowseExportDirectory.Location = new System.Drawing.Point(288, 63);
+      this.btnBrowseExportDirectory.Name = "btnBrowseExportDirectory";
+      this.btnBrowseExportDirectory.Size = new System.Drawing.Size(75, 21);
+      this.btnBrowseExportDirectory.TabIndex = 8;
+      this.btnBrowseExportDirectory.Text = "Browse...";
+      this.btnBrowseExportDirectory.UseVisualStyleBackColor = true;
+      this.btnBrowseExportDirectory.Click += new System.EventHandler(this.btnBrowseExportDirectory_Click);
+      //
+      // labelExportFilename
+      //
+      this.labelExportFilename.AutoSize = true;
+      this.labelExportFilename.Location = new System.Drawing.Point(8, 89);
+      this.labelExportFilename.Name = "labelExportFilename";
+      this.labelExportFilename.Size = new System.Drawing.Size(55, 13);
+      this.labelExportFilename.TabIndex = 33;
+      this.labelExportFilename.Text = "Filename:";
+      //
+      // editExportFilename
+      //
+      this.editExportFilename.Location = new System.Drawing.Point(90, 86);
+      this.editExportFilename.Name = "editExportFilename";
+      this.editExportFilename.Size = new System.Drawing.Size(273, 20);
+      this.editExportFilename.TabIndex = 9;
+      this.editExportFilename.TextChanged += new System.EventHandler(this.editExportFilename_TextChanged);
+      //
       // tabImport
       // 
       this.tabImport.Controls.Add(this.comboImportRange);
@@ -489,6 +543,11 @@ namespace RetroDevStudio.Documents
     private System.Windows.Forms.ComboBox comboExportMethod;
     private System.Windows.Forms.Label label4;
     private System.Windows.Forms.Label label11;
+    private System.Windows.Forms.Label labelExportDirectory;
+    private System.Windows.Forms.TextBox editExportDirectory;
+    private System.Windows.Forms.Button btnBrowseExportDirectory;
+    private System.Windows.Forms.Label labelExportFilename;
+    private System.Windows.Forms.TextBox editExportFilename;
     private System.Windows.Forms.TabPage tabImport;
     private System.Windows.Forms.TextBox editDataExport;
     private System.Windows.Forms.ComboBox comboExportRange;

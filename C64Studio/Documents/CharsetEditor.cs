@@ -247,6 +247,30 @@ namespace RetroDevStudio.Documents
       editCharactersCount.Text        = m_Charset.ExportNumCharacters.ToString();
       editCharactersFrom.Text         = m_Charset.ExportStartCharacter.ToString();
 
+      // Restore the previously chosen export method + path. Detach the
+      // change handlers so populating the controls doesn't dirty the
+      // project we just loaded.
+      comboExportMethod.SelectedIndexChanged -= comboExportMethod_SelectedIndexChanged;
+      editExportDirectory.TextChanged        -= editExportDirectory_TextChanged;
+      editExportFilename.TextChanged         -= editExportFilename_TextChanged;
+      try
+      {
+        int idx = m_Charset.ExportMethodIndex;
+        if ( idx < 0 || idx >= comboExportMethod.Items.Count ) idx = 0;
+        comboExportMethod.SelectedIndex = idx;
+        // Manually swap in the matching export form because the
+        // SelectedIndexChanged handler is detached.
+        InstantiateExportForm();
+        editExportDirectory.Text = m_Charset.ExportDirectory ?? "";
+        editExportFilename.Text  = m_Charset.ExportFilename ?? "";
+      }
+      finally
+      {
+        comboExportMethod.SelectedIndexChanged += comboExportMethod_SelectedIndexChanged;
+        editExportDirectory.TextChanged        += editExportDirectory_TextChanged;
+        editExportFilename.TextChanged         += editExportFilename_TextChanged;
+      }
+
       Modified = false;
 
       saveCharsetProjectToolStripMenuItem.Enabled = true;
@@ -709,6 +733,16 @@ namespace RetroDevStudio.Documents
 
     private void comboExportMethod_SelectedIndexChanged(object sender, EventArgs e)
     {
+      InstantiateExportForm();
+
+      m_Charset.ExportMethodIndex = comboExportMethod.SelectedIndex;
+      SetModified();
+    }
+
+
+
+    private void InstantiateExportForm()
+    {
       if ( m_ExportForm != null )
       {
         m_ExportForm.Dispose();
@@ -727,6 +761,54 @@ namespace RetroDevStudio.Documents
       m_ExportForm = (ExportCharsetFormBase)Activator.CreateInstance( item.second, new object[] { Core } );
       m_ExportForm.Parent = panelExport;
       m_ExportForm.CreateControl();
+      m_ExportForm.LoadSettings( m_Charset );
+      m_ExportForm.SettingsChanged += ExportForm_SettingsChanged;
+    }
+
+
+
+    private void ExportForm_SettingsChanged( object sender, EventArgs e )
+    {
+      SetModified();
+    }
+
+
+
+    private void editExportDirectory_TextChanged( object sender, EventArgs e )
+    {
+      m_Charset.ExportDirectory = editExportDirectory.Text ?? "";
+      SetModified();
+    }
+
+
+
+    private void editExportFilename_TextChanged( object sender, EventArgs e )
+    {
+      m_Charset.ExportFilename = editExportFilename.Text ?? "";
+      SetModified();
+    }
+
+
+
+    private void btnBrowseExportDirectory_Click( object sender, EventArgs e )
+    {
+      using ( var dlg = new System.Windows.Forms.FolderBrowserDialog() )
+      {
+        dlg.Description = "Select export directory";
+        string current = editExportDirectory.Text;
+        if ( !string.IsNullOrEmpty( current ) && System.IO.Directory.Exists( current ) )
+        {
+          dlg.SelectedPath = current;
+        }
+        else if ( ( DocumentInfo != null ) && ( DocumentInfo.Project != null ) )
+        {
+          dlg.SelectedPath = DocumentInfo.Project.Settings.BasePath;
+        }
+        if ( dlg.ShowDialog( this ) == System.Windows.Forms.DialogResult.OK )
+        {
+          editExportDirectory.Text = dlg.SelectedPath;
+        }
+      }
     }
 
 
@@ -741,10 +823,19 @@ namespace RetroDevStudio.Documents
         charSet.Append( m_Charset.Characters[index].Tile.Data );
       }
 
+      string outputPath = "";
+      string dir  = editExportDirectory.Text ?? "";
+      string file = editExportFilename.Text ?? "";
+      if ( !string.IsNullOrEmpty( dir ) && !string.IsNullOrEmpty( file ) )
+      {
+        outputPath = System.IO.Path.Combine( dir, file );
+      }
+
       var exportInfo = new ExportCharsetInfo()
       {
         Charset         = m_Charset,
-        ExportIndices   = exportIndices
+        ExportIndices   = exportIndices,
+        OutputPath      = outputPath
       };
 
       editDataExport.Text = "";

@@ -42,6 +42,10 @@ namespace RetroDevStudio.Formats
       public int        Color = 1;
       public int        ID = 0;
       public int        TagID = 0;
+      // Editor-only free-form description of what this marker type
+      // represents. Persisted in the map project file but never written
+      // to the game binary or any sidecar.
+      public string     Description = "";
     };
 
     public class Entity
@@ -77,6 +81,21 @@ namespace RetroDevStudio.Formats
     public const byte MAP_STRING_CLEAR_TEXT_AREA = 0xFB;
 
     /// <summary>
+    /// Sentinel for "this line has no control byte — skip emission". $FF
+    /// is END_OF_TEXT; using it as a sentinel is unambiguous because the
+    /// renderer only ever reads it as the message-stream terminator, never
+    /// as a per-line color byte.
+    /// </summary>
+    public const byte MAP_STRING_NO_CONTROL_CODE = 0xFF;
+    /// <summary>
+    /// Sentinel for "this line has no terminator — skip emission". $00
+    /// is COLOR_BLACK in the byte-stream alphabet; using it as a sentinel
+    /// for the terminator field is unambiguous because terminators are
+    /// only ever $FC (PRESS_FIRE) or $FD (END_OF_LINE) in the stream.
+    /// </summary>
+    public const byte MAP_STRING_NO_TERMINATOR   = 0x00;
+
+    /// <summary>
     /// One of up to 4 lines in a <see cref="MapString"/>.
     ///
     /// <see cref="ControlCode"/> is the line's leading control byte. The
@@ -95,11 +114,25 @@ namespace RetroDevStudio.Formats
     /// END_OF_LINE for a normal break or PRESS_FIRE to render the static
     /// "Press Fire to continue" prompt and block until fire.
     /// </summary>
+    /// <summary>Per-line text justification within the runtime text area.</summary>
+    public const byte MAP_STRING_JUSTIFY_LEFT   = 0;
+    public const byte MAP_STRING_JUSTIFY_CENTER = 1;
+    public const byte MAP_STRING_JUSTIFY_RIGHT  = 2;
+
     public class MapStringLine
     {
-      public byte   ControlCode = 0x01;   // default white — sensible neutral
-      public string Text        = "";
-      public byte   Terminator  = MAP_STRING_END_OF_LINE;
+      // Default to "None" sentinels so a freshly-added MapString emits
+      // nothing for lines the user hasn't filled in. Existing project
+      // files keep whatever value was saved (white control code by
+      // default for pre-sentinel projects, $FD for terminator, etc).
+      public byte   ControlCode   = MAP_STRING_NO_CONTROL_CODE;
+      public string Text          = "";
+      public byte   Terminator    = MAP_STRING_NO_TERMINATOR;
+      // Editor-side hint applied at export time only: pads <see cref="Text"/>
+      // with leading spaces so it lands left-aligned (no padding), centered,
+      // or right-aligned within MapStringsTextAreaWidth columns. Not stored
+      // as a stream byte — the runtime sees the already-padded characters.
+      public byte   Justification = MAP_STRING_JUSTIFY_LEFT;
     };
 
     /// <summary>
@@ -429,6 +462,13 @@ namespace RetroDevStudio.Formats
     /// </summary>
     public int                          MapStringsNumbersIndex = 48;
     /// <summary>
+    /// Map Strings: width (in characters) of the runtime text area used for
+    /// center / right justification at export time. Defaults to 40, the C64
+    /// standard screen width. Padding is applied as leading spaces so the
+    /// runtime can write the bytes straight to screen RAM.
+    /// </summary>
+    public int                          MapStringsTextAreaWidth = 40;
+    /// <summary>
     /// Opacity of the grid overlay drawn on the map editor (0..100).
     /// 100 = opaque white grid lines (legacy behaviour); 0 = invisible
     /// (equivalent to ShowGrid=false). Each grid pixel is alpha-blended
@@ -516,6 +556,9 @@ namespace RetroDevStudio.Formats
       chunkProjectInfo.AppendI32( MapStringsLowercaseIndex );
       chunkProjectInfo.AppendI32( MapStringsUppercaseIndex );
       chunkProjectInfo.AppendI32( MapStringsNumbersIndex );
+      // Map Strings text-area width (default 40). Used at export time to
+      // compute leading-space padding for centered / right-justified lines.
+      chunkProjectInfo.AppendI32( MapStringsTextAreaWidth );
       projectFile.Append( chunkProjectInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkCharset = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET );
@@ -540,6 +583,9 @@ namespace RetroDevStudio.Formats
         chunkMarkerType.AppendI32( markerType.Color );
         chunkMarkerType.AppendString( markerType.ExportSymbol ?? "" );
         chunkMarkerType.AppendU8( (byte)markerType.TagID );
+        // Appended for Description — editor-only free-form text. Forward-
+        // compat: older readers stop after TagID and leave the default "".
+        chunkMarkerType.AppendString( markerType.Description ?? "" );
         chunkProjectData.Append( chunkMarkerType.ToBuffer() );
       }
 
@@ -568,6 +614,8 @@ namespace RetroDevStudio.Formats
           // files that lack this byte fall through to the default of $01
           // (white) on load.
           chunkMapString.AppendU8( line.ControlCode );
+          // Per-line justification (Left=0 / Center=1 / Right=2). Appended.
+          chunkMapString.AppendU8( line.Justification );
         }
         chunkProjectData.Append( chunkMapString.ToBuffer() );
       }
@@ -809,6 +857,13 @@ namespace RetroDevStudio.Formats
                 if ( MapStringsNumbersIndex < 0 ) MapStringsNumbersIndex = 0;
                 if ( MapStringsNumbersIndex > 255 ) MapStringsNumbersIndex = 255;
               }
+              // Optional Map Strings text-area width (append-only; default 40).
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                MapStringsTextAreaWidth = chunkReader.ReadInt32();
+                if ( MapStringsTextAreaWidth < 1 )    MapStringsTextAreaWidth = 1;
+                if ( MapStringsTextAreaWidth > 255 )  MapStringsTextAreaWidth = 255;
+              }
             }
             break;
           case FileChunkConstants.MAP_CHARSET:
@@ -848,6 +903,10 @@ namespace RetroDevStudio.Formats
                       if ( subChunkReader.Position < subChunkReader.Size )
                       {
                         mType.TagID = subChunkReader.ReadUInt8();
+                      }
+                      if ( subChunkReader.Position < subChunkReader.Size )
+                      {
+                        mType.Description = subChunkReader.ReadString();
                       }
                       MarkerTypes.Add( mType );
                     }
@@ -890,14 +949,27 @@ namespace RetroDevStudio.Formats
                         {
                           ms.Lines[li].Terminator = subChunkReader.ReadUInt8();
                         }
-                        if ( ( ms.Lines[li].Terminator != MAP_STRING_END_OF_LINE )
+                        // Validate against the three legal values: None,
+                        // END_OF_LINE, PRESS_FIRE. Anything else is a
+                        // corrupt/legacy byte — fall back to None so the
+                        // line emits no terminator.
+                        if ( ( ms.Lines[li].Terminator != MAP_STRING_NO_TERMINATOR )
+                        &&   ( ms.Lines[li].Terminator != MAP_STRING_END_OF_LINE )
                         &&   ( ms.Lines[li].Terminator != MAP_STRING_PRESS_FIRE ) )
                         {
-                          ms.Lines[li].Terminator = MAP_STRING_END_OF_LINE;
+                          ms.Lines[li].Terminator = MAP_STRING_NO_TERMINATOR;
                         }
                         if ( subChunkReader.Position < subChunkReader.Size )
                         {
                           ms.Lines[li].ControlCode = subChunkReader.ReadUInt8();
+                        }
+                        if ( subChunkReader.Position < subChunkReader.Size )
+                        {
+                          ms.Lines[li].Justification = subChunkReader.ReadUInt8();
+                          if ( ms.Lines[li].Justification > MAP_STRING_JUSTIFY_RIGHT )
+                          {
+                            ms.Lines[li].Justification = MAP_STRING_JUSTIFY_LEFT;
+                          }
                         }
                       }
                       MapStrings.Add( ms );
@@ -2510,7 +2582,8 @@ namespace RetroDevStudio.Formats
             ms,
             MapStringsLowercaseIndex,
             MapStringsUppercaseIndex,
-            MapStringsNumbersIndex ) );
+            MapStringsNumbersIndex,
+            MapStringsTextAreaWidth ) );
         }
 
         // LO / HI tables get placeholder bytes; we patch them once we know
@@ -2897,37 +2970,50 @@ namespace RetroDevStudio.Formats
     /// mapping are skipped (matches the editor preview).
     /// </summary>
     public static GR.Memory.ByteBuffer BuildMapStringByteStream(
-      MapString Msg, int LowerStart, int UpperStart, int NumbersStart )
+      MapString Msg, int LowerStart, int UpperStart, int NumbersStart, int TextAreaWidth )
     {
       var buf = new GR.Memory.ByteBuffer();
+      if ( TextAreaWidth < 1 ) TextAreaWidth = 1;
 
-      // Drop trailing empty lines but keep deliberately-blank middle lines.
-      int lastNonEmpty = -1;
-      for ( int li = 3; li >= 0; --li )
-      {
-        if ( !string.IsNullOrEmpty( Msg.Lines[li].Text ) )
-        {
-          lastNonEmpty = li;
-          break;
-        }
-      }
-
-      for ( int li = 0; li <= lastNonEmpty; ++li )
+      // Each of the 4 line slots has 3 independently-optional pieces:
+      //   ControlCode (leading byte) — skipped if MAP_STRING_NO_CONTROL_CODE.
+      //   Text       (screen codes)   — skipped if empty (no null byte).
+      //     Padded with leading spaces here for Center / Right justification
+      //     so the runtime can write the bytes straight to screen RAM.
+      //   Terminator (trailing byte)  — skipped if MAP_STRING_NO_TERMINATOR.
+      // A line where all three are skipped emits no bytes at all, letting
+      // the user "skip a line" by setting everything to None.
+      for ( int li = 0; li < 4; ++li )
       {
         var line = Msg.Lines[li];
+        if ( line.ControlCode != MAP_STRING_NO_CONTROL_CODE )
+        {
+          buf.AppendU8( line.ControlCode );
+        }
         string text = line.Text ?? "";
         if ( text.Length > 0 )
         {
-          // Leading control byte (line color). Skipped for empty middle
-          // lines so blank lines emit as bare END_OF_LINE — matches the
-          // canonical Dreadhold MAP_STRING_01 layout.
-          buf.AppendU8( line.ControlCode );
+          int pad = 0;
+          int slack = TextAreaWidth - text.Length;
+          if ( slack > 0 )
+          {
+            if ( line.Justification == MAP_STRING_JUSTIFY_CENTER )      pad = slack / 2;
+            else if ( line.Justification == MAP_STRING_JUSTIFY_RIGHT )  pad = slack;
+          }
+          // Spaces at $20 — fixed C64 punctuation table, independent of charset offsets.
+          for ( int p = 0; p < pad; ++p )
+          {
+            buf.AppendU8( 0x20 );
+          }
           for ( int p = 0; p < text.Length; ++p )
           {
             EmitMapStringTextChar( buf, text[p], LowerStart, UpperStart, NumbersStart );
           }
         }
-        buf.AppendU8( line.Terminator );
+        if ( line.Terminator != MAP_STRING_NO_TERMINATOR )
+        {
+          buf.AppendU8( line.Terminator );
+        }
       }
 
       if ( Msg.ClearTextAreaAtEnd )

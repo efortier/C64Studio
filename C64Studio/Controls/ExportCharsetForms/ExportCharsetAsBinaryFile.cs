@@ -17,9 +17,13 @@ namespace RetroDevStudio.Controls
 {
   public partial class ExportCharsetAsBinaryFile : ExportCharsetFormBase
   {
+    private CharsetProject m_BoundCharset = null;
+
+
+
     public ExportCharsetAsBinaryFile() :
       base( null )
-    { 
+    {
     }
 
 
@@ -32,21 +36,62 @@ namespace RetroDevStudio.Controls
 
 
 
+    public override void LoadSettings( CharsetProject Charset )
+    {
+      m_BoundCharset = Charset;
+      if ( Charset == null ) return;
+
+      checkPrefixLoadAddress.Checked  = Charset.ExportBinaryPrefixLoadAddress;
+      editPrefixLoadAddress.Text      = Charset.ExportBinaryLoadAddress.ToString( "X4" );
+      editPrefixLoadAddress.Enabled   = checkPrefixLoadAddress.Checked;
+
+      // Hook persistence handlers AFTER initial population so loading the
+      // values doesn't dirty the project.
+      checkPrefixLoadAddress.CheckedChanged += checkPrefixLoadAddress_PersistChanged;
+      editPrefixLoadAddress.TextChanged     += editPrefixLoadAddress_PersistChanged;
+    }
+
+
+
+    private void checkPrefixLoadAddress_PersistChanged( object sender, EventArgs e )
+    {
+      if ( m_BoundCharset == null ) return;
+      m_BoundCharset.ExportBinaryPrefixLoadAddress = checkPrefixLoadAddress.Checked;
+      OnSettingsChanged();
+    }
+
+
+
+    private void editPrefixLoadAddress_PersistChanged( object sender, EventArgs e )
+    {
+      if ( m_BoundCharset == null ) return;
+      m_BoundCharset.ExportBinaryLoadAddress = GR.Convert.ToU16( editPrefixLoadAddress.Text, 16 );
+      OnSettingsChanged();
+    }
+
+
+
     public override bool HandleExport( ExportCharsetInfo Info, TextBox EditOutput, DocumentInfo DocInfo )
     {
-      System.Windows.Forms.SaveFileDialog saveDlg = new System.Windows.Forms.SaveFileDialog();
+      string targetPath = Info.OutputPath;
+      if ( string.IsNullOrEmpty( targetPath ) )
+      {
+        System.Windows.Forms.SaveFileDialog saveDlg = new System.Windows.Forms.SaveFileDialog();
 
-      saveDlg.FileName = Info.Charset.ExportFilename;
-      saveDlg.Title = "Export Charset to";
-      saveDlg.Filter = "Charset|*.chr|All Files|*.*";
-      if ( DocInfo.Project != null )
-      {
-        saveDlg.InitialDirectory = DocInfo.Project.Settings.BasePath;
+        saveDlg.FileName = Info.Charset.ExportFilename;
+        saveDlg.Title = "Export Charset to";
+        saveDlg.Filter = "Charset|*.chr|All Files|*.*";
+        if ( DocInfo.Project != null )
+        {
+          saveDlg.InitialDirectory = DocInfo.Project.Settings.BasePath;
+        }
+        if ( saveDlg.ShowDialog() != System.Windows.Forms.DialogResult.OK )
+        {
+          return false;
+        }
+        targetPath = saveDlg.FileName;
       }
-      if ( saveDlg.ShowDialog() != System.Windows.Forms.DialogResult.OK )
-      {
-        return false;
-      }
+
       GR.Memory.ByteBuffer charSet = new GR.Memory.ByteBuffer();
 
       List<int>     exportIndices = Info.ExportIndices;
@@ -62,7 +107,7 @@ namespace RetroDevStudio.Controls
         addressData.AppendU16( address );
         charSet = addressData + charSet;
       }
-      GR.IO.File.WriteAllBytes( saveDlg.FileName, charSet );
+      GR.IO.File.WriteAllBytes( targetPath, charSet );
       return true;
     }
 
