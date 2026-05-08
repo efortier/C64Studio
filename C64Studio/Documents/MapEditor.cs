@@ -2514,32 +2514,27 @@ namespace RetroDevStudio.Documents
                  var type = m_MapProject.MarkerTypes.FirstOrDefault( t => t.ID == m_CurrentMap.SelectedMarkerType );
                  if ( type != null )
                  {
-                   // Unique-per-tile: replace any marker already at this position.
+                   // One marker per cell. If the clicked cell already has
+                   // one, leave it alone — re-clicking a populated cell
+                   // shouldn't silently overwrite the marker that's there.
+                   // Use right-click / delete to clear, then place anew.
                    var existingMarker = m_CurrentMap.Markers.FirstOrDefault( m => m.X == placeX && m.Y == placeY );
                    if ( existingMarker != null )
                    {
-                     existingMarker.Type = type.ID;
-                     existingMarker.Name = type.Name + " " + ( m_CurrentMap.Markers.Count + 1 );
-                     existingMarker.Value1 = (byte)editMarkerValue1.Value;
-                     existingMarker.Value2 = (byte)editMarkerValue2.Value;
-                     existingMarker.Enabled = checkMarkerDefaultEnabled.Checked;
-                     existingMarker.Triggered = checkMarkerDefaultTriggered.Checked;
-                     existingMarker.GroupId = (byte)editMarkerGroupId.Value;
+                     break;
                    }
-                   else
-                   {
-                     var marker = new MapProject.Marker();
-                     marker.X = placeX;
-                     marker.Y = placeY;
-                     marker.Type = type.ID;
-                     marker.Name = type.Name + " " + ( m_CurrentMap.Markers.Count + 1 );
-                     marker.Value1 = (byte)editMarkerValue1.Value;
-                     marker.Value2 = (byte)editMarkerValue2.Value;
-                     marker.Enabled = checkMarkerDefaultEnabled.Checked;
-                     marker.Triggered = checkMarkerDefaultTriggered.Checked;
-                     marker.GroupId = (byte)editMarkerGroupId.Value;
-                     m_CurrentMap.Markers.Add( marker );
-                   }
+
+                   var marker = new MapProject.Marker();
+                   marker.X = placeX;
+                   marker.Y = placeY;
+                   marker.Type = type.ID;
+                   marker.Name = type.Name + " " + ( m_CurrentMap.Markers.Count + 1 );
+                   marker.Value1 = (byte)editMarkerValue1.Value;
+                   marker.Value2 = (byte)editMarkerValue2.Value;
+                   marker.Enabled = checkMarkerDefaultEnabled.Checked;
+                   marker.Triggered = checkMarkerDefaultTriggered.Checked;
+                   marker.GroupId = (byte)editMarkerGroupId.Value;
+                   m_CurrentMap.Markers.Add( marker );
                    RedrawMap();
                    pictureEditor.Invalidate();
                    Modified = true;
@@ -3445,6 +3440,26 @@ namespace RetroDevStudio.Documents
         }
       }
       panelCharacters.Invalidate();
+
+      // Restore the inner-tab selection from the project, ONCE per load.
+      // Detach the SelectedIndexChanged handler around the assignment so
+      // the restore doesn't dirty the project. Clamp into the live page
+      // count (defensive against tab additions/removals between saves).
+      int savedTab = m_MapProject.LastSelectedTabIndex;
+      if ( savedTab < 0 ) savedTab = 0;
+      if ( savedTab >= tabMapEditor.Pages.Count ) savedTab = 0;
+      if ( tabMapEditor.SelectedIndex != savedTab )
+      {
+        tabMapEditor.SelectedPageChanged -= tabMapEditor_SelectedIndexChanged;
+        try
+        {
+          tabMapEditor.SelectedIndex = savedTab;
+        }
+        finally
+        {
+          tabMapEditor.SelectedPageChanged += tabMapEditor_SelectedIndexChanged;
+        }
+      }
 
       Modified = false;
       if ( string.IsNullOrEmpty( DocumentInfo.DocumentFilename ) )
@@ -5454,6 +5469,7 @@ namespace RetroDevStudio.Documents
 
       btnMapApply.Enabled = ( comboMaps.SelectedIndex != -1 );
       btnMapDelete.Enabled = ( comboMaps.SelectedIndex != -1 );
+      btnMapClear.Enabled = ( comboMaps.SelectedIndex != -1 );
 
       if ( comboMaps.SelectedIndex == -1 )
       {
@@ -6406,6 +6422,20 @@ namespace RetroDevStudio.Documents
       {
         RefreshMapTileList();
       }
+      // Persist the user's last-visited tab so reopening the project
+      // lands on the same page. Mark the project modified so the change
+      // gets saved with the next Save. Guard against the early
+      // SelectedIndexChanged that fires during InitializeComponent
+      // (before m_MapProject is wired up via OpenProject) — at that
+      // point we don't want to dirty a freshly-opened or empty project.
+      if ( m_MapProject != null && tabMapEditor.SelectedIndex >= 0 )
+      {
+        if ( m_MapProject.LastSelectedTabIndex != tabMapEditor.SelectedIndex )
+        {
+          m_MapProject.LastSelectedTabIndex = tabMapEditor.SelectedIndex;
+          SetModified();
+        }
+      }
     }
 
 
@@ -6741,6 +6771,84 @@ namespace RetroDevStudio.Documents
       DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapRemove( this, m_MapProject, comboMaps.SelectedIndex ) );
 
       RemoveMap( comboMaps.SelectedIndex );
+    }
+
+
+
+    private void btnMapClear_Click( object sender, EventArgs e )
+    {
+      if ( m_CurrentMap == null )
+      {
+        return;
+      }
+
+      // Destructive op — confirm first. The user already has Ctrl+Z, but
+      // a misclick on a populated map deserves a one-tap-out.
+      var result = System.Windows.Forms.MessageBox.Show(
+        "Clear all characters, colors, markers and entities on map '"
+          + ( string.IsNullOrEmpty( m_CurrentMap.Name ) ? "(unnamed)" : m_CurrentMap.Name )
+          + "'? This cannot be undone in one step but Ctrl+Z will reverse each portion.",
+        "Clear map?",
+        System.Windows.Forms.MessageBoxButtons.YesNo,
+        System.Windows.Forms.MessageBoxIcon.Warning,
+        System.Windows.Forms.MessageBoxDefaultButton.Button2 );
+      if ( result != System.Windows.Forms.DialogResult.Yes ) return;
+
+      DocumentInfo.UndoManager.StartUndoGroup();
+
+      // Snapshot tiles + per-char color/blocked overrides for the WHOLE
+      // map before we wipe — UndoMapTilesChange covers all three layers
+      // for the area passed in.
+      int w = m_CurrentMap.Tiles.Width;
+      int h = m_CurrentMap.Tiles.Height;
+      DocumentInfo.UndoManager.AddGroupedUndoTask(
+        new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, w, h ) );
+      DocumentInfo.UndoManager.AddGroupedUndoTask(
+        new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
+      DocumentInfo.UndoManager.AddGroupedUndoTask(
+        new Undo.UndoMapEntitiesChange( this, m_CurrentMap ) );
+
+      // Wipe tile placements (0 = the default empty tile slot).
+      for ( int j = 0; j < h; ++j )
+      {
+        for ( int i = 0; i < w; ++i )
+        {
+          m_CurrentMap.Tiles[i, j] = 0;
+        }
+      }
+
+      // Wipe per-character color overrides (0 = C64 black, per the
+      // user's "set the color to zero" instruction).
+      int charW = m_CurrentMap.TileColorOverrides.Width;
+      int charH = m_CurrentMap.TileColorOverrides.Height;
+      for ( int j = 0; j < charH; ++j )
+      {
+        for ( int i = 0; i < charW; ++i )
+        {
+          m_CurrentMap.TileColorOverrides[i, j] = 0;
+        }
+      }
+
+      // Wipe per-character blocked overrides — false IS the no-override
+      // state, so this matches a fresh map.
+      int blkW = m_CurrentMap.CharBlockedOverrides.Width;
+      int blkH = m_CurrentMap.CharBlockedOverrides.Height;
+      for ( int j = 0; j < blkH; ++j )
+      {
+        for ( int i = 0; i < blkW; ++i )
+        {
+          m_CurrentMap.CharBlockedOverrides[i, j] = false;
+        }
+      }
+
+      m_CurrentMap.Markers.Clear();
+      m_CurrentMap.Entities.Clear();
+
+      UpdateArea( 0, 0, w, h );
+      RedrawMap();
+      pictureEditor.Invalidate();
+      UpdateMarkerOutOfBoundsLabel();
+      SetModified();
     }
 
 
@@ -9339,6 +9447,20 @@ namespace RetroDevStudio.Documents
 
 
     /// <summary>
+    /// Format a MapString listbox entry as "NN: Label" with the index
+    /// zero-padded to two digits. Used by both <see cref="RefreshMapStrings"/>
+    /// (full rebuild) and the Update handler (single-entry edit) so the
+    /// display style stays consistent.
+    /// </summary>
+    private static string FormatMapStringListEntry( int Index, Formats.MapProject.MapString Ms )
+    {
+      string label = string.IsNullOrEmpty( Ms.Label ) ? "(no label)" : Ms.Label;
+      return Index.ToString( "D2" ) + ": " + label;
+    }
+
+
+
+    /// <summary>
     /// Refresh the listbox + per-string field pane after any structural
     /// change (add / delete / reorder / undo / project load). Preserves
     /// the previously-selected index when possible.
@@ -9363,9 +9485,9 @@ namespace RetroDevStudio.Documents
       {
         listMapStrings.BeginUpdate();
         listMapStrings.Items.Clear();
-        foreach ( var ms in m_MapProject.MapStrings )
+        for ( int i = 0; i < m_MapProject.MapStrings.Count; ++i )
         {
-          listMapStrings.Items.Add( string.IsNullOrEmpty( ms.Label ) ? "(no label)" : ms.Label );
+          listMapStrings.Items.Add( FormatMapStringListEntry( i, m_MapProject.MapStrings[i] ) );
         }
         listMapStrings.EndUpdate();
 
@@ -9515,23 +9637,54 @@ namespace RetroDevStudio.Documents
 
     // -------- Live edit handlers --------
     //
-    // Per-string fields use a commit-on-Update model: edits stay in the
-    // form controls and rebuild the preview live, but never touch the
-    // selected MapString in the model. btnUpdateMapString_Click is what
-    // writes form -> model + pushes undo + sets modified. This matches
-    // the Markers tab pattern and prevents listbox-selection from dirtying
-    // the project (the population-time TextChanged firing during populate
-    // used to slip past detach in some edge cases).
+    // Per-string fields commit to the model immediately. PopulateMapString
+    // FieldsFromSelection() detaches and reattaches all of these around
+    // its writes so the listbox-driven populate doesn't mutate the model
+    // it's reading from — that's the project's mandated detach-vs-flag
+    // pattern. Each handler pushes an undo snapshot before its edit so
+    // Ctrl+Z reverses one user action.
 
     private void editMapStringLabel_TextChanged( object sender, EventArgs e )
     {
-      // Form-only edit. Update commits to the model.
+      var ms = GetSelectedMapString();
+      if ( ms == null ) return;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+
+      ms.Label = editMapStringLabel.Text ?? "";
+      SetModified();
+
+      // Reflect the (possibly new) Label in the listbox in place. Detach
+      // the listbox handler so rewriting Items[idx] doesn't re-enter
+      // PopulateMapStringFieldsFromSelection mid-typing and reset the
+      // textbox caret.
+      int idx = listMapStrings.SelectedIndex;
+      if ( idx >= 0 && idx < listMapStrings.Items.Count )
+      {
+        listMapStrings.SelectedIndexChanged -= listMapStrings_SelectedIndexChanged;
+        try
+        {
+          listMapStrings.Items[idx] = FormatMapStringListEntry( idx, ms );
+        }
+        finally
+        {
+          listMapStrings.SelectedIndexChanged += listMapStrings_SelectedIndexChanged;
+        }
+      }
     }
 
 
 
     private void editMapStringLine_TextChanged( object sender, EventArgs e )
     {
+      var ms = GetSelectedMapString();
+      if ( ms == null ) return;
+      int lineIdx = MapStringLineIndexOf( sender );
+      if ( lineIdx < 0 ) return;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+
+      var box = (System.Windows.Forms.TextBox)sender;
+      ms.Lines[lineIdx].Text = box.Text ?? "";
+      SetModified();
       RebuildMapStringPreview();
     }
 
@@ -9539,14 +9692,46 @@ namespace RetroDevStudio.Documents
 
     private void comboMapStringTerminator_SelectedIndexChanged( object sender, EventArgs e )
     {
-      // Terminator doesn't affect the visual preview (PRESS_FIRE / END_OF_LINE
-      // are runtime-only side effects). No-op until Update.
+      var ms = GetSelectedMapString();
+      if ( ms == null ) return;
+      int lineIdx = MapStringTerminatorIndexOf( sender );
+      if ( lineIdx < 0 ) return;
+      var combo = (System.Windows.Forms.ComboBox)sender;
+
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+      switch ( combo.SelectedIndex )
+      {
+        case 1:  ms.Lines[lineIdx].Terminator = Formats.MapProject.MAP_STRING_END_OF_LINE; break;
+        case 2:  ms.Lines[lineIdx].Terminator = Formats.MapProject.MAP_STRING_PRESS_FIRE;  break;
+        default: ms.Lines[lineIdx].Terminator = Formats.MapProject.MAP_STRING_NO_TERMINATOR; break;
+      }
+      SetModified();
+      // Terminator is a runtime control byte; no visual impact in the
+      // static preview, so no rebuild call.
     }
 
 
 
     private void comboMapStringLineControl_SelectedIndexChanged( object sender, EventArgs e )
     {
+      var ms = GetSelectedMapString();
+      if ( ms == null ) return;
+      int lineIdx = MapStringLineControlIndexOf( sender );
+      if ( lineIdx < 0 ) return;
+      var combo = (System.Windows.Forms.ComboBox)sender;
+
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+      // Combo: index 0 = "None", 1..16 = colors $00..$0F.
+      int cc = combo.SelectedIndex;
+      if ( cc <= 0 )
+      {
+        ms.Lines[lineIdx].ControlCode = Formats.MapProject.MAP_STRING_NO_CONTROL_CODE;
+      }
+      else
+      {
+        ms.Lines[lineIdx].ControlCode = (byte)( cc - 1 );
+      }
+      SetModified();
       RebuildMapStringPreview();
     }
 
@@ -9554,14 +9739,33 @@ namespace RetroDevStudio.Documents
 
     private void checkMapStringClearAtEnd_CheckedChanged( object sender, EventArgs e )
     {
+      var ms = GetSelectedMapString();
+      if ( ms == null ) return;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+      ms.ClearTextAreaAtEnd = checkMapStringClearAtEnd.Checked;
+      SetModified();
       // CLEAR_TEXT_AREA is a runtime tail byte; no visual impact in the
-      // static preview. Wait for Update.
+      // static preview.
     }
 
 
 
     private void comboMapStringJustify_SelectedIndexChanged( object sender, EventArgs e )
     {
+      var ms = GetSelectedMapString();
+      if ( ms == null ) return;
+      int lineIdx = MapStringJustifyIndexOf( sender );
+      if ( lineIdx < 0 ) return;
+      var combo = (System.Windows.Forms.ComboBox)sender;
+
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+      switch ( combo.SelectedIndex )
+      {
+        case 1:  ms.Lines[lineIdx].Justification = Formats.MapProject.MAP_STRING_JUSTIFY_CENTER; break;
+        case 2:  ms.Lines[lineIdx].Justification = Formats.MapProject.MAP_STRING_JUSTIFY_RIGHT;  break;
+        default: ms.Lines[lineIdx].Justification = Formats.MapProject.MAP_STRING_JUSTIFY_LEFT;   break;
+      }
+      SetModified();
       RebuildMapStringPreview();
     }
 
@@ -9659,98 +9863,30 @@ namespace RetroDevStudio.Documents
 
     private void btnUpdateMapString_Click( DecentForms.ControlBase Sender )
     {
-      int idx = listMapStrings.SelectedIndex;
+      // Per-field handlers commit live, so this button no longer copies
+      // form -> model. Repurposed as an explicit "check labels" action
+      // — surfaces the duplicate-label warning on demand without firing
+      // a modal popup on every keystroke. The button stays so users used
+      // to clicking Update have an obvious safety check; renaming it is
+      // a cosmetic follow-up.
       var ms = GetSelectedMapString();
       if ( ms == null ) return;
 
-      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
-
-      // Pull every per-string field from the form into the model in one
-      // go. This is the only place per-string edits make it into the
-      // project — see the comment on the live-edit handlers above.
-      ms.Label = editMapStringLabel.Text ?? "";
-
-      var lineBoxes = new System.Windows.Forms.TextBox[]
-      {
-        editMapStringLine0, editMapStringLine1, editMapStringLine2, editMapStringLine3
-      };
-      var termCombos = new System.Windows.Forms.ComboBox[]
-      {
-        comboMapStringTerminator0, comboMapStringTerminator1, comboMapStringTerminator2, comboMapStringTerminator3
-      };
-      var ctrlCombos = new System.Windows.Forms.ComboBox[]
-      {
-        comboMapStringLineControl0, comboMapStringLineControl1, comboMapStringLineControl2, comboMapStringLineControl3
-      };
-      var justifyCombos = new System.Windows.Forms.ComboBox[]
-      {
-        comboMapStringJustify0, comboMapStringJustify1, comboMapStringJustify2, comboMapStringJustify3
-      };
-      for ( int i = 0; i < 4; ++i )
-      {
-        ms.Lines[i].Text = lineBoxes[i].Text ?? "";
-
-        switch ( termCombos[i].SelectedIndex )
-        {
-          case 1:  ms.Lines[i].Terminator = Formats.MapProject.MAP_STRING_END_OF_LINE; break;
-          case 2:  ms.Lines[i].Terminator = Formats.MapProject.MAP_STRING_PRESS_FIRE;  break;
-          default: ms.Lines[i].Terminator = Formats.MapProject.MAP_STRING_NO_TERMINATOR; break;
-        }
-
-        int cc = ctrlCombos[i].SelectedIndex;
-        if ( cc <= 0 )
-        {
-          ms.Lines[i].ControlCode = Formats.MapProject.MAP_STRING_NO_CONTROL_CODE;
-        }
-        else
-        {
-          ms.Lines[i].ControlCode = (byte)( cc - 1 );
-        }
-
-        switch ( justifyCombos[i].SelectedIndex )
-        {
-          case 1:  ms.Lines[i].Justification = Formats.MapProject.MAP_STRING_JUSTIFY_CENTER; break;
-          case 2:  ms.Lines[i].Justification = Formats.MapProject.MAP_STRING_JUSTIFY_RIGHT;  break;
-          default: ms.Lines[i].Justification = Formats.MapProject.MAP_STRING_JUSTIFY_LEFT;   break;
-        }
-      }
-      ms.ClearTextAreaAtEnd = checkMapStringClearAtEnd.Checked;
-
-      // Reflect the (possibly new) Label in the listbox without losing
-      // the current selection.
-      if ( idx >= 0 && idx < listMapStrings.Items.Count )
-      {
-        listMapStrings.SelectedIndexChanged -= listMapStrings_SelectedIndexChanged;
-        try
-        {
-          listMapStrings.Items[idx] = string.IsNullOrEmpty( ms.Label ) ? "(no label)" : ms.Label;
-        }
-        finally
-        {
-          listMapStrings.SelectedIndexChanged += listMapStrings_SelectedIndexChanged;
-        }
-      }
-
-      SetModified();
-      RebuildMapStringPreview();
-
-      // Soft warning on duplicate label so the user knows export will skip.
       string label = ms.Label ?? "";
-      if ( !string.IsNullOrEmpty( label ) )
+      if ( string.IsNullOrEmpty( label ) ) return;
+
+      int dupCount = 0;
+      foreach ( var x in m_MapProject.MapStrings )
       {
-        int dupCount = 0;
-        foreach ( var x in m_MapProject.MapStrings )
-        {
-          if ( x.Label == label ) ++dupCount;
-        }
-        if ( dupCount > 1 )
-        {
-          System.Windows.Forms.MessageBox.Show(
-            "Label '" + label + "' is used by more than one Map String. Export will skip the duplicates.",
-            "Duplicate Map String label",
-            System.Windows.Forms.MessageBoxButtons.OK,
-            System.Windows.Forms.MessageBoxIcon.Warning );
-        }
+        if ( x.Label == label ) ++dupCount;
+      }
+      if ( dupCount > 1 )
+      {
+        System.Windows.Forms.MessageBox.Show(
+          "Label '" + label + "' is used by more than one Map String. Export will skip the duplicates.",
+          "Duplicate Map String label",
+          System.Windows.Forms.MessageBoxButtons.OK,
+          System.Windows.Forms.MessageBoxIcon.Warning );
       }
     }
 

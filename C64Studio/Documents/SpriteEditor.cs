@@ -32,8 +32,6 @@ namespace RetroDevStudio.Documents
 
     private Formats.SpriteProject       m_SpriteProject = new RetroDevStudio.Formats.SpriteProject();
 
-    private Formats.SpriteProject.Layer m_CurrentLayer = null;
-
     // Overlay-tab state. m_CurrentOverlay tracks the user-selected overlay
     // for the new multi-overlay UI (Phase 2). The 8 slot-row arrays hold
     // the per-row controls created by BuildOverlaySlotRows() at construction
@@ -72,11 +70,6 @@ namespace RetroDevStudio.Documents
     private bool                        m_ButtonReleased = false;
 
     private ToolMode                    m_Mode = ToolMode.SINGLE_PIXEL;
-
-    private Timer                       m_AnimTimer = new Timer();
-
-    private int                         m_AnimFramePos = 0;
-    private int                         m_AnimFrameTicks = 0;
 
     public int                          m_SpriteWidth = 24;
     public int                          m_SpriteHeight = 21;
@@ -160,29 +153,17 @@ namespace RetroDevStudio.Documents
       m_SpriteEditorOrigWidth   = pictureEditor.ClientSize.Width;
       m_SpriteEditorOrigHeight  = pictureEditor.ClientSize.Height;
 
-      listLayers.ItemAdded += new ArrangedItemList.ItemModifiedEventHandler( listLayers_ItemAdded );
-
       pictureEditor.DisplayPage.Create( m_SpriteWidth, m_SpriteHeight, GR.Drawing.PixelFormat.Format32bppRgb );
-      layerPreview.DisplayPage.Create( 320, 200, GR.Drawing.PixelFormat.Format32bppRgb );
       panelSprites.PixelFormat = GR.Drawing.PixelFormat.Format32bppRgb;
-      panelSprites.SetDisplaySize( 4 * m_SpriteWidth, 6 * m_SpriteHeight );
-      panelSprites.ClientSize = new System.Drawing.Size( 4 * m_SpriteWidth * 2 + System.Windows.Forms.SystemInformation.VerticalScrollBarWidth, 6 * m_SpriteHeight * 2 );
+      // panelSprites size is now Designer-set (right column on the
+      // Overlay tab). The ClientSizeChanged handler will compute the
+      // internal display size from the panel's actual ClientSize.
 
       for ( int i = 0; i < m_SpriteProject.TotalNumberOfSprites; ++i )
       {
         panelSprites.Items.Add( i.ToString(), m_SpriteProject.Sprites[i].Tile.Image );
-        comboSprite.Items.Add( i );
       }
       ChangeColorSettingsDialog();
-
-      for ( int i = 0; i < 16; ++i )
-      {
-        comboLayerColor.Items.Add( i.ToString( "d2" ) );
-        comboLayerBGColor.Items.Add( i.ToString( "d2" ) );
-      }
-      comboLayerColor.SelectedIndex = 1;
-      comboLayerBGColor.SelectedIndex = 0;
-      comboSprite.SelectedIndex = 0;
 
       pictureEditor.SetImageSize( m_SpriteWidth, m_SpriteHeight );
       panelSprites.SelectedIndex = 0;
@@ -201,22 +182,11 @@ namespace RetroDevStudio.Documents
 
       RebuildSpriteImage( m_CurrentSprite );
 
-      m_CurrentLayer = new Formats.SpriteProject.Layer();
-      m_CurrentLayer.Name = "Default";
-      m_SpriteProject.SpriteLayers.Add( m_CurrentLayer );
-      foreach ( var layer in m_SpriteProject.SpriteLayers )
-      {
-        ArrangedItemEntry item = new ArrangedItemEntry( layer.Name );
-        item.Tag = layer;
-        listLayers.Items.Add( item );
-      }
-
       labelCharNo.Text = "Sprite: " + m_CurrentSprite.ToString();
       pictureEditor.Image = m_SpriteProject.Sprites[m_CurrentSprite].Tile.Image;
 
       panelSprites_SelectedIndexChanged( null, null );
 
-      m_AnimTimer.Tick += animTimer_Tick;
       AdjustSpriteSizes();
       UpdateSpriteSelectionInfo();
 
@@ -226,25 +196,6 @@ namespace RetroDevStudio.Documents
       m_OverlayAnimTimer.Tick    += overlayAnimTimer_Tick;
       RefreshOverlaysList();
       ResumeLayout();
-    }
-
-
-
-    private void animTimer_Tick( object sender, EventArgs e )
-    {
-      if ( m_AnimFramePos >= m_SpriteProject.SpriteLayers.Count )
-      {
-        m_AnimFramePos = 0;
-        m_AnimFrameTicks = 0;
-        listLayers.SelectedIndex = m_AnimFramePos;
-      }
-      m_AnimFrameTicks += 100;
-      if ( m_AnimFrameTicks >= m_CurrentLayer.DelayMS )
-      {
-        m_AnimFrameTicks -= m_CurrentLayer.DelayMS;
-        m_AnimFramePos = ( m_AnimFramePos + 1 ) % m_SpriteProject.SpriteLayers.Count;
-        listLayers.SelectedIndex = m_AnimFramePos;
-      }
     }
 
 
@@ -610,42 +561,19 @@ namespace RetroDevStudio.Documents
         m_SpriteProject.Sprites[i].Tile.CustomColor = 0;
         m_SpriteProject.Sprites[i].Mode = SpriteMode.COMMODORE_24_X_21_HIRES;
       }
-      //DocumentInfo.DocumentFilename = "";
-      m_SpriteProject.SpriteLayers.Clear();
-
+      m_SpriteProject.Overlays.Clear();
       m_CurrentSprite = 0;
-      m_CurrentLayer = new RetroDevStudio.Formats.SpriteProject.Layer();
-      m_CurrentLayer.Name = "Default";
-      m_SpriteProject.SpriteLayers.Add( m_CurrentLayer );
-      listLayerSprites.Items.Clear();
-      listLayers.Items.Clear();
-
-      foreach ( var layer in m_SpriteProject.SpriteLayers )
-      {
-        ArrangedItemEntry item = new ArrangedItemEntry( layer.Name );
-        item.Tag = layer;
-        listLayers.Items.Add( item );
-      }
-      CurrentSpriteModified();
-      RedrawPreviewLayer();
+      RefreshOverlaysList();
+      RebuildOverlayPreview();
     }
 
 
 
     private void CurrentSpriteModified()
     {
-      // check if preview needs to be redrawn
-      if ( m_CurrentLayer != null )
-      {
-        foreach ( var sprite in m_CurrentLayer.Sprites )
-        {
-          if ( sprite.Index == m_CurrentSprite )
-          {
-            RedrawPreviewLayer();
-            break;
-          }
-        }
-      }
+      // The bank sprite changed — rebuild the overlay preview so any
+      // overlay slot that references this bank index re-renders.
+      RebuildOverlayPreview();
     }
 
 
@@ -778,7 +706,6 @@ namespace RetroDevStudio.Documents
 
         ChangeColorSettingsDialog();
         OnPaletteChanged();
-        RedrawPreviewLayer();
 
         editSpriteFrom.Text = "0";
         editSpriteCount.Text  = numSprites.ToString();
@@ -805,7 +732,6 @@ namespace RetroDevStudio.Documents
         }
 
         panelSprites.Items.Clear();
-        comboSprite.Items.Clear();
 
         if ( AddUndo )
         {
@@ -822,11 +748,9 @@ namespace RetroDevStudio.Documents
           m_SpriteProject.Sprites.Add( new SpriteProject.SpriteData( sprites.Sprites[i] ) );
 
           panelSprites.Items.Add( i.ToString(), m_SpriteProject.Sprites[i].Tile.Image );
-          comboSprite.Items.Add( i );
         }
         ChangeColorSettingsDialog();
         OnPaletteChanged();
-        comboSprite.SelectedIndex = 0;
         panelSprites.Invalidate();
         pictureEditor.Invalidate();
         Modified = false;
@@ -843,10 +767,6 @@ namespace RetroDevStudio.Documents
       }
 
       m_IsSpriteProject = true;
-      m_CurrentLayer = null;
-      m_SpriteProject.SpriteLayers.Clear();
-      listLayerSprites.Items.Clear();
-      listLayers.Items.Clear();
 
       if ( !m_SpriteProject.ReadFromBuffer( projectFile ) )
       {
@@ -854,7 +774,6 @@ namespace RetroDevStudio.Documents
       }
       AdjustSpriteSizes();
       panelSprites.Items.Clear();
-      comboSprite.Items.Clear();
 
       btnChangeMode.Text = GR.EnumHelper.GetDescription( m_SpriteProject.Mode );
 
@@ -867,35 +786,17 @@ namespace RetroDevStudio.Documents
       &&     ( m_SpriteProject.ExportSpriteCount != 0 ) ) )
       {
         comboExportRange.SelectedIndex = 2;
-      }      
+      }
 
       // re-add item (update tags)
       for ( int i = 0; i < m_SpriteProject.TotalNumberOfSprites; ++i )
       {
         panelSprites.Items.Add( i.ToString(), m_SpriteProject.Sprites[i].Tile.Image );
-        comboSprite.Items.Add( i );
       }
       pictureEditor.Image = m_SpriteProject.Sprites[m_CurrentSprite].Tile.Image;
       panelSprites.Invalidate();
       pictureEditor.Invalidate();
 
-      if ( m_SpriteProject.SpriteLayers.Count == 0 )
-      {
-        m_CurrentLayer = new RetroDevStudio.Formats.SpriteProject.Layer();
-        m_CurrentLayer.Name = "Default";
-        m_SpriteProject.SpriteLayers.Add( m_CurrentLayer );
-      }
-      else
-      {
-        m_CurrentLayer = m_SpriteProject.SpriteLayers[0];
-      }
-      comboLayerBGColor.SelectedIndex = m_CurrentLayer.BackgroundColor;
-
-      AddAllLayers();
-      if ( listLayers.Items.Count > 0 )
-      {
-        listLayers.SelectedIndices.Add( 0 );
-      }
       OnPaletteChanged();
       _ColorSettingsDlg.ActivePalette = m_SpriteProject.Sprites[m_CurrentSprite].Tile.Colors.ActivePalette;
 
@@ -914,35 +815,8 @@ namespace RetroDevStudio.Documents
 
       saveSpriteProjectToolStripMenuItem.Enabled = true;
       closeCharsetProjectToolStripMenuItem.Enabled = true;
-      comboSprite.SelectedIndex = 0;
-      RedrawPreviewLayer();
       EnableFileWatcher();
       return true;
-    }
-
-
-
-    private void AddAllLayers()
-    {
-      foreach ( var layer in m_SpriteProject.SpriteLayers )
-      {
-        ArrangedItemEntry item = new ArrangedItemEntry( layer.Name );
-        item.Tag = layer;
-        listLayers.Items.Add( item );
-      }
-      listLayers.UpdateUI();
-
-      int   spriteIndex = 0;
-      foreach ( var sprite in m_CurrentLayer.Sprites )
-      {
-        ArrangedItemEntry item = new ArrangedItemEntry();
-
-        item.Text = sprite.Index.ToString() + ", " + sprite.X.ToString() + ", " + sprite.Y.ToString();
-        item.Tag = sprite;
-        listLayerSprites.Items.Add( item );
-
-        ++spriteIndex;
-      }
     }
 
 
@@ -2016,237 +1890,6 @@ namespace RetroDevStudio.Documents
 
 
 
-    private void comboSprite_DrawItem( object sender, DrawItemEventArgs e )
-    {
-      if ( Core?.Theming != null )
-        Core.Theming.DrawThemedBackground( e, (Control)sender );
-      else
-        e.DrawBackground();
-      if ( e.Index == -1 )
-      {
-        return;
-      }
-      System.Drawing.RectangleF textRect = new System.Drawing.RectangleF( e.Bounds.Left, e.Bounds.Top + 10, e.Bounds.Width, e.Bounds.Height );
-      System.Drawing.Brush textBrush = new System.Drawing.SolidBrush( e.ForeColor );
-      e.Graphics.DrawString( e.Index.ToString(), e.Font, textBrush, textRect );
-
-      GR.Image.FastImage    fastImage = new GR.Image.FastImage( m_SpriteWidth, m_SpriteHeight, GR.Drawing.PixelFormat.Format32bppRgb );
-      GR.Image.MemoryImage  memImage = new GR.Image.MemoryImage( m_SpriteWidth, m_SpriteHeight, GR.Drawing.PixelFormat.Format32bppRgb );
-
-      DrawSpriteImage( memImage, 0, 0, 
-                       m_SpriteProject.Sprites[e.Index].Tile.Data,
-                       m_SpriteProject.Sprites[e.Index].Tile.Colors.Palette,
-                       m_SpriteProject.Sprites[e.Index].Tile.Width, m_SpriteProject.Sprites[e.Index].Tile.Height,
-                       comboLayerColor.SelectedIndex,
-                       m_SpriteProject.Sprites[e.Index].Mode,
-                       m_SpriteProject.Colors.BackgroundColor, 
-                       m_SpriteProject.Colors.MultiColor1, m_SpriteProject.Colors.MultiColor2,
-                       false, false, false, m_SpriteProject.Sprites[e.Index].Tile.Colors.PaletteOffset );
-      fastImage.DrawImage( memImage, 0, 0 );
-      System.Drawing.Rectangle drawRect = new System.Drawing.Rectangle( e.Bounds.Location, e.Bounds.Size );
-      drawRect.X += 20;
-      drawRect.Width = 48;
-      drawRect.Height = 42;
-      fastImage.DrawToHDC( e.Graphics.GetHdc(), drawRect );
-      e.Graphics.ReleaseHdc();
-      fastImage.Dispose();
-    }
-
-
-
-    private void comboLayerColor_SelectedIndexChanged( object sender, EventArgs e )
-    {
-      comboSprite.Invalidate();
-
-      if ( listLayerSprites.SelectedIndices.Count > 0 )
-      {
-        Formats.SpriteProject.LayerSprite sprite = (Formats.SpriteProject.LayerSprite)listLayerSprites.SelectedItems[0].Tag;
-
-        if ( sprite.Color != comboLayerColor.SelectedIndex )
-        {
-          sprite.Color = comboLayerColor.SelectedIndex;
-          RedrawPreviewLayer();
-          SetModified();
-        }
-      }
-    }
-
-
-
-    private void btnAdd_Click( object sender, EventArgs e )
-    {
-    }
-
-
-
-    private void RedrawPreviewLayer()
-    {
-      if ( m_CurrentLayer != null )
-      {
-        layerPreview.DisplayPage.Box( 0, 0, layerPreview.Width, layerPreview.Height, m_SpriteProject.Colors.Palette.ColorValues[m_CurrentLayer.BackgroundColor] );
-        foreach ( Formats.SpriteProject.LayerSprite sprite in m_CurrentLayer.Sprites )
-        {
-          DrawSpriteImage( layerPreview.DisplayPage, 
-                           sprite.X, sprite.Y, 
-                           m_SpriteProject.Sprites[sprite.Index].Tile.Data,
-                           m_SpriteProject.Sprites[sprite.Index].Tile.Colors.Palette,
-                           m_SpriteProject.Sprites[sprite.Index].Tile.Width, m_SpriteProject.Sprites[sprite.Index].Tile.Height,
-                           sprite.Color, 
-                           m_SpriteProject.Sprites[sprite.Index].Mode,
-                           m_SpriteProject.Colors.BackgroundColor,
-                           m_SpriteProject.Colors.MultiColor1, 
-                           m_SpriteProject.Colors.MultiColor2,
-                           sprite.ExpandX, sprite.ExpandY, true,
-                           m_SpriteProject.Sprites[sprite.Index].Tile.Colors.PaletteOffset );
-        }
-      }
-      else
-      {
-        layerPreview.DisplayPage.Box( 0, 0, layerPreview.Width, layerPreview.Height, 0 );
-      }
-      layerPreview.Invalidate();
-    }
-
-
-
-    private void btnDelete_Click( object sender, EventArgs e )
-    {
-      if ( listLayerSprites.SelectedIndices.Count == 0 )
-      {
-        return;
-      }
-      Formats.SpriteProject.LayerSprite sprite = (Formats.SpriteProject.LayerSprite)listLayerSprites.SelectedItems[0].Tag;
-
-      m_CurrentLayer.Sprites.Remove( sprite );
-      listLayerSprites.Items.Remove( listLayerSprites.SelectedItems[0] );
-      RedrawPreviewLayer();
-      SetModified();
-    }
-
-
-
-    private void btnUp_Click( object sender, EventArgs e )
-    {
-      if ( ( listLayerSprites.SelectedIndices.Count > 0 )
-      &&   ( listLayerSprites.SelectedIndices[0] > 0 ) )
-      {
-        int insertIndex = listLayerSprites.SelectedIndices[0] - 1;
-
-        Formats.SpriteProject.LayerSprite sprite1 = (Formats.SpriteProject.LayerSprite)listLayerSprites.SelectedItems[0].Tag;
-        Formats.SpriteProject.LayerSprite sprite2 = (Formats.SpriteProject.LayerSprite)listLayerSprites.Items[insertIndex].Tag;
-        
-        m_CurrentLayer.Sprites.Remove( sprite1 );
-        m_CurrentLayer.Sprites.Insert( insertIndex, sprite1 );
-
-        ArrangedItemEntry itemToSwap = listLayerSprites.SelectedItems[0];
-        listLayerSprites.Items.Remove( itemToSwap );
-        listLayerSprites.Items.Insert( insertIndex, itemToSwap );
-        itemToSwap.Selected = true;
-        RedrawPreviewLayer();
-        SetModified();
-      }
-    }
-
-
-
-    private void btnDown_Click( object sender, EventArgs e )
-    {
-      if ( ( listLayerSprites.SelectedIndices.Count > 0 )
-      &&   ( listLayerSprites.SelectedIndices[0] + 1 < listLayerSprites.Items.Count ) )
-      {
-        int insertIndex = listLayerSprites.SelectedIndices[0] + 1;
-
-        Formats.SpriteProject.LayerSprite sprite1 = (Formats.SpriteProject.LayerSprite)listLayerSprites.SelectedItems[0].Tag;
-        Formats.SpriteProject.LayerSprite sprite2 = (Formats.SpriteProject.LayerSprite)listLayerSprites.Items[insertIndex].Tag;
-
-        m_CurrentLayer.Sprites.Remove( sprite1 );
-        m_CurrentLayer.Sprites.Insert( insertIndex, sprite1 );
-
-        ArrangedItemEntry itemToSwap = listLayerSprites.SelectedItems[0];
-        listLayerSprites.Items.Remove( itemToSwap );
-        listLayerSprites.Items.Insert( insertIndex, itemToSwap );
-        itemToSwap.Selected = true;
-        RedrawPreviewLayer();
-        SetModified();
-      }
-
-    }
-
-
-
-    private void comboSprite_SelectedIndexChanged( object sender, EventArgs e )
-    {
-      if ( listLayerSprites.SelectedIndices.Count > 0 )
-      {
-        Formats.SpriteProject.LayerSprite sprite = (Formats.SpriteProject.LayerSprite)listLayerSprites.SelectedItems[0].Tag;
-
-        if ( sprite.Index != comboSprite.SelectedIndex )
-        {
-          sprite.Index = comboSprite.SelectedIndex;
-          listLayerSprites.SelectedItems[0].Text = sprite.Index.ToString() + ", " + sprite.X.ToString() + ", " + sprite.Y.ToString();
-          RedrawPreviewLayer();
-          SetModified();
-        }
-      }
-    }
-
-
-
-    private void editLayerX_TextChanged( object sender, EventArgs e )
-    {
-      if ( listLayerSprites.SelectedIndices.Count > 0 )
-      {
-        Formats.SpriteProject.LayerSprite sprite = (Formats.SpriteProject.LayerSprite)listLayerSprites.SelectedItems[0].Tag;
-
-        int newPos = GR.Convert.ToI32( editLayerX.Text );
-        if ( sprite.X != newPos )
-        {
-          sprite.X = newPos;
-          listLayerSprites.SelectedItems[0].Text = sprite.Index.ToString() + ", " + sprite.X.ToString() + ", " + sprite.Y.ToString();
-          RedrawPreviewLayer();
-          SetModified();
-        }
-      }
-    }
-
-
-
-    private void editLayerY_TextChanged( object sender, EventArgs e )
-    {
-      if ( listLayerSprites.SelectedIndices.Count > 0 )
-      {
-        Formats.SpriteProject.LayerSprite sprite = (Formats.SpriteProject.LayerSprite)listLayerSprites.SelectedItems[0].Tag;
-
-        int newPos = GR.Convert.ToI32( editLayerY.Text );
-        if ( sprite.Y != newPos )
-        {
-          sprite.Y = newPos;
-          listLayerSprites.SelectedItems[0].Text = sprite.Index.ToString() + ", " + sprite.X.ToString() + ", " + sprite.Y.ToString();
-          RedrawPreviewLayer();
-          SetModified();
-        }
-      }
-    }
-
-
-
-    private void comboLayerBGColor_SelectedIndexChanged( object sender, EventArgs e )
-    {
-      if ( m_CurrentLayer == null )
-      {
-        return;
-      }
-
-      if ( comboLayerBGColor.SelectedIndex != m_CurrentLayer.BackgroundColor )
-      {
-        m_CurrentLayer.BackgroundColor = comboLayerBGColor.SelectedIndex;
-        RedrawPreviewLayer();
-        SetModified();
-      }
-    }
-
-
-
     private void btnDeleteSprite_Click( DecentForms.ControlBase Sender )
     {
       if ( panelSprites.SelectedIndex == -1 )
@@ -2303,206 +1946,6 @@ namespace RetroDevStudio.Documents
         editDataExport.SelectAll();
         e.Handled = true;
       }
-    }
-
-
-
-    private ArrangedItemEntry listLayerSprites_AddingItem( object sender )
-    {
-      Formats.SpriteProject.LayerSprite sprite = new Formats.SpriteProject.LayerSprite();
-      sprite.X        = GR.Convert.ToI32( editLayerX.Text );
-      sprite.Y        = GR.Convert.ToI32( editLayerY.Text );
-      sprite.Index    = comboSprite.SelectedIndex;
-      sprite.Color    = comboLayerColor.SelectedIndex;
-      sprite.ExpandX  = checkExpandX.Checked;
-      sprite.ExpandY  = checkExpandY.Checked;
-
-      m_CurrentLayer.Sprites.Add( sprite );
-
-      ArrangedItemEntry item = new ArrangedItemEntry();
-      item.Text = sprite.Index.ToString() + ", " + sprite.X.ToString() + ", " + sprite.Y.ToString();
-      item.Tag = sprite;
-
-      return item;
-    }
-
-
-
-    private void listLayerSprites_ItemMoved( object sender, ArrangedItemEntry Item, ArrangedItemEntry OtherItem )
-    {
-      m_CurrentLayer.Sprites.Clear();
-      foreach ( ArrangedItemEntry item in listLayerSprites.Items )
-      {
-        var sprite = (Formats.SpriteProject.LayerSprite)item.Tag;
-
-        m_CurrentLayer.Sprites.Add( sprite );
-      }
-      SetModified();
-      RedrawPreviewLayer();
-    }
-
-
-
-    private void listLayerSprites_ItemRemoved( object sender, ArrangedItemEntry Item )
-    {
-      m_CurrentLayer.Sprites.Clear();
-      foreach ( ArrangedItemEntry item in listLayerSprites.Items )
-      {
-        var sprite = (Formats.SpriteProject.LayerSprite)item.Tag;
-
-        m_CurrentLayer.Sprites.Add( sprite );
-      }
-      SetModified();
-      RedrawPreviewLayer();
-    }
-
-
-
-    private void listLayerSprites_SelectedIndexChanged( object sender, ArrangedItemEntry Item )
-    {
-      if ( Item != null )
-      {
-        Formats.SpriteProject.LayerSprite sprite = (Formats.SpriteProject.LayerSprite)Item.Tag;
-        editLayerX.Text               = sprite.X.ToString();
-        editLayerY.Text               = sprite.Y.ToString();
-        comboLayerColor.SelectedIndex = sprite.Color;
-        comboSprite.SelectedIndex     = sprite.Index;
-        checkExpandX.Checked          = sprite.ExpandX;
-        checkExpandY.Checked          = sprite.ExpandY;
-      }
-    }
-
-
-
-    private void listLayers_ItemAdded( object sender, ArrangedItemEntry Item )
-    {
-      m_CurrentLayer = (Formats.SpriteProject.Layer)Item.Tag;
-      SetModified();
-      RedrawPreviewLayer();
-    }
-
-
-
-    private void listLayerSprites_ItemAdded( object sender, ArrangedItemEntry Item )
-    {
-      var sprite = (Formats.SpriteProject.LayerSprite)Item.Tag;
-      SetModified();
-      RedrawPreviewLayer();
-    }
-
-
-
-    private ArrangedItemEntry listLayers_AddingItem( object sender )
-    {
-      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoSpritesetAddLayer( this, m_SpriteProject, m_SpriteProject.SpriteLayers.Count ) );
-
-      Formats.SpriteProject.Layer   layer = new RetroDevStudio.Formats.SpriteProject.Layer();
-
-      layer.Name = editLayerName.Text;
-
-      var item = new ArrangedItemEntry( editLayerName.Text );
-      item.Tag = layer;
-
-      m_SpriteProject.SpriteLayers.Add( layer );
-
-      return item;
-    }
-
-
-
-    private void listLayers_SelectedIndexChanged( object sender, ArrangedItemEntry Item )
-    {
-      int   curSelectedSpriteIndex = listLayerSprites.SelectedIndex;
-      listLayerSprites.Items.Clear();
-      if ( Item == null )
-      {
-        m_CurrentLayer = null;
-        editLayerName.Text = "";
-        editLayerDelay.Text = "";
-        RedrawPreviewLayer();
-        return;
-      }
-      m_CurrentLayer = (Formats.SpriteProject.Layer)Item.Tag;
-      if ( editLayerName.Text != m_CurrentLayer.Name )
-      {
-        editLayerName.Text = m_CurrentLayer.Name;
-      }
-      string  delayText = m_CurrentLayer.DelayMS.ToString();
-      if ( editLayerDelay.Text != delayText )
-      {
-        editLayerDelay.Text = delayText;
-      }
-
-      comboLayerBGColor.SelectedIndex = m_CurrentLayer.BackgroundColor;
-
-      int   spriteIndex = 0;
-      foreach ( var sprite in m_CurrentLayer.Sprites )
-      {
-        var item = new ArrangedItemEntry();
-
-        item.Text = sprite.Index.ToString() + ", " + sprite.X.ToString() + ", " + sprite.Y.ToString();
-        item.Tag = sprite;
-        listLayerSprites.Items.Add( item );
-
-        if ( spriteIndex == curSelectedSpriteIndex )
-        {
-          listLayerSprites.SelectedIndex = spriteIndex;
-        }
-        ++spriteIndex;
-      }
-      if ( ( listLayerSprites.SelectedIndex == -1 )
-      &&   ( listLayerSprites.Items.Count > 0 ) )
-      {
-        listLayerSprites.SelectedIndex = 0;
-      }
-      RedrawPreviewLayer();
-    }
-
-
-
-    private void listLayers_ItemRemoved( object sender, ArrangedItemEntry Item )
-    {
-      m_SpriteProject.SpriteLayers.Clear();
-      foreach ( ArrangedItemEntry item in listLayers.Items )
-      {
-        var layer = (Formats.SpriteProject.Layer)item.Tag;
-
-        m_SpriteProject.SpriteLayers.Add( layer );
-      }
-      SetModified();
-      if ( m_CurrentLayer == (Formats.SpriteProject.Layer)Item.Tag )
-      {
-        m_CurrentLayer = null;
-        RedrawPreviewLayer();
-      }
-    }
-
-
-
-    private void editLayerName_TextChanged( object sender, EventArgs e )
-    {
-      if ( m_CurrentLayer != null )
-      {
-        if ( m_CurrentLayer.Name != editLayerName.Text )
-        {
-          m_CurrentLayer.Name = editLayerName.Text;
-          listLayers.SelectedItems[0].Text = m_CurrentLayer.Name;
-        }
-      }
-    }
-
-
-
-    private void listLayers_ItemMoved( object sender, ArrangedItemEntry Item, ArrangedItemEntry OtherItem )
-    {
-      m_SpriteProject.SpriteLayers.Clear();
-      foreach ( ArrangedItemEntry item in listLayers.Items )
-      {
-        var layer = (Formats.SpriteProject.Layer)item.Tag;
-
-        m_SpriteProject.SpriteLayers.Add( layer );
-      }
-      SetModified();
     }
 
 
@@ -2575,10 +2018,6 @@ namespace RetroDevStudio.Documents
         }
         DoNotUpdateFromControls = false;
       }
-      if ( comboSprite.SelectedIndex == SpriteIndex )
-      {
-        comboSprite.Invalidate();
-      }
       CurrentSpriteModified();
       SetModified();
     }
@@ -2612,104 +2051,6 @@ namespace RetroDevStudio.Documents
     }
 
 
-
-    public void LayersChanged()
-    {
-      int   currentLayer = m_SpriteProject.SpriteLayers.IndexOf( m_CurrentLayer );
-
-      listLayerSprites.Items.Clear();
-      listLayers.Items.Clear();
-
-      AddAllLayers();
-      RedrawPreviewLayer();
-    }
-
-
-
-    private bool listLayerSprites_MovingItem( object sender, ArrangedItemEntry Item1, ArrangedItemEntry Item2 )
-    {
-      return true;
-    }
-
-
-
-    private bool listLayers_MovingItem( object sender, ArrangedItemEntry Item1, ArrangedItemEntry Item2 )
-    {
-      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoSpritesetExchangeLayer( this, m_SpriteProject, Item1.Index, Item2.Index ) );
-
-      return true;
-    }
-
-
-
-    private void checkExpandX_CheckedChanged( object sender, EventArgs e )
-    {
-      if ( listLayerSprites.SelectedIndices.Count > 0 )
-      {
-        Formats.SpriteProject.LayerSprite sprite = (Formats.SpriteProject.LayerSprite)listLayerSprites.SelectedItems[0].Tag;
-
-        if ( sprite.ExpandX != checkExpandX.Checked )
-        {
-          sprite.ExpandX = checkExpandX.Checked;
-          Modified = true;
-          RedrawPreviewLayer();
-          SetModified();
-        }
-      }
-    }
-
-
-
-    private void checkExpandY_CheckedChanged( object sender, EventArgs e )
-    {
-      if ( listLayerSprites.SelectedIndices.Count > 0 )
-      {
-        Formats.SpriteProject.LayerSprite sprite = (Formats.SpriteProject.LayerSprite)listLayerSprites.SelectedItems[0].Tag;
-
-        if ( sprite.ExpandY != checkExpandY.Checked )
-        {
-          sprite.ExpandY = checkExpandY.Checked;
-          Modified = true;
-          RedrawPreviewLayer();
-          SetModified();
-        }
-      }
-    }
-
-
-
-    private void editLayerX_KeyPress( object sender, KeyPressEventArgs e )
-    {
-      if ( ( char.IsDigit( e.KeyChar ) )
-      ||   ( (Keys)e.KeyChar == Keys.Back )
-      ||   ( ( e.KeyChar == '-' )
-      &&     ( editLayerX.SelectionStart == 0 ) ) )
-      {
-        // ok
-      }
-      else
-      {
-        e.Handled = true;
-      }
-    }
-
-
-
-    private void editLayerY_KeyPress( object sender, KeyPressEventArgs e )
-    {
-      if ( ( char.IsDigit( e.KeyChar ) )
-      ||   ( (Keys)e.KeyChar == Keys.Back )
-      ||   ( ( e.KeyChar == '-' )
-      &&     ( editLayerY.SelectionStart == 0 ) ) )
-      {
-        // ok
-      }
-      else
-      {
-        e.Handled = true;
-      }
-
-    }
 
 
 
@@ -2911,209 +2252,6 @@ namespace RetroDevStudio.Documents
         }
       }
       return exportData;
-    }
-
-
-
-    private ArrangedItemEntry listLayers_CloningItem( object sender, ArrangedItemEntry Item )
-    {
-      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoSpritesetAddLayer( this, m_SpriteProject, m_SpriteProject.SpriteLayers.Count ) );
-
-      var layer = new SpriteProject.Layer();
-      var origLayer = (SpriteProject.Layer)Item.Tag;
-
-      layer.Name = origLayer.Name;
-      layer.BackgroundColor = origLayer.BackgroundColor;
-      foreach ( var sprite in origLayer.Sprites )
-      {
-        layer.Sprites.Add( new SpriteProject.LayerSprite() { Color = sprite.Color, ExpandX = sprite.ExpandX, ExpandY = sprite.ExpandY, Index = sprite.Index, X = sprite.X, Y = sprite.Y } );
-      }
-      var item = new ArrangedItemEntry( layer.Name );
-      item.Tag = layer;
-
-      m_SpriteProject.SpriteLayers.Add( layer );
-
-      return item;
-    }
-
-
-
-    private ArrangedItemEntry listLayerSprites_CloningItem( object sender, ArrangedItemEntry Item )
-    {
-      var origSprite = (SpriteProject.LayerSprite)Item.Tag;
-
-      Formats.SpriteProject.LayerSprite sprite = new Formats.SpriteProject.LayerSprite();
-      sprite.X = origSprite.X;
-      sprite.Y = origSprite.Y;
-      sprite.Index = origSprite.Index;
-      sprite.Color = origSprite.Color;
-      sprite.ExpandX = origSprite.ExpandX;
-      sprite.ExpandY = origSprite.ExpandY;
-
-      m_CurrentLayer.Sprites.Add( sprite );
-
-      ArrangedItemEntry item = new ArrangedItemEntry();
-      item.Text = sprite.Index.ToString() + ", " + sprite.X.ToString() + ", " + sprite.Y.ToString();
-      item.Tag = sprite;
-
-      return item;
-    }
-
-
-
-    private void editLayerDelay_TextChanged( object sender, EventArgs e )
-    {
-      if ( m_CurrentLayer != null )
-      {
-        if ( m_CurrentLayer.DelayMS != GR.Convert.ToI32( editLayerDelay.Text ) )
-        {
-          m_CurrentLayer.DelayMS = GR.Convert.ToI32( editLayerDelay.Text );
-          SetModified();
-        }
-      }
-    }
-
-
-
-    private void checkAutoplayAnim_CheckedChanged( object sender, EventArgs e )
-    {
-      m_AnimTimer.Enabled = checkAutoplayAnim.Checked;
-      if ( m_AnimTimer.Enabled )
-      {
-        m_AnimTimer.Interval = 100;
-        m_AnimTimer.Start();
-      }
-      else
-      {
-        m_AnimTimer.Stop();
-      }
-    }
-
-
-
-    private void btnSavePreviewToGIF_Click( DecentForms.ControlBase Sender )
-    {
-      System.Windows.Forms.SaveFileDialog saveDlg = new System.Windows.Forms.SaveFileDialog();
-
-      saveDlg.Title = "Save Preview as GIF";
-      saveDlg.Filter = "GIF Image|*.gif";
-      if ( DocumentInfo.Project != null )
-      {
-        saveDlg.InitialDirectory = DocumentInfo.Project.Settings.BasePath;
-      }
-      if ( saveDlg.ShowDialog() != System.Windows.Forms.DialogResult.OK )
-      {
-        return;
-      }
-
-      // determine bounds
-      int     minX = 64000;
-      int     maxX = 0;
-      int     minY = 48000;
-      int     maxY = 0;
-      foreach ( var layer in m_SpriteProject.SpriteLayers )
-      {
-        foreach ( var entry in layer.Sprites )
-        {
-          minX = Math.Min( entry.X, minX );
-          
-          if ( entry.ExpandX )
-          {
-            maxX = Math.Max( entry.X + 2 * m_SpriteWidth, maxX );
-          }
-          else
-          {
-
-            maxX = Math.Max( entry.X + m_SpriteWidth, maxX );
-          }
-          minY = Math.Min( entry.Y, minY );
-          if ( entry.ExpandY )
-          {
-            maxY = Math.Max( entry.Y + 2 * m_SpriteHeight, maxY );
-          }
-          else
-          {
-            maxY = Math.Max( entry.Y + m_SpriteHeight, maxY );
-          }
-        }
-      }
-      Debug.Log( $"minX {minX}, maxX {maxX}, minY {minY}, maxY {maxY}" );
-
-      try
-      {
-        var quantizer = new ColorQuantizer( 256 );
-
-        using ( var outStream = new System.IO.FileStream( saveDlg.FileName, System.IO.FileMode.Create, System.IO.FileAccess.Write ) )
-        using ( var gif = new GIFEncoder( outStream, maxX - minX, maxY - minY ) )
-        {
-          var images = new List<MemoryImage>();
-
-          foreach ( var layer in m_SpriteProject.SpriteLayers )
-          {
-            var layerImage = new GR.Image.MemoryImage( maxX - minX, maxY - minY, GR.Drawing.PixelFormat.Format32bppRgb );
-            layerImage.Box( 0, 0, maxX - minX, maxY - minY, m_SpriteProject.Colors.Palette.ColorValues[m_SpriteProject.Colors.BackgroundColor] );
-
-            foreach ( var entry in layer.Sprites )
-            {
-              if ( m_SpriteProject.Sprites[entry.Index].Mode == SpriteMode.COMMODORE_24_X_21_MULTICOLOR )
-              {
-                SpriteDisplayer.DisplayMultiColorSprite( m_SpriteProject.Sprites[entry.Index].Tile.Data,
-                                                         m_SpriteProject.Sprites[entry.Index].Tile.Colors.Palette,
-                                                         m_SpriteProject.Sprites[entry.Index].Tile.Width,
-                                                         m_SpriteProject.Sprites[entry.Index].Tile.Height,
-                                                         layer.BackgroundColor,
-                                                         m_SpriteProject.Colors.MultiColor1,
-                                                         m_SpriteProject.Colors.MultiColor2,
-                                                         entry.Color,
-                                                         layerImage,
-                                                         entry.X - minX,
-                                                         entry.Y - minY,
-                                                         entry.ExpandX,
-                                                         entry.ExpandY,
-                                                         true );
-              }
-              else if ( m_SpriteProject.Sprites[entry.Index].Mode == SpriteMode.COMMODORE_24_X_21_HIRES )
-              {
-                SpriteDisplayer.DisplayHiResSprite( m_SpriteProject.Sprites[entry.Index].Tile.Data,
-                                                    m_SpriteProject.Sprites[entry.Index].Tile.Colors.Palette,
-                                                    m_SpriteProject.Sprites[entry.Index].Tile.Width,
-                                                    m_SpriteProject.Sprites[entry.Index].Tile.Height,
-                                                    layer.BackgroundColor,
-                                                    entry.Color,
-                                                    layerImage,
-                                                    entry.X - minX,
-                                                    entry.Y - minY,
-                                                    entry.ExpandX,
-                                                    entry.ExpandY,
-                                                    true );
-              }
-              else
-              {
-                Debug.Log( "SavePreviewToGIF unsupported mode " + m_SpriteProject.Sprites[entry.Index].Mode );
-              }
-            }
-
-            images.Add( layerImage );
-            quantizer.AddSourceToColorCube( layerImage );
-          }
-
-          for ( int i = 0; i < images.Count; ++i )
-          {
-            var image = images[i];
-            var layer = m_SpriteProject.SpriteLayers[i];
-
-            var reducedImage = (MemoryImage)quantizer.Reduce( image );
-            var bitmap = reducedImage.GetAsBitmap();
-
-            gif.AddFrame( bitmap, 0, 0, new TimeSpan( 0, 0, 0, 0, ( layer.DelayMS == 0 ) ? 100 : layer.DelayMS ) );
-          }
-          gif.Close();
-        }
-      }
-      catch ( Exception ex )
-      {
-        Core.Notification.MessageBox( "Error saving GIF file", "An exception occurred during saving:\r\n" + ex.ToString() );
-      }
     }
 
 
@@ -3877,14 +3015,6 @@ namespace RetroDevStudio.Documents
 
 
 
-    private void layerPreview_SizeChanged( object sender, EventArgs e )
-    {
-      layerPreview.DisplayPage.Resize( layerPreview.ClientSize.Width / 2, layerPreview.ClientSize.Height / 2 );
-      RedrawPreviewLayer();
-    }
-
-
-
     public override void OnApplicationEvent( ApplicationEvent Event )
     {
       switch ( Event.EventType )
@@ -3996,21 +3126,29 @@ namespace RetroDevStudio.Documents
         m_SpriteProject.Sprites[i]  = origSpriteData[NewToOld[i]];
         panelSprites.Items[i]       = origListItems[NewToOld[i]];
       }
-      foreach ( var layer in m_SpriteProject.SpriteLayers )
+      // Patch overlay frame bank-index references so they still point at
+      // the same bank entry after the shift remap.
+      foreach ( var overlay in m_SpriteProject.Overlays )
       {
-        foreach ( var entry in layer.Sprites )
+        foreach ( var frame in overlay.Frames )
         {
-          entry.Index = OldToNew[entry.Index];
+          for ( int s = 0; s < frame.BankIndex.Length; ++s )
+          {
+            int v = frame.BankIndex[s];
+            if ( v >= 0 && v < OldToNew.Length )
+            {
+              frame.BankIndex[s] = OldToNew[v];
+            }
+          }
         }
       }
-      comboSprite.SelectedIndex = OldToNew[comboSprite.SelectedIndex];
       panelSprites.Invalidate();
 
       if ( currentSpriteModified )
       {
         SpriteChanged( m_CurrentSprite );
       }
-      RedrawPreviewLayer();
+      RebuildOverlayPreview();
       pictureEditor.Invalidate();
     }
 
@@ -4047,11 +3185,10 @@ namespace RetroDevStudio.Documents
 
       panelOverlaySlots.Controls.Clear();
 
-      // Tightened row layout to make room for a wider color combo at
-      // the right end (the 35 px combo was too narrow for the swatch
-      // plus the dropdown arrow). Combo is now 65 px so the swatch is
-      // legible. All other column widths trimmed slightly to fit
-      // within panelOverlaySlots' 345 px width.
+      // Compact one-row layout fitting in panelOverlaySlots' 280 px
+      // width (down from 345 to make room for the bank panel on the
+      // right of the Overlay tab). The X:/Y:/Bank: text labels are
+      // dropped — tooltips on the NUDs carry the meaning.
       for ( int i = 0; i < 8; ++i )
       {
         int y = rowY0 + i * rowHeight;
@@ -4068,54 +3205,40 @@ namespace RetroDevStudio.Documents
         chkEnabled.Location = new System.Drawing.Point( 42, y + 1 );
         chkEnabled.Tag      = i;
         chkEnabled.CheckedChanged += slotEnabled_CheckedChanged;
+        toolTip1.SetToolTip( chkEnabled, "Enable this slot in the overlay" );
         panelOverlaySlots.Controls.Add( chkEnabled );
         m_SlotEnabled[i] = chkEnabled;
 
-        var lblX = new System.Windows.Forms.Label();
-        lblX.AutoSize = true;
-        lblX.Location = new System.Drawing.Point( 64, y + 4 );
-        lblX.Text     = "X:";
-        panelOverlaySlots.Controls.Add( lblX );
-
         var nudX = new System.Windows.Forms.NumericUpDown();
-        nudX.Location = new System.Drawing.Point( 80, y + 1 );
+        nudX.Location = new System.Drawing.Point( 64, y + 1 );
         nudX.Size     = new System.Drawing.Size( 45, 20 );
         nudX.Minimum  = -512;
         nudX.Maximum  = 512;
         nudX.Tag      = i;
         nudX.ValueChanged += slotXY_ValueChanged;
+        toolTip1.SetToolTip( nudX, "Slot X offset (pixels)" );
         panelOverlaySlots.Controls.Add( nudX );
         m_SlotX[i] = nudX;
 
-        var lblY = new System.Windows.Forms.Label();
-        lblY.AutoSize = true;
-        lblY.Location = new System.Drawing.Point( 129, y + 4 );
-        lblY.Text     = "Y:";
-        panelOverlaySlots.Controls.Add( lblY );
-
         var nudY = new System.Windows.Forms.NumericUpDown();
-        nudY.Location = new System.Drawing.Point( 145, y + 1 );
+        nudY.Location = new System.Drawing.Point( 112, y + 1 );
         nudY.Size     = new System.Drawing.Size( 45, 20 );
         nudY.Minimum  = -512;
         nudY.Maximum  = 512;
         nudY.Tag      = i;
         nudY.ValueChanged += slotXY_ValueChanged;
+        toolTip1.SetToolTip( nudY, "Slot Y offset (pixels)" );
         panelOverlaySlots.Controls.Add( nudY );
         m_SlotY[i] = nudY;
 
-        var lblBank = new System.Windows.Forms.Label();
-        lblBank.AutoSize = true;
-        lblBank.Location = new System.Drawing.Point( 194, y + 4 );
-        lblBank.Text     = "Bank:";
-        panelOverlaySlots.Controls.Add( lblBank );
-
         var nudBank = new System.Windows.Forms.NumericUpDown();
-        nudBank.Location = new System.Drawing.Point( 230, y + 1 );
+        nudBank.Location = new System.Drawing.Point( 160, y + 1 );
         nudBank.Size     = new System.Drawing.Size( 45, 20 );
         nudBank.Minimum  = 0;
         nudBank.Maximum  = 255;
         nudBank.Tag      = i;
         nudBank.ValueChanged += slotBank_ValueChanged;
+        toolTip1.SetToolTip( nudBank, "Bank sprite index for this slot (frame 0)" );
         panelOverlaySlots.Controls.Add( nudBank );
         m_SlotBank[i] = nudBank;
 
@@ -4123,13 +3246,14 @@ namespace RetroDevStudio.Documents
         cmbColor.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
         cmbColor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
         cmbColor.FormattingEnabled = true;
-        cmbColor.Location = new System.Drawing.Point( 280, y + 1 );
+        cmbColor.Location = new System.Drawing.Point( 208, y + 1 );
         cmbColor.Size     = new System.Drawing.Size( 65, 21 );
         cmbColor.Tag      = i;
         for ( int c = 0; c < 16; ++c ) cmbColor.Items.Add( c.ToString( "d2" ) );
         cmbColor.SelectedIndex = 1;
         cmbColor.DrawItem += new System.Windows.Forms.DrawItemEventHandler( this.comboColor_DrawItem );
         cmbColor.SelectedIndexChanged += slotCustomColor_SelectedIndexChanged;
+        toolTip1.SetToolTip( cmbColor, "Slot custom color (per-slot foreground)" );
         panelOverlaySlots.Controls.Add( cmbColor );
         m_SlotCustomColor[i] = cmbColor;
       }

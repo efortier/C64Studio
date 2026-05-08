@@ -168,30 +168,6 @@ namespace RetroDevStudio.Formats
     public List<SpriteData>       Sprites  = new List<SpriteData>( 256 );
     public List<Overlay>          Overlays = new List<Overlay>();
 
-    // Legacy in-memory types retained for the pre-Phase-2 UI while the
-    // new Overlay model takes over the data layer. NOT persisted by
-    // SaveToBuffer/ReadFromBuffer — only the Overlays list above is.
-    // Remove once Phase 2 replaces the legacy layer panel UI.
-    public class LayerSprite
-    {
-      public int        X = 0;
-      public int        Y = 0;
-      public int        Color = 0;
-      public int        Index = 0;
-      public bool       ExpandX = false;
-      public bool       ExpandY = false;
-    }
-
-    public class Layer
-    {
-      public string             Name = "Default";
-      public List<LayerSprite>  Sprites = new List<LayerSprite>();
-      public int                BackgroundColor = 0;
-      public int                DelayMS = 0;
-    }
-
-    public List<Layer>            SpriteLayers = new List<Layer>();
-
     public ColorSettings  Colors = new ColorSettings();
 
     public string         Name = "";

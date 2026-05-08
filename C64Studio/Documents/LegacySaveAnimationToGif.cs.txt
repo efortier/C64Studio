@@ -1,0 +1,155 @@
+// =====================================================================
+// SAVE-PREVIEW-TO-GIF — preserved from the pre-overlay sprite editor.
+// Not compiled. Reference code for a future reimplementation against
+// the Overlay/OverlayFrame model.
+//
+// What it did: walked m_SpriteProject.SpriteLayers (legacy frame list)
+// and for each "layer" rendered all its LayerSprite entries onto a
+// MemoryImage, then GIF-encoded one frame per layer using each layer's
+// DelayMS as the inter-frame delay. ColorQuantizer reduced each frame
+// to a 256-entry palette before adding to GIFEncoder.
+//
+// Notes for reimplementation under the Overlay model:
+// - "Layer / LayerSprite" no longer exists. The new model is:
+//     SpriteProject.Overlays : List<Overlay>
+//     Overlay.Slots[8] : OverlaySlot { Enabled, X, Y, Expand, colors }
+//     Overlay.Frames   : List<OverlayFrame> with int[8] BankIndex + DelayMS
+//   So one Overlay's Frames replaces what one Layer's "list of frames"
+//   used to be. Render each frame by walking Slots[0..7] in order
+//   (slot 0 at the bottom) using Frame.BankIndex[s] as the bank
+//   reference. The per-slot color is OverlaySlot.CustomColor;
+//   BG/MC1/MC2 come from m_SpriteProject.Colors.
+// - Bounds calculation should walk each frame's enabled slots,
+//   accumulating min/max X+W, min/max Y+H per the per-bank-sprite's
+//   Width/Height (modes other than C64 24x21 already supported).
+// - DelayMS is per-OverlayFrame (not per-layer-as-frame), so the GIF
+//   add-frame call uses Overlay.Frames[i].DelayMS directly.
+// - Project mode dispatches still apply: HiRes vs MultiColor calls
+//   into SpriteDisplayer.Display{HiRes,MultiColor}Sprite. Other
+//   sprite modes (Mega65 NCM, X16) need their own SpriteDisplayer
+//   call paths if you want full coverage.
+// =====================================================================
+private void btnSavePreviewToGIF_Click( DecentForms.ControlBase Sender )
+{
+  System.Windows.Forms.SaveFileDialog saveDlg = new System.Windows.Forms.SaveFileDialog();
+
+  saveDlg.Title = "Save Preview as GIF";
+  saveDlg.Filter = "GIF Image|*.gif";
+  if ( DocumentInfo.Project != null )
+  {
+    saveDlg.InitialDirectory = DocumentInfo.Project.Settings.BasePath;
+  }
+  if ( saveDlg.ShowDialog() != System.Windows.Forms.DialogResult.OK )
+  {
+    return;
+  }
+
+  // determine bounds
+  int     minX = 64000;
+  int     maxX = 0;
+  int     minY = 48000;
+  int     maxY = 0;
+  foreach ( var layer in m_SpriteProject.SpriteLayers )
+  {
+    foreach ( var entry in layer.Sprites )
+    {
+      minX = Math.Min( entry.X, minX );
+
+      if ( entry.ExpandX )
+      {
+        maxX = Math.Max( entry.X + 2 * m_SpriteWidth, maxX );
+      }
+      else
+      {
+
+        maxX = Math.Max( entry.X + m_SpriteWidth, maxX );
+      }
+      minY = Math.Min( entry.Y, minY );
+      if ( entry.ExpandY )
+      {
+        maxY = Math.Max( entry.Y + 2 * m_SpriteHeight, maxY );
+      }
+      else
+      {
+        maxY = Math.Max( entry.Y + m_SpriteHeight, maxY );
+      }
+    }
+  }
+  Debug.Log( $"minX {minX}, maxX {maxX}, minY {minY}, maxY {maxY}" );
+
+  try
+  {
+    var quantizer = new ColorQuantizer( 256 );
+
+    using ( var outStream = new System.IO.FileStream( saveDlg.FileName, System.IO.FileMode.Create, System.IO.FileAccess.Write ) )
+    using ( var gif = new GIFEncoder( outStream, maxX - minX, maxY - minY ) )
+    {
+      var images = new List<MemoryImage>();
+
+      foreach ( var layer in m_SpriteProject.SpriteLayers )
+      {
+        var layerImage = new GR.Image.MemoryImage( maxX - minX, maxY - minY, GR.Drawing.PixelFormat.Format32bppRgb );
+        layerImage.Box( 0, 0, maxX - minX, maxY - minY, m_SpriteProject.Colors.Palette.ColorValues[m_SpriteProject.Colors.BackgroundColor] );
+
+        foreach ( var entry in layer.Sprites )
+        {
+          if ( m_SpriteProject.Sprites[entry.Index].Mode == SpriteMode.COMMODORE_24_X_21_MULTICOLOR )
+          {
+            SpriteDisplayer.DisplayMultiColorSprite( m_SpriteProject.Sprites[entry.Index].Tile.Data,
+                                                     m_SpriteProject.Sprites[entry.Index].Tile.Colors.Palette,
+                                                     m_SpriteProject.Sprites[entry.Index].Tile.Width,
+                                                     m_SpriteProject.Sprites[entry.Index].Tile.Height,
+                                                     layer.BackgroundColor,
+                                                     m_SpriteProject.Colors.MultiColor1,
+                                                     m_SpriteProject.Colors.MultiColor2,
+                                                     entry.Color,
+                                                     layerImage,
+                                                     entry.X - minX,
+                                                     entry.Y - minY,
+                                                     entry.ExpandX,
+                                                     entry.ExpandY,
+                                                     true );
+          }
+          else if ( m_SpriteProject.Sprites[entry.Index].Mode == SpriteMode.COMMODORE_24_X_21_HIRES )
+          {
+            SpriteDisplayer.DisplayHiResSprite( m_SpriteProject.Sprites[entry.Index].Tile.Data,
+                                                m_SpriteProject.Sprites[entry.Index].Tile.Colors.Palette,
+                                                m_SpriteProject.Sprites[entry.Index].Tile.Width,
+                                                m_SpriteProject.Sprites[entry.Index].Tile.Height,
+                                                layer.BackgroundColor,
+                                                entry.Color,
+                                                layerImage,
+                                                entry.X - minX,
+                                                entry.Y - minY,
+                                                entry.ExpandX,
+                                                entry.ExpandY,
+                                                true );
+          }
+          else
+          {
+            Debug.Log( "SavePreviewToGIF unsupported mode " + m_SpriteProject.Sprites[entry.Index].Mode );
+          }
+        }
+
+        images.Add( layerImage );
+        quantizer.AddSourceToColorCube( layerImage );
+      }
+
+      for ( int i = 0; i < images.Count; ++i )
+      {
+        var image = images[i];
+        var layer = m_SpriteProject.SpriteLayers[i];
+
+        var reducedImage = (MemoryImage)quantizer.Reduce( image );
+        var bitmap = reducedImage.GetAsBitmap();
+
+        gif.AddFrame( bitmap, 0, 0, new TimeSpan( 0, 0, 0, 0, ( layer.DelayMS == 0 ) ? 100 : layer.DelayMS ) );
+      }
+      gif.Close();
+    }
+  }
+  catch ( Exception ex )
+  {
+    Core.Notification.MessageBox( "Error saving GIF file", "An exception occurred during saving:\r\n" + ex.ToString() );
+  }
+}

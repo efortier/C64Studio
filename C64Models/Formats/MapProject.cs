@@ -469,6 +469,13 @@ namespace RetroDevStudio.Formats
     /// </summary>
     public int                          MapStringsTextAreaWidth = 40;
     /// <summary>
+    /// Index of the inner KryptonNavigator tab that was selected when
+    /// the project was last saved. Restored on load so the editor opens
+    /// on the same page the user was working on. Default 0 = the Map
+    /// (tabEditor) page.
+    /// </summary>
+    public int                          LastSelectedTabIndex = 0;
+    /// <summary>
     /// Opacity of the grid overlay drawn on the map editor (0..100).
     /// 100 = opaque white grid lines (legacy behaviour); 0 = invisible
     /// (equivalent to ShowGrid=false). Each grid pixel is alpha-blended
@@ -559,6 +566,10 @@ namespace RetroDevStudio.Formats
       // Map Strings text-area width (default 40). Used at export time to
       // compute leading-space padding for centered / right-justified lines.
       chunkProjectInfo.AppendI32( MapStringsTextAreaWidth );
+      // Last-selected inner tab index. Append-only; older readers stop
+      // before this and the field falls through to its default (0 = the
+      // Map tab).
+      chunkProjectInfo.AppendI32( LastSelectedTabIndex );
       projectFile.Append( chunkProjectInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkCharset = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET );
@@ -863,6 +874,14 @@ namespace RetroDevStudio.Formats
                 MapStringsTextAreaWidth = chunkReader.ReadInt32();
                 if ( MapStringsTextAreaWidth < 1 )    MapStringsTextAreaWidth = 1;
                 if ( MapStringsTextAreaWidth > 255 )  MapStringsTextAreaWidth = 255;
+              }
+              // Optional last-selected tab index (append-only; default 0).
+              // Out-of-range values are clamped at the editor side, where
+              // the live tab count is known.
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                LastSelectedTabIndex = chunkReader.ReadInt32();
+                if ( LastSelectedTabIndex < 0 ) LastSelectedTabIndex = 0;
               }
             }
             break;

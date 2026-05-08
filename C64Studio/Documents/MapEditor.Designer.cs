@@ -167,6 +167,7 @@
             this.btnMapAdd = new Krypton.Toolkit.KryptonButton();
             this.label13 = new System.Windows.Forms.Label();
             this.btnMapDelete = new Krypton.Toolkit.KryptonButton();
+            this.btnMapClear = new Krypton.Toolkit.KryptonButton();
             this.editMapName = new Krypton.Toolkit.KryptonTextBox();
             this.btnMapApply = new Krypton.Toolkit.KryptonButton();
             this.label23 = new System.Windows.Forms.Label();
@@ -1773,6 +1774,7 @@
             this.collapsiblePanel1.Controls.Add(this.btnMapAdd);
             this.collapsiblePanel1.Controls.Add(this.label13);
             this.collapsiblePanel1.Controls.Add(this.btnMapDelete);
+            this.collapsiblePanel1.Controls.Add(this.btnMapClear);
             this.collapsiblePanel1.Controls.Add(this.editMapName);
             this.collapsiblePanel1.Controls.Add(this.btnMapApply);
             this.collapsiblePanel1.Controls.Add(this.label23);
@@ -1989,6 +1991,18 @@
             this.btnMapDelete.Values.DropDownArrowColor = System.Drawing.Color.Empty;
             this.btnMapDelete.Values.Text = "Delete";
             this.btnMapDelete.Click += new System.EventHandler(this.btnMapDelete_Click);
+            //
+            // btnMapClear
+            //
+            this.btnMapClear.Enabled = false;
+            this.btnMapClear.Location = new System.Drawing.Point(280, 144);
+            this.btnMapClear.Name = "btnMapClear";
+            this.btnMapClear.Size = new System.Drawing.Size(56, 23);
+            this.btnMapClear.TabIndex = 11;
+            this.btnMapClear.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnMapClear.Values.Text = "Clear";
+            this.toolTip1.SetToolTip(this.btnMapClear, "Wipe the current map: all characters set to 0, all colors set to 0, all markers and entities for this map removed.");
+            this.btnMapClear.Click += new System.EventHandler(this.btnMapClear_Click);
             // 
             // editMapName
             // 
@@ -4064,6 +4078,7 @@
         private Krypton.Toolkit.KryptonButton btnMoveMapUp;
         private Krypton.Toolkit.KryptonButton btnMapAdd;
         private Krypton.Toolkit.KryptonButton btnMapDelete;
+        private Krypton.Toolkit.KryptonButton btnMapClear;
         private Krypton.Toolkit.KryptonButton btnMapApply;
         private System.Windows.Forms.Label label14;
         private System.Windows.Forms.Label label1;
