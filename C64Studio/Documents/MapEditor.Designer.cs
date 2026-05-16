@@ -63,25 +63,26 @@
             this.comboMapStringLineControl0 = new System.Windows.Forms.ComboBox();
             this.editMapStringLine0 = new System.Windows.Forms.TextBox();
             this.comboMapStringTerminator0 = new System.Windows.Forms.ComboBox();
+            this.comboMapStringJustify0 = new System.Windows.Forms.ComboBox();
             this.labelMapStringLine1 = new System.Windows.Forms.Label();
             this.comboMapStringLineControl1 = new System.Windows.Forms.ComboBox();
             this.editMapStringLine1 = new System.Windows.Forms.TextBox();
             this.comboMapStringTerminator1 = new System.Windows.Forms.ComboBox();
+            this.comboMapStringJustify1 = new System.Windows.Forms.ComboBox();
             this.labelMapStringLine2 = new System.Windows.Forms.Label();
             this.comboMapStringLineControl2 = new System.Windows.Forms.ComboBox();
             this.editMapStringLine2 = new System.Windows.Forms.TextBox();
             this.comboMapStringTerminator2 = new System.Windows.Forms.ComboBox();
+            this.comboMapStringJustify2 = new System.Windows.Forms.ComboBox();
             this.labelMapStringLine3 = new System.Windows.Forms.Label();
             this.comboMapStringLineControl3 = new System.Windows.Forms.ComboBox();
             this.editMapStringLine3 = new System.Windows.Forms.TextBox();
             this.comboMapStringTerminator3 = new System.Windows.Forms.ComboBox();
-            this.comboMapStringJustify0 = new System.Windows.Forms.ComboBox();
-            this.comboMapStringJustify1 = new System.Windows.Forms.ComboBox();
-            this.comboMapStringJustify2 = new System.Windows.Forms.ComboBox();
             this.comboMapStringJustify3 = new System.Windows.Forms.ComboBox();
             this.checkMapStringClearAtEnd = new System.Windows.Forms.CheckBox();
+            this.labelMapStringTextAreaWidth = new System.Windows.Forms.Label();
+            this.editMapStringTextAreaWidth = new System.Windows.Forms.NumericUpDown();
             this.btnAddMapString = new DecentForms.Button();
-            this.btnUpdateMapString = new DecentForms.Button();
             this.btnDeleteMapString = new DecentForms.Button();
             this.btnMoveMapStringUp = new DecentForms.Button();
             this.btnMoveMapStringDown = new DecentForms.Button();
@@ -95,8 +96,6 @@
             this.editMapStringUppercase = new System.Windows.Forms.NumericUpDown();
             this.labelMapStringNumbers = new System.Windows.Forms.Label();
             this.editMapStringNumbers = new System.Windows.Forms.NumericUpDown();
-            this.labelMapStringTextAreaWidth = new System.Windows.Forms.Label();
-            this.editMapStringTextAreaWidth = new System.Windows.Forms.NumericUpDown();
             this.labelMapStringPreview = new System.Windows.Forms.Label();
             this.picMapStringPreview = new System.Windows.Forms.PictureBox();
             this.tabEntities = new Krypton.Navigator.KryptonPage();
@@ -324,10 +323,10 @@
             ((System.ComponentModel.ISupportInitialize)(this.editMarkerTagID)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tabMapStrings)).BeginInit();
             this.tabMapStrings.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.editMapStringTextAreaWidth)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringLowercase)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringUppercase)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringNumbers)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.editMapStringTextAreaWidth)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.picMapStringPreview)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tabEntities)).BeginInit();
             this.tabEntities.SuspendLayout();
@@ -663,7 +662,6 @@
             this.tabMapStrings.Controls.Add(this.labelMapStringTextAreaWidth);
             this.tabMapStrings.Controls.Add(this.editMapStringTextAreaWidth);
             this.tabMapStrings.Controls.Add(this.btnAddMapString);
-            this.tabMapStrings.Controls.Add(this.btnUpdateMapString);
             this.tabMapStrings.Controls.Add(this.btnDeleteMapString);
             this.tabMapStrings.Controls.Add(this.btnMoveMapStringUp);
             this.tabMapStrings.Controls.Add(this.btnMoveMapStringDown);
@@ -762,6 +760,22 @@
             this.comboMapStringTerminator0.Size = new System.Drawing.Size(110, 21);
             this.comboMapStringTerminator0.TabIndex = 5;
             // 
+            // comboMapStringJustify0
+            // 
+            this.comboMapStringJustify0.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboMapStringJustify0.FormattingEnabled = true;
+            this.comboMapStringJustify0.Items.AddRange(new object[] {
+            "Left",
+            "Center",
+            "Right"});
+            this.comboMapStringJustify0.Location = new System.Drawing.Point(686, 38);
+            this.comboMapStringJustify0.Name = "comboMapStringJustify0";
+            this.comboMapStringJustify0.Size = new System.Drawing.Size(85, 21);
+            this.comboMapStringJustify0.TabIndex = 47;
+            this.toolTip1.SetToolTip(this.comboMapStringJustify0, "Padding applied at export only. Center/Right left-pad with spaces so the text lan" +
+        "ds within the configured Width column count.");
+            this.comboMapStringJustify0.SelectedIndexChanged += new System.EventHandler(this.comboMapStringJustify_SelectedIndexChanged);
+            // 
             // labelMapStringLine1
             // 
             this.labelMapStringLine1.AutoSize = true;
@@ -803,6 +817,20 @@
             this.comboMapStringTerminator1.Name = "comboMapStringTerminator1";
             this.comboMapStringTerminator1.Size = new System.Drawing.Size(110, 21);
             this.comboMapStringTerminator1.TabIndex = 8;
+            // 
+            // comboMapStringJustify1
+            // 
+            this.comboMapStringJustify1.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboMapStringJustify1.FormattingEnabled = true;
+            this.comboMapStringJustify1.Items.AddRange(new object[] {
+            "Left",
+            "Center",
+            "Right"});
+            this.comboMapStringJustify1.Location = new System.Drawing.Point(686, 66);
+            this.comboMapStringJustify1.Name = "comboMapStringJustify1";
+            this.comboMapStringJustify1.Size = new System.Drawing.Size(85, 21);
+            this.comboMapStringJustify1.TabIndex = 48;
+            this.comboMapStringJustify1.SelectedIndexChanged += new System.EventHandler(this.comboMapStringJustify_SelectedIndexChanged);
             // 
             // labelMapStringLine2
             // 
@@ -846,6 +874,20 @@
             this.comboMapStringTerminator2.Size = new System.Drawing.Size(110, 21);
             this.comboMapStringTerminator2.TabIndex = 11;
             // 
+            // comboMapStringJustify2
+            // 
+            this.comboMapStringJustify2.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboMapStringJustify2.FormattingEnabled = true;
+            this.comboMapStringJustify2.Items.AddRange(new object[] {
+            "Left",
+            "Center",
+            "Right"});
+            this.comboMapStringJustify2.Location = new System.Drawing.Point(686, 94);
+            this.comboMapStringJustify2.Name = "comboMapStringJustify2";
+            this.comboMapStringJustify2.Size = new System.Drawing.Size(85, 21);
+            this.comboMapStringJustify2.TabIndex = 49;
+            this.comboMapStringJustify2.SelectedIndexChanged += new System.EventHandler(this.comboMapStringJustify_SelectedIndexChanged);
+            // 
             // labelMapStringLine3
             // 
             this.labelMapStringLine3.AutoSize = true;
@@ -887,52 +929,21 @@
             this.comboMapStringTerminator3.Name = "comboMapStringTerminator3";
             this.comboMapStringTerminator3.Size = new System.Drawing.Size(110, 21);
             this.comboMapStringTerminator3.TabIndex = 14;
-            //
-            // comboMapStringJustify0
-            //
-            this.comboMapStringJustify0.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboMapStringJustify0.FormattingEnabled = true;
-            this.comboMapStringJustify0.Items.AddRange(new object[] { "Left", "Center", "Right" });
-            this.comboMapStringJustify0.Location = new System.Drawing.Point(686, 38);
-            this.comboMapStringJustify0.Name = "comboMapStringJustify0";
-            this.comboMapStringJustify0.Size = new System.Drawing.Size(85, 21);
-            this.comboMapStringJustify0.TabIndex = 47;
-            this.toolTip1.SetToolTip(this.comboMapStringJustify0, "Padding applied at export only. Center/Right left-pad with spaces so the text lands within the configured Width column count.");
-            this.comboMapStringJustify0.SelectedIndexChanged += new System.EventHandler(this.comboMapStringJustify_SelectedIndexChanged);
-            //
-            // comboMapStringJustify1
-            //
-            this.comboMapStringJustify1.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboMapStringJustify1.FormattingEnabled = true;
-            this.comboMapStringJustify1.Items.AddRange(new object[] { "Left", "Center", "Right" });
-            this.comboMapStringJustify1.Location = new System.Drawing.Point(686, 66);
-            this.comboMapStringJustify1.Name = "comboMapStringJustify1";
-            this.comboMapStringJustify1.Size = new System.Drawing.Size(85, 21);
-            this.comboMapStringJustify1.TabIndex = 48;
-            this.comboMapStringJustify1.SelectedIndexChanged += new System.EventHandler(this.comboMapStringJustify_SelectedIndexChanged);
-            //
-            // comboMapStringJustify2
-            //
-            this.comboMapStringJustify2.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboMapStringJustify2.FormattingEnabled = true;
-            this.comboMapStringJustify2.Items.AddRange(new object[] { "Left", "Center", "Right" });
-            this.comboMapStringJustify2.Location = new System.Drawing.Point(686, 94);
-            this.comboMapStringJustify2.Name = "comboMapStringJustify2";
-            this.comboMapStringJustify2.Size = new System.Drawing.Size(85, 21);
-            this.comboMapStringJustify2.TabIndex = 49;
-            this.comboMapStringJustify2.SelectedIndexChanged += new System.EventHandler(this.comboMapStringJustify_SelectedIndexChanged);
-            //
+            // 
             // comboMapStringJustify3
-            //
+            // 
             this.comboMapStringJustify3.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboMapStringJustify3.FormattingEnabled = true;
-            this.comboMapStringJustify3.Items.AddRange(new object[] { "Left", "Center", "Right" });
+            this.comboMapStringJustify3.Items.AddRange(new object[] {
+            "Left",
+            "Center",
+            "Right"});
             this.comboMapStringJustify3.Location = new System.Drawing.Point(686, 122);
             this.comboMapStringJustify3.Name = "comboMapStringJustify3";
             this.comboMapStringJustify3.Size = new System.Drawing.Size(85, 21);
             this.comboMapStringJustify3.TabIndex = 50;
             this.comboMapStringJustify3.SelectedIndexChanged += new System.EventHandler(this.comboMapStringJustify_SelectedIndexChanged);
-            //
+            // 
             // checkMapStringClearAtEnd
             // 
             this.checkMapStringClearAtEnd.AutoSize = true;
@@ -942,6 +953,40 @@
             this.checkMapStringClearAtEnd.TabIndex = 15;
             this.checkMapStringClearAtEnd.Text = "Append CLEAR_TEXT_AREA before END_OF_TEXT";
             this.checkMapStringClearAtEnd.UseVisualStyleBackColor = true;
+            // 
+            // labelMapStringTextAreaWidth
+            // 
+            this.labelMapStringTextAreaWidth.AutoSize = true;
+            this.labelMapStringTextAreaWidth.Location = new System.Drawing.Point(595, 281);
+            this.labelMapStringTextAreaWidth.Name = "labelMapStringTextAreaWidth";
+            this.labelMapStringTextAreaWidth.Size = new System.Drawing.Size(38, 13);
+            this.labelMapStringTextAreaWidth.TabIndex = 51;
+            this.labelMapStringTextAreaWidth.Text = "Width:";
+            this.toolTip1.SetToolTip(this.labelMapStringTextAreaWidth, "Column count of the runtime text area. Used at export time only to left-pad cente" +
+        "r/right-justified lines with spaces.");
+            // 
+            // editMapStringTextAreaWidth
+            // 
+            this.editMapStringTextAreaWidth.Location = new System.Drawing.Point(640, 278);
+            this.editMapStringTextAreaWidth.Maximum = new decimal(new int[] {
+            255,
+            0,
+            0,
+            0});
+            this.editMapStringTextAreaWidth.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.editMapStringTextAreaWidth.Name = "editMapStringTextAreaWidth";
+            this.editMapStringTextAreaWidth.Size = new System.Drawing.Size(60, 20);
+            this.editMapStringTextAreaWidth.TabIndex = 52;
+            this.editMapStringTextAreaWidth.Value = new decimal(new int[] {
+            40,
+            0,
+            0,
+            0});
+            this.editMapStringTextAreaWidth.ValueChanged += new System.EventHandler(this.editMapStringTextAreaWidth_ValueChanged);
             // 
             // btnAddMapString
             // 
@@ -957,21 +1002,6 @@
             this.btnAddMapString.Text = "Add";
             this.btnAddMapString.Click += new DecentForms.EventHandler(this.btnAddMapString_Click);
             // 
-            // btnUpdateMapString
-            // 
-            this.btnUpdateMapString.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            this.btnUpdateMapString.BorderStyle = DecentForms.BorderStyle.FLAT;
-            this.btnUpdateMapString.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            this.btnUpdateMapString.DialogResult = System.Windows.Forms.DialogResult.OK;
-            this.btnUpdateMapString.Enabled = false;
-            this.btnUpdateMapString.Image = null;
-            this.btnUpdateMapString.Location = new System.Drawing.Point(261, 216);
-            this.btnUpdateMapString.Name = "btnUpdateMapString";
-            this.btnUpdateMapString.Size = new System.Drawing.Size(75, 23);
-            this.btnUpdateMapString.TabIndex = 20;
-            this.btnUpdateMapString.Text = "Update";
-            this.btnUpdateMapString.Click += new DecentForms.EventHandler(this.btnUpdateMapString_Click);
-            // 
             // btnDeleteMapString
             // 
             this.btnDeleteMapString.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
@@ -980,7 +1010,7 @@
             this.btnDeleteMapString.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnDeleteMapString.Enabled = false;
             this.btnDeleteMapString.Image = null;
-            this.btnDeleteMapString.Location = new System.Drawing.Point(342, 216);
+            this.btnDeleteMapString.Location = new System.Drawing.Point(261, 216);
             this.btnDeleteMapString.Name = "btnDeleteMapString";
             this.btnDeleteMapString.Size = new System.Drawing.Size(75, 23);
             this.btnDeleteMapString.TabIndex = 21;
@@ -995,7 +1025,7 @@
             this.btnMoveMapStringUp.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnMoveMapStringUp.Enabled = false;
             this.btnMoveMapStringUp.Image = null;
-            this.btnMoveMapStringUp.Location = new System.Drawing.Point(423, 216);
+            this.btnMoveMapStringUp.Location = new System.Drawing.Point(342, 216);
             this.btnMoveMapStringUp.Name = "btnMoveMapStringUp";
             this.btnMoveMapStringUp.Size = new System.Drawing.Size(75, 23);
             this.btnMoveMapStringUp.TabIndex = 22;
@@ -1010,7 +1040,7 @@
             this.btnMoveMapStringDown.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnMoveMapStringDown.Enabled = false;
             this.btnMoveMapStringDown.Image = null;
-            this.btnMoveMapStringDown.Location = new System.Drawing.Point(504, 216);
+            this.btnMoveMapStringDown.Location = new System.Drawing.Point(423, 216);
             this.btnMoveMapStringDown.Name = "btnMoveMapStringDown";
             this.btnMoveMapStringDown.Size = new System.Drawing.Size(85, 23);
             this.btnMoveMapStringDown.TabIndex = 23;
@@ -1025,7 +1055,7 @@
             this.btnDuplicateMapString.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnDuplicateMapString.Enabled = false;
             this.btnDuplicateMapString.Image = null;
-            this.btnDuplicateMapString.Location = new System.Drawing.Point(595, 216);
+            this.btnDuplicateMapString.Location = new System.Drawing.Point(514, 216);
             this.btnDuplicateMapString.Name = "btnDuplicateMapString";
             this.btnDuplicateMapString.Size = new System.Drawing.Size(85, 23);
             this.btnDuplicateMapString.TabIndex = 24;
@@ -1144,42 +1174,9 @@
             0,
             0});
             this.editMapStringNumbers.ValueChanged += new System.EventHandler(this.editMapStringNumbers_ValueChanged);
-            //
-            // labelMapStringTextAreaWidth
-            //
-            this.labelMapStringTextAreaWidth.AutoSize = true;
-            this.labelMapStringTextAreaWidth.Location = new System.Drawing.Point(595, 281);
-            this.labelMapStringTextAreaWidth.Name = "labelMapStringTextAreaWidth";
-            this.labelMapStringTextAreaWidth.Size = new System.Drawing.Size(38, 13);
-            this.labelMapStringTextAreaWidth.TabIndex = 51;
-            this.labelMapStringTextAreaWidth.Text = "Width:";
-            this.toolTip1.SetToolTip(this.labelMapStringTextAreaWidth, "Column count of the runtime text area. Used at export time only to left-pad center/right-justified lines with spaces.");
-            //
-            // editMapStringTextAreaWidth
-            //
-            this.editMapStringTextAreaWidth.Location = new System.Drawing.Point(640, 278);
-            this.editMapStringTextAreaWidth.Maximum = new decimal(new int[] {
-            255,
-            0,
-            0,
-            0});
-            this.editMapStringTextAreaWidth.Minimum = new decimal(new int[] {
-            1,
-            0,
-            0,
-            0});
-            this.editMapStringTextAreaWidth.Name = "editMapStringTextAreaWidth";
-            this.editMapStringTextAreaWidth.Size = new System.Drawing.Size(60, 20);
-            this.editMapStringTextAreaWidth.TabIndex = 52;
-            this.editMapStringTextAreaWidth.Value = new decimal(new int[] {
-            40,
-            0,
-            0,
-            0});
-            this.editMapStringTextAreaWidth.ValueChanged += new System.EventHandler(this.editMapStringTextAreaWidth_ValueChanged);
-            //
+            // 
             // labelMapStringPreview
-            //
+            // 
             this.labelMapStringPreview.AutoSize = true;
             this.labelMapStringPreview.Location = new System.Drawing.Point(180, 308);
             this.labelMapStringPreview.Name = "labelMapStringPreview";
@@ -1991,17 +1988,18 @@
             this.btnMapDelete.Values.DropDownArrowColor = System.Drawing.Color.Empty;
             this.btnMapDelete.Values.Text = "Delete";
             this.btnMapDelete.Click += new System.EventHandler(this.btnMapDelete_Click);
-            //
+            // 
             // btnMapClear
-            //
+            // 
             this.btnMapClear.Enabled = false;
             this.btnMapClear.Location = new System.Drawing.Point(280, 144);
             this.btnMapClear.Name = "btnMapClear";
             this.btnMapClear.Size = new System.Drawing.Size(56, 23);
             this.btnMapClear.TabIndex = 11;
+            this.toolTip1.SetToolTip(this.btnMapClear, "Wipe the current map: all characters set to 0, all colors set to 0, all markers a" +
+        "nd entities for this map removed.");
             this.btnMapClear.Values.DropDownArrowColor = System.Drawing.Color.Empty;
             this.btnMapClear.Values.Text = "Clear";
-            this.toolTip1.SetToolTip(this.btnMapClear, "Wipe the current map: all characters set to 0, all colors set to 0, all markers and entities for this map removed.");
             this.btnMapClear.Click += new System.EventHandler(this.btnMapClear_Click);
             // 
             // editMapName
@@ -2774,14 +2772,16 @@
             // comboTilePlacementColor
             // 
             this.comboTilePlacementColor.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this.comboTilePlacementColor.DropDownHeight = 350;
             this.comboTilePlacementColor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboTilePlacementColor.DropDownWidth = 110;
             this.comboTilePlacementColor.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.comboTilePlacementColor.FormattingEnabled = true;
             this.comboTilePlacementColor.IntegralHeight = false;
+            this.comboTilePlacementColor.ItemHeight = 19;
             this.comboTilePlacementColor.Location = new System.Drawing.Point(363, 3);
             this.comboTilePlacementColor.Name = "comboTilePlacementColor";
-            this.comboTilePlacementColor.Size = new System.Drawing.Size(80, 21);
+            this.comboTilePlacementColor.Size = new System.Drawing.Size(80, 25);
             this.comboTilePlacementColor.TabIndex = 49;
             this.toolTip1.SetToolTip(this.comboTilePlacementColor, resources.GetString("comboTilePlacementColor.ToolTip"));
             this.comboTilePlacementColor.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.comboTilePlacementColor_DrawItem);
@@ -2936,7 +2936,7 @@
             this.tabMapStrings,
             this.tabMarkers,
             this.tabEntities});
-            this.tabMapEditor.SelectedIndex = 6;
+            this.tabMapEditor.SelectedIndex = 0;
             this.tabMapEditor.Size = new System.Drawing.Size(1576, 910);
             this.tabMapEditor.TabIndex = 0;
             this.tabMapEditor.SelectedPageChanged += new System.EventHandler(this.tabMapEditor_SelectedIndexChanged);
@@ -3838,10 +3838,10 @@
             ((System.ComponentModel.ISupportInitialize)(this.tabMapStrings)).EndInit();
             this.tabMapStrings.ResumeLayout(false);
             this.tabMapStrings.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.editMapStringTextAreaWidth)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringLowercase)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringUppercase)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringNumbers)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.editMapStringTextAreaWidth)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.picMapStringPreview)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.tabEntities)).EndInit();
             this.tabEntities.ResumeLayout(false);
@@ -4129,7 +4129,6 @@
         private System.Windows.Forms.Label labelMapStringTextAreaWidth;
         private System.Windows.Forms.NumericUpDown editMapStringTextAreaWidth;
         private DecentForms.Button btnAddMapString;
-        private DecentForms.Button btnUpdateMapString;
         private DecentForms.Button btnDeleteMapString;
         private DecentForms.Button btnMoveMapStringUp;
         private DecentForms.Button btnMoveMapStringDown;

@@ -58,6 +58,42 @@ namespace RetroDevStudio.Controls
 
     public override bool HandleExport( ExportMapInfo Info, TextBox EditOutput, DocumentInfo DocInfo )
     {
+      // Pre-export validation: warn the user about Map String labels that
+      // can't form a valid asm identifier. The strings themselves still go
+      // into the binary regardless — labels are editor metadata, the
+      // binary uses raw indices. The .asm sidecar's .const lines are what
+      // get filtered for those entries; the raw-index reference still
+      // works in the user's game code.
+      if ( Info.Map != null )
+      {
+        var labelWarnings = Info.Map.GetMapStringLabelWarnings();
+        if ( labelWarnings.Count > 0 )
+        {
+          var sb = new System.Text.StringBuilder();
+          sb.AppendLine( "Some Map String labels can't be exported as asm identifiers:" );
+          sb.AppendLine();
+          foreach ( var w in labelWarnings ) sb.AppendLine( "  " + w );
+          sb.AppendLine();
+          sb.AppendLine( "Continue anyway?" );
+          sb.AppendLine();
+          sb.AppendLine( "Yes  — export every map string into the binary; the listed labels" );
+          sb.AppendLine( "       will not get a .const line in the .asm sidecar (reference" );
+          sb.AppendLine( "       them by their raw index in your game code)." );
+          sb.AppendLine( "No   — abort the export so you can rename the labels." );
+
+          var result = System.Windows.Forms.MessageBox.Show(
+            sb.ToString(),
+            "Map String label warnings",
+            System.Windows.Forms.MessageBoxButtons.YesNo,
+            System.Windows.Forms.MessageBoxIcon.Warning,
+            System.Windows.Forms.MessageBoxDefaultButton.Button2 );
+          if ( result != System.Windows.Forms.DialogResult.Yes )
+          {
+            return false;
+          }
+        }
+      }
+
       bool exportMarkers = checkExportMarkers.Checked;
       bool exportColors = checkExportColors.Checked;
       bool exportPassable = checkExportPassable.Checked;
@@ -708,17 +744,16 @@ namespace RetroDevStudio.Controls
           sb.AppendLine();
 
           sb.AppendLine( "--- MAP STRING DATA ---" );
-          // Prefer using the in-memory project for label info — the binary
-          // doesn't carry labels. Falls back to "string N" if the project
-          // reference isn't reachable here.
+          // Pull labels from the in-memory project so the log can show
+          // which message lives at each binary index. Binary tables are
+          // 1:1 with MapStrings (no label-based filtering), so index N
+          // in the binary is MapStrings[N].
           var emittedLabels = new List<string>();
           if ( project != null )
           {
-            List<string> skipped;
-            var emittedStrings = project.GetEmittableMapStrings( out skipped );
-            for ( int i = 0; i < emittedStrings.Count; ++i )
+            for ( int i = 0; i < project.MapStrings.Count; ++i )
             {
-              emittedLabels.Add( emittedStrings[i].Label );
+              emittedLabels.Add( project.MapStrings[i].Label ?? "" );
             }
           }
 
@@ -733,7 +768,8 @@ namespace RetroDevStudio.Controls
           {
             ushort streamAddr = (ushort)( buf.ByteAt( loFilePos + i ) | ( buf.ByteAt( hiFilePos + i ) << 8 ) );
             int streamFilePos = streamAddr - ba;
-            string lbl = ( i < emittedLabels.Count ) ? emittedLabels[i] : ( "string " + i );
+            string lbl = ( i < emittedLabels.Count ) ? emittedLabels[i] : "";
+            if ( string.IsNullOrEmpty( lbl ) ) lbl = "string " + i;
 
             // Walk to find the end of this stream — first $FF (END_OF_TEXT).
             int len = 0;

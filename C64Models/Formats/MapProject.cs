@@ -2588,8 +2588,12 @@ namespace RetroDevStudio.Formats
       // the LO and HI tables; +$34 holds N. When the project has no
       // emittable strings the count is 0 and the LO/HI pointers stay
       // zero (the per-map empty-data convention).
-      List<string> mapStringSkipReasons;
-      var emittableStrings = GetEmittableMapStrings( out mapStringSkipReasons );
+      // Binary tables include every MapString in source order — labels
+      // are editor metadata, not part of the binary. The .asm sidecar
+      // separately filters for valid label names when emitting .const
+      // lines, but the index-N entries in MAP_STRING_LO/_HI here always
+      // line up with MapStrings[N].
+      var emittableStrings = GetMapStringsForExport();
       if ( emittableStrings.Count > 0 )
       {
         // Pre-build every byte stream so we know each one's exact length
@@ -2900,28 +2904,45 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( "// Do not edit by hand — regenerated on every export." );
       sb.AppendLine();
 
-      List<string> skipped;
-      var emitted = GetEmittableMapStrings( out skipped );
-      foreach ( var s in skipped )
-      {
-        sb.AppendLine( "// SKIPPED: " + s );
-      }
-      if ( skipped.Count > 0 )
-      {
-        sb.AppendLine();
-      }
-
-      if ( emitted.Count == 0 )
+      if ( MapStrings.Count == 0 )
       {
         sb.AppendLine( "// (no map strings defined)" );
         return sb.ToString();
       }
 
+      // Walk the FULL list. Indices in this sidecar align with the binary's
+      // MAP_STRING_LO / _HI tables (which include every MapString, in order).
+      // Labels that aren't valid asm identifiers — or that collide with an
+      // earlier label — get a SKIPPED comment instead of a .const line, but
+      // the underlying message is still in the binary at the same index.
+      var labelRegex = new System.Text.RegularExpressions.Regex( "^[A-Za-z_][A-Za-z0-9_]*$" );
+      var seenLabels = new HashSet<string>( StringComparer.Ordinal );
+
       sb.AppendLine( "// String index constants — pass these in A to the message renderer." );
-      for ( int i = 0; i < emitted.Count; ++i )
+      sb.AppendLine( "// Strings whose label can't form a valid asm identifier are still in" );
+      sb.AppendLine( "// the binary at their listed index; reference them by raw number." );
+      for ( int i = 0; i < MapStrings.Count; ++i )
       {
-        sb.AppendLine( ".const " + emitted[i].Label.PadRight( 32 )
-                     + " = " + i );
+        var ms = MapStrings[i];
+        string label = ms.Label ?? "";
+        if ( string.IsNullOrEmpty( label ) )
+        {
+          sb.AppendLine( "// index " + i + ": (no label) — reference by raw index." );
+          continue;
+        }
+        if ( !labelRegex.IsMatch( label ) )
+        {
+          sb.AppendLine( "// index " + i + ": SKIPPED label '" + label
+                       + "' — not a valid asm identifier; reference by raw index." );
+          continue;
+        }
+        if ( !seenLabels.Add( label ) )
+        {
+          sb.AppendLine( "// index " + i + ": SKIPPED label '" + label
+                       + "' — duplicate of an earlier entry; reference by raw index." );
+          continue;
+        }
+        sb.AppendLine( ".const " + label.PadRight( 32 ) + " = " + i );
       }
 
       return sb.ToString();
@@ -2930,42 +2951,46 @@ namespace RetroDevStudio.Formats
 
 
     /// <summary>
-    /// Filter <see cref="MapStrings"/> down to the subset that's safe to
-    /// emit as numbered indices in both the binary and the asm sidecar:
-    /// non-empty Label, valid asm identifier, no duplicate labels (first
-    /// occurrence wins). The <paramref name="SkipReasons"/> list contains
-    /// one human-readable reason per dropped entry, in source order, so
-    /// the sidecar can show users exactly why a string didn't make it.
-    /// Both the binary writer and the asm sidecar share this filter so
-    /// the index constants always match the binary's pointer table.
+    /// Strings included in the binary export, in source order. Every
+    /// MapString goes in regardless of label — the binary tables are
+    /// indexed by position, not by label, so labels are editor metadata
+    /// only. Labels that fail the asm-identifier regex still get a slot
+    /// in the binary; they just don't get a .const line in the sidecar.
     /// </summary>
-    public List<MapString> GetEmittableMapStrings( out List<string> SkipReasons )
+    public List<MapString> GetMapStringsForExport()
     {
-      SkipReasons = new List<string>();
+      return new List<MapString>( MapStrings );
+    }
+
+
+
+    /// <summary>
+    /// Pre-export validation hook. Returns the per-message problems the
+    /// user might want to know about: labels that aren't valid asm
+    /// identifiers, and duplicate labels. Empty labels are NOT flagged
+    /// — they're intentional (a string the user references by raw
+    /// index). Used by the export form to surface a single Yes/No
+    /// prompt before the binary write.
+    /// </summary>
+    public List<string> GetMapStringLabelWarnings()
+    {
+      var warnings  = new List<string>();
       var labelRegex = new System.Text.RegularExpressions.Regex( "^[A-Za-z_][A-Za-z0-9_]*$" );
-      var seenLabels = new HashSet<string>( StringComparer.Ordinal );
-      var emitted    = new List<MapString>();
-      foreach ( var ms in MapStrings )
+      var seen      = new HashSet<string>( StringComparer.Ordinal );
+      for ( int i = 0; i < MapStrings.Count; ++i )
       {
-        string label = ms.Label ?? "";
-        if ( string.IsNullOrEmpty( label ) )
-        {
-          SkipReasons.Add( "message with empty label (set a label in the Map Strings tab)." );
-          continue;
-        }
+        string label = MapStrings[i].Label ?? "";
+        if ( string.IsNullOrEmpty( label ) ) continue;
         if ( !labelRegex.IsMatch( label ) )
         {
-          SkipReasons.Add( "invalid label '" + label + "' — must match [A-Za-z_][A-Za-z0-9_]*." );
-          continue;
+          warnings.Add( "index " + i + ": '" + label + "' — not a valid asm identifier" );
         }
-        if ( !seenLabels.Add( label ) )
+        else if ( !seen.Add( label ) )
         {
-          SkipReasons.Add( "duplicate label '" + label + "'." );
-          continue;
+          warnings.Add( "index " + i + ": '" + label + "' — duplicate of earlier label" );
         }
-        emitted.Add( ms );
       }
-      return emitted;
+      return warnings;
     }
 
 

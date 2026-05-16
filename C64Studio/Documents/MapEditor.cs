@@ -9625,7 +9625,6 @@ namespace RetroDevStudio.Documents
       bool hasSelection = ( listMapStrings.SelectedIndex >= 0 )
                        && ( m_MapProject != null )
                        && ( listMapStrings.SelectedIndex < m_MapProject.MapStrings.Count );
-      btnUpdateMapString.Enabled    = hasSelection;
       btnDeleteMapString.Enabled    = hasSelection;
       btnDuplicateMapString.Enabled = hasSelection;
       btnMoveMapStringUp.Enabled    = hasSelection && ( listMapStrings.SelectedIndex > 0 );
@@ -9857,37 +9856,6 @@ namespace RetroDevStudio.Documents
       SetModified();
       editMapStringLabel.Focus();
       editMapStringLabel.SelectAll();
-    }
-
-
-
-    private void btnUpdateMapString_Click( DecentForms.ControlBase Sender )
-    {
-      // Per-field handlers commit live, so this button no longer copies
-      // form -> model. Repurposed as an explicit "check labels" action
-      // — surfaces the duplicate-label warning on demand without firing
-      // a modal popup on every keystroke. The button stays so users used
-      // to clicking Update have an obvious safety check; renaming it is
-      // a cosmetic follow-up.
-      var ms = GetSelectedMapString();
-      if ( ms == null ) return;
-
-      string label = ms.Label ?? "";
-      if ( string.IsNullOrEmpty( label ) ) return;
-
-      int dupCount = 0;
-      foreach ( var x in m_MapProject.MapStrings )
-      {
-        if ( x.Label == label ) ++dupCount;
-      }
-      if ( dupCount > 1 )
-      {
-        System.Windows.Forms.MessageBox.Show(
-          "Label '" + label + "' is used by more than one Map String. Export will skip the duplicates.",
-          "Duplicate Map String label",
-          System.Windows.Forms.MessageBoxButtons.OK,
-          System.Windows.Forms.MessageBoxIcon.Warning );
-      }
     }
 
 
@@ -10782,16 +10750,9 @@ namespace RetroDevStudio.Documents
         return;
       }
 
-      var type = m_MapProject.EntityTypes.FirstOrDefault( t => t.ID == m_SelectedEntity.Type );
-      string typeName = ( type != null ) ? type.Name : "(unknown)";
-      var result = System.Windows.Forms.MessageBox.Show(
-        "Delete the selected entity at (" + m_SelectedEntity.X + ", " + m_SelectedEntity.Y
-          + ") of type '" + typeName + "'?",
-        "Delete entity",
-        System.Windows.Forms.MessageBoxButtons.YesNo,
-        System.Windows.Forms.MessageBoxIcon.Warning );
-      if ( result != System.Windows.Forms.DialogResult.Yes ) return;
-
+      // Snapshot the entity list before removal so Ctrl+Z restores
+      // the deleted entity. No confirmation prompt — user explicitly
+      // asked for deletion to be one-click.
       DocumentInfo.UndoManager.AddUndoTask(
         new Undo.UndoMapEntitiesChange( this, m_CurrentMap ) );
       m_CurrentMap.Entities.Remove( m_SelectedEntity );
