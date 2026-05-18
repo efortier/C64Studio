@@ -446,7 +446,7 @@ namespace RetroDevStudio.Controls
       sb.AppendLine( RetroDevStudio.Formats.MapProject.GenerateGameBinaryHeaderAsm() );
 
       // --- HEADER ---
-      sb.AppendLine( "--- HEADER (57 bytes) ---" );
+      sb.AppendLine( "--- HEADER (59 bytes) ---" );
       sb.AppendLine( Addr( baseAddr, 0x00 ) + ": " + HexByte( buf.ByteAt( 0 ) ).PadRight( 24 ) + "marker_stride = " + markerStride );
       sb.AppendLine( Addr( baseAddr, 0x01 ) + ": " + HexByte( buf.ByteAt( 1 ) ).PadRight( 24 ) + "tile_count = " + tileCount );
       sb.AppendLine( Addr( baseAddr, 0x02 ) + ": " + HexByte( buf.ByteAt( 2 ) ).PadRight( 24 ) + "map_count = " + mapCount );
@@ -500,13 +500,14 @@ namespace RetroDevStudio.Controls
         string resolved = ( val != 0 ) ? " -> $" + val.ToString( "X4" ) : " -> (disabled)";
         sb.AppendLine( Addr( baseAddr, hdrOff ) + ": " + HexBytes( buf, hdrOff, 2 ).PadRight( 24 ) + entHdrNames[i] + resolved );
       }
-      // Map-strings section (v24+) — count byte + LO/HI table pointers.
+      // Map-strings section (v24+) — count byte + LO/HI/ID table pointers.
       sb.AppendLine( Addr( baseAddr, 0x34 ) + ": " + HexByte( buf.ByteAt( 0x34 ) ).PadRight( 24 ) + "map_string_count = " + mapStringCount );
       string[] mapStringHdrNames = {
         "offset_map_string_lo",
         "offset_map_string_hi",
+        "offset_map_string_id",
       };
-      for ( int i = 0; i < 2; ++i )
+      for ( int i = 0; i < 3; ++i )
       {
         int hdrOff = 0x35 + i * 2;
         ushort val = buf.UInt16At( hdrOff );
@@ -660,7 +661,7 @@ namespace RetroDevStudio.Controls
               {
                 int mAddr = markersAddr + mk * markerStride;
                 int mFilePos = mAddr - ba;
-                // Current layout (stride 7): tag, x, y, value1, value2, enabled, triggered
+                // Current layout (stride 9): tag, x, y, value1, value2, flags, group, link_to_id, link_id
                 string line = "  $" + mAddr.ToString( "X4" ) + ": tag=" + HexByte( buf.ByteAt( mFilePos ) )
                             + " x=" + buf.ByteAt( mFilePos + 1 )
                             + " y=" + buf.ByteAt( mFilePos + 2 );
@@ -680,6 +681,10 @@ namespace RetroDevStudio.Controls
                 }
                 if ( markerStride >= 7 )
                   line += " group=" + buf.ByteAt( mFilePos + 6 );
+                if ( markerStride >= 8 )
+                  line += " linkTo=" + buf.ByteAt( mFilePos + 7 );
+                if ( markerStride >= 9 )
+                  line += " linkId=" + buf.ByteAt( mFilePos + 8 );
                 sb.AppendLine( line );
               }
             }
@@ -729,6 +734,7 @@ namespace RetroDevStudio.Controls
       {
         ushort mapStringLoAddr = buf.UInt16At( 0x35 );
         ushort mapStringHiAddr = buf.UInt16At( 0x37 );
+        ushort mapStringIdAddr = buf.UInt16At( 0x39 );
         if ( mapStringLoAddr != 0 && mapStringHiAddr != 0 )
         {
           int loFilePos = mapStringLoAddr - ba;
@@ -741,6 +747,12 @@ namespace RetroDevStudio.Controls
           sb.AppendLine( "$" + mapStringHiAddr.ToString( "X4" ) + ": map_string_hi[" + mapStringCount + "]"
                        + "  " + HexBytes( buf, hiFilePos, Math.Min( mapStringCount, 24 ) )
                        + ( mapStringCount > 24 ? " ..." : "" ) );
+          if ( mapStringIdAddr != 0 )
+          {
+            sb.AppendLine( "$" + mapStringIdAddr.ToString( "X4" ) + ": map_string_id[" + mapStringCount + "]"
+                         + "  " + HexBytes( buf, mapStringIdAddr - ba, Math.Min( mapStringCount, 24 ) )
+                         + ( mapStringCount > 24 ? " ..." : "" ) );
+          }
           sb.AppendLine();
 
           sb.AppendLine( "--- MAP STRING DATA ---" );

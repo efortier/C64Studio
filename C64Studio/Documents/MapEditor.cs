@@ -976,8 +976,10 @@ namespace RetroDevStudio.Documents
         int passableLayerW = m_CurrentMap.CharBlockedOverrides.Width;
         int passableLayerH = m_CurrentMap.CharBlockedOverrides.Height;
 
-        // Component order in TargetBuffer: r = pixel & 0xff, g = (pixel>>8) & 0xff,
-        // b = (pixel>>16) & 0xff, alpha in top byte. Match the marker-dim block above.
+        // Component order in TargetBuffer is 0xAARRGGBB: r = (pixel>>16) & 0xff,
+        // g = (pixel>>8) & 0xff, b = pixel & 0xff, alpha in top byte. Unlike the
+        // marker-dim loop above (uniform scale, channel labels don't matter), this
+        // block applies non-uniform per-channel tints, so the order must be correct.
         for ( int viewCharY = 0; viewCharY < viewCharHeight; ++viewCharY )
         {
           int charMapY = offsetY * spacingY + viewCharY;
@@ -1041,13 +1043,13 @@ namespace RetroDevStudio.Documents
               for ( int px = targetX; px < targetX2; ++px )
               {
                 uint pixel = TargetBuffer.GetPixel( px, py );
-                uint pr = pixel & 0xff;
+                uint pr = ( pixel >> 16 ) & 0xff;
                 uint pg = ( pixel >> 8  ) & 0xff;
-                uint pb = ( pixel >> 16 ) & 0xff;
+                uint pb = pixel & 0xff;
                 uint nr = ( tintR * (uint)alpha + pr * (uint)invAlpha ) / 255;
                 uint ng = ( tintG * (uint)alpha + pg * (uint)invAlpha ) / 255;
                 uint nb = ( tintB * (uint)alpha + pb * (uint)invAlpha ) / 255;
-                TargetBuffer.SetPixel( px, py, ( 0xff000000 | ( nb << 16 ) | ( ng << 8 ) | nr ) );
+                TargetBuffer.SetPixel( px, py, ( 0xff000000 | ( nr << 16 ) | ( ng << 8 ) | nb ) );
               }
             }
           }
@@ -1113,10 +1115,11 @@ namespace RetroDevStudio.Documents
       if ( m_CurrentMap != null )
       {
         const uint highlightColor = 0xfff9e2af;   // Catppuccin yellow
+        const uint disabledEntityColor = 0xffff0000;   // red — flags a not-enabled entity
         // Shared computation: given a map-cell (mx, my) and a footprint in
         // cells (cw × ch), draw a 2-pixel-thick rectangle outline at the
         // corresponding TargetBuffer pixels.
-        System.Action<int, int, int, int> drawHighlightAt = ( int mx, int my, int cw, int ch ) =>
+        System.Action<int, int, int, int, uint, bool> drawHighlightAt = ( int mx, int my, int cw, int ch, uint outlineColor, bool doubleThick ) =>
         {
           if ( cw < 1 ) cw = 1;
           if ( ch < 1 ) ch = 1;
@@ -1137,21 +1140,47 @@ namespace RetroDevStudio.Documents
           int ty2 = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( sourceY + sourceH, sourceHeight, targetHeight ) - 1 ) );
           int tw = Math.Max( 1, tx2 - tx + 1 );
           int th = Math.Max( 1, ty2 - ty + 1 );
-          // Two nested rectangles for a 2-pixel-thick outline. FastImage's
-          // Rectangle draws a 1-pixel border only, so we inset and redraw.
-          TargetBuffer.Rectangle( tx,     ty,     tw,     th,     highlightColor );
-          if ( ( tw > 2 ) && ( th > 2 ) )
+          // One rectangle = a 1-pixel outline. doubleThick insets and
+          // redraws a second for a 2-pixel border (FastImage.Rectangle
+          // draws a 1-pixel border only).
+          TargetBuffer.Rectangle( tx,     ty,     tw,     th,     outlineColor );
+          if ( doubleThick && ( tw > 2 ) && ( th > 2 ) )
           {
-            TargetBuffer.Rectangle( tx + 1, ty + 1, tw - 2, th - 2, highlightColor );
+            TargetBuffer.Rectangle( tx + 1, ty + 1, tw - 2, th - 2, outlineColor );
           }
         };
+
+        // Disabled entities get a thin red outline around their whole
+        // tile footprint — one rectangle for the multi-cell region, not
+        // one per character — so they stand out wherever entities are
+        // shown, in any tool mode.
+        if ( ( checkShowEntities != null )
+        &&   ( checkShowEntities.Checked ) )
+        {
+          foreach ( var entity in m_CurrentMap.Entities )
+          {
+            if ( entity.Enabled )
+            {
+              continue;
+            }
+            int cw = 1, ch = 1;
+            var etype = m_MapProject.EntityTypes.FirstOrDefault( t => t.ID == entity.Type );
+            if ( ( etype != null )
+            &&   ( etype.TileIndex >= 0 )
+            &&   ( etype.TileIndex < m_MapProject.Tiles.Count ) )
+            {
+              GetTileCellFootprint( m_MapProject.Tiles[etype.TileIndex], out cw, out ch );
+            }
+            drawHighlightAt( entity.X, entity.Y, cw, ch, disabledEntityColor, false );
+          }
+        }
 
         if ( ( m_SelectedMarker != null )
         &&   ( m_ToolMode == ToolMode.MARKER )
         &&   ( m_CurrentMap.Markers.Contains( m_SelectedMarker ) ) )
         {
           // Markers are point placements — always 1 cell.
-          drawHighlightAt( m_SelectedMarker.X, m_SelectedMarker.Y, 1, 1 );
+          drawHighlightAt( m_SelectedMarker.X, m_SelectedMarker.Y, 1, 1, highlightColor, true );
         }
         if ( ( m_SelectedEntity != null )
         &&   ( m_ToolMode == ToolMode.ENTITY )
@@ -1168,7 +1197,7 @@ namespace RetroDevStudio.Documents
           {
             GetTileCellFootprint( m_MapProject.Tiles[etype.TileIndex], out cw, out ch );
           }
-          drawHighlightAt( m_SelectedEntity.X, m_SelectedEntity.Y, cw, ch );
+          drawHighlightAt( m_SelectedEntity.X, m_SelectedEntity.Y, cw, ch, highlightColor, true );
         }
         // Tile right-click selection — only relevant in tile-painting
         // modes. SELECT/MARKER/ENTITY have their own selection metaphors
@@ -1190,7 +1219,7 @@ namespace RetroDevStudio.Documents
           {
             GetTileCellFootprint( m_MapProject.Tiles[idx], out cw, out ch );
           }
-          drawHighlightAt( m_SelectedTilePos.X, m_SelectedTilePos.Y, cw, ch );
+          drawHighlightAt( m_SelectedTilePos.X, m_SelectedTilePos.Y, cw, ch, highlightColor, true );
         }
       }
 
@@ -2534,6 +2563,8 @@ namespace RetroDevStudio.Documents
                    marker.Enabled = checkMarkerDefaultEnabled.Checked;
                    marker.Triggered = checkMarkerDefaultTriggered.Checked;
                    marker.GroupId = (byte)editMarkerGroupId.Value;
+                   marker.LinkToID = (byte)editMarkerLinkToID.Value;
+                   marker.LinkID = (byte)editMarkerLinkID.Value;
                    m_CurrentMap.Markers.Add( marker );
                    RedrawMap();
                    pictureEditor.Invalidate();
@@ -9418,6 +9449,7 @@ namespace RetroDevStudio.Documents
       comboMapStringJustify2.SelectedIndexChanged       += comboMapStringJustify_SelectedIndexChanged;
       comboMapStringJustify3.SelectedIndexChanged       += comboMapStringJustify_SelectedIndexChanged;
       checkMapStringClearAtEnd.CheckedChanged           += checkMapStringClearAtEnd_CheckedChanged;
+      editMapStringID.ValueChanged                      += editMapStringID_ValueChanged;
     }
 
 
@@ -9442,6 +9474,7 @@ namespace RetroDevStudio.Documents
       comboMapStringJustify2.SelectedIndexChanged       -= comboMapStringJustify_SelectedIndexChanged;
       comboMapStringJustify3.SelectedIndexChanged       -= comboMapStringJustify_SelectedIndexChanged;
       checkMapStringClearAtEnd.CheckedChanged           -= checkMapStringClearAtEnd_CheckedChanged;
+      editMapStringID.ValueChanged                      -= editMapStringID_ValueChanged;
     }
 
 
@@ -9553,6 +9586,7 @@ namespace RetroDevStudio.Documents
           comboMapStringJustify2.SelectedIndex = 0;
           comboMapStringJustify3.SelectedIndex = 0;
           checkMapStringClearAtEnd.Checked = false;
+          editMapStringID.Value = 0;
           return;
         }
 
@@ -9601,6 +9635,7 @@ namespace RetroDevStudio.Documents
           justifyCombos[i].SelectedIndex = j;
         }
         checkMapStringClearAtEnd.Checked = ms.ClearTextAreaAtEnd;
+        editMapStringID.Value = ms.StringID;
       }
       finally
       {
@@ -9749,6 +9784,19 @@ namespace RetroDevStudio.Documents
 
 
 
+    private void editMapStringID_ValueChanged( object sender, EventArgs e )
+    {
+      var ms = GetSelectedMapString();
+      if ( ms == null ) return;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+      ms.StringID = (byte)editMapStringID.Value;
+      SetModified();
+      // StringID is exported metadata only; no visual impact in the
+      // static preview.
+    }
+
+
+
     private void comboMapStringJustify_SelectedIndexChanged( object sender, EventArgs e )
     {
       var ms = GetSelectedMapString();
@@ -9828,9 +9876,34 @@ namespace RetroDevStudio.Documents
 
     // -------- Action buttons --------
 
+    /// <summary>
+    /// True — and shows a warning — when the project already holds the
+    /// maximum of 255 map strings. The exported game binary stores the
+    /// map-string count in a single byte, so a 256th cannot be
+    /// represented. Add / Duplicate handlers bail out when this is true.
+    /// </summary>
+    private bool MapStringLimitReached()
+    {
+      if ( ( m_MapProject == null )
+      ||   ( m_MapProject.MapStrings.Count < 255 ) )
+      {
+        return false;
+      }
+      System.Windows.Forms.MessageBox.Show(
+        this,
+        "A map can hold at most 255 map strings — the exported game binary stores the map-string count in a single byte, so a 256th can't be represented.\r\n\r\nDelete an existing map string before adding another.",
+        "Map string limit reached",
+        System.Windows.Forms.MessageBoxButtons.OK,
+        System.Windows.Forms.MessageBoxIcon.Warning );
+      return true;
+    }
+
+
+
     private void btnAddMapString_Click( DecentForms.ControlBase Sender )
     {
       if ( m_MapProject == null ) return;
+      if ( MapStringLimitReached() ) return;
       DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
 
       var ms = new Formats.MapProject.MapString();
@@ -9849,6 +9922,23 @@ namespace RetroDevStudio.Documents
       }
       while ( existing.Contains( candidate ) );
       ms.Label = candidate;
+
+      // Assign the lowest String ID (0..255) not already used by an
+      // existing map string. With 256+ strings every value is taken —
+      // fall back to the default of 0.
+      var usedIDs = new HashSet<byte>();
+      foreach ( var x in m_MapProject.MapStrings )
+      {
+        usedIDs.Add( x.StringID );
+      }
+      for ( int id = 0; id <= 255; ++id )
+      {
+        if ( !usedIDs.Contains( (byte)id ) )
+        {
+          ms.StringID = (byte)id;
+          break;
+        }
+      }
 
       m_MapProject.MapStrings.Add( ms );
       RefreshMapStrings();
@@ -9929,19 +10019,23 @@ namespace RetroDevStudio.Documents
       if ( m_MapProject == null ) return;
       var src = GetSelectedMapString();
       if ( src == null ) return;
+      if ( MapStringLimitReached() ) return;
 
       DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
       var copy = new Formats.MapProject.MapString
       {
         Label              = MakeUniqueMapStringLabel( ( src.Label ?? "" ) + "_COPY" ),
-        ClearTextAreaAtEnd = src.ClearTextAreaAtEnd
+        ClearTextAreaAtEnd = src.ClearTextAreaAtEnd,
+        StringID           = src.StringID
       };
       for ( int i = 0; i < 4; ++i )
       {
         copy.Lines[i] = new Formats.MapProject.MapStringLine
         {
-          Text       = src.Lines[i].Text,
-          Terminator = src.Lines[i].Terminator
+          Text          = src.Lines[i].Text,
+          Terminator    = src.Lines[i].Terminator,
+          ControlCode   = src.Lines[i].ControlCode,
+          Justification = src.Lines[i].Justification
         };
       }
       m_MapProject.MapStrings.Add( copy );
@@ -10521,6 +10615,37 @@ namespace RetroDevStudio.Documents
 
 
 
+    /// <summary>
+    /// Live edit / placement-default for the marker trigger-chain link
+    /// fields (Link to ID + Link ID). Same pattern as
+    /// <see cref="editMarkerValue_ValueChanged"/>: when a marker is
+    /// selected, mutate it directly (with undo); when nothing's
+    /// selected, leave the editor values alone — the left-click handler
+    /// reads them at placement time as the new marker's defaults. One
+    /// shared handler covers both NumericUpDowns.
+    /// </summary>
+    private void editMarkerLink_ValueChanged( object sender, EventArgs e )
+    {
+      if ( m_PopulatingFromSelection ) return;
+      if ( m_SelectedMarker == null ) return;
+
+      byte newLinkToID = (byte)editMarkerLinkToID.Value;
+      byte newLinkID   = (byte)editMarkerLinkID.Value;
+      if ( ( m_SelectedMarker.LinkToID == newLinkToID )
+      &&   ( m_SelectedMarker.LinkID == newLinkID ) )
+      {
+        return;
+      }
+      DocumentInfo.UndoManager.AddUndoTask(
+        new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
+      m_SelectedMarker.LinkToID = newLinkToID;
+      m_SelectedMarker.LinkID   = newLinkID;
+      SetModified();
+      pictureEditor.Invalidate();
+    }
+
+
+
     private void checkMarkerDefaultEnabled_CheckedChanged( object sender, EventArgs e )
     {
       if ( m_PopulatingFromSelection ) return;
@@ -10958,6 +11083,8 @@ namespace RetroDevStudio.Documents
           editMarkerValue1.Value = marker.Value1;
           editMarkerValue2.Value = marker.Value2;
           editMarkerGroupId.Value = marker.GroupId;
+          editMarkerLinkToID.Value = marker.LinkToID;
+          editMarkerLinkID.Value = marker.LinkID;
           checkMarkerDefaultEnabled.Checked = marker.Enabled;
           checkMarkerDefaultTriggered.Checked = marker.Triggered;
 
@@ -12431,6 +12558,12 @@ namespace RetroDevStudio.Documents
       // current map's entity instances, so they must be locked while
       // viewing a revision.
       if ( flowLayoutPanel2 != null )        flowLayoutPanel2.Enabled        = enabled;
+      // flowLayoutPanel4 is the marker-side toolbar (type picker, value /
+      // group / link spinners, delete-selected-marker) plus the M tool
+      // button. Its controls write back into the current map's markers,
+      // so — by the same rule as flowLayoutPanel2 — it must be locked
+      // while viewing a revision.
+      if ( flowLayoutPanel4 != null )        flowLayoutPanel4.Enabled        = enabled;
       if ( comboTilePlacementColor != null ) comboTilePlacementColor.Enabled = enabled;
       if ( comboTiles != null )              comboTiles.Enabled              = enabled;
       if (clearAllMarkersToolStripMenuItem != null ) clearAllMarkersToolStripMenuItem.Enabled         = enabled;

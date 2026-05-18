@@ -59,6 +59,8 @@
             this.listMapStrings = new System.Windows.Forms.ListBox();
             this.labelMapStringLabel = new System.Windows.Forms.Label();
             this.editMapStringLabel = new System.Windows.Forms.TextBox();
+            this.labelMapStringID = new System.Windows.Forms.Label();
+            this.editMapStringID = new System.Windows.Forms.NumericUpDown();
             this.labelMapStringLine0 = new System.Windows.Forms.Label();
             this.comboMapStringLineControl0 = new System.Windows.Forms.ComboBox();
             this.editMapStringLine0 = new System.Windows.Forms.TextBox();
@@ -135,6 +137,10 @@
             this.editMarkerValue2 = new Krypton.Toolkit.KryptonNumericUpDown();
             this.labelMarkerGroupId = new System.Windows.Forms.Label();
             this.editMarkerGroupId = new Krypton.Toolkit.KryptonNumericUpDown();
+            this.labelMarkerLinkToID = new System.Windows.Forms.Label();
+            this.editMarkerLinkToID = new Krypton.Toolkit.KryptonNumericUpDown();
+            this.labelMarkerLinkID = new System.Windows.Forms.Label();
+            this.editMarkerLinkID = new Krypton.Toolkit.KryptonNumericUpDown();
             this.btnFindNextMarkerGroup = new Krypton.Toolkit.KryptonButton();
             this.comboMarkerColorOverride = new System.Windows.Forms.ComboBox();
             this.btnDeleteSelectedMarker = new Krypton.Toolkit.KryptonButton();
@@ -324,6 +330,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.tabMapStrings)).BeginInit();
             this.tabMapStrings.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringTextAreaWidth)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.editMapStringID)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringLowercase)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringUppercase)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringNumbers)).BeginInit();
@@ -638,6 +645,8 @@
             this.tabMapStrings.Controls.Add(this.listMapStrings);
             this.tabMapStrings.Controls.Add(this.labelMapStringLabel);
             this.tabMapStrings.Controls.Add(this.editMapStringLabel);
+            this.tabMapStrings.Controls.Add(this.labelMapStringID);
+            this.tabMapStrings.Controls.Add(this.editMapStringID);
             this.tabMapStrings.Controls.Add(this.labelMapStringLine0);
             this.tabMapStrings.Controls.Add(this.comboMapStringLineControl0);
             this.tabMapStrings.Controls.Add(this.editMapStringLine0);
@@ -713,9 +722,32 @@
             this.editMapStringLabel.TabIndex = 2;
             this.toolTip1.SetToolTip(this.editMapStringLabel, "Asm identifier — exported as a .const TEXT_LABEL = <index>. Must match [A-Za-z_][" +
         "A-Za-z0-9_]*.");
-            // 
+            //
+            // labelMapStringID
+            //
+            this.labelMapStringID.AutoSize = true;
+            this.labelMapStringID.Location = new System.Drawing.Point(500, 11);
+            this.labelMapStringID.Name = "labelMapStringID";
+            this.labelMapStringID.Size = new System.Drawing.Size(58, 13);
+            this.labelMapStringID.TabIndex = 53;
+            this.labelMapStringID.Text = "String ID:";
+            //
+            // editMapStringID
+            //
+            this.editMapStringID.Location = new System.Drawing.Point(566, 8);
+            this.editMapStringID.Maximum = new decimal(new int[] {
+            255,
+            0,
+            0,
+            0});
+            this.editMapStringID.Name = "editMapStringID";
+            this.editMapStringID.Size = new System.Drawing.Size(60, 20);
+            this.editMapStringID.TabIndex = 54;
+            this.toolTip1.SetToolTip(this.editMapStringID, "Per-string numeric identifier (0-255). Exported as the MAP_STRING_ID byte table s" +
+        "o runtime code can map an ID to the string\'s index.");
+            //
             // labelMapStringLine0
-            // 
+            //
             this.labelMapStringLine0.AutoSize = true;
             this.labelMapStringLine0.Location = new System.Drawing.Point(180, 41);
             this.labelMapStringLine0.Name = "labelMapStringLine0";
@@ -1487,6 +1519,7 @@
             // 
             this.flowLayoutPanel4.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
+            this.flowLayoutPanel4.Controls.Add(this.btnToolMarker);
             this.flowLayoutPanel4.Controls.Add(this.kryptonLabel1);
             this.flowLayoutPanel4.Controls.Add(this.comboMarkerTypes);
             this.flowLayoutPanel4.Controls.Add(this.labelMarkerValue1);
@@ -1495,6 +1528,10 @@
             this.flowLayoutPanel4.Controls.Add(this.editMarkerValue2);
             this.flowLayoutPanel4.Controls.Add(this.labelMarkerGroupId);
             this.flowLayoutPanel4.Controls.Add(this.editMarkerGroupId);
+            this.flowLayoutPanel4.Controls.Add(this.labelMarkerLinkToID);
+            this.flowLayoutPanel4.Controls.Add(this.editMarkerLinkToID);
+            this.flowLayoutPanel4.Controls.Add(this.labelMarkerLinkID);
+            this.flowLayoutPanel4.Controls.Add(this.editMarkerLinkID);
             this.flowLayoutPanel4.Controls.Add(this.btnFindNextMarkerGroup);
             this.flowLayoutPanel4.Controls.Add(this.comboMarkerColorOverride);
             this.flowLayoutPanel4.Controls.Add(this.btnDeleteSelectedMarker);
@@ -1637,9 +1674,85 @@
             0,
             0});
             this.editMarkerGroupId.ValueChanged += new System.EventHandler(this.editMarkerGroupId_ValueChanged);
-            // 
+            //
+            // labelMarkerLinkToID
+            //
+            this.labelMarkerLinkToID.AutoSize = true;
+            this.labelMarkerLinkToID.Location = new System.Drawing.Point(557, 7);
+            this.labelMarkerLinkToID.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
+            this.labelMarkerLinkToID.Name = "labelMarkerLinkToID";
+            this.labelMarkerLinkToID.Size = new System.Drawing.Size(60, 13);
+            this.labelMarkerLinkToID.TabIndex = 52;
+            this.labelMarkerLinkToID.Text = "Link to ID:";
+            //
+            // editMarkerLinkToID
+            //
+            this.editMarkerLinkToID.Increment = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.editMarkerLinkToID.Location = new System.Drawing.Point(620, 3);
+            this.editMarkerLinkToID.Maximum = new decimal(new int[] {
+            255,
+            0,
+            0,
+            0});
+            this.editMarkerLinkToID.Minimum = new decimal(new int[] {
+            0,
+            0,
+            0,
+            0});
+            this.editMarkerLinkToID.Name = "editMarkerLinkToID";
+            this.editMarkerLinkToID.Size = new System.Drawing.Size(55, 22);
+            this.editMarkerLinkToID.TabIndex = 53;
+            this.editMarkerLinkToID.Value = new decimal(new int[] {
+            0,
+            0,
+            0,
+            0});
+            this.editMarkerLinkToID.ValueChanged += new System.EventHandler(this.editMarkerLink_ValueChanged);
+            //
+            // labelMarkerLinkID
+            //
+            this.labelMarkerLinkID.AutoSize = true;
+            this.labelMarkerLinkID.Location = new System.Drawing.Point(678, 7);
+            this.labelMarkerLinkID.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
+            this.labelMarkerLinkID.Name = "labelMarkerLinkID";
+            this.labelMarkerLinkID.Size = new System.Drawing.Size(46, 13);
+            this.labelMarkerLinkID.TabIndex = 54;
+            this.labelMarkerLinkID.Text = "Link ID:";
+            //
+            // editMarkerLinkID
+            //
+            this.editMarkerLinkID.Increment = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.editMarkerLinkID.Location = new System.Drawing.Point(727, 3);
+            this.editMarkerLinkID.Maximum = new decimal(new int[] {
+            255,
+            0,
+            0,
+            0});
+            this.editMarkerLinkID.Minimum = new decimal(new int[] {
+            0,
+            0,
+            0,
+            0});
+            this.editMarkerLinkID.Name = "editMarkerLinkID";
+            this.editMarkerLinkID.Size = new System.Drawing.Size(55, 22);
+            this.editMarkerLinkID.TabIndex = 55;
+            this.editMarkerLinkID.Value = new decimal(new int[] {
+            0,
+            0,
+            0,
+            0});
+            this.editMarkerLinkID.ValueChanged += new System.EventHandler(this.editMarkerLink_ValueChanged);
+            //
             // btnFindNextMarkerGroup
-            // 
+            //
             this.btnFindNextMarkerGroup.Location = new System.Drawing.Point(557, 3);
             this.btnFindNextMarkerGroup.Margin = new System.Windows.Forms.Padding(3, 3, 3, 0);
             this.btnFindNextMarkerGroup.Name = "btnFindNextMarkerGroup";
@@ -2445,6 +2558,7 @@
             // 
             this.flowLayoutPanel2.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
+            this.flowLayoutPanel2.Controls.Add(this.btnToolEntity);
             this.flowLayoutPanel2.Controls.Add(this.kryptonLabel2);
             this.flowLayoutPanel2.Controls.Add(this.comboEntityTypes);
             this.flowLayoutPanel2.Controls.Add(this.labelEntityValue1);
@@ -2616,8 +2730,6 @@
             this.flowLayoutPanel1.Controls.Add(this.btnToolFill);
             this.flowLayoutPanel1.Controls.Add(this.btnToolSelect);
             this.flowLayoutPanel1.Controls.Add(this.btnToolPassable);
-            this.flowLayoutPanel1.Controls.Add(this.btnToolEntity);
-            this.flowLayoutPanel1.Controls.Add(this.btnToolMarker);
             this.flowLayoutPanel1.Controls.Add(this.btnBrightnessLinearUp);
             this.flowLayoutPanel1.Controls.Add(this.btnBrightnessLinearDown);
             this.flowLayoutPanel1.Controls.Add(this.btnBrightnessHueUp);
@@ -3839,6 +3951,7 @@
             this.tabMapStrings.ResumeLayout(false);
             this.tabMapStrings.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringTextAreaWidth)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.editMapStringID)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringLowercase)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringUppercase)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringNumbers)).EndInit();
@@ -3993,6 +4106,10 @@
         private Krypton.Toolkit.KryptonNumericUpDown editMarkerValue2;
         private System.Windows.Forms.Label labelMarkerGroupId;
         private Krypton.Toolkit.KryptonNumericUpDown editMarkerGroupId;
+        private System.Windows.Forms.Label labelMarkerLinkToID;
+        private Krypton.Toolkit.KryptonNumericUpDown editMarkerLinkToID;
+        private System.Windows.Forms.Label labelMarkerLinkID;
+        private Krypton.Toolkit.KryptonNumericUpDown editMarkerLinkID;
         private Krypton.Toolkit.KryptonButton btnFindNextMarkerGroup;
         private System.Windows.Forms.CheckBox checkMarkerDefaultEnabled;
         private System.Windows.Forms.CheckBox checkMarkerDefaultTriggered;
@@ -4105,6 +4222,8 @@
         private System.Windows.Forms.ListBox listMapStrings;
         private System.Windows.Forms.Label labelMapStringLabel;
         private System.Windows.Forms.TextBox editMapStringLabel;
+        private System.Windows.Forms.Label labelMapStringID;
+        private System.Windows.Forms.NumericUpDown editMapStringID;
         private System.Windows.Forms.Label labelMapStringLine0;
         private System.Windows.Forms.Label labelMapStringLine1;
         private System.Windows.Forms.Label labelMapStringLine2;

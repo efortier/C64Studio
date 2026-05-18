@@ -1,4 +1,4 @@
-# C64Studio (RetroDevStudio) - Development Rules
+# C64Studio (RetroDevStudio) - Development Rules 
 
 ## Hard Rule: No Speculative Fixes
 **Never attempt a fix unless you have a 100% probability of success.** Two clean tracks:

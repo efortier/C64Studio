@@ -33,6 +33,13 @@ namespace RetroDevStudio.Formats
       // Persisted as a single byte in both the chunk format and the
       // game-binary export record.
       public byte       GroupId = 0;
+      // Trigger-chain link fields. Markers can act as triggers that
+      // queue one another: LinkToID points at the marker this one
+      // hands off to; LinkID is this marker's own identifier within
+      // the chain. Both default 0 (= no link). Persisted as the last
+      // two bytes of the chunk format and the game-binary record.
+      public byte       LinkToID = 0;
+      public byte       LinkID = 0;
     };
 
     public class MarkerType
@@ -153,6 +160,12 @@ namespace RetroDevStudio.Formats
         new MapStringLine(), new MapStringLine(), new MapStringLine(), new MapStringLine()
       };
       public bool            ClearTextAreaAtEnd = false;
+      // Per-string numeric identifier (0..255, default 0). Editor metadata
+      // exported as the parallel MAP_STRING_ID byte table in the game
+      // binary so runtime code can map an ID back to the string's index.
+      // Not part of the rendered byte stream. Persisted as the last byte
+      // of the MAP_STRING chunk.
+      public byte            StringID           = 0;
     };
 
     public class Tile
@@ -628,6 +641,9 @@ namespace RetroDevStudio.Formats
           // Per-line justification (Left=0 / Center=1 / Right=2). Appended.
           chunkMapString.AppendU8( line.Justification );
         }
+        // Per-string numeric ID. Appended; old project files that lack
+        // this byte fall through to the default of 0 on load.
+        chunkMapString.AppendU8( ms.StringID );
         chunkProjectData.Append( chunkMapString.ToBuffer() );
       }
 
@@ -990,6 +1006,12 @@ namespace RetroDevStudio.Formats
                             ms.Lines[li].Justification = MAP_STRING_JUSTIFY_LEFT;
                           }
                         }
+                      }
+                      // Per-string numeric ID (append-only; old files
+                      // without this byte keep the default of 0).
+                      if ( subChunkReader.Position < subChunkReader.Size )
+                      {
+                        ms.StringID = subChunkReader.ReadUInt8();
                       }
                       MapStrings.Add( ms );
                     }
@@ -2109,8 +2131,8 @@ namespace RetroDevStudio.Formats
       var buf = new GR.Memory.ByteBuffer();
       int addrBase = BaseAddress;
 
-      // ========== HEADER (57 bytes, 0x39) ==========
-      buf.AppendU8( 7 );    // +$00 marker_stride (bytes per marker record: tag, x, y, value1, value2, flags, group_id) — flags is a bitfield: bit0 = Enabled, bit1 = Triggered
+      // ========== HEADER (59 bytes, 0x3B) ==========
+      buf.AppendU8( 9 );    // +$00 marker_stride (bytes per marker record: tag, x, y, value1, value2, flags, group_id, link_to_id, link_id) — flags is a bitfield: bit0 = Enabled, bit1 = Triggered
       buf.AppendU8( (byte)Tiles.Count );  // +$01
       buf.AppendU8( (byte)Maps.Count );   // +$02
       // 21 x 2-byte offset placeholders (+$03 .. +$2C)
@@ -2120,13 +2142,15 @@ namespace RetroDevStudio.Formats
       // 3 x 2-byte entity offset placeholders (+$2E .. +$33)
       for ( int i = 0; i < 3; ++i )
         buf.AppendU16( 0 );
-      // Map-strings section (v24+): a single byte count followed by two
-      // 2-byte pointers to the MAP_STRING_LO and MAP_STRING_HI tables.
-      // Always emitted — even when the project has no strings — so the
-      // header layout is fixed at 57 bytes regardless of project content.
+      // Map-strings section (v24+): a single byte count followed by three
+      // 2-byte pointers to the MAP_STRING_LO, MAP_STRING_HI and
+      // MAP_STRING_ID tables. Always emitted — even when the project has
+      // no strings — so the header layout is fixed at 59 bytes regardless
+      // of project content.
       buf.AppendU8( 0 );        // +$34 map_string_count (patched below)
       buf.AppendU16( 0 );       // +$35 offset_map_string_lo (patched below)
       buf.AppendU16( 0 );       // +$37 offset_map_string_hi (patched below)
+      buf.AppendU16( 0 );       // +$39 offset_map_string_id (patched below)
 
       // Header offset positions (byte offset within header for each pointer)
       const int HDR_TILES_WIDTH       = 0x03;
@@ -2156,6 +2180,7 @@ namespace RetroDevStudio.Formats
       const int HDR_MAP_STRING_COUNT  = 0x34;
       const int HDR_MAP_STRING_LO     = 0x35;
       const int HDR_MAP_STRING_HI     = 0x37;
+      const int HDR_MAP_STRING_ID     = 0x39;
 
       // ========== TILE ARRAYS ==========
 
@@ -2529,6 +2554,9 @@ namespace RetroDevStudio.Formats
             if ( marker.Triggered ) flags |= 0x02;
             buf.AppendU8( flags );
             buf.AppendU8( marker.GroupId );
+            // Trigger-chain link fields — last two bytes of the record.
+            buf.AppendU8( marker.LinkToID );
+            buf.AppendU8( marker.LinkID );
           }
         }
 
@@ -2619,6 +2647,15 @@ namespace RetroDevStudio.Formats
         buf.SetU16At( HDR_MAP_STRING_HI, (ushort)( hiTablePos + addrBase ) );
         for ( int i = 0; i < emittableStrings.Count; ++i ) buf.AppendU8( 0 );
 
+        // String-ID table — one byte per string, written right after the
+        // LO/HI pointer tables. Each value is the authored MapString.StringID
+        // (0..255, default 0). Runtime scans this table to map a StringID
+        // back to its index, then uses MAP_STRING_LO/HI[index] for the
+        // address. Values are known up front, so no placeholder/patch step.
+        buf.SetU16At( HDR_MAP_STRING_ID, (ushort)( (int)buf.Length + addrBase ) );
+        for ( int i = 0; i < emittableStrings.Count; ++i )
+          buf.AppendU8( emittableStrings[i].StringID );
+
         // Now write the byte streams and patch the LO/HI pointer tables.
         for ( int i = 0; i < emittableStrings.Count; ++i )
         {
@@ -2667,7 +2704,7 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( "// values. To read the stride at runtime: LDA MAP_HEADER + MAP_HEADER_MARKER_STRIDE" );
       sb.AppendLine( "// To step between marker records at compile time, use MAP_MARKER_SIZE." );
       sb.AppendLine();
-      sb.AppendLine( "// ====== Game binary header (57 bytes) ======" );
+      sb.AppendLine( "// ====== Game binary header (59 bytes) ======" );
       sb.AppendLine( "// Direct byte values at the start of the header:" );
       sb.AppendLine( ".const MAP_HEADER_MARKER_STRIDE                  = $00  // byte: marker record size" );
       sb.AppendLine( ".const MAP_HEADER_TILECOUNT                      = $01  // byte: number of tiles" );
@@ -2708,12 +2745,16 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( "// (see map_strings.asm for the named index constants) to the message" );
       sb.AppendLine( "// renderer; it reads the address from MAP_STRING_LO/HI[index] and" );
       sb.AppendLine( "// walks the byte stream until END_OF_TEXT ($FF)." );
+      sb.AppendLine( "// MAP_STRING_ID is a parallel byte table (one entry per string)" );
+      sb.AppendLine( "// holding each string's authored numeric ID — scan it to map an" );
+      sb.AppendLine( "// ID back to the index used with MAP_STRING_LO/HI." );
       sb.AppendLine( ".const MAP_HEADER_MAP_STRING_COUNT               = $34  // byte: number of strings" );
       sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_STRING_LO           = $35" );
       sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_STRING_HI           = $37" );
-      sb.AppendLine( ".const MAP_HEADER_SIZE                           = $39  // total header length" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_STRING_ID           = $39" );
+      sb.AppendLine( ".const MAP_HEADER_SIZE                           = $3B  // total header length" );
       sb.AppendLine();
-      sb.AppendLine( "// ====== Marker record layout (7 bytes per marker) ======" );
+      sb.AppendLine( "// ====== Marker record layout (9 bytes per marker) ======" );
       sb.AppendLine( "// Byte offsets within a single marker record." );
       sb.AppendLine( "// Use MAP_MARKER_SIZE to advance between records." );
       sb.AppendLine( ".const MAP_MARKER_TAG                            = $00" );
@@ -2723,7 +2764,9 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( ".const MAP_MARKER_VALUE2                         = $04" );
       sb.AppendLine( ".const MAP_MARKER_FLAGS                          = $05  // bit flags — see masks below" );
       sb.AppendLine( ".const MAP_MARKER_GROUP_ID                       = $06" );
-      sb.AppendLine( ".const MAP_MARKER_SIZE                           = $07  // bytes per marker" );
+      sb.AppendLine( ".const MAP_MARKER_LINK_TO_ID                     = $07  // trigger-chain: next marker to fire" );
+      sb.AppendLine( ".const MAP_MARKER_LINK_ID                        = $08  // trigger-chain: this marker's link id" );
+      sb.AppendLine( ".const MAP_MARKER_SIZE                           = $09  // bytes per marker" );
       sb.AppendLine();
       sb.AppendLine( "// MAP_MARKER_FLAGS bit masks. Test with AND, set with ORA." );
       sb.AppendLine( ".const MAP_MARKER_FLAGS_MASK_ENABLED             = %0000_0001" );
@@ -2896,12 +2939,7 @@ namespace RetroDevStudio.Formats
           sb.AppendLine();
         }
       }
-      sb.AppendLine( "// Auto-generated by C64Studio on game-binary export." );
-      sb.AppendLine( "// Map string index constants — runtime pass these in A to look up the" );
-      sb.AppendLine( "// matching message via MAP_STRING_LO / MAP_STRING_HI in the .bin." );
-      sb.AppendLine( "// The actual byte streams + pointer tables live IN the game binary," );
-      sb.AppendLine( "// at the offsets named by MAP_HEADER_OFFSET_MAP_STRING_LO / _HI." );
-      sb.AppendLine( "// Do not edit by hand — regenerated on every export." );
+      sb.AppendLine( "// Auto-generated Map Strings" );
       sb.AppendLine();
 
       if ( MapStrings.Count == 0 )
@@ -2918,9 +2956,6 @@ namespace RetroDevStudio.Formats
       var labelRegex = new System.Text.RegularExpressions.Regex( "^[A-Za-z_][A-Za-z0-9_]*$" );
       var seenLabels = new HashSet<string>( StringComparer.Ordinal );
 
-      sb.AppendLine( "// String index constants — pass these in A to the message renderer." );
-      sb.AppendLine( "// Strings whose label can't form a valid asm identifier are still in" );
-      sb.AppendLine( "// the binary at their listed index; reference them by raw number." );
       for ( int i = 0; i < MapStrings.Count; ++i )
       {
         var ms = MapStrings[i];
@@ -4069,6 +4104,9 @@ namespace RetroDevStudio.Formats
         chunkMarker.AppendU8( marker.Value2 );
         // Appended for GroupId — same forward-compat pattern, default 0.
         chunkMarker.AppendU8( marker.GroupId );
+        // Appended trigger-chain link fields — same pattern, default 0.
+        chunkMarker.AppendU8( marker.LinkToID );
+        chunkMarker.AppendU8( marker.LinkID );
         chunkMap.Append( chunkMarker.ToBuffer() );
       }
 
@@ -4377,6 +4415,22 @@ namespace RetroDevStudio.Formats
               else
               {
                 marker.GroupId = 0;
+              }
+              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+              {
+                marker.LinkToID = mapChunkReader.ReadUInt8();
+              }
+              else
+              {
+                marker.LinkToID = 0;
+              }
+              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+              {
+                marker.LinkID = mapChunkReader.ReadUInt8();
+              }
+              else
+              {
+                marker.LinkID = 0;
               }
               map.Markers.Add( marker );
             }

@@ -69,15 +69,18 @@ namespace RetroDevStudio.Undo
       var copy = new MapProject.MapString
       {
         Label              = Source.Label,
-        ClearTextAreaAtEnd = Source.ClearTextAreaAtEnd
+        ClearTextAreaAtEnd = Source.ClearTextAreaAtEnd,
+        StringID           = Source.StringID
       };
       for ( int i = 0; i < 4; ++i )
       {
         var src = Source.Lines[i] ?? new MapProject.MapStringLine();
         copy.Lines[i] = new MapProject.MapStringLine
         {
-          Text       = src.Text,
-          Terminator = src.Terminator
+          Text          = src.Text,
+          Terminator    = src.Terminator,
+          ControlCode   = src.ControlCode,
+          Justification = src.Justification
         };
       }
       return copy;
