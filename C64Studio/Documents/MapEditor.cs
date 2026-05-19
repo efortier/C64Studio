@@ -1063,8 +1063,9 @@ namespace RetroDevStudio.Documents
         {
           int sourceX = renderOffsetX + ( marker.X - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
           int sourceY = renderOffsetY + ( marker.Y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
-          int sourceW = m_CurrentMap.TileSpacingX * 8;
-          int sourceH = m_CurrentMap.TileSpacingY * 8;
+          // The box spans the marker's full Width x Height footprint.
+          int sourceW = m_CurrentMap.TileSpacingX * 8 * Math.Max( 1, marker.Width );
+          int sourceH = m_CurrentMap.TileSpacingY * 8 * Math.Max( 1, marker.Height );
           
           if ( ( sourceX >= 0 ) && ( sourceY >= 0 ) && ( sourceX < sourceWidth ) && ( sourceY < sourceHeight ) )
           {
@@ -1179,8 +1180,11 @@ namespace RetroDevStudio.Documents
         &&   ( m_ToolMode == ToolMode.MARKER )
         &&   ( m_CurrentMap.Markers.Contains( m_SelectedMarker ) ) )
         {
-          // Markers are point placements — always 1 cell.
-          drawHighlightAt( m_SelectedMarker.X, m_SelectedMarker.Y, 1, 1, highlightColor, true );
+          // Highlight the marker's full Width x Height footprint.
+          drawHighlightAt( m_SelectedMarker.X, m_SelectedMarker.Y,
+                           Math.Max( 1, m_SelectedMarker.Width ),
+                           Math.Max( 1, m_SelectedMarker.Height ),
+                           highlightColor, true );
         }
         if ( ( m_SelectedEntity != null )
         &&   ( m_ToolMode == ToolMode.ENTITY )
@@ -2085,7 +2089,8 @@ namespace RetroDevStudio.Documents
           if ( ( m_SelectedMarker != null )
           &&   ( newX >= 0 ) && ( newY >= 0 )
           &&   ( newX <= 255 ) && ( newY <= 255 )
-          &&   ( ( m_SelectedMarker.X != newX ) || ( m_SelectedMarker.Y != newY ) ) )
+          &&   ( ( m_SelectedMarker.X != newX ) || ( m_SelectedMarker.Y != newY ) )
+          &&   ( !MarkerFootprintOverlaps( newX, newY, m_SelectedMarker.Width, m_SelectedMarker.Height, m_SelectedMarker ) ) )
           {
             m_SelectedMarker.X = newX;
             m_SelectedMarker.Y = newY;
@@ -2519,8 +2524,7 @@ namespace RetroDevStudio.Documents
                // Ctrl+Z. Returns out of this case so the placement code
                // below doesn't also run.
                if ( ( m_SelectedMarker != null )
-               &&   ( m_SelectedMarker.X == placeX )
-               &&   ( m_SelectedMarker.Y == placeY ) )
+               &&   ( MarkerContainsPoint( m_SelectedMarker, placeX, placeY ) ) )
                {
                  DocumentInfo.UndoManager.AddUndoTask(
                    new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
@@ -2543,11 +2547,11 @@ namespace RetroDevStudio.Documents
                  var type = m_MapProject.MarkerTypes.FirstOrDefault( t => t.ID == m_CurrentMap.SelectedMarkerType );
                  if ( type != null )
                  {
-                   // One marker per cell. If the clicked cell already has
-                   // one, leave it alone — re-clicking a populated cell
-                   // shouldn't silently overwrite the marker that's there.
-                   // Use right-click / delete to clear, then place anew.
-                   var existingMarker = m_CurrentMap.Markers.FirstOrDefault( m => m.X == placeX && m.Y == placeY );
+                   // One marker per cell. If the clicked cell already lies
+                   // inside another marker's footprint, leave it alone —
+                   // markers never overlap. Use right-click / delete to
+                   // clear, then place anew.
+                   var existingMarker = m_CurrentMap.Markers.FirstOrDefault( m => MarkerContainsPoint( m, placeX, placeY ) );
                    if ( existingMarker != null )
                    {
                      break;
@@ -2855,7 +2859,7 @@ namespace RetroDevStudio.Documents
            }
            else
            {
-             var markerHit = m_CurrentMap.Markers.FirstOrDefault( m => m.X == clickX && m.Y == clickY );
+             var markerHit = m_CurrentMap.Markers.FirstOrDefault( m => MarkerContainsPoint( m, clickX, clickY ) );
              if ( markerHit != null )
              {
                SelectMarker( markerHit );
@@ -11074,6 +11078,145 @@ namespace RetroDevStudio.Documents
           ( m_ToolMode == ToolMode.ENTITY )
           && ( m_SelectedEntity != null );
       }
+
+      // Marker resize buttons (H+/H-/V+/V-) follow the same rule as the
+      // marker Delete button — a marker must be selected in MARKER mode.
+      bool canResizeMarker = ( m_ToolMode == ToolMode.MARKER ) && ( m_SelectedMarker != null );
+      if ( btnMarkerWidthInc  != null ) btnMarkerWidthInc.Enabled  = canResizeMarker;
+      if ( btnMarkerWidthDec  != null ) btnMarkerWidthDec.Enabled  = canResizeMarker;
+      if ( btnMarkerHeightInc != null ) btnMarkerHeightInc.Enabled = canResizeMarker;
+      if ( btnMarkerHeightDec != null ) btnMarkerHeightDec.Enabled = canResizeMarker;
+    }
+
+
+
+    /// <summary>True when cell (PX,PY) lies inside marker M's Width x Height footprint.</summary>
+    private static bool MarkerContainsPoint( Formats.MapProject.Marker M, int PX, int PY )
+    {
+      int w = ( M.Width < 1 ) ? 1 : M.Width;
+      int h = ( M.Height < 1 ) ? 1 : M.Height;
+      return ( PX >= M.X ) && ( PX < M.X + w )
+          && ( PY >= M.Y ) && ( PY < M.Y + h );
+    }
+
+
+
+    /// <summary>
+    /// True when the footprint rect (X,Y,W,H) overlaps any marker on the
+    /// current map other than Exclude — used to keep markers non-overlapping
+    /// when placing, dragging, or resizing.
+    /// </summary>
+    private bool MarkerFootprintOverlaps( int X, int Y, int W, int H, Formats.MapProject.Marker Exclude )
+    {
+      if ( m_CurrentMap == null )
+      {
+        return false;
+      }
+      foreach ( var m in m_CurrentMap.Markers )
+      {
+        if ( m == Exclude )
+        {
+          continue;
+        }
+        int mw = ( m.Width < 1 ) ? 1 : m.Width;
+        int mh = ( m.Height < 1 ) ? 1 : m.Height;
+        // Axis-aligned rectangle overlap test.
+        if ( ( X < m.X + mw ) && ( X + W > m.X )
+        &&   ( Y < m.Y + mh ) && ( Y + H > m.Y ) )
+        {
+          return true;
+        }
+      }
+      return false;
+    }
+
+
+
+    /// <summary>
+    /// Resize the selected marker by (DeltaW, DeltaH) — backs the H+/H-/V+/V-
+    /// toolbar buttons. Minimum size is 1x1. Growing is rejected when the new
+    /// footprint would run past the map edge or overlap another marker;
+    /// shrinking can never violate either, so it is always allowed. One undo
+    /// snapshot is taken so Ctrl+Z reverts the resize.
+    /// </summary>
+    private void ResizeSelectedMarker( int DeltaW, int DeltaH )
+    {
+      if ( m_CurrentMap == null )
+      {
+        return;
+      }
+      if ( m_SelectedMarker == null )
+      {
+        return;
+      }
+      if ( !m_CurrentMap.Markers.Contains( m_SelectedMarker ) )
+      {
+        return;
+      }
+
+      int newW = m_SelectedMarker.Width + DeltaW;
+      int newH = m_SelectedMarker.Height + DeltaH;
+      if ( newW < 1 ) newW = 1;
+      if ( newH < 1 ) newH = 1;
+      if ( ( newW == m_SelectedMarker.Width )
+      &&   ( newH == m_SelectedMarker.Height ) )
+      {
+        // Already at the minimum — nothing changed.
+        return;
+      }
+
+      // Shrinking can never push past an edge or into another marker, so it
+      // is always allowed. Growing must clear both checks.
+      bool growing = ( newW > m_SelectedMarker.Width ) || ( newH > m_SelectedMarker.Height );
+      if ( growing )
+      {
+        if ( ( m_SelectedMarker.X + newW > m_CurrentMap.Tiles.Width )
+        ||   ( m_SelectedMarker.Y + newH > m_CurrentMap.Tiles.Height ) )
+        {
+          // Footprint would leave the map.
+          return;
+        }
+        if ( MarkerFootprintOverlaps( m_SelectedMarker.X, m_SelectedMarker.Y, newW, newH, m_SelectedMarker ) )
+        {
+          // Footprint would collide with another marker.
+          return;
+        }
+      }
+
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
+      m_SelectedMarker.Width = newW;
+      m_SelectedMarker.Height = newH;
+      SetModified();
+      RedrawMap();
+      pictureEditor.Invalidate();
+    }
+
+
+
+    private void btnMarkerWidthInc_Click( object sender, EventArgs e )
+    {
+      ResizeSelectedMarker( 1, 0 );
+    }
+
+
+
+    private void btnMarkerWidthDec_Click( object sender, EventArgs e )
+    {
+      ResizeSelectedMarker( -1, 0 );
+    }
+
+
+
+    private void btnMarkerHeightInc_Click( object sender, EventArgs e )
+    {
+      ResizeSelectedMarker( 0, 1 );
+    }
+
+
+
+    private void btnMarkerHeightDec_Click( object sender, EventArgs e )
+    {
+      ResizeSelectedMarker( 0, -1 );
     }
 
 

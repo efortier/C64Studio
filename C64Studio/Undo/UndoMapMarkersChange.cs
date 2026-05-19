@@ -40,7 +40,9 @@ namespace RetroDevStudio.Undo
           Triggered = m.Triggered,
           GroupId = m.GroupId,
           LinkToID = m.LinkToID,
-          LinkID = m.LinkID
+          LinkID = m.LinkID,
+          Width = m.Width,
+          Height = m.Height
         } );
       }
     }
@@ -79,7 +81,9 @@ namespace RetroDevStudio.Undo
           Triggered = m.Triggered,
           GroupId = m.GroupId,
           LinkToID = m.LinkToID,
-          LinkID = m.LinkID
+          LinkID = m.LinkID,
+          Width = m.Width,
+          Height = m.Height
         } );
       }
       MapEditor.UpdateArea( 0, 0, AffectedMap.Tiles.Width, AffectedMap.Tiles.Height );

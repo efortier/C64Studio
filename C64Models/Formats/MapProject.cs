@@ -40,6 +40,12 @@ namespace RetroDevStudio.Formats
       // two bytes of the chunk format and the game-binary record.
       public byte       LinkToID = 0;
       public byte       LinkID = 0;
+      // Footprint in characters. A marker covers a Width x Height block of
+      // cells anchored at its top-left (X,Y); both default to 1. Editor and
+      // project-file only — the game-binary export fans the marker out into
+      // one 1x1 record per occupied cell instead of storing Width/Height.
+      public int        Width = 1;
+      public int        Height = 1;
     };
 
     public class MarkerType
@@ -2126,6 +2132,47 @@ namespace RetroDevStudio.Formats
 
 
 
+    /// <summary>
+    /// Fan a map's markers out for the game-binary export: each marker becomes
+    /// one 1x1 marker per character cell of its Width x Height footprint, every
+    /// copy carrying the original's properties at that cell's (X,Y). Width and
+    /// Height themselves are never written to the binary. Markers can't overlap
+    /// in the editor, so no two expanded cells collide.
+    /// </summary>
+    private static List<Marker> ExpandMarkers( Map map )
+    {
+      var expanded = new List<Marker>();
+      foreach ( var marker in map.Markers )
+      {
+        int w = ( marker.Width < 1 ) ? 1 : marker.Width;
+        int h = ( marker.Height < 1 ) ? 1 : marker.Height;
+        for ( int dy = 0; dy < h; ++dy )
+        {
+          for ( int dx = 0; dx < w; ++dx )
+          {
+            expanded.Add( new Marker
+            {
+              X         = marker.X + dx,
+              Y         = marker.Y + dy,
+              Type      = marker.Type,
+              Name      = marker.Name,
+              Value1    = marker.Value1,
+              Value2    = marker.Value2,
+              Enabled   = marker.Enabled,
+              Triggered = marker.Triggered,
+              GroupId   = marker.GroupId,
+              LinkToID  = marker.LinkToID,
+              LinkID    = marker.LinkID
+              // Width/Height stay at the 1x1 default — these are leaf records.
+            } );
+          }
+        }
+      }
+      return expanded;
+    }
+
+
+
     public GR.Memory.ByteBuffer ExportAsGameBinary( bool ExportMarkers, bool ExportColors, bool ExportPassable, ushort BaseAddress = 0 )
     {
       var buf = new GR.Memory.ByteBuffer();
@@ -2298,7 +2345,7 @@ namespace RetroDevStudio.Formats
         }
         exportWidths[m] = ew;
         exportHeights[m] = eh;
-        markerCounts[m] = ExportMarkers ? map.Markers.Count : 0;
+        markerCounts[m] = ExportMarkers ? ExpandMarkers( map ).Count : 0;
         entityCounts[m] = map.Entities.Count;
       }
 
@@ -2520,9 +2567,11 @@ namespace RetroDevStudio.Formats
           buf.SetU8At( mapMarkersLoPos + m, (byte)( markersAddr & 0xFF ) );
           buf.SetU8At( mapMarkersHiPos + m, (byte)( ( markersAddr >> 8 ) & 0xFF ) );
 
-          // Precompute (marker, tagId) pairs once, then sort.
-          var markerPairs = new List<KeyValuePair<Marker, byte>>( map.Markers.Count );
-          foreach ( var marker in map.Markers )
+          // Fan each marker out into one 1x1 record per cell of its
+          // Width x Height footprint, then precompute (marker, tagId) pairs.
+          var expandedMarkers = ExpandMarkers( map );
+          var markerPairs = new List<KeyValuePair<Marker, byte>>( expandedMarkers.Count );
+          foreach ( var marker in expandedMarkers )
           {
             byte tagId = 0;
             foreach ( var mt in MarkerTypes )
@@ -4107,6 +4156,10 @@ namespace RetroDevStudio.Formats
         // Appended trigger-chain link fields — same pattern, default 0.
         chunkMarker.AppendU8( marker.LinkToID );
         chunkMarker.AppendU8( marker.LinkID );
+        // Appended marker footprint — same forward-compat pattern; old files
+        // lack these and fall back to a 1x1 marker on read.
+        chunkMarker.AppendI32( marker.Width );
+        chunkMarker.AppendI32( marker.Height );
         chunkMap.Append( chunkMarker.ToBuffer() );
       }
 
@@ -4431,6 +4484,27 @@ namespace RetroDevStudio.Formats
               else
               {
                 marker.LinkID = 0;
+              }
+              // Appended marker footprint (Width, Height as I32). Old files
+              // stop before these — fall back to a 1x1 marker. Clamp to >= 1
+              // so a corrupt file can't produce a zero-size marker.
+              if ( mapChunkReader.Size - mapChunkReader.Position >= 4 )
+              {
+                marker.Width = mapChunkReader.ReadInt32();
+                if ( marker.Width < 1 ) marker.Width = 1;
+              }
+              else
+              {
+                marker.Width = 1;
+              }
+              if ( mapChunkReader.Size - mapChunkReader.Position >= 4 )
+              {
+                marker.Height = mapChunkReader.ReadInt32();
+                if ( marker.Height < 1 ) marker.Height = 1;
+              }
+              else
+              {
+                marker.Height = 1;
               }
               map.Markers.Add( marker );
             }

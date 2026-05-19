@@ -147,6 +147,10 @@
             this.comboMarkerColorOverride = new System.Windows.Forms.ComboBox();
             this.btnDeleteSelectedMarker = new Krypton.Toolkit.KryptonButton();
             this.btnReflowOOBMarkers = new Krypton.Toolkit.KryptonButton();
+            this.btnMarkerWidthInc = new Krypton.Toolkit.KryptonButton();
+            this.btnMarkerWidthDec = new Krypton.Toolkit.KryptonButton();
+            this.btnMarkerHeightInc = new Krypton.Toolkit.KryptonButton();
+            this.btnMarkerHeightDec = new Krypton.Toolkit.KryptonButton();
             this.labelMarkersOutOfBounds = new System.Windows.Forms.Label();
             this.flowLayoutPanel3 = new System.Windows.Forms.FlowLayoutPanel();
             this.groupBox4 = new System.Windows.Forms.GroupBox();
@@ -1545,6 +1549,10 @@
             this.flowLayoutPanel4.Controls.Add(this.editMarkerLinkID);
             this.flowLayoutPanel4.Controls.Add(this.comboMarkerColorOverride);
             this.flowLayoutPanel4.Controls.Add(this.btnDeleteSelectedMarker);
+            this.flowLayoutPanel4.Controls.Add(this.btnMarkerWidthInc);
+            this.flowLayoutPanel4.Controls.Add(this.btnMarkerWidthDec);
+            this.flowLayoutPanel4.Controls.Add(this.btnMarkerHeightInc);
+            this.flowLayoutPanel4.Controls.Add(this.btnMarkerHeightDec);
             this.flowLayoutPanel4.Location = new System.Drawing.Point(177, 77);
             this.flowLayoutPanel4.Name = "flowLayoutPanel4";
             this.flowLayoutPanel4.Size = new System.Drawing.Size(1115, 30);
@@ -1809,6 +1817,58 @@
             this.btnDeleteSelectedMarker.Values.DropDownArrowColor = System.Drawing.Color.Empty;
             this.btnDeleteSelectedMarker.Values.Text = "✕";
             this.btnDeleteSelectedMarker.Click += new System.EventHandler(this.btnDeleteSelectedMarker_Click);
+            //
+            // btnMarkerWidthInc
+            //
+            this.btnMarkerWidthInc.Enabled = false;
+            this.btnMarkerWidthInc.Location = new System.Drawing.Point(882, 3);
+            this.btnMarkerWidthInc.Margin = new System.Windows.Forms.Padding(3, 3, 3, 0);
+            this.btnMarkerWidthInc.Name = "btnMarkerWidthInc";
+            this.btnMarkerWidthInc.Size = new System.Drawing.Size(26, 24);
+            this.btnMarkerWidthInc.TabIndex = 38;
+            this.toolTip1.SetToolTip(this.btnMarkerWidthInc, "Widen the selected marker by one character");
+            this.btnMarkerWidthInc.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnMarkerWidthInc.Values.Text = "H+";
+            this.btnMarkerWidthInc.Click += new System.EventHandler(this.btnMarkerWidthInc_Click);
+            //
+            // btnMarkerWidthDec
+            //
+            this.btnMarkerWidthDec.Enabled = false;
+            this.btnMarkerWidthDec.Location = new System.Drawing.Point(914, 3);
+            this.btnMarkerWidthDec.Margin = new System.Windows.Forms.Padding(3, 3, 3, 0);
+            this.btnMarkerWidthDec.Name = "btnMarkerWidthDec";
+            this.btnMarkerWidthDec.Size = new System.Drawing.Size(26, 24);
+            this.btnMarkerWidthDec.TabIndex = 39;
+            this.toolTip1.SetToolTip(this.btnMarkerWidthDec, "Narrow the selected marker by one character");
+            this.btnMarkerWidthDec.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnMarkerWidthDec.Values.Text = "H-";
+            this.btnMarkerWidthDec.Click += new System.EventHandler(this.btnMarkerWidthDec_Click);
+            //
+            // btnMarkerHeightInc
+            //
+            this.btnMarkerHeightInc.Enabled = false;
+            this.btnMarkerHeightInc.Location = new System.Drawing.Point(946, 3);
+            this.btnMarkerHeightInc.Margin = new System.Windows.Forms.Padding(3, 3, 3, 0);
+            this.btnMarkerHeightInc.Name = "btnMarkerHeightInc";
+            this.btnMarkerHeightInc.Size = new System.Drawing.Size(26, 24);
+            this.btnMarkerHeightInc.TabIndex = 40;
+            this.toolTip1.SetToolTip(this.btnMarkerHeightInc, "Make the selected marker one character taller");
+            this.btnMarkerHeightInc.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnMarkerHeightInc.Values.Text = "V+";
+            this.btnMarkerHeightInc.Click += new System.EventHandler(this.btnMarkerHeightInc_Click);
+            //
+            // btnMarkerHeightDec
+            //
+            this.btnMarkerHeightDec.Enabled = false;
+            this.btnMarkerHeightDec.Location = new System.Drawing.Point(978, 3);
+            this.btnMarkerHeightDec.Margin = new System.Windows.Forms.Padding(3, 3, 3, 0);
+            this.btnMarkerHeightDec.Name = "btnMarkerHeightDec";
+            this.btnMarkerHeightDec.Size = new System.Drawing.Size(26, 24);
+            this.btnMarkerHeightDec.TabIndex = 41;
+            this.toolTip1.SetToolTip(this.btnMarkerHeightDec, "Make the selected marker one character shorter");
+            this.btnMarkerHeightDec.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnMarkerHeightDec.Values.Text = "V-";
+            this.btnMarkerHeightDec.Click += new System.EventHandler(this.btnMarkerHeightDec_Click);
             // 
             // btnReflowOOBMarkers
             // 
@@ -4137,6 +4197,10 @@
         private Krypton.Toolkit.KryptonButton btnDeleteSelectedEntity;
         private Krypton.Toolkit.KryptonButton btnDeleteSelectedMarker;
         private Krypton.Toolkit.KryptonButton btnReflowOOBMarkers;
+        private Krypton.Toolkit.KryptonButton btnMarkerWidthInc;
+        private Krypton.Toolkit.KryptonButton btnMarkerWidthDec;
+        private Krypton.Toolkit.KryptonButton btnMarkerHeightInc;
+        private Krypton.Toolkit.KryptonButton btnMarkerHeightDec;
         private System.Windows.Forms.Label labelMarkersOutOfBounds;
         private Krypton.Toolkit.KryptonCheckBox checkShowEntities;
     private DecentForms.Button btnSetNextTileChar;
