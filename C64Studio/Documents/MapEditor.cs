@@ -2553,6 +2553,13 @@ namespace RetroDevStudio.Documents
                      break;
                    }
 
+                   // Snapshot the marker list before adding so Ctrl+Z removes
+                   // the just-placed marker (mirrors the entity block below).
+                   // Taken after the occupied-cell early-out above so a click
+                   // on a populated cell doesn't push a no-op undo step.
+                   DocumentInfo.UndoManager.AddUndoTask(
+                     new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
+
                    var marker = new MapProject.Marker();
                    marker.X = placeX;
                    marker.Y = placeY;
@@ -8631,6 +8638,20 @@ namespace RetroDevStudio.Documents
 
     private void btnExport_Click( DecentForms.ControlBase Sender )
     {
+      ExportCurrentMap();
+    }
+
+
+
+    /// <summary>
+    /// Run the map export with the current Export-tab settings and return
+    /// HandleExport's success flag. Shared by the Export button and the
+    /// "Map Project -> Export Map" menu item / Alt+X shortcut, so the export
+    /// can be triggered from any tab — it reads the Export-tab combos, which
+    /// retain their values regardless of which tab is currently shown.
+    /// </summary>
+    private bool ExportCurrentMap()
+    {
       var exportInfo = new ExportMapInfo()
       {
         Map             = m_MapProject,
@@ -8641,7 +8662,21 @@ namespace RetroDevStudio.Documents
       };
 
       editDataExport.Text = "";
-      m_ExportForm.HandleExport( exportInfo, editDataExport, DocumentInfo );
+      return m_ExportForm.HandleExport( exportInfo, editDataExport, DocumentInfo );
+    }
+
+
+
+    private void exportMapToolStripMenuItem_Click( object sender, EventArgs e )
+    {
+      // The Export button only lives on the Export tab; this menu item and
+      // the Alt+X shortcut run the same export from whatever tab is open.
+      // Beep on success so the user gets a confirmation cue when the Export
+      // tab (and its output box) isn't in view.
+      if ( ExportCurrentMap() )
+      {
+        System.Media.SystemSounds.Beep.Play();
+      }
     }
 
 
@@ -8936,6 +8971,15 @@ namespace RetroDevStudio.Documents
             return true;
           }
         }
+      }
+      else if ( keyData == ( Keys.Alt | Keys.X ) )
+      {
+        // Alt+X exports the current map from any tab — the same action as
+        // the Export-tab button and the "Map Project -> Export Map" menu
+        // item. Handling it here in ProcessCmdKey scopes it to the focused
+        // map document, so it never fires while another document is active.
+        exportMapToolStripMenuItem_Click( null, EventArgs.Empty );
+        return true;
       }
       else if ( keyData == Keys.G )
       {
@@ -12466,6 +12510,11 @@ namespace RetroDevStudio.Documents
         comboRevisions.Items.Add( "(Current)" );
         if ( m_LiveMap != null )
         {
+          // Newest revision first. Sorting the backing list itself (not just
+          // the combo) preserves the item-k -> Revisions[k-1] correspondence
+          // that comboRevisions_SelectedIndexChanged, btnRevertRevision and
+          // btnDeleteRevision all depend on.
+          m_LiveMap.Revisions.Sort( ( a, b ) => b.CreatedAt.CompareTo( a.CreatedAt ) );
           for ( int i = 0; i < m_LiveMap.Revisions.Count; ++i )
           {
             comboRevisions.Items.Add( FormatRevisionLabel( m_LiveMap.Revisions[i], i ) );

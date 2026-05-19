@@ -29,12 +29,12 @@
     private void InitializeComponent()
     {
             this.components = new System.ComponentModel.Container();
-            GR.Image.FastImage fastImage1 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage6 = new GR.Image.FastImage();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MapEditor));
-            GR.Image.FastImage fastImage2 = new GR.Image.FastImage();
-            GR.Image.FastImage fastImage3 = new GR.Image.FastImage();
-            GR.Image.FastImage fastImage4 = new GR.Image.FastImage();
-            GR.Image.FastImage fastImage5 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage7 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage8 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage9 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage10 = new GR.Image.FastImage();
             this.panelMapContainer = new System.Windows.Forms.Panel();
             this.pictureEditor = new GR.Forms.FastPictureBox();
             this.tabMarkers = new Krypton.Navigator.KryptonPage();
@@ -115,6 +115,7 @@
             this.listEntityTypes = new System.Windows.Forms.ListBox();
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.exportMapToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.importCharsetToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.saveCharsetProjectToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.closeCharsetProjectToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -129,6 +130,7 @@
             this.brightnessTablesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.tabEditor = new Krypton.Navigator.KryptonPage();
             this.flowLayoutPanel4 = new System.Windows.Forms.FlowLayoutPanel();
+            this.btnToolMarker = new Krypton.Toolkit.KryptonCheckButton();
             this.kryptonLabel1 = new Krypton.Toolkit.KryptonLabel();
             this.comboMarkerTypes = new Krypton.Toolkit.KryptonComboBox();
             this.labelMarkerValue1 = new System.Windows.Forms.Label();
@@ -212,6 +214,7 @@
             this.btnShiftDown = new Krypton.Toolkit.KryptonButton();
             this.btnShiftRight = new Krypton.Toolkit.KryptonButton();
             this.flowLayoutPanel2 = new System.Windows.Forms.FlowLayoutPanel();
+            this.btnToolEntity = new Krypton.Toolkit.KryptonCheckButton();
             this.kryptonLabel2 = new Krypton.Toolkit.KryptonLabel();
             this.comboEntityTypes = new Krypton.Toolkit.KryptonComboBox();
             this.labelEntityValue1 = new System.Windows.Forms.Label();
@@ -229,8 +232,6 @@
             this.btnToolFill = new Krypton.Toolkit.KryptonCheckButton();
             this.btnToolSelect = new Krypton.Toolkit.KryptonCheckButton();
             this.btnToolPassable = new Krypton.Toolkit.KryptonCheckButton();
-            this.btnToolEntity = new Krypton.Toolkit.KryptonCheckButton();
-            this.btnToolMarker = new Krypton.Toolkit.KryptonCheckButton();
             this.btnBrightnessLinearUp = new Krypton.Toolkit.KryptonButton();
             this.btnBrightnessLinearDown = new Krypton.Toolkit.KryptonButton();
             this.btnBrightnessHueUp = new Krypton.Toolkit.KryptonButton();
@@ -329,8 +330,8 @@
             ((System.ComponentModel.ISupportInitialize)(this.editMarkerTagID)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tabMapStrings)).BeginInit();
             this.tabMapStrings.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.editMapStringTextAreaWidth)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringID)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.editMapStringTextAreaWidth)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringLowercase)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringUppercase)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringNumbers)).BeginInit();
@@ -390,7 +391,7 @@
             this.panelMapContainer.Controls.Add(this.pictureEditor);
             this.panelMapContainer.Location = new System.Drawing.Point(177, 111);
             this.panelMapContainer.Name = "panelMapContainer";
-            this.panelMapContainer.Size = new System.Drawing.Size(1003, 737);
+            this.panelMapContainer.Size = new System.Drawing.Size(1097, 737);
             this.panelMapContainer.TabIndex = 0;
             // 
             // pictureEditor
@@ -400,11 +401,11 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.pictureEditor.AutoResize = false;
             this.pictureEditor.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.pictureEditor.DisplayPage = fastImage1;
+            this.pictureEditor.DisplayPage = fastImage6;
             this.pictureEditor.Image = null;
             this.pictureEditor.Location = new System.Drawing.Point(0, 118);
             this.pictureEditor.Name = "pictureEditor";
-            this.pictureEditor.Size = new System.Drawing.Size(1440, 923);
+            this.pictureEditor.Size = new System.Drawing.Size(1534, 923);
             this.pictureEditor.TabIndex = 0;
             this.pictureEditor.TabStop = false;
             this.pictureEditor.Paint += new System.Windows.Forms.PaintEventHandler(this.pictureEditor_Paint);
@@ -722,18 +723,18 @@
             this.editMapStringLabel.TabIndex = 2;
             this.toolTip1.SetToolTip(this.editMapStringLabel, "Asm identifier — exported as a .const TEXT_LABEL = <index>. Must match [A-Za-z_][" +
         "A-Za-z0-9_]*.");
-            //
+            // 
             // labelMapStringID
-            //
+            // 
             this.labelMapStringID.AutoSize = true;
             this.labelMapStringID.Location = new System.Drawing.Point(500, 11);
             this.labelMapStringID.Name = "labelMapStringID";
-            this.labelMapStringID.Size = new System.Drawing.Size(58, 13);
+            this.labelMapStringID.Size = new System.Drawing.Size(51, 13);
             this.labelMapStringID.TabIndex = 53;
             this.labelMapStringID.Text = "String ID:";
-            //
+            // 
             // editMapStringID
-            //
+            // 
             this.editMapStringID.Location = new System.Drawing.Point(566, 8);
             this.editMapStringID.Maximum = new decimal(new int[] {
             255,
@@ -745,9 +746,9 @@
             this.editMapStringID.TabIndex = 54;
             this.toolTip1.SetToolTip(this.editMapStringID, "Per-string numeric identifier (0-255). Exported as the MAP_STRING_ID byte table s" +
         "o runtime code can map an ID to the string\'s index.");
-            //
+            // 
             // labelMapStringLine0
-            //
+            // 
             this.labelMapStringLine0.AutoSize = true;
             this.labelMapStringLine0.Location = new System.Drawing.Point(180, 41);
             this.labelMapStringLine0.Name = "labelMapStringLine0";
@@ -1389,19 +1390,28 @@
             this.toolsToolStripMenuItem});
             this.menuStrip1.Location = new System.Drawing.Point(0, 0);
             this.menuStrip1.Name = "menuStrip1";
-            this.menuStrip1.Size = new System.Drawing.Size(1576, 24);
+            this.menuStrip1.Size = new System.Drawing.Size(1670, 24);
             this.menuStrip1.TabIndex = 1;
             this.menuStrip1.Text = "menuStrip1";
             // 
             // fileToolStripMenuItem
             // 
             this.fileToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.exportMapToolStripMenuItem,
             this.importCharsetToolStripMenuItem,
             this.saveCharsetProjectToolStripMenuItem,
             this.closeCharsetProjectToolStripMenuItem});
             this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
             this.fileToolStripMenuItem.Size = new System.Drawing.Size(83, 20);
             this.fileToolStripMenuItem.Text = "&Map Project";
+            // 
+            // exportMapToolStripMenuItem
+            // 
+            this.exportMapToolStripMenuItem.Name = "exportMapToolStripMenuItem";
+            this.exportMapToolStripMenuItem.ShortcutKeyDisplayString = "Alt+X";
+            this.exportMapToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
+            this.exportMapToolStripMenuItem.Text = "&Export Map";
+            this.exportMapToolStripMenuItem.Click += new System.EventHandler(this.exportMapToolStripMenuItem_Click);
             // 
             // importCharsetToolStripMenuItem
             // 
@@ -1510,7 +1520,7 @@
             this.tabEditor.MinimumSize = new System.Drawing.Size(150, 50);
             this.tabEditor.Name = "tabEditor";
             this.tabEditor.Padding = new System.Windows.Forms.Padding(3);
-            this.tabEditor.Size = new System.Drawing.Size(1574, 883);
+            this.tabEditor.Size = new System.Drawing.Size(1668, 883);
             this.tabEditor.Text = "Map";
             this.tabEditor.ToolTipTitle = "Page ToolTip";
             this.tabEditor.UniqueName = "2ee94663d00440529f2d4eb7c920378a";
@@ -1528,24 +1538,33 @@
             this.flowLayoutPanel4.Controls.Add(this.editMarkerValue2);
             this.flowLayoutPanel4.Controls.Add(this.labelMarkerGroupId);
             this.flowLayoutPanel4.Controls.Add(this.editMarkerGroupId);
+            this.flowLayoutPanel4.Controls.Add(this.btnFindNextMarkerGroup);
             this.flowLayoutPanel4.Controls.Add(this.labelMarkerLinkToID);
             this.flowLayoutPanel4.Controls.Add(this.editMarkerLinkToID);
             this.flowLayoutPanel4.Controls.Add(this.labelMarkerLinkID);
             this.flowLayoutPanel4.Controls.Add(this.editMarkerLinkID);
-            this.flowLayoutPanel4.Controls.Add(this.btnFindNextMarkerGroup);
             this.flowLayoutPanel4.Controls.Add(this.comboMarkerColorOverride);
             this.flowLayoutPanel4.Controls.Add(this.btnDeleteSelectedMarker);
-            this.flowLayoutPanel4.Controls.Add(this.btnReflowOOBMarkers);
-            this.flowLayoutPanel4.Controls.Add(this.labelMarkersOutOfBounds);
             this.flowLayoutPanel4.Location = new System.Drawing.Point(177, 77);
             this.flowLayoutPanel4.Name = "flowLayoutPanel4";
-            this.flowLayoutPanel4.Size = new System.Drawing.Size(1021, 30);
+            this.flowLayoutPanel4.Size = new System.Drawing.Size(1115, 30);
             this.flowLayoutPanel4.TabIndex = 1;
+            // 
+            // btnToolMarker
+            // 
+            this.btnToolMarker.Location = new System.Drawing.Point(3, 3);
+            this.btnToolMarker.Name = "btnToolMarker";
+            this.btnToolMarker.Size = new System.Drawing.Size(24, 24);
+            this.btnToolMarker.TabIndex = 8;
+            this.toolTip1.SetToolTip(this.btnToolMarker, "Markers");
+            this.btnToolMarker.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnToolMarker.Values.Text = "M";
+            this.btnToolMarker.CheckedChanged += new System.EventHandler(this.btnToolMarker_CheckedChanged);
             // 
             // kryptonLabel1
             // 
             this.kryptonLabel1.AutoSize = false;
-            this.kryptonLabel1.Location = new System.Drawing.Point(3, 3);
+            this.kryptonLabel1.Location = new System.Drawing.Point(33, 3);
             this.kryptonLabel1.Name = "kryptonLabel1";
             this.kryptonLabel1.Size = new System.Drawing.Size(69, 25);
             this.kryptonLabel1.TabIndex = 51;
@@ -1555,7 +1574,7 @@
             // 
             this.comboMarkerTypes.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboMarkerTypes.DropDownWidth = 150;
-            this.comboMarkerTypes.Location = new System.Drawing.Point(78, 3);
+            this.comboMarkerTypes.Location = new System.Drawing.Point(108, 3);
             this.comboMarkerTypes.Name = "comboMarkerTypes";
             this.comboMarkerTypes.Size = new System.Drawing.Size(150, 22);
             this.comboMarkerTypes.TabIndex = 3;
@@ -1564,12 +1583,12 @@
             // labelMarkerValue1
             // 
             this.labelMarkerValue1.AutoSize = true;
-            this.labelMarkerValue1.Location = new System.Drawing.Point(234, 7);
+            this.labelMarkerValue1.Location = new System.Drawing.Point(264, 7);
             this.labelMarkerValue1.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
             this.labelMarkerValue1.Name = "labelMarkerValue1";
-            this.labelMarkerValue1.Size = new System.Drawing.Size(46, 13);
+            this.labelMarkerValue1.Size = new System.Drawing.Size(51, 13);
             this.labelMarkerValue1.TabIndex = 30;
-            this.labelMarkerValue1.Text = "Value 1:";
+            this.labelMarkerValue1.Text = "Values 1:";
             // 
             // editMarkerValue1
             // 
@@ -1578,7 +1597,7 @@
             0,
             0,
             0});
-            this.editMarkerValue1.Location = new System.Drawing.Point(283, 3);
+            this.editMarkerValue1.Location = new System.Drawing.Point(318, 3);
             this.editMarkerValue1.Maximum = new decimal(new int[] {
             255,
             0,
@@ -1590,7 +1609,7 @@
             0,
             0});
             this.editMarkerValue1.Name = "editMarkerValue1";
-            this.editMarkerValue1.Size = new System.Drawing.Size(55, 22);
+            this.editMarkerValue1.Size = new System.Drawing.Size(43, 22);
             this.editMarkerValue1.TabIndex = 31;
             this.editMarkerValue1.Value = new decimal(new int[] {
             0,
@@ -1602,12 +1621,12 @@
             // labelMarkerValue2
             // 
             this.labelMarkerValue2.AutoSize = true;
-            this.labelMarkerValue2.Location = new System.Drawing.Point(344, 7);
+            this.labelMarkerValue2.Location = new System.Drawing.Point(367, 7);
             this.labelMarkerValue2.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
             this.labelMarkerValue2.Name = "labelMarkerValue2";
-            this.labelMarkerValue2.Size = new System.Drawing.Size(46, 13);
+            this.labelMarkerValue2.Size = new System.Drawing.Size(16, 13);
             this.labelMarkerValue2.TabIndex = 32;
-            this.labelMarkerValue2.Text = "Value 2:";
+            this.labelMarkerValue2.Text = "2:";
             // 
             // editMarkerValue2
             // 
@@ -1616,7 +1635,7 @@
             0,
             0,
             0});
-            this.editMarkerValue2.Location = new System.Drawing.Point(393, 3);
+            this.editMarkerValue2.Location = new System.Drawing.Point(386, 3);
             this.editMarkerValue2.Maximum = new decimal(new int[] {
             255,
             0,
@@ -1628,7 +1647,7 @@
             0,
             0});
             this.editMarkerValue2.Name = "editMarkerValue2";
-            this.editMarkerValue2.Size = new System.Drawing.Size(55, 22);
+            this.editMarkerValue2.Size = new System.Drawing.Size(43, 22);
             this.editMarkerValue2.TabIndex = 33;
             this.editMarkerValue2.Value = new decimal(new int[] {
             0,
@@ -1640,7 +1659,7 @@
             // labelMarkerGroupId
             // 
             this.labelMarkerGroupId.AutoSize = true;
-            this.labelMarkerGroupId.Location = new System.Drawing.Point(454, 7);
+            this.labelMarkerGroupId.Location = new System.Drawing.Point(435, 7);
             this.labelMarkerGroupId.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
             this.labelMarkerGroupId.Name = "labelMarkerGroupId";
             this.labelMarkerGroupId.Size = new System.Drawing.Size(39, 13);
@@ -1654,7 +1673,7 @@
             0,
             0,
             0});
-            this.editMarkerGroupId.Location = new System.Drawing.Point(496, 3);
+            this.editMarkerGroupId.Location = new System.Drawing.Point(477, 3);
             this.editMarkerGroupId.Maximum = new decimal(new int[] {
             255,
             0,
@@ -1666,7 +1685,7 @@
             0,
             0});
             this.editMarkerGroupId.Name = "editMarkerGroupId";
-            this.editMarkerGroupId.Size = new System.Drawing.Size(55, 22);
+            this.editMarkerGroupId.Size = new System.Drawing.Size(43, 22);
             this.editMarkerGroupId.TabIndex = 35;
             this.editMarkerGroupId.Value = new decimal(new int[] {
             0,
@@ -1674,25 +1693,25 @@
             0,
             0});
             this.editMarkerGroupId.ValueChanged += new System.EventHandler(this.editMarkerGroupId_ValueChanged);
-            //
+            // 
             // labelMarkerLinkToID
-            //
+            // 
             this.labelMarkerLinkToID.AutoSize = true;
-            this.labelMarkerLinkToID.Location = new System.Drawing.Point(557, 7);
+            this.labelMarkerLinkToID.Location = new System.Drawing.Point(592, 7);
             this.labelMarkerLinkToID.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
             this.labelMarkerLinkToID.Name = "labelMarkerLinkToID";
-            this.labelMarkerLinkToID.Size = new System.Drawing.Size(60, 13);
+            this.labelMarkerLinkToID.Size = new System.Drawing.Size(56, 13);
             this.labelMarkerLinkToID.TabIndex = 52;
             this.labelMarkerLinkToID.Text = "Link to ID:";
-            //
+            // 
             // editMarkerLinkToID
-            //
+            // 
             this.editMarkerLinkToID.Increment = new decimal(new int[] {
             1,
             0,
             0,
             0});
-            this.editMarkerLinkToID.Location = new System.Drawing.Point(620, 3);
+            this.editMarkerLinkToID.Location = new System.Drawing.Point(651, 3);
             this.editMarkerLinkToID.Maximum = new decimal(new int[] {
             255,
             0,
@@ -1704,7 +1723,7 @@
             0,
             0});
             this.editMarkerLinkToID.Name = "editMarkerLinkToID";
-            this.editMarkerLinkToID.Size = new System.Drawing.Size(55, 22);
+            this.editMarkerLinkToID.Size = new System.Drawing.Size(43, 22);
             this.editMarkerLinkToID.TabIndex = 53;
             this.editMarkerLinkToID.Value = new decimal(new int[] {
             0,
@@ -1712,25 +1731,25 @@
             0,
             0});
             this.editMarkerLinkToID.ValueChanged += new System.EventHandler(this.editMarkerLink_ValueChanged);
-            //
+            // 
             // labelMarkerLinkID
-            //
+            // 
             this.labelMarkerLinkID.AutoSize = true;
-            this.labelMarkerLinkID.Location = new System.Drawing.Point(678, 7);
+            this.labelMarkerLinkID.Location = new System.Drawing.Point(700, 7);
             this.labelMarkerLinkID.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
             this.labelMarkerLinkID.Name = "labelMarkerLinkID";
-            this.labelMarkerLinkID.Size = new System.Drawing.Size(46, 13);
+            this.labelMarkerLinkID.Size = new System.Drawing.Size(44, 13);
             this.labelMarkerLinkID.TabIndex = 54;
             this.labelMarkerLinkID.Text = "Link ID:";
-            //
+            // 
             // editMarkerLinkID
-            //
+            // 
             this.editMarkerLinkID.Increment = new decimal(new int[] {
             1,
             0,
             0,
             0});
-            this.editMarkerLinkID.Location = new System.Drawing.Point(727, 3);
+            this.editMarkerLinkID.Location = new System.Drawing.Point(747, 3);
             this.editMarkerLinkID.Maximum = new decimal(new int[] {
             255,
             0,
@@ -1742,7 +1761,7 @@
             0,
             0});
             this.editMarkerLinkID.Name = "editMarkerLinkID";
-            this.editMarkerLinkID.Size = new System.Drawing.Size(55, 22);
+            this.editMarkerLinkID.Size = new System.Drawing.Size(43, 22);
             this.editMarkerLinkID.TabIndex = 55;
             this.editMarkerLinkID.Value = new decimal(new int[] {
             0,
@@ -1750,10 +1769,10 @@
             0,
             0});
             this.editMarkerLinkID.ValueChanged += new System.EventHandler(this.editMarkerLink_ValueChanged);
-            //
+            // 
             // btnFindNextMarkerGroup
-            //
-            this.btnFindNextMarkerGroup.Location = new System.Drawing.Point(557, 3);
+            // 
+            this.btnFindNextMarkerGroup.Location = new System.Drawing.Point(526, 3);
             this.btnFindNextMarkerGroup.Margin = new System.Windows.Forms.Padding(3, 3, 3, 0);
             this.btnFindNextMarkerGroup.Name = "btnFindNextMarkerGroup";
             this.btnFindNextMarkerGroup.Size = new System.Drawing.Size(60, 24);
@@ -1770,7 +1789,7 @@
             this.comboMarkerColorOverride.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboMarkerColorOverride.DropDownWidth = 48;
             this.comboMarkerColorOverride.FormattingEnabled = true;
-            this.comboMarkerColorOverride.Location = new System.Drawing.Point(623, 3);
+            this.comboMarkerColorOverride.Location = new System.Drawing.Point(796, 3);
             this.comboMarkerColorOverride.Name = "comboMarkerColorOverride";
             this.comboMarkerColorOverride.Size = new System.Drawing.Size(48, 21);
             this.comboMarkerColorOverride.TabIndex = 4;
@@ -1780,7 +1799,7 @@
             // btnDeleteSelectedMarker
             // 
             this.btnDeleteSelectedMarker.Enabled = false;
-            this.btnDeleteSelectedMarker.Location = new System.Drawing.Point(677, 3);
+            this.btnDeleteSelectedMarker.Location = new System.Drawing.Point(850, 3);
             this.btnDeleteSelectedMarker.Margin = new System.Windows.Forms.Padding(3, 3, 3, 0);
             this.btnDeleteSelectedMarker.Name = "btnDeleteSelectedMarker";
             this.btnDeleteSelectedMarker.Size = new System.Drawing.Size(26, 24);
@@ -1793,7 +1812,7 @@
             // 
             // btnReflowOOBMarkers
             // 
-            this.btnReflowOOBMarkers.Location = new System.Drawing.Point(709, 3);
+            this.btnReflowOOBMarkers.Location = new System.Drawing.Point(134, 297);
             this.btnReflowOOBMarkers.Margin = new System.Windows.Forms.Padding(3, 3, 3, 0);
             this.btnReflowOOBMarkers.Name = "btnReflowOOBMarkers";
             this.btnReflowOOBMarkers.Size = new System.Drawing.Size(60, 24);
@@ -1807,7 +1826,7 @@
             // labelMarkersOutOfBounds
             // 
             this.labelMarkersOutOfBounds.AutoSize = true;
-            this.labelMarkersOutOfBounds.Location = new System.Drawing.Point(778, 7);
+            this.labelMarkersOutOfBounds.Location = new System.Drawing.Point(2, 301);
             this.labelMarkersOutOfBounds.Margin = new System.Windows.Forms.Padding(6, 7, 0, 0);
             this.labelMarkersOutOfBounds.Name = "labelMarkersOutOfBounds";
             this.labelMarkersOutOfBounds.Size = new System.Drawing.Size(125, 13);
@@ -1824,7 +1843,7 @@
             this.flowLayoutPanel3.Controls.Add(this.collapsiblePanelMapTab);
             this.flowLayoutPanel3.Controls.Add(this.collapsiblePanel2);
             this.flowLayoutPanel3.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
-            this.flowLayoutPanel3.Location = new System.Drawing.Point(1204, 10);
+            this.flowLayoutPanel3.Location = new System.Drawing.Point(1298, 10);
             this.flowLayoutPanel3.Name = "flowLayoutPanel3";
             this.flowLayoutPanel3.Size = new System.Drawing.Size(364, 867);
             this.flowLayoutPanel3.TabIndex = 1;
@@ -2293,6 +2312,8 @@
             this.collapsiblePanel2.Controls.Add(this.dimSlider);
             this.collapsiblePanel2.Controls.Add(this.labelTileListRowSpacing);
             this.collapsiblePanel2.Controls.Add(this.labelDesignerBackground);
+            this.collapsiblePanel2.Controls.Add(this.btnReflowOOBMarkers);
+            this.collapsiblePanel2.Controls.Add(this.labelMarkersOutOfBounds);
             this.collapsiblePanel2.Controls.Add(this.editTileListRowSpacing);
             this.collapsiblePanel2.Controls.Add(this.btnShiftLeft);
             this.collapsiblePanel2.Controls.Add(this.labelTileListRowSeparatorColor);
@@ -2309,7 +2330,7 @@
             this.collapsiblePanel2.Controls.Add(this.btnMapWidthInc);
             this.collapsiblePanel2.Controls.Add(this.btnShiftDown);
             this.collapsiblePanel2.Controls.Add(this.btnShiftRight);
-            this.collapsiblePanel2.ExpandedHeight = 295;
+            this.collapsiblePanel2.ExpandedHeight = 327;
             this.collapsiblePanel2.Location = new System.Drawing.Point(3, 183);
             this.collapsiblePanel2.MinimumSize = new System.Drawing.Size(40, 56);
             this.collapsiblePanel2.Name = "collapsiblePanel2";
@@ -2571,13 +2592,24 @@
             this.flowLayoutPanel2.Controls.Add(this.checkShowEntities);
             this.flowLayoutPanel2.Location = new System.Drawing.Point(177, 42);
             this.flowLayoutPanel2.Name = "flowLayoutPanel2";
-            this.flowLayoutPanel2.Size = new System.Drawing.Size(1022, 31);
+            this.flowLayoutPanel2.Size = new System.Drawing.Size(1116, 31);
             this.flowLayoutPanel2.TabIndex = 38;
+            // 
+            // btnToolEntity
+            // 
+            this.btnToolEntity.Location = new System.Drawing.Point(3, 3);
+            this.btnToolEntity.Name = "btnToolEntity";
+            this.btnToolEntity.Size = new System.Drawing.Size(24, 24);
+            this.btnToolEntity.TabIndex = 40;
+            this.toolTip1.SetToolTip(this.btnToolEntity, "Entities");
+            this.btnToolEntity.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnToolEntity.Values.Text = "E";
+            this.btnToolEntity.CheckedChanged += new System.EventHandler(this.btnToolEntity_CheckedChanged);
             // 
             // kryptonLabel2
             // 
             this.kryptonLabel2.AutoSize = false;
-            this.kryptonLabel2.Location = new System.Drawing.Point(3, 3);
+            this.kryptonLabel2.Location = new System.Drawing.Point(33, 3);
             this.kryptonLabel2.Name = "kryptonLabel2";
             this.kryptonLabel2.Size = new System.Drawing.Size(69, 25);
             this.kryptonLabel2.TabIndex = 50;
@@ -2587,7 +2619,7 @@
             // 
             this.comboEntityTypes.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboEntityTypes.DropDownWidth = 150;
-            this.comboEntityTypes.Location = new System.Drawing.Point(78, 3);
+            this.comboEntityTypes.Location = new System.Drawing.Point(108, 3);
             this.comboEntityTypes.Name = "comboEntityTypes";
             this.comboEntityTypes.Size = new System.Drawing.Size(150, 22);
             this.comboEntityTypes.TabIndex = 41;
@@ -2596,12 +2628,12 @@
             // labelEntityValue1
             // 
             this.labelEntityValue1.AutoSize = true;
-            this.labelEntityValue1.Location = new System.Drawing.Point(234, 7);
+            this.labelEntityValue1.Location = new System.Drawing.Point(264, 7);
             this.labelEntityValue1.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
             this.labelEntityValue1.Name = "labelEntityValue1";
-            this.labelEntityValue1.Size = new System.Drawing.Size(46, 13);
+            this.labelEntityValue1.Size = new System.Drawing.Size(51, 13);
             this.labelEntityValue1.TabIndex = 42;
-            this.labelEntityValue1.Text = "Value 1:";
+            this.labelEntityValue1.Text = "Values 1:";
             // 
             // editEntityValue1Default
             // 
@@ -2610,7 +2642,7 @@
             0,
             0,
             0});
-            this.editEntityValue1Default.Location = new System.Drawing.Point(283, 3);
+            this.editEntityValue1Default.Location = new System.Drawing.Point(318, 3);
             this.editEntityValue1Default.Maximum = new decimal(new int[] {
             255,
             0,
@@ -2622,7 +2654,7 @@
             0,
             0});
             this.editEntityValue1Default.Name = "editEntityValue1Default";
-            this.editEntityValue1Default.Size = new System.Drawing.Size(55, 22);
+            this.editEntityValue1Default.Size = new System.Drawing.Size(43, 22);
             this.editEntityValue1Default.TabIndex = 43;
             this.editEntityValue1Default.Value = new decimal(new int[] {
             0,
@@ -2634,12 +2666,12 @@
             // labelEntityValue2
             // 
             this.labelEntityValue2.AutoSize = true;
-            this.labelEntityValue2.Location = new System.Drawing.Point(344, 7);
+            this.labelEntityValue2.Location = new System.Drawing.Point(367, 7);
             this.labelEntityValue2.Margin = new System.Windows.Forms.Padding(3, 7, 0, 0);
             this.labelEntityValue2.Name = "labelEntityValue2";
-            this.labelEntityValue2.Size = new System.Drawing.Size(46, 13);
+            this.labelEntityValue2.Size = new System.Drawing.Size(16, 13);
             this.labelEntityValue2.TabIndex = 44;
-            this.labelEntityValue2.Text = "Value 2:";
+            this.labelEntityValue2.Text = "2:";
             // 
             // editEntityValue2Default
             // 
@@ -2648,7 +2680,7 @@
             0,
             0,
             0});
-            this.editEntityValue2Default.Location = new System.Drawing.Point(393, 3);
+            this.editEntityValue2Default.Location = new System.Drawing.Point(386, 3);
             this.editEntityValue2Default.Maximum = new decimal(new int[] {
             255,
             0,
@@ -2660,7 +2692,7 @@
             0,
             0});
             this.editEntityValue2Default.Name = "editEntityValue2Default";
-            this.editEntityValue2Default.Size = new System.Drawing.Size(55, 22);
+            this.editEntityValue2Default.Size = new System.Drawing.Size(43, 22);
             this.editEntityValue2Default.TabIndex = 45;
             this.editEntityValue2Default.Value = new decimal(new int[] {
             0,
@@ -2674,7 +2706,7 @@
             this.checkEntityDefaultEnabled.AutoSize = false;
             this.checkEntityDefaultEnabled.Checked = true;
             this.checkEntityDefaultEnabled.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.checkEntityDefaultEnabled.Location = new System.Drawing.Point(457, 5);
+            this.checkEntityDefaultEnabled.Location = new System.Drawing.Point(438, 5);
             this.checkEntityDefaultEnabled.Margin = new System.Windows.Forms.Padding(6, 5, 3, 0);
             this.checkEntityDefaultEnabled.Name = "checkEntityDefaultEnabled";
             this.checkEntityDefaultEnabled.Size = new System.Drawing.Size(83, 22);
@@ -2685,7 +2717,7 @@
             // checkEntityDefaultTriggered
             // 
             this.checkEntityDefaultTriggered.AutoSize = false;
-            this.checkEntityDefaultTriggered.Location = new System.Drawing.Point(549, 5);
+            this.checkEntityDefaultTriggered.Location = new System.Drawing.Point(530, 5);
             this.checkEntityDefaultTriggered.Margin = new System.Windows.Forms.Padding(6, 5, 3, 0);
             this.checkEntityDefaultTriggered.Name = "checkEntityDefaultTriggered";
             this.checkEntityDefaultTriggered.Size = new System.Drawing.Size(83, 22);
@@ -2696,7 +2728,7 @@
             // btnDeleteSelectedEntity
             // 
             this.btnDeleteSelectedEntity.Enabled = false;
-            this.btnDeleteSelectedEntity.Location = new System.Drawing.Point(638, 3);
+            this.btnDeleteSelectedEntity.Location = new System.Drawing.Point(619, 3);
             this.btnDeleteSelectedEntity.Margin = new System.Windows.Forms.Padding(3, 3, 3, 0);
             this.btnDeleteSelectedEntity.Name = "btnDeleteSelectedEntity";
             this.btnDeleteSelectedEntity.Size = new System.Drawing.Size(26, 24);
@@ -2712,7 +2744,7 @@
             this.checkShowEntities.AutoSize = false;
             this.checkShowEntities.Checked = true;
             this.checkShowEntities.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.checkShowEntities.Location = new System.Drawing.Point(673, 5);
+            this.checkShowEntities.Location = new System.Drawing.Point(654, 5);
             this.checkShowEntities.Margin = new System.Windows.Forms.Padding(6, 5, 3, 0);
             this.checkShowEntities.Name = "checkShowEntities";
             this.checkShowEntities.Size = new System.Drawing.Size(103, 20);
@@ -2745,7 +2777,7 @@
             this.flowLayoutPanel1.Controls.Add(this.labelEditInfo);
             this.flowLayoutPanel1.Location = new System.Drawing.Point(177, 10);
             this.flowLayoutPanel1.Name = "flowLayoutPanel1";
-            this.flowLayoutPanel1.Size = new System.Drawing.Size(1022, 30);
+            this.flowLayoutPanel1.Size = new System.Drawing.Size(1116, 30);
             this.flowLayoutPanel1.TabIndex = 36;
             // 
             // btnToolEdit
@@ -2815,31 +2847,9 @@
             this.btnToolPassable.Values.Text = "P";
             this.btnToolPassable.CheckedChanged += new System.EventHandler(this.btnToolPassable_CheckedChanged);
             // 
-            // btnToolEntity
-            // 
-            this.btnToolEntity.Location = new System.Drawing.Point(183, 3);
-            this.btnToolEntity.Name = "btnToolEntity";
-            this.btnToolEntity.Size = new System.Drawing.Size(24, 24);
-            this.btnToolEntity.TabIndex = 40;
-            this.toolTip1.SetToolTip(this.btnToolEntity, "Entities");
-            this.btnToolEntity.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            this.btnToolEntity.Values.Text = "E";
-            this.btnToolEntity.CheckedChanged += new System.EventHandler(this.btnToolEntity_CheckedChanged);
-            // 
-            // btnToolMarker
-            // 
-            this.btnToolMarker.Location = new System.Drawing.Point(213, 3);
-            this.btnToolMarker.Name = "btnToolMarker";
-            this.btnToolMarker.Size = new System.Drawing.Size(24, 24);
-            this.btnToolMarker.TabIndex = 8;
-            this.toolTip1.SetToolTip(this.btnToolMarker, "Markers");
-            this.btnToolMarker.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            this.btnToolMarker.Values.Text = "M";
-            this.btnToolMarker.CheckedChanged += new System.EventHandler(this.btnToolMarker_CheckedChanged);
-            // 
             // btnBrightnessLinearUp
             // 
-            this.btnBrightnessLinearUp.Location = new System.Drawing.Point(243, 3);
+            this.btnBrightnessLinearUp.Location = new System.Drawing.Point(183, 3);
             this.btnBrightnessLinearUp.Name = "btnBrightnessLinearUp";
             this.btnBrightnessLinearUp.Size = new System.Drawing.Size(24, 24);
             this.btnBrightnessLinearUp.TabIndex = 10;
@@ -2850,7 +2860,7 @@
             // 
             // btnBrightnessLinearDown
             // 
-            this.btnBrightnessLinearDown.Location = new System.Drawing.Point(273, 3);
+            this.btnBrightnessLinearDown.Location = new System.Drawing.Point(213, 3);
             this.btnBrightnessLinearDown.Name = "btnBrightnessLinearDown";
             this.btnBrightnessLinearDown.Size = new System.Drawing.Size(24, 24);
             this.btnBrightnessLinearDown.TabIndex = 11;
@@ -2861,7 +2871,7 @@
             // 
             // btnBrightnessHueUp
             // 
-            this.btnBrightnessHueUp.Location = new System.Drawing.Point(303, 3);
+            this.btnBrightnessHueUp.Location = new System.Drawing.Point(243, 3);
             this.btnBrightnessHueUp.Name = "btnBrightnessHueUp";
             this.btnBrightnessHueUp.Size = new System.Drawing.Size(24, 24);
             this.btnBrightnessHueUp.TabIndex = 12;
@@ -2872,7 +2882,7 @@
             // 
             // btnBrightnessHueDown
             // 
-            this.btnBrightnessHueDown.Location = new System.Drawing.Point(333, 3);
+            this.btnBrightnessHueDown.Location = new System.Drawing.Point(273, 3);
             this.btnBrightnessHueDown.Name = "btnBrightnessHueDown";
             this.btnBrightnessHueDown.Size = new System.Drawing.Size(24, 24);
             this.btnBrightnessHueDown.TabIndex = 13;
@@ -2891,7 +2901,7 @@
             this.comboTilePlacementColor.FormattingEnabled = true;
             this.comboTilePlacementColor.IntegralHeight = false;
             this.comboTilePlacementColor.ItemHeight = 19;
-            this.comboTilePlacementColor.Location = new System.Drawing.Point(363, 3);
+            this.comboTilePlacementColor.Location = new System.Drawing.Point(303, 3);
             this.comboTilePlacementColor.Name = "comboTilePlacementColor";
             this.comboTilePlacementColor.Size = new System.Drawing.Size(80, 25);
             this.comboTilePlacementColor.TabIndex = 49;
@@ -2901,7 +2911,7 @@
             // 
             // checkAutoTiling
             // 
-            this.checkAutoTiling.Location = new System.Drawing.Point(449, 3);
+            this.checkAutoTiling.Location = new System.Drawing.Point(389, 3);
             this.checkAutoTiling.Name = "checkAutoTiling";
             this.checkAutoTiling.Size = new System.Drawing.Size(82, 27);
             this.checkAutoTiling.TabIndex = 16;
@@ -2910,7 +2920,7 @@
             // 
             // btnZoomOut
             // 
-            this.btnZoomOut.Location = new System.Drawing.Point(537, 3);
+            this.btnZoomOut.Location = new System.Drawing.Point(477, 3);
             this.btnZoomOut.Name = "btnZoomOut";
             this.btnZoomOut.Size = new System.Drawing.Size(24, 24);
             this.btnZoomOut.TabIndex = 10;
@@ -2921,7 +2931,7 @@
             // 
             // btnZoomIn
             // 
-            this.btnZoomIn.Location = new System.Drawing.Point(567, 3);
+            this.btnZoomIn.Location = new System.Drawing.Point(507, 3);
             this.btnZoomIn.Name = "btnZoomIn";
             this.btnZoomIn.Size = new System.Drawing.Size(24, 24);
             this.btnZoomIn.TabIndex = 11;
@@ -2932,7 +2942,7 @@
             // 
             // labelZoom
             // 
-            this.labelZoom.Location = new System.Drawing.Point(597, 0);
+            this.labelZoom.Location = new System.Drawing.Point(537, 0);
             this.labelZoom.Name = "labelZoom";
             this.labelZoom.Size = new System.Drawing.Size(33, 30);
             this.labelZoom.TabIndex = 9;
@@ -2941,7 +2951,7 @@
             // 
             // checkShowGrid
             // 
-            this.checkShowGrid.Location = new System.Drawing.Point(636, 3);
+            this.checkShowGrid.Location = new System.Drawing.Point(576, 3);
             this.checkShowGrid.Name = "checkShowGrid";
             this.checkShowGrid.Size = new System.Drawing.Size(47, 20);
             this.checkShowGrid.TabIndex = 12;
@@ -2950,7 +2960,7 @@
             // 
             // btnRemoveOverlappingTiles
             // 
-            this.btnRemoveOverlappingTiles.Location = new System.Drawing.Point(689, 3);
+            this.btnRemoveOverlappingTiles.Location = new System.Drawing.Point(629, 3);
             this.btnRemoveOverlappingTiles.Name = "btnRemoveOverlappingTiles";
             this.btnRemoveOverlappingTiles.Size = new System.Drawing.Size(148, 24);
             this.btnRemoveOverlappingTiles.TabIndex = 16;
@@ -2961,7 +2971,7 @@
             // 
             // btnClearPassableMap
             // 
-            this.btnClearPassableMap.Location = new System.Drawing.Point(843, 3);
+            this.btnClearPassableMap.Location = new System.Drawing.Point(783, 3);
             this.btnClearPassableMap.Name = "btnClearPassableMap";
             this.btnClearPassableMap.Size = new System.Drawing.Size(120, 24);
             this.btnClearPassableMap.TabIndex = 17;
@@ -2973,7 +2983,7 @@
             // labelEditInfo
             // 
             this.labelEditInfo.Anchor = System.Windows.Forms.AnchorStyles.None;
-            this.labelEditInfo.Location = new System.Drawing.Point(3, 33);
+            this.labelEditInfo.Location = new System.Drawing.Point(909, 5);
             this.labelEditInfo.Name = "labelEditInfo";
             this.labelEditInfo.Size = new System.Drawing.Size(146, 23);
             this.labelEditInfo.TabIndex = 9;
@@ -3007,7 +3017,7 @@
             this.mapHScroll.Maximum = 100;
             this.mapHScroll.Minimum = 0;
             this.mapHScroll.Name = "mapHScroll";
-            this.mapHScroll.Size = new System.Drawing.Size(1008, 20);
+            this.mapHScroll.Size = new System.Drawing.Size(1102, 20);
             this.mapHScroll.SmallChange = 1;
             this.mapHScroll.TabIndex = 24;
             this.mapHScroll.Value = 0;
@@ -3021,7 +3031,7 @@
             this.mapVScroll.DisplayType = DecentForms.ScrollBar.SBDisplayType.RAISED;
             this.mapVScroll.Enabled = false;
             this.mapVScroll.LargeChange = 10;
-            this.mapVScroll.Location = new System.Drawing.Point(1178, 111);
+            this.mapVScroll.Location = new System.Drawing.Point(1272, 111);
             this.mapVScroll.Maximum = 100;
             this.mapVScroll.Minimum = 0;
             this.mapVScroll.Name = "mapVScroll";
@@ -3049,7 +3059,7 @@
             this.tabMarkers,
             this.tabEntities});
             this.tabMapEditor.SelectedIndex = 0;
-            this.tabMapEditor.Size = new System.Drawing.Size(1576, 910);
+            this.tabMapEditor.Size = new System.Drawing.Size(1670, 910);
             this.tabMapEditor.TabIndex = 0;
             this.tabMapEditor.SelectedPageChanged += new System.EventHandler(this.tabMapEditor_SelectedIndexChanged);
             // 
@@ -3562,7 +3572,7 @@
             // 
             this.panelCharColors.AutoResize = false;
             this.panelCharColors.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.panelCharColors.DisplayPage = fastImage2;
+            this.panelCharColors.DisplayPage = fastImage7;
             this.panelCharColors.Image = null;
             this.panelCharColors.Location = new System.Drawing.Point(725, 271);
             this.panelCharColors.Name = "panelCharColors";
@@ -3576,7 +3586,7 @@
             // 
             this.pictureTileDisplay.AutoResize = false;
             this.pictureTileDisplay.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.pictureTileDisplay.DisplayPage = fastImage3;
+            this.pictureTileDisplay.DisplayPage = fastImage8;
             this.pictureTileDisplay.Image = null;
             this.pictureTileDisplay.Location = new System.Drawing.Point(996, 5);
             this.pictureTileDisplay.Name = "pictureTileDisplay";
@@ -3903,7 +3913,7 @@
             // 
             this.fastPictureBox1.AutoResize = false;
             this.fastPictureBox1.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.fastPictureBox1.DisplayPage = fastImage4;
+            this.fastPictureBox1.DisplayPage = fastImage9;
             this.fastPictureBox1.Image = null;
             this.fastPictureBox1.Location = new System.Drawing.Point(658, 390);
             this.fastPictureBox1.Name = "fastPictureBox1";
@@ -3915,7 +3925,7 @@
             // 
             this.fastPictureBox2.AutoResize = false;
             this.fastPictureBox2.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.fastPictureBox2.DisplayPage = fastImage5;
+            this.fastPictureBox2.DisplayPage = fastImage10;
             this.fastPictureBox2.Image = null;
             this.fastPictureBox2.Location = new System.Drawing.Point(8, 6);
             this.fastPictureBox2.Name = "fastPictureBox2";
@@ -3934,7 +3944,7 @@
             // 
             // MapEditor
             // 
-            this.ClientSize = new System.Drawing.Size(1576, 934);
+            this.ClientSize = new System.Drawing.Size(1670, 934);
             this.Controls.Add(this.tabMapEditor);
             this.Controls.Add(this.menuStrip1);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
@@ -3950,8 +3960,8 @@
             ((System.ComponentModel.ISupportInitialize)(this.tabMapStrings)).EndInit();
             this.tabMapStrings.ResumeLayout(false);
             this.tabMapStrings.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.editMapStringTextAreaWidth)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringID)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.editMapStringTextAreaWidth)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringLowercase)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringUppercase)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.editMapStringNumbers)).EndInit();
@@ -4023,6 +4033,7 @@
 
     private System.Windows.Forms.MenuStrip menuStrip1;
     private System.Windows.Forms.ToolStripMenuItem fileToolStripMenuItem;
+    private System.Windows.Forms.ToolStripMenuItem exportMapToolStripMenuItem;
     private System.Windows.Forms.ToolStripMenuItem importCharsetToolStripMenuItem;
     private System.Windows.Forms.ToolStripMenuItem closeCharsetProjectToolStripMenuItem;
     private System.Windows.Forms.ToolStripMenuItem saveCharsetProjectToolStripMenuItem;
