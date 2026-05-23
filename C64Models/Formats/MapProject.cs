@@ -109,7 +109,7 @@ namespace RetroDevStudio.Formats
     public const byte MAP_STRING_NO_TERMINATOR   = 0x00;
 
     /// <summary>
-    /// One of up to 4 lines in a <see cref="MapString"/>.
+    /// One of up to 5 lines in a <see cref="MapString"/>.
     ///
     /// <see cref="ControlCode"/> is the line's leading control byte. The
     /// runtime's line-start scan (game_message.asm READ_STRING_BYTE) reads
@@ -149,21 +149,21 @@ namespace RetroDevStudio.Formats
     };
 
     /// <summary>
-    /// One named, exportable game-message script. Up to 4 lines of text
-    /// rendered into the C64 game's 4-line UI text area. <see cref="Label"/>
+    /// One named, exportable game-message script. Up to 5 lines of text
+    /// rendered into the C64 game's UI text area. <see cref="Label"/>
     /// is the user-supplied asm identifier (e.g. <c>TEXT_HIT</c>) used to
     /// emit a <c>.const &lt;Label&gt; = &lt;index&gt;</c> in the sidecar; must be a
     /// valid asm identifier to be included on export. <see cref="Lines"/> is
-    /// always 4 slots — empty trailing slots are dropped at export time. When
+    /// always 5 slots — empty trailing slots are dropped at export time. When
     /// <see cref="ClearTextAreaAtEnd"/> is true, a CLEAR_TEXT_AREA byte is
     /// emitted right before the mandatory END_OF_TEXT terminator.
     /// </summary>
     public class MapString
     {
       public string          Label              = "";
-      public MapStringLine[] Lines              = new MapStringLine[4]
+      public MapStringLine[] Lines              = new MapStringLine[5]
       {
-        new MapStringLine(), new MapStringLine(), new MapStringLine(), new MapStringLine()
+        new MapStringLine(), new MapStringLine(), new MapStringLine(), new MapStringLine(), new MapStringLine()
       };
       public bool            ClearTextAreaAtEnd = false;
       // Per-string numeric identifier (0..255, default 0). Editor metadata
@@ -510,6 +510,13 @@ namespace RetroDevStudio.Formats
     /// was working on.
     /// </summary>
     public int                          CurrentMapIndex = -1;
+    /// <summary>
+    /// Index into <see cref="Maps"/> of the map runtime code should treat as
+    /// the level's starting map. Exported as a single byte right after the
+    /// map count in the game binary, so the runtime can branch on it
+    /// without scanning the whole map list. Defaults to 0 = the first map.
+    /// </summary>
+    public int                          StartMapIndex = 0;
     public bool                         KeepCharacterAspectRatio = false;
     public int                          CharactersPerRow = 16;
     public int                          CharacterEditorMode = 1;
@@ -589,6 +596,9 @@ namespace RetroDevStudio.Formats
       // before this and the field falls through to its default (0 = the
       // Map tab).
       chunkProjectInfo.AppendI32( LastSelectedTabIndex );
+      // Index of the map that should be treated as the level's starting
+      // map at runtime. Append-only; old files default to 0 (first map).
+      chunkProjectInfo.AppendI32( StartMapIndex );
       projectFile.Append( chunkProjectInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkCharset = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET );
@@ -650,6 +660,17 @@ namespace RetroDevStudio.Formats
         // Per-string numeric ID. Appended; old project files that lack
         // this byte fall through to the default of 0 on load.
         chunkMapString.AppendU8( ms.StringID );
+        // Line 4 (the 5th line) was added AFTER StringID for forward-compat —
+        // older project files end at StringID, and the reader's position
+        // guards default these fields when absent. Order: Text / Terminator
+        // / ControlCode / Justification, matching the lines 0-3 layout above.
+        {
+          var line4 = ms.Lines[4] ?? new MapStringLine();
+          chunkMapString.AppendString( line4.Text ?? "" );
+          chunkMapString.AppendU8( line4.Terminator );
+          chunkMapString.AppendU8( line4.ControlCode );
+          chunkMapString.AppendU8( line4.Justification );
+        }
         chunkProjectData.Append( chunkMapString.ToBuffer() );
       }
 
@@ -905,6 +926,14 @@ namespace RetroDevStudio.Formats
                 LastSelectedTabIndex = chunkReader.ReadInt32();
                 if ( LastSelectedTabIndex < 0 ) LastSelectedTabIndex = 0;
               }
+              // Optional starting-map index (append-only; default 0 = the
+              // first map). Clamped to 0 here; upper bound is clamped at
+              // the editor side, where the live map count is known.
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                StartMapIndex = chunkReader.ReadInt32();
+                if ( StartMapIndex < 0 ) StartMapIndex = 0;
+              }
             }
             break;
           case FileChunkConstants.MAP_CHARSET:
@@ -1018,6 +1047,37 @@ namespace RetroDevStudio.Formats
                       if ( subChunkReader.Position < subChunkReader.Size )
                       {
                         ms.StringID = subChunkReader.ReadUInt8();
+                      }
+                      // Line 4 (the 5th line) was appended AFTER StringID for
+                      // forward-compat — old project files end at StringID
+                      // and these reads simply fall through, leaving Line[4]
+                      // at its default empty state. Order mirrors the writer:
+                      // Text / Terminator / ControlCode / Justification.
+                      if ( subChunkReader.Position < subChunkReader.Size )
+                      {
+                        ms.Lines[4].Text = subChunkReader.ReadString();
+                      }
+                      if ( subChunkReader.Position < subChunkReader.Size )
+                      {
+                        ms.Lines[4].Terminator = subChunkReader.ReadUInt8();
+                      }
+                      if ( ( ms.Lines[4].Terminator != MAP_STRING_NO_TERMINATOR )
+                      &&   ( ms.Lines[4].Terminator != MAP_STRING_END_OF_LINE )
+                      &&   ( ms.Lines[4].Terminator != MAP_STRING_PRESS_FIRE ) )
+                      {
+                        ms.Lines[4].Terminator = MAP_STRING_NO_TERMINATOR;
+                      }
+                      if ( subChunkReader.Position < subChunkReader.Size )
+                      {
+                        ms.Lines[4].ControlCode = subChunkReader.ReadUInt8();
+                      }
+                      if ( subChunkReader.Position < subChunkReader.Size )
+                      {
+                        ms.Lines[4].Justification = subChunkReader.ReadUInt8();
+                        if ( ms.Lines[4].Justification > MAP_STRING_JUSTIFY_RIGHT )
+                        {
+                          ms.Lines[4].Justification = MAP_STRING_JUSTIFY_LEFT;
+                        }
                       }
                       MapStrings.Add( ms );
                     }
@@ -2178,56 +2238,60 @@ namespace RetroDevStudio.Formats
       var buf = new GR.Memory.ByteBuffer();
       int addrBase = BaseAddress;
 
-      // ========== HEADER (59 bytes, 0x3B) ==========
+      // ========== HEADER (60 bytes, 0x3C) ==========
       buf.AppendU8( 9 );    // +$00 marker_stride (bytes per marker record: tag, x, y, value1, value2, flags, group_id, link_to_id, link_id) — flags is a bitfield: bit0 = Enabled, bit1 = Triggered
       buf.AppendU8( (byte)Tiles.Count );  // +$01
       buf.AppendU8( (byte)Maps.Count );   // +$02
-      // 21 x 2-byte offset placeholders (+$03 .. +$2C)
+      // Starting-map index — points runtime code at the map the level
+      // begins on. Inserted here (not appended at the end) so it sits
+      // alongside the other map metadata; every offset below shifts by 1.
+      buf.AppendU8( (byte)StartMapIndex ); // +$03
+      // 21 x 2-byte offset placeholders (+$04 .. +$2D)
       for ( int i = 0; i < 21; ++i )
         buf.AppendU16( 0 );
-      buf.AppendU8( 8 );    // +$2D entity_stride (bytes per entity record: tag, x, y, tile, value1, value2, enabled, triggered)
-      // 3 x 2-byte entity offset placeholders (+$2E .. +$33)
+      buf.AppendU8( 8 );    // +$2E entity_stride (bytes per entity record: tag, x, y, tile, value1, value2, enabled, triggered)
+      // 3 x 2-byte entity offset placeholders (+$2F .. +$34)
       for ( int i = 0; i < 3; ++i )
         buf.AppendU16( 0 );
       // Map-strings section (v24+): a single byte count followed by three
       // 2-byte pointers to the MAP_STRING_LO, MAP_STRING_HI and
       // MAP_STRING_ID tables. Always emitted — even when the project has
-      // no strings — so the header layout is fixed at 59 bytes regardless
+      // no strings — so the header layout is fixed at 60 bytes regardless
       // of project content.
-      buf.AppendU8( 0 );        // +$34 map_string_count (patched below)
-      buf.AppendU16( 0 );       // +$35 offset_map_string_lo (patched below)
-      buf.AppendU16( 0 );       // +$37 offset_map_string_hi (patched below)
-      buf.AppendU16( 0 );       // +$39 offset_map_string_id (patched below)
+      buf.AppendU8( 0 );        // +$35 map_string_count (patched below)
+      buf.AppendU16( 0 );       // +$36 offset_map_string_lo (patched below)
+      buf.AppendU16( 0 );       // +$38 offset_map_string_hi (patched below)
+      buf.AppendU16( 0 );       // +$3A offset_map_string_id (patched below)
 
       // Header offset positions (byte offset within header for each pointer)
-      const int HDR_TILES_WIDTH       = 0x03;
-      const int HDR_TILES_HEIGHT      = 0x05;
-      const int HDR_TILES_FLAGS       = 0x07;
-      const int HDR_TILE_CHAR_OFF_LO  = 0x09;
-      const int HDR_TILE_CHAR_OFF_HI  = 0x0B;
-      const int HDR_TILE_COLOR_OFF_LO = 0x0D;
-      const int HDR_TILE_COLOR_OFF_HI = 0x0F;
-      const int HDR_MAP_WIDTH         = 0x11;
-      const int HDR_MAP_HEIGHT        = 0x13;
-      const int HDR_MAP_BG_COLOR      = 0x15;
-      const int HDR_MAP_MC1_COLOR     = 0x17;
-      const int HDR_MAP_MC2_COLOR     = 0x19;
-      const int HDR_MAP_MARKER_COUNT  = 0x1B;
-      const int HDR_MAP_CHAR_GRID_LO  = 0x1D;
-      const int HDR_MAP_CHAR_GRID_HI  = 0x1F;
-      const int HDR_MAP_COLOR_GRID_LO = 0x21;
-      const int HDR_MAP_COLOR_GRID_HI = 0x23;
-      const int HDR_MAP_PASSABLE_LO   = 0x25;
-      const int HDR_MAP_PASSABLE_HI   = 0x27;
-      const int HDR_MAP_MARKERS_LO    = 0x29;
-      const int HDR_MAP_MARKERS_HI    = 0x2B;
-      const int HDR_MAP_ENTITY_COUNT  = 0x2E;
-      const int HDR_MAP_ENTITIES_LO   = 0x30;
-      const int HDR_MAP_ENTITIES_HI   = 0x32;
-      const int HDR_MAP_STRING_COUNT  = 0x34;
-      const int HDR_MAP_STRING_LO     = 0x35;
-      const int HDR_MAP_STRING_HI     = 0x37;
-      const int HDR_MAP_STRING_ID     = 0x39;
+      const int HDR_TILES_WIDTH       = 0x04;
+      const int HDR_TILES_HEIGHT      = 0x06;
+      const int HDR_TILES_FLAGS       = 0x08;
+      const int HDR_TILE_CHAR_OFF_LO  = 0x0A;
+      const int HDR_TILE_CHAR_OFF_HI  = 0x0C;
+      const int HDR_TILE_COLOR_OFF_LO = 0x0E;
+      const int HDR_TILE_COLOR_OFF_HI = 0x10;
+      const int HDR_MAP_WIDTH         = 0x12;
+      const int HDR_MAP_HEIGHT        = 0x14;
+      const int HDR_MAP_BG_COLOR      = 0x16;
+      const int HDR_MAP_MC1_COLOR     = 0x18;
+      const int HDR_MAP_MC2_COLOR     = 0x1A;
+      const int HDR_MAP_MARKER_COUNT  = 0x1C;
+      const int HDR_MAP_CHAR_GRID_LO  = 0x1E;
+      const int HDR_MAP_CHAR_GRID_HI  = 0x20;
+      const int HDR_MAP_COLOR_GRID_LO = 0x22;
+      const int HDR_MAP_COLOR_GRID_HI = 0x24;
+      const int HDR_MAP_PASSABLE_LO   = 0x26;
+      const int HDR_MAP_PASSABLE_HI   = 0x28;
+      const int HDR_MAP_MARKERS_LO    = 0x2A;
+      const int HDR_MAP_MARKERS_HI    = 0x2C;
+      const int HDR_MAP_ENTITY_COUNT  = 0x2F;
+      const int HDR_MAP_ENTITIES_LO   = 0x31;
+      const int HDR_MAP_ENTITIES_HI   = 0x33;
+      const int HDR_MAP_STRING_COUNT  = 0x35;
+      const int HDR_MAP_STRING_LO     = 0x36;
+      const int HDR_MAP_STRING_HI     = 0x38;
+      const int HDR_MAP_STRING_ID     = 0x3A;
 
       // ========== TILE ARRAYS ==========
 
@@ -2753,40 +2817,41 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( "// values. To read the stride at runtime: LDA MAP_HEADER + MAP_HEADER_MARKER_STRIDE" );
       sb.AppendLine( "// To step between marker records at compile time, use MAP_MARKER_SIZE." );
       sb.AppendLine();
-      sb.AppendLine( "// ====== Game binary header (59 bytes) ======" );
+      sb.AppendLine( "// ====== Game binary header (60 bytes) ======" );
       sb.AppendLine( "// Direct byte values at the start of the header:" );
       sb.AppendLine( ".const MAP_HEADER_MARKER_STRIDE                  = $00  // byte: marker record size" );
       sb.AppendLine( ".const MAP_HEADER_TILECOUNT                      = $01  // byte: number of tiles" );
       sb.AppendLine( ".const MAP_HEADER_MAPCOUNT                       = $02  // byte: number of maps" );
+      sb.AppendLine( ".const MAP_HEADER_START_MAP_INDEX                = $03  // byte: index of starting map" );
       sb.AppendLine();
       sb.AppendLine( "// Pointer tables (16-bit each) — absolute addresses into the data section:" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILES_WIDTH             = $03" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILES_HEIGHT            = $05" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILES_FLAGS             = $07" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILE_CHAR_OFFSET_LO     = $09" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILE_CHAR_OFFSET_HI     = $0B" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILE_COLOR_OFFSET_LO    = $0D" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILE_COLOR_OFFSET_HI    = $0F" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_WIDTH               = $11" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_HEIGHT              = $13" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_BG_COLOR            = $15" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_MC1_COLOR           = $17" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_MC2_COLOR           = $19" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_MARKER_COUNT        = $1B" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_CHAR_GRID_LO        = $1D" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_CHAR_GRID_HI        = $1F" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_COLOR_GRID_LO       = $21" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_COLOR_GRID_HI       = $23" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_PASSABLE_LO         = $25" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_PASSABLE_HI         = $27" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_MARKERS_LO          = $29" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_MARKERS_HI          = $2B" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILES_WIDTH             = $04" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILES_HEIGHT            = $06" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILES_FLAGS             = $08" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILE_CHAR_OFFSET_LO     = $0A" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILE_CHAR_OFFSET_HI     = $0C" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILE_COLOR_OFFSET_LO    = $0E" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_TILE_COLOR_OFFSET_HI    = $10" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_WIDTH               = $12" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_HEIGHT              = $14" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_BG_COLOR            = $16" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_MC1_COLOR           = $18" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_MC2_COLOR           = $1A" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_MARKER_COUNT        = $1C" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_CHAR_GRID_LO        = $1E" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_CHAR_GRID_HI        = $20" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_COLOR_GRID_LO       = $22" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_COLOR_GRID_HI       = $24" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_PASSABLE_LO         = $26" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_PASSABLE_HI         = $28" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_MARKERS_LO          = $2A" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_MARKERS_HI          = $2C" );
       sb.AppendLine();
       sb.AppendLine( "// Entity section (v23):" );
-      sb.AppendLine( ".const MAP_HEADER_ENTITY_STRIDE                  = $2D  // byte: entity record size" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_ENTITY_COUNT        = $2E" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_ENTITIES_LO         = $30" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_ENTITIES_HI         = $32" );
+      sb.AppendLine( ".const MAP_HEADER_ENTITY_STRIDE                  = $2E  // byte: entity record size" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_ENTITY_COUNT        = $2F" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_ENTITIES_LO         = $31" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_ENTITIES_HI         = $33" );
       sb.AppendLine();
       sb.AppendLine( "// Map strings section (v24): per-project named text scripts. The" );
       sb.AppendLine( "// MAP_STRING_LO / MAP_STRING_HI tables and the byte streams they" );
@@ -2797,11 +2862,11 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( "// MAP_STRING_ID is a parallel byte table (one entry per string)" );
       sb.AppendLine( "// holding each string's authored numeric ID — scan it to map an" );
       sb.AppendLine( "// ID back to the index used with MAP_STRING_LO/HI." );
-      sb.AppendLine( ".const MAP_HEADER_MAP_STRING_COUNT               = $34  // byte: number of strings" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_STRING_LO           = $35" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_STRING_HI           = $37" );
-      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_STRING_ID           = $39" );
-      sb.AppendLine( ".const MAP_HEADER_SIZE                           = $3B  // total header length" );
+      sb.AppendLine( ".const MAP_HEADER_MAP_STRING_COUNT               = $35  // byte: number of strings" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_STRING_LO           = $36" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_STRING_HI           = $38" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_STRING_ID           = $3A" );
+      sb.AppendLine( ".const MAP_HEADER_SIZE                           = $3C  // total header length" );
       sb.AppendLine();
       sb.AppendLine( "// ====== Marker record layout (9 bytes per marker) ======" );
       sb.AppendLine( "// Byte offsets within a single marker record." );
@@ -3103,7 +3168,7 @@ namespace RetroDevStudio.Formats
       var buf = new GR.Memory.ByteBuffer();
       if ( TextAreaWidth < 1 ) TextAreaWidth = 1;
 
-      // Each of the 4 line slots has 3 independently-optional pieces:
+      // Each of the 5 line slots has 3 independently-optional pieces:
       //   ControlCode (leading byte) — skipped if MAP_STRING_NO_CONTROL_CODE.
       //   Text       (screen codes)   — skipped if empty (no null byte).
       //     Padded with leading spaces here for Center / Right justification
@@ -3111,7 +3176,7 @@ namespace RetroDevStudio.Formats
       //   Terminator (trailing byte)  — skipped if MAP_STRING_NO_TERMINATOR.
       // A line where all three are skipped emits no bytes at all, letting
       // the user "skip a line" by setting everything to None.
-      for ( int li = 0; li < 4; ++li )
+      for ( int li = 0; li < 5; ++li )
       {
         var line = Msg.Lines[li];
         if ( line.ControlCode != MAP_STRING_NO_CONTROL_CODE )

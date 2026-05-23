@@ -475,6 +475,7 @@ namespace RetroDevStudio.Documents
       comboMapStringLineControl1.BeginUpdate();
       comboMapStringLineControl2.BeginUpdate();
       comboMapStringLineControl3.BeginUpdate();
+      comboMapStringLineControl4.BeginUpdate();
       try
       {
         comboMapMultiColor1.Items.Add( "From charset" );
@@ -489,6 +490,7 @@ namespace RetroDevStudio.Documents
         comboMapStringLineControl1.Items.Add( "None" );
         comboMapStringLineControl2.Items.Add( "None" );
         comboMapStringLineControl3.Items.Add( "None" );
+        comboMapStringLineControl4.Items.Add( "None" );
         for ( int i = 0; i < 16; ++i )
         {
           string label = i.ToString( "d2" );
@@ -507,6 +509,7 @@ namespace RetroDevStudio.Documents
           comboMapStringLineControl1.Items.Add( label );
           comboMapStringLineControl2.Items.Add( label );
           comboMapStringLineControl3.Items.Add( label );
+          comboMapStringLineControl4.Items.Add( label );
         }
       }
       finally
@@ -526,6 +529,7 @@ namespace RetroDevStudio.Documents
         comboMapStringLineControl1.EndUpdate();
         comboMapStringLineControl2.EndUpdate();
         comboMapStringLineControl3.EndUpdate();
+        comboMapStringLineControl4.EndUpdate();
       }
       comboTileBackground.SelectedIndex = 0;
       comboTileMulticolor1.SelectedIndex = 0;
@@ -544,6 +548,7 @@ namespace RetroDevStudio.Documents
       comboMapStringLineControl1.SelectedIndex = 0;
       comboMapStringLineControl2.SelectedIndex = 0;
       comboMapStringLineControl3.SelectedIndex = 0;
+      comboMapStringLineControl4.SelectedIndex = 0;
 
       InitMapStringsTab();
 
@@ -3463,11 +3468,21 @@ namespace RetroDevStudio.Documents
       }
       RefreshMapTileList();
 
+      // Upper-clamp StartMapIndex against the actual map count BEFORE
+      // building the dropdown — the chunk reader can only clamp at >= 0
+      // because it doesn't know the live map count yet. A corrupt or
+      // hand-edited file pointing past the end falls back to 0 here.
+      if ( ( m_MapProject.StartMapIndex < 0 )
+      ||   ( m_MapProject.StartMapIndex >= m_MapProject.Maps.Count ) )
+      {
+        m_MapProject.StartMapIndex = 0;
+      }
+
       int index = 0;
       comboMaps.BeginUpdate();
       foreach ( var map in m_MapProject.Maps )
       {
-        comboMaps.Items.Add( new GR.Generic.Tupel<string, Formats.MapProject.Map>( index.ToString() + ": " + map.Name, map ) );
+        comboMaps.Items.Add( new GR.Generic.Tupel<string, Formats.MapProject.Map>( FormatMapDisplayName( index, map ), map ) );
         comboMaps.Enabled = true;
         ++index;
       }
@@ -5567,6 +5582,7 @@ namespace RetroDevStudio.Documents
       btnMapApply.Enabled = ( comboMaps.SelectedIndex != -1 );
       btnMapDelete.Enabled = ( comboMaps.SelectedIndex != -1 );
       btnMapClear.Enabled = ( comboMaps.SelectedIndex != -1 );
+      btnSetStartMap.Enabled = ( comboMaps.SelectedIndex != -1 );
 
       if ( comboMaps.SelectedIndex == -1 )
       {
@@ -6072,15 +6088,14 @@ namespace RetroDevStudio.Documents
     {
       m_MapProject.Maps.Insert( MapIndex, Map );
 
-      int   mapIndex = MapIndex;
-      comboMaps.Items.Insert( MapIndex, new GR.Generic.Tupel<string, Formats.MapProject.Map>( mapIndex.ToString() + ": " + Map.Name, Map ) );
+      comboMaps.Items.Insert( MapIndex, new GR.Generic.Tupel<string, Formats.MapProject.Map>( FormatMapDisplayName( MapIndex, Map ), Map ) );
       comboMaps.Enabled = true;
 
       for ( int i = 0; i < comboMaps.Items.Count; ++i )
       {
         GR.Generic.Tupel<string, Formats.MapProject.Map>    mapPair = (GR.Generic.Tupel<string, Formats.MapProject.Map>)comboMaps.Items[i];
 
-        mapPair.first = i.ToString() + ": " + mapPair.second.Name;
+        mapPair.first = FormatMapDisplayName( i, mapPair.second );
 
         // force name update
         comboMaps.Items[i] = comboMaps.Items[i];
@@ -6210,7 +6225,7 @@ namespace RetroDevStudio.Documents
       {
         if ( mapInfo.second == m_CurrentMap )
         {
-          mapInfo.first = index.ToString() + ": " + m_CurrentMap.Name;
+          mapInfo.first = FormatMapDisplayName( index, m_CurrentMap );
           comboMaps.Items[index] = comboMaps.Items[index];
           break;
         }
@@ -6219,6 +6234,55 @@ namespace RetroDevStudio.Documents
       RecalcTileUsageInCurrentMap();
       AdjustScrollbars();
       RedrawMap();
+      SetModified();
+    }
+
+
+
+    /// <summary>
+    /// Format a map's row in the Current Map dropdown: "★ N: Name" for the
+    /// project's StartMapIndex, "N: Name" otherwise. Centralised so the four
+    /// sites that build dropdown rows (open project, add map, rename,
+    /// reindex-after-move) stay in sync — touching the star convention in
+    /// one place updates them all.
+    /// </summary>
+    private string FormatMapDisplayName( int Index, Formats.MapProject.Map Map )
+    {
+      string prefix = ( ( m_MapProject != null ) && ( Index == m_MapProject.StartMapIndex ) ) ? "★ " : "";
+      return prefix + Index.ToString() + ": " + Map.Name;
+    }
+
+
+
+    /// <summary>
+    /// Rebuild every visible label in the Current Map dropdown by walking the
+    /// items and re-running <see cref="FormatMapDisplayName"/>. Called after
+    /// StartMapIndex changes so the star marker moves to the new start map,
+    /// and after undo/redo of a start-map change.
+    /// </summary>
+    public void RefreshMapListDisplay()
+    {
+      for ( int i = 0; i < comboMaps.Items.Count; ++i )
+      {
+        var mapPair = (GR.Generic.Tupel<string, Formats.MapProject.Map>)comboMaps.Items[i];
+        mapPair.first = FormatMapDisplayName( i, mapPair.second );
+        // Force the combo to repaint the changed row.
+        comboMaps.Items[i] = comboMaps.Items[i];
+      }
+    }
+
+
+
+    private void btnSetStartMap_Click( object sender, EventArgs e )
+    {
+      if ( m_MapProject == null ) return;
+      int selected = comboMaps.SelectedIndex;
+      if ( ( selected < 0 ) || ( selected >= m_MapProject.Maps.Count ) ) return;
+      if ( m_MapProject.StartMapIndex == selected ) return;
+
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStartMapIndexChange( this, m_MapProject ) );
+      m_MapProject.StartMapIndex = selected;
+      RefreshMapListDisplay();
       SetModified();
     }
 
@@ -7968,11 +8032,24 @@ namespace RetroDevStudio.Documents
         m_MapProject.Maps.RemoveAt( MapIndex );
         comboMaps.Items.RemoveAt( MapIndex );
 
+        // Keep StartMapIndex pointing at a real map. If the removed map WAS
+        // the start map, fall back to 0 (matches the default for a fresh
+        // project). If the removed map was BEFORE the start map, the start
+        // map's index has shifted down by one.
+        if ( m_MapProject.StartMapIndex == MapIndex )
+        {
+          m_MapProject.StartMapIndex = 0;
+        }
+        else if ( m_MapProject.StartMapIndex > MapIndex )
+        {
+          m_MapProject.StartMapIndex--;
+        }
+
         for ( int i = 0; i < comboMaps.Items.Count; ++i )
         {
           GR.Generic.Tupel<string, Formats.MapProject.Map>    mapPair = (GR.Generic.Tupel<string, Formats.MapProject.Map>)comboMaps.Items[i];
 
-          mapPair.first = i.ToString() + ": " + mapPair.second.Name;
+          mapPair.first = FormatMapDisplayName( i, mapPair.second );
 
           // force name update
           comboMaps.Items[i] = comboMaps.Items[i];
@@ -8629,11 +8706,23 @@ namespace RetroDevStudio.Documents
       }
 
 
+      // Keep StartMapIndex pointing at the same MAP after the swap, not the
+      // same INDEX. Three cases: it's MapIndex1 → becomes MapIndex2; it's
+      // MapIndex2 → becomes MapIndex1; otherwise it's unaffected.
+      if ( m_MapProject.StartMapIndex == MapIndex1 )
+      {
+        m_MapProject.StartMapIndex = MapIndex2;
+      }
+      else if ( m_MapProject.StartMapIndex == MapIndex2 )
+      {
+        m_MapProject.StartMapIndex = MapIndex1;
+      }
+
       var item1 = (GR.Generic.Tupel<string, Formats.MapProject.Map>)comboMaps.Items[MapIndex1];
       var item2 = (GR.Generic.Tupel<string, Formats.MapProject.Map>)comboMaps.Items[MapIndex2];
 
-      item1.first = MapIndex1.ToString() + ": " + item1.second.Name;
-      item2.first = MapIndex2.ToString() + ": " + item2.second.Name;
+      item1.first = FormatMapDisplayName( MapIndex1, item1.second );
+      item2.first = FormatMapDisplayName( MapIndex2, item2.second );
 
       comboMaps.Items.RemoveAt( MapIndex2 );
       comboMaps.Items.Insert( MapIndex2, item2 );
@@ -9575,18 +9664,22 @@ namespace RetroDevStudio.Documents
       editMapStringLine1.TextChanged                    += editMapStringLine_TextChanged;
       editMapStringLine2.TextChanged                    += editMapStringLine_TextChanged;
       editMapStringLine3.TextChanged                    += editMapStringLine_TextChanged;
+      editMapStringLine4.TextChanged                    += editMapStringLine_TextChanged;
       comboMapStringTerminator0.SelectedIndexChanged    += comboMapStringTerminator_SelectedIndexChanged;
       comboMapStringTerminator1.SelectedIndexChanged    += comboMapStringTerminator_SelectedIndexChanged;
       comboMapStringTerminator2.SelectedIndexChanged    += comboMapStringTerminator_SelectedIndexChanged;
       comboMapStringTerminator3.SelectedIndexChanged    += comboMapStringTerminator_SelectedIndexChanged;
+      comboMapStringTerminator4.SelectedIndexChanged    += comboMapStringTerminator_SelectedIndexChanged;
       comboMapStringLineControl0.SelectedIndexChanged   += comboMapStringLineControl_SelectedIndexChanged;
       comboMapStringLineControl1.SelectedIndexChanged   += comboMapStringLineControl_SelectedIndexChanged;
       comboMapStringLineControl2.SelectedIndexChanged   += comboMapStringLineControl_SelectedIndexChanged;
       comboMapStringLineControl3.SelectedIndexChanged   += comboMapStringLineControl_SelectedIndexChanged;
+      comboMapStringLineControl4.SelectedIndexChanged   += comboMapStringLineControl_SelectedIndexChanged;
       comboMapStringJustify0.SelectedIndexChanged       += comboMapStringJustify_SelectedIndexChanged;
       comboMapStringJustify1.SelectedIndexChanged       += comboMapStringJustify_SelectedIndexChanged;
       comboMapStringJustify2.SelectedIndexChanged       += comboMapStringJustify_SelectedIndexChanged;
       comboMapStringJustify3.SelectedIndexChanged       += comboMapStringJustify_SelectedIndexChanged;
+      comboMapStringJustify4.SelectedIndexChanged       += comboMapStringJustify_SelectedIndexChanged;
       checkMapStringClearAtEnd.CheckedChanged           += checkMapStringClearAtEnd_CheckedChanged;
       editMapStringID.ValueChanged                      += editMapStringID_ValueChanged;
     }
@@ -9600,18 +9693,22 @@ namespace RetroDevStudio.Documents
       editMapStringLine1.TextChanged                    -= editMapStringLine_TextChanged;
       editMapStringLine2.TextChanged                    -= editMapStringLine_TextChanged;
       editMapStringLine3.TextChanged                    -= editMapStringLine_TextChanged;
+      editMapStringLine4.TextChanged                    -= editMapStringLine_TextChanged;
       comboMapStringTerminator0.SelectedIndexChanged    -= comboMapStringTerminator_SelectedIndexChanged;
       comboMapStringTerminator1.SelectedIndexChanged    -= comboMapStringTerminator_SelectedIndexChanged;
       comboMapStringTerminator2.SelectedIndexChanged    -= comboMapStringTerminator_SelectedIndexChanged;
       comboMapStringTerminator3.SelectedIndexChanged    -= comboMapStringTerminator_SelectedIndexChanged;
+      comboMapStringTerminator4.SelectedIndexChanged    -= comboMapStringTerminator_SelectedIndexChanged;
       comboMapStringLineControl0.SelectedIndexChanged   -= comboMapStringLineControl_SelectedIndexChanged;
       comboMapStringLineControl1.SelectedIndexChanged   -= comboMapStringLineControl_SelectedIndexChanged;
       comboMapStringLineControl2.SelectedIndexChanged   -= comboMapStringLineControl_SelectedIndexChanged;
       comboMapStringLineControl3.SelectedIndexChanged   -= comboMapStringLineControl_SelectedIndexChanged;
+      comboMapStringLineControl4.SelectedIndexChanged   -= comboMapStringLineControl_SelectedIndexChanged;
       comboMapStringJustify0.SelectedIndexChanged       -= comboMapStringJustify_SelectedIndexChanged;
       comboMapStringJustify1.SelectedIndexChanged       -= comboMapStringJustify_SelectedIndexChanged;
       comboMapStringJustify2.SelectedIndexChanged       -= comboMapStringJustify_SelectedIndexChanged;
       comboMapStringJustify3.SelectedIndexChanged       -= comboMapStringJustify_SelectedIndexChanged;
+      comboMapStringJustify4.SelectedIndexChanged       -= comboMapStringJustify_SelectedIndexChanged;
       checkMapStringClearAtEnd.CheckedChanged           -= checkMapStringClearAtEnd_CheckedChanged;
       editMapStringID.ValueChanged                      -= editMapStringID_ValueChanged;
     }
@@ -9711,19 +9808,23 @@ namespace RetroDevStudio.Documents
           editMapStringLine1.Text = "";
           editMapStringLine2.Text = "";
           editMapStringLine3.Text = "";
+          editMapStringLine4.Text = "";
           // Combos default to "None" (index 0).
           comboMapStringTerminator0.SelectedIndex = 0;
           comboMapStringTerminator1.SelectedIndex = 0;
           comboMapStringTerminator2.SelectedIndex = 0;
           comboMapStringTerminator3.SelectedIndex = 0;
+          comboMapStringTerminator4.SelectedIndex = 0;
           comboMapStringLineControl0.SelectedIndex = 0;
           comboMapStringLineControl1.SelectedIndex = 0;
           comboMapStringLineControl2.SelectedIndex = 0;
           comboMapStringLineControl3.SelectedIndex = 0;
+          comboMapStringLineControl4.SelectedIndex = 0;
           comboMapStringJustify0.SelectedIndex = 0;
           comboMapStringJustify1.SelectedIndex = 0;
           comboMapStringJustify2.SelectedIndex = 0;
           comboMapStringJustify3.SelectedIndex = 0;
+          comboMapStringJustify4.SelectedIndex = 0;
           checkMapStringClearAtEnd.Checked = false;
           editMapStringID.Value = 0;
           return;
@@ -9732,21 +9833,21 @@ namespace RetroDevStudio.Documents
         editMapStringLabel.Text = ms.Label ?? "";
         var lineBoxes = new System.Windows.Forms.TextBox[]
         {
-          editMapStringLine0, editMapStringLine1, editMapStringLine2, editMapStringLine3
+          editMapStringLine0, editMapStringLine1, editMapStringLine2, editMapStringLine3, editMapStringLine4
         };
         var termCombos = new System.Windows.Forms.ComboBox[]
         {
-          comboMapStringTerminator0, comboMapStringTerminator1, comboMapStringTerminator2, comboMapStringTerminator3
+          comboMapStringTerminator0, comboMapStringTerminator1, comboMapStringTerminator2, comboMapStringTerminator3, comboMapStringTerminator4
         };
         var ctrlCombos = new System.Windows.Forms.ComboBox[]
         {
-          comboMapStringLineControl0, comboMapStringLineControl1, comboMapStringLineControl2, comboMapStringLineControl3
+          comboMapStringLineControl0, comboMapStringLineControl1, comboMapStringLineControl2, comboMapStringLineControl3, comboMapStringLineControl4
         };
         var justifyCombos = new System.Windows.Forms.ComboBox[]
         {
-          comboMapStringJustify0, comboMapStringJustify1, comboMapStringJustify2, comboMapStringJustify3
+          comboMapStringJustify0, comboMapStringJustify1, comboMapStringJustify2, comboMapStringJustify3, comboMapStringJustify4
         };
-        for ( int i = 0; i < 4; ++i )
+        for ( int i = 0; i < 5; ++i )
         {
           lineBoxes[i].Text = ms.Lines[i].Text ?? "";
 
@@ -9975,6 +10076,7 @@ namespace RetroDevStudio.Documents
       if ( sender == editMapStringLine1 ) return 1;
       if ( sender == editMapStringLine2 ) return 2;
       if ( sender == editMapStringLine3 ) return 3;
+      if ( sender == editMapStringLine4 ) return 4;
       return -1;
     }
 
@@ -9986,6 +10088,7 @@ namespace RetroDevStudio.Documents
       if ( sender == comboMapStringTerminator1 ) return 1;
       if ( sender == comboMapStringTerminator2 ) return 2;
       if ( sender == comboMapStringTerminator3 ) return 3;
+      if ( sender == comboMapStringTerminator4 ) return 4;
       return -1;
     }
 
@@ -9997,6 +10100,7 @@ namespace RetroDevStudio.Documents
       if ( sender == comboMapStringLineControl1 ) return 1;
       if ( sender == comboMapStringLineControl2 ) return 2;
       if ( sender == comboMapStringLineControl3 ) return 3;
+      if ( sender == comboMapStringLineControl4 ) return 4;
       return -1;
     }
 
@@ -10008,6 +10112,7 @@ namespace RetroDevStudio.Documents
       if ( sender == comboMapStringJustify1 ) return 1;
       if ( sender == comboMapStringJustify2 ) return 2;
       if ( sender == comboMapStringJustify3 ) return 3;
+      if ( sender == comboMapStringJustify4 ) return 4;
       return -1;
     }
 
@@ -10167,7 +10272,7 @@ namespace RetroDevStudio.Documents
         ClearTextAreaAtEnd = src.ClearTextAreaAtEnd,
         StringID           = src.StringID
       };
-      for ( int i = 0; i < 4; ++i )
+      for ( int i = 0; i < 5; ++i )
       {
         copy.Lines[i] = new Formats.MapProject.MapStringLine
         {
@@ -10219,7 +10324,7 @@ namespace RetroDevStudio.Documents
       if ( picMapStringPreview == null ) return;
 
       const int CharsPerLine  = 40;
-      const int LineCount     = 4;
+      const int LineCount     = 5;
       const int CellW         = 8;
       const int CellH         = 8;
       // Padding around the rendered text. Reads as visual breathing room
@@ -10262,15 +10367,15 @@ namespace RetroDevStudio.Documents
 
         var lineBoxes = new System.Windows.Forms.TextBox[]
         {
-          editMapStringLine0, editMapStringLine1, editMapStringLine2, editMapStringLine3
+          editMapStringLine0, editMapStringLine1, editMapStringLine2, editMapStringLine3, editMapStringLine4
         };
         var ctrlCombos = new System.Windows.Forms.ComboBox[]
         {
-          comboMapStringLineControl0, comboMapStringLineControl1, comboMapStringLineControl2, comboMapStringLineControl3
+          comboMapStringLineControl0, comboMapStringLineControl1, comboMapStringLineControl2, comboMapStringLineControl3, comboMapStringLineControl4
         };
         var justifyCombos = new System.Windows.Forms.ComboBox[]
         {
-          comboMapStringJustify0, comboMapStringJustify1, comboMapStringJustify2, comboMapStringJustify3
+          comboMapStringJustify0, comboMapStringJustify1, comboMapStringJustify2, comboMapStringJustify3, comboMapStringJustify4
         };
 
         int currentColor = 1;   // Default to white until the first ControlCode is set.
@@ -11000,6 +11105,95 @@ namespace RetroDevStudio.Documents
       editMarkerGroupId.Value = candidate;
       m_CurrentMap.NextMarkerGroupId = candidate + 1;
       SetModified();
+    }
+
+
+
+    /// <summary>
+    /// Shared search for the lowest unused Value1 or Value2 (starting at 1,
+    /// cap 255) among markers of the currently selected marker type on the
+    /// current map. <paramref name="ValueSelector"/> picks which byte to
+    /// scan — Value1 or Value2 — so the two ? buttons share the same logic.
+    /// Returns -1 if no marker type is selected OR every slot 1..255 is
+    /// already taken; the caller decides how to handle that.
+    /// Spec: if there are no markers of the type yet, returns 1; otherwise
+    /// returns the first gap, or one past the highest used value.
+    /// The currently-selected marker (if any) is EXCLUDED from the in-use
+    /// set — otherwise clicking ? on a selected marker would treat that
+    /// marker's own value as taken, ping-pong between two values, and
+    /// never settle.
+    /// </summary>
+    private int FindNextUnusedMarkerValue( System.Func<Formats.MapProject.Marker, byte> ValueSelector )
+    {
+      if ( m_CurrentMap == null ) return -1;
+      if ( m_CurrentMap.SelectedMarkerType == -1 ) return -1;
+
+      int selectedType = m_CurrentMap.SelectedMarkerType;
+      var inUse = new System.Collections.Generic.HashSet<int>();
+      foreach ( var marker in m_CurrentMap.Markers )
+      {
+        if ( marker.Type != selectedType ) continue;
+        // Skip self so reassigning the currently-selected marker doesn't
+        // see its own current value as a conflict.
+        if ( marker == m_SelectedMarker ) continue;
+        inUse.Add( ValueSelector( marker ) );
+      }
+
+      // No other markers of this type on the map → first unused id is 1.
+      // Otherwise walk up from 1, skipping any taken slot — the first
+      // candidate the loop accepts is either a gap (1,2,4 → 3) or just
+      // past the highest used (1,2,3 → 4). Cap at 255 because Value1/2
+      // are bytes in the exported map binary.
+      int candidate = 1;
+      while ( ( candidate <= 255 ) && inUse.Contains( candidate ) )
+      {
+        ++candidate;
+      }
+      if ( candidate > 255 ) return -1;
+      return candidate;
+    }
+
+
+
+    private void btnFindNextMarkerValue1_Click( object sender, EventArgs e )
+    {
+      int candidate = FindNextUnusedMarkerValue( m => m.Value1 );
+      if ( candidate < 0 )
+      {
+        if ( ( m_CurrentMap != null ) && ( m_CurrentMap.SelectedMarkerType != -1 ) )
+        {
+          System.Windows.Forms.MessageBox.Show(
+            "All Value1 ids from 1 to 255 are already in use by markers of this type on the current map.",
+            "No free Value1",
+            System.Windows.Forms.MessageBoxButtons.OK,
+            System.Windows.Forms.MessageBoxIcon.Warning );
+        }
+        return;
+      }
+      // Assigning to the spinner fires editMarkerValue_ValueChanged, which
+      // either updates the selected marker (with undo) or just sets the
+      // placement default — same path the user would take typing manually.
+      editMarkerValue1.Value = candidate;
+    }
+
+
+
+    private void btnFindNextMarkerValue2_Click( object sender, EventArgs e )
+    {
+      int candidate = FindNextUnusedMarkerValue( m => m.Value2 );
+      if ( candidate < 0 )
+      {
+        if ( ( m_CurrentMap != null ) && ( m_CurrentMap.SelectedMarkerType != -1 ) )
+        {
+          System.Windows.Forms.MessageBox.Show(
+            "All Value2 ids from 1 to 255 are already in use by markers of this type on the current map.",
+            "No free Value2",
+            System.Windows.Forms.MessageBoxButtons.OK,
+            System.Windows.Forms.MessageBoxIcon.Warning );
+        }
+        return;
+      }
+      editMarkerValue2.Value = candidate;
     }
 
 

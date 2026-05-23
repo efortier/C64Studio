@@ -433,8 +433,9 @@ namespace RetroDevStudio.Controls
       int markerStride = buf.ByteAt( 0 );
       int tileCount = buf.ByteAt( 1 );
       int mapCount = buf.ByteAt( 2 );
-      int entityStride = buf.ByteAt( 0x2D );
-      int mapStringCount = buf.ByteAt( 0x34 );
+      int startMapIndex = buf.ByteAt( 0x03 );
+      int entityStride = buf.ByteAt( 0x2E );
+      int mapStringCount = buf.ByteAt( 0x35 );
 
       var sb = new StringBuilder();
       sb.AppendLine( "Exported " + buf.Length + " bytes to " + targetPath );
@@ -446,10 +447,11 @@ namespace RetroDevStudio.Controls
       sb.AppendLine( RetroDevStudio.Formats.MapProject.GenerateGameBinaryHeaderAsm() );
 
       // --- HEADER ---
-      sb.AppendLine( "--- HEADER (59 bytes) ---" );
+      sb.AppendLine( "--- HEADER (60 bytes) ---" );
       sb.AppendLine( Addr( baseAddr, 0x00 ) + ": " + HexByte( buf.ByteAt( 0 ) ).PadRight( 24 ) + "marker_stride = " + markerStride );
       sb.AppendLine( Addr( baseAddr, 0x01 ) + ": " + HexByte( buf.ByteAt( 1 ) ).PadRight( 24 ) + "tile_count = " + tileCount );
       sb.AppendLine( Addr( baseAddr, 0x02 ) + ": " + HexByte( buf.ByteAt( 2 ) ).PadRight( 24 ) + "map_count = " + mapCount );
+      sb.AppendLine( Addr( baseAddr, 0x03 ) + ": " + HexByte( buf.ByteAt( 0x03 ) ).PadRight( 24 ) + "start_map_index = " + startMapIndex );
 
       string[] hdrNames = {
         "offset_tiles_width",
@@ -477,7 +479,7 @@ namespace RetroDevStudio.Controls
 
       for ( int i = 0; i < 21; ++i )
       {
-        int hdrOff = 0x03 + i * 2;
+        int hdrOff = 0x04 + i * 2;
         ushort val = buf.UInt16At( hdrOff );
         string resolved = ( val != 0 ) ? " -> $" + val.ToString( "X4" ) : " -> (disabled)";
         sb.AppendLine( Addr( baseAddr, hdrOff ) + ": " + HexBytes( buf, hdrOff, 2 ).PadRight( 24 ) + hdrNames[i] + resolved );
@@ -487,7 +489,7 @@ namespace RetroDevStudio.Controls
       // offset pointers, mirroring the marker section layout. Always printed
       // so the .def dump reflects the full header even when a map has no
       // entity types defined yet.
-      sb.AppendLine( Addr( baseAddr, 0x2D ) + ": " + HexByte( buf.ByteAt( 0x2D ) ).PadRight( 24 ) + "entity_stride = " + entityStride );
+      sb.AppendLine( Addr( baseAddr, 0x2E ) + ": " + HexByte( buf.ByteAt( 0x2E ) ).PadRight( 24 ) + "entity_stride = " + entityStride );
       string[] entHdrNames = {
         "offset_map_entity_count",
         "offset_map_entities_lo",
@@ -495,13 +497,13 @@ namespace RetroDevStudio.Controls
       };
       for ( int i = 0; i < 3; ++i )
       {
-        int hdrOff = 0x2E + i * 2;
+        int hdrOff = 0x2F + i * 2;
         ushort val = buf.UInt16At( hdrOff );
         string resolved = ( val != 0 ) ? " -> $" + val.ToString( "X4" ) : " -> (disabled)";
         sb.AppendLine( Addr( baseAddr, hdrOff ) + ": " + HexBytes( buf, hdrOff, 2 ).PadRight( 24 ) + entHdrNames[i] + resolved );
       }
       // Map-strings section (v24+) — count byte + LO/HI/ID table pointers.
-      sb.AppendLine( Addr( baseAddr, 0x34 ) + ": " + HexByte( buf.ByteAt( 0x34 ) ).PadRight( 24 ) + "map_string_count = " + mapStringCount );
+      sb.AppendLine( Addr( baseAddr, 0x35 ) + ": " + HexByte( buf.ByteAt( 0x35 ) ).PadRight( 24 ) + "map_string_count = " + mapStringCount );
       string[] mapStringHdrNames = {
         "offset_map_string_lo",
         "offset_map_string_hi",
@@ -509,7 +511,7 @@ namespace RetroDevStudio.Controls
       };
       for ( int i = 0; i < 3; ++i )
       {
-        int hdrOff = 0x35 + i * 2;
+        int hdrOff = 0x36 + i * 2;
         ushort val = buf.UInt16At( hdrOff );
         string resolved = ( val != 0 ) ? " -> $" + val.ToString( "X4" ) : " -> (disabled)";
         sb.AppendLine( Addr( baseAddr, hdrOff ) + ": " + HexBytes( buf, hdrOff, 2 ).PadRight( 24 ) + mapStringHdrNames[i] + resolved );
@@ -523,23 +525,23 @@ namespace RetroDevStudio.Controls
       // --- TILE ARRAYS ---
       sb.AppendLine( "--- TILE ARRAYS ---" );
 
-      AppendArraySection( sb, buf, ba, 0x03, tileCount, "tiles_width", 1 );
-      AppendArraySection( sb, buf, ba, 0x05, tileCount, "tiles_height", 1 );
-      AppendArraySection( sb, buf, ba, 0x07, tileCount, "tiles_flags", 1 );
-      AppendArraySection( sb, buf, ba, 0x09, tileCount, "tile_char_offset_lo", 1 );
-      AppendArraySection( sb, buf, ba, 0x0B, tileCount, "tile_char_offset_hi", 1 );
-      AppendArraySection( sb, buf, ba, 0x0D, tileCount, "tile_color_offset_lo", 1 );
-      AppendArraySection( sb, buf, ba, 0x0F, tileCount, "tile_color_offset_hi", 1 );
+      AppendArraySection( sb, buf, ba, 0x04, tileCount, "tiles_width", 1 );
+      AppendArraySection( sb, buf, ba, 0x06, tileCount, "tiles_height", 1 );
+      AppendArraySection( sb, buf, ba, 0x08, tileCount, "tiles_flags", 1 );
+      AppendArraySection( sb, buf, ba, 0x0A, tileCount, "tile_char_offset_lo", 1 );
+      AppendArraySection( sb, buf, ba, 0x0C, tileCount, "tile_char_offset_hi", 1 );
+      AppendArraySection( sb, buf, ba, 0x0E, tileCount, "tile_color_offset_lo", 1 );
+      AppendArraySection( sb, buf, ba, 0x10, tileCount, "tile_color_offset_hi", 1 );
 
       // Tile char/color data (per tile, using offsets from offset tables)
       if ( tileCount > 0 )
       {
-        int charOffLoFilePos = buf.UInt16At( 0x09 ) - ba;
-        int charOffHiFilePos = buf.UInt16At( 0x0B ) - ba;
-        int colorOffLoFilePos = buf.UInt16At( 0x0D ) - ba;
-        int colorOffHiFilePos = buf.UInt16At( 0x0F ) - ba;
-        int widthFilePos = buf.UInt16At( 0x03 ) - ba;
-        int heightFilePos = buf.UInt16At( 0x05 ) - ba;
+        int charOffLoFilePos = buf.UInt16At( 0x0A ) - ba;
+        int charOffHiFilePos = buf.UInt16At( 0x0C ) - ba;
+        int colorOffLoFilePos = buf.UInt16At( 0x0E ) - ba;
+        int colorOffHiFilePos = buf.UInt16At( 0x10 ) - ba;
+        int widthFilePos = buf.UInt16At( 0x04 ) - ba;
+        int heightFilePos = buf.UInt16At( 0x06 ) - ba;
 
         sb.AppendLine();
         sb.AppendLine( "--- TILE CHAR DATA ---" );
@@ -569,52 +571,52 @@ namespace RetroDevStudio.Controls
 
       // --- MAP METADATA ARRAYS ---
       sb.AppendLine( "--- MAP METADATA ---" );
-      AppendArraySection( sb, buf, ba, 0x11, mapCount, "map_width", 1 );
-      AppendArraySection( sb, buf, ba, 0x13, mapCount, "map_height", 1 );
-      AppendArraySection( sb, buf, ba, 0x15, mapCount, "map_bg_color", 1 );
-      AppendArraySection( sb, buf, ba, 0x17, mapCount, "map_mc1_color", 1 );
-      AppendArraySection( sb, buf, ba, 0x19, mapCount, "map_mc2_color", 1 );
-      AppendArraySection( sb, buf, ba, 0x1B, mapCount, "map_marker_count", 1 );
+      AppendArraySection( sb, buf, ba, 0x12, mapCount, "map_width", 1 );
+      AppendArraySection( sb, buf, ba, 0x14, mapCount, "map_height", 1 );
+      AppendArraySection( sb, buf, ba, 0x16, mapCount, "map_bg_color", 1 );
+      AppendArraySection( sb, buf, ba, 0x18, mapCount, "map_mc1_color", 1 );
+      AppendArraySection( sb, buf, ba, 0x1A, mapCount, "map_mc2_color", 1 );
+      AppendArraySection( sb, buf, ba, 0x1C, mapCount, "map_marker_count", 1 );
       sb.AppendLine();
 
       // --- MAP DATA LOOKUP TABLES ---
       sb.AppendLine( "--- MAP DATA LOOKUP TABLES ---" );
-      AppendArraySection( sb, buf, ba, 0x1D, mapCount, "map_char_grid_lo", 1 );
-      AppendArraySection( sb, buf, ba, 0x1F, mapCount, "map_char_grid_hi", 1 );
-      AppendArraySection( sb, buf, ba, 0x21, mapCount, "map_color_grid_lo", 1 );
-      AppendArraySection( sb, buf, ba, 0x23, mapCount, "map_color_grid_hi", 1 );
-      AppendArraySection( sb, buf, ba, 0x25, mapCount, "map_passable_lo", 1 );
-      AppendArraySection( sb, buf, ba, 0x27, mapCount, "map_passable_hi", 1 );
-      AppendArraySection( sb, buf, ba, 0x29, mapCount, "map_markers_lo", 1 );
-      AppendArraySection( sb, buf, ba, 0x2B, mapCount, "map_markers_hi", 1 );
+      AppendArraySection( sb, buf, ba, 0x1E, mapCount, "map_char_grid_lo", 1 );
+      AppendArraySection( sb, buf, ba, 0x20, mapCount, "map_char_grid_hi", 1 );
+      AppendArraySection( sb, buf, ba, 0x22, mapCount, "map_color_grid_lo", 1 );
+      AppendArraySection( sb, buf, ba, 0x24, mapCount, "map_color_grid_hi", 1 );
+      AppendArraySection( sb, buf, ba, 0x26, mapCount, "map_passable_lo", 1 );
+      AppendArraySection( sb, buf, ba, 0x28, mapCount, "map_passable_hi", 1 );
+      AppendArraySection( sb, buf, ba, 0x2A, mapCount, "map_markers_lo", 1 );
+      AppendArraySection( sb, buf, ba, 0x2C, mapCount, "map_markers_hi", 1 );
       // Entity lookup tables — AppendArraySection quietly skips any whose
       // header pointer is zero, so these just drop out cleanly when a
       // project has no entities.
-      AppendArraySection( sb, buf, ba, 0x2E, mapCount, "map_entity_count", 1 );
-      AppendArraySection( sb, buf, ba, 0x30, mapCount, "map_entities_lo", 1 );
-      AppendArraySection( sb, buf, ba, 0x32, mapCount, "map_entities_hi", 1 );
+      AppendArraySection( sb, buf, ba, 0x2F, mapCount, "map_entity_count", 1 );
+      AppendArraySection( sb, buf, ba, 0x31, mapCount, "map_entities_lo", 1 );
+      AppendArraySection( sb, buf, ba, 0x33, mapCount, "map_entities_hi", 1 );
       sb.AppendLine();
 
       // --- PER-MAP VARIABLE DATA ---
       if ( mapCount > 0 )
       {
-        int charGridLoFilePos  = buf.UInt16At( 0x1D ) - ba;
-        int charGridHiFilePos  = buf.UInt16At( 0x1F ) - ba;
-        int colorGridLoFilePos = buf.UInt16At( 0x21 ) - ba;
-        int colorGridHiFilePos = buf.UInt16At( 0x23 ) - ba;
-        int passableLoFilePos  = buf.UInt16At( 0x25 ) - ba;
-        int passableHiFilePos  = buf.UInt16At( 0x27 ) - ba;
-        int markersLoFilePos   = buf.UInt16At( 0x29 ) - ba;
-        int markersHiFilePos   = buf.UInt16At( 0x2B ) - ba;
-        int mapWidthFilePos    = buf.UInt16At( 0x11 ) - ba;
-        int mapHeightFilePos   = buf.UInt16At( 0x13 ) - ba;
-        int markerCountFilePos = buf.UInt16At( 0x1B ) - ba;
+        int charGridLoFilePos  = buf.UInt16At( 0x1E ) - ba;
+        int charGridHiFilePos  = buf.UInt16At( 0x20 ) - ba;
+        int colorGridLoFilePos = buf.UInt16At( 0x22 ) - ba;
+        int colorGridHiFilePos = buf.UInt16At( 0x24 ) - ba;
+        int passableLoFilePos  = buf.UInt16At( 0x26 ) - ba;
+        int passableHiFilePos  = buf.UInt16At( 0x28 ) - ba;
+        int markersLoFilePos   = buf.UInt16At( 0x2A ) - ba;
+        int markersHiFilePos   = buf.UInt16At( 0x2C ) - ba;
+        int mapWidthFilePos    = buf.UInt16At( 0x12 ) - ba;
+        int mapHeightFilePos   = buf.UInt16At( 0x14 ) - ba;
+        int markerCountFilePos = buf.UInt16At( 0x1C ) - ba;
         // Entity lookup arrays — zero offset means the project has no
         // entities, in which case we skip every entity-related read below
         // via the per-map address check.
-        ushort entityCountAddr = buf.UInt16At( 0x2E );
-        ushort entitiesLoAddr  = buf.UInt16At( 0x30 );
-        ushort entitiesHiAddr  = buf.UInt16At( 0x32 );
+        ushort entityCountAddr = buf.UInt16At( 0x2F );
+        ushort entitiesLoAddr  = buf.UInt16At( 0x31 );
+        ushort entitiesHiAddr  = buf.UInt16At( 0x33 );
         int entityCountFilePos = ( entityCountAddr != 0 ) ? entityCountAddr - ba : -1;
         int entitiesLoFilePos  = ( entitiesLoAddr  != 0 ) ? entitiesLoAddr  - ba : -1;
         int entitiesHiFilePos  = ( entitiesHiAddr  != 0 ) ? entitiesHiAddr  - ba : -1;
@@ -732,9 +734,9 @@ namespace RetroDevStudio.Controls
       // --- MAP STRINGS (v24+) — pointer tables + per-string byte streams. ---
       if ( mapStringCount > 0 )
       {
-        ushort mapStringLoAddr = buf.UInt16At( 0x35 );
-        ushort mapStringHiAddr = buf.UInt16At( 0x37 );
-        ushort mapStringIdAddr = buf.UInt16At( 0x39 );
+        ushort mapStringLoAddr = buf.UInt16At( 0x36 );
+        ushort mapStringHiAddr = buf.UInt16At( 0x38 );
+        ushort mapStringIdAddr = buf.UInt16At( 0x3A );
         if ( mapStringLoAddr != 0 && mapStringHiAddr != 0 )
         {
           int loFilePos = mapStringLoAddr - ba;

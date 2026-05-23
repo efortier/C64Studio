@@ -72,7 +72,7 @@ namespace RetroDevStudio.Undo
         ClearTextAreaAtEnd = Source.ClearTextAreaAtEnd,
         StringID           = Source.StringID
       };
-      for ( int i = 0; i < 4; ++i )
+      for ( int i = 0; i < 5; ++i )
       {
         var src = Source.Lines[i] ?? new MapProject.MapStringLine();
         copy.Lines[i] = new MapProject.MapStringLine
