@@ -119,7 +119,14 @@ namespace RetroDevStudio.Documents
     // the cursor — but only when the cell actually CHANGES (so we don't
     // burn a redraw per pixel). One undo entry is created at drag-start,
     // covering the entire drag stroke.
-    private bool                        m_DraggingSelectedMarker = false;
+    // Marker mouse-drag state. m_PressedMarker is armed on a left mouse-down
+    // that lands on a marker; if the cursor then leaves m_PressedMarkerCell the
+    // drag begins — m_MarkerDrag becomes Move, or Resize when Shift is held.
+    // A release with m_MarkerDrag still None is a plain click -> select.
+    private enum MarkerDragKind { None, Move, Resize }
+    private MarkerDragKind              m_MarkerDrag = MarkerDragKind.None;
+    private Formats.MapProject.Marker   m_PressedMarker = null;
+    private System.Drawing.Point        m_PressedMarkerCell = new System.Drawing.Point( -1, -1 );
     private bool                        m_DraggingSelectedEntity = false;
 
     // Bucket-toggle state for a passable-tool drag stroke. The first
@@ -1613,6 +1620,27 @@ namespace RetroDevStudio.Documents
 
 
 
+    private void pictureEditor_MouseUp( object sender, MouseEventArgs e )
+    {
+      if ( e.Button != MouseButtons.Left )
+      {
+        return;
+      }
+      // A left press + release with no drag in between is a click — select
+      // the marker that was pressed (m_MarkerDrag is still None). A drag has
+      // already moved or resized it, so there is nothing left to do.
+      if ( ( m_PressedMarker != null )
+      &&   ( m_MarkerDrag == MarkerDragKind.None ) )
+      {
+        SelectMarker( m_PressedMarker );
+      }
+      m_PressedMarker = null;
+      m_PressedMarkerCell = new System.Drawing.Point( -1, -1 );
+      m_MarkerDrag = MarkerDragKind.None;
+    }
+
+
+
     private void CalcRect( System.Drawing.Point In1, System.Drawing.Point In2, out System.Drawing.Point P1, out System.Drawing.Point P2 )
     {
       P1 = new System.Drawing.Point();
@@ -1906,7 +1934,8 @@ namespace RetroDevStudio.Documents
         // Mouse-up ends any in-flight marker/entity drag. Cleared
         // unconditionally — cheap, and avoids a stuck-drag if the
         // selection got nulled out from underneath us mid-drag.
-        m_DraggingSelectedMarker = false;
+        m_PressedMarker = null;
+        m_MarkerDrag = MarkerDragKind.None;
         m_DraggingSelectedEntity = false;
         // End any in-flight blocked-override drag stroke. The captured
         // write value isn't reset — it's only re-read on the next press.
@@ -2082,22 +2111,74 @@ namespace RetroDevStudio.Documents
           }
           return;
         }
-        if ( m_DraggingSelectedMarker )
+        if ( m_PressedMarker != null )
         {
-          int newX = trueX + offsetX;
-          int newY = trueY + offsetY;
-          if ( ( m_SelectedMarker != null )
-          &&   ( newX >= 0 ) && ( newY >= 0 )
-          &&   ( newX <= 255 ) && ( newY <= 255 )
-          &&   ( ( m_SelectedMarker.X != newX ) || ( m_SelectedMarker.Y != newY ) )
-          &&   ( !MarkerFootprintOverlaps( newX, newY, m_SelectedMarker.Width, m_SelectedMarker.Height, m_SelectedMarker ) ) )
+          int cursorX = trueX + offsetX;
+          int cursorY = trueY + offsetY;
+
+          // The drag begins the moment the cursor leaves the cell the marker
+          // was pressed in. Shift held at that point makes it a resize;
+          // otherwise it is a move. The kind is locked for the whole drag.
+          if ( ( m_MarkerDrag == MarkerDragKind.None )
+          &&   ( ( cursorX != m_PressedMarkerCell.X ) || ( cursorY != m_PressedMarkerCell.Y ) ) )
           {
-            m_SelectedMarker.X = newX;
-            m_SelectedMarker.Y = newY;
-            SetModified();
-            RedrawMap();
-            pictureEditor.Invalidate();
-            UpdateMarkerOutOfBoundsLabel();
+            DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
+            SelectMarker( m_PressedMarker );
+            m_MarkerDrag = ( ( ModifierKeys & Keys.Shift ) == Keys.Shift )
+                           ? MarkerDragKind.Resize
+                           : MarkerDragKind.Move;
+          }
+
+          if ( m_MarkerDrag == MarkerDragKind.Move )
+          {
+            // A marker may be moved anywhere in the 0..255 coordinate range,
+            // including past the map's width/height — that is how the user
+            // positions non-interactive markers outside the map. (Resize is
+            // still capped so a marker's footprint stays on the map.)
+            int newX = Math.Max( 0, Math.Min( cursorX, 255 ) );
+            int newY = Math.Max( 0, Math.Min( cursorY, 255 ) );
+            if ( ( ( m_PressedMarker.X != newX ) || ( m_PressedMarker.Y != newY ) )
+            &&   ( !MarkerFootprintOverlaps( newX, newY, m_PressedMarker.Width, m_PressedMarker.Height, m_PressedMarker ) ) )
+            {
+              m_PressedMarker.X = newX;
+              m_PressedMarker.Y = newY;
+              SetModified();
+              RedrawMap();
+              pictureEditor.Invalidate();
+              UpdateMarkerOutOfBoundsLabel();
+            }
+          }
+          else if ( m_MarkerDrag == MarkerDragKind.Resize )
+          {
+            // Stretch the footprint so its bottom-right corner reaches the
+            // cursor cell; the top-left origin stays put. A cursor left of /
+            // above the origin would mean a zero/negative size — ignore it.
+            if ( ( cursorX >= m_PressedMarker.X )
+            &&   ( cursorY >= m_PressedMarker.Y ) )
+            {
+              int newW = cursorX - m_PressedMarker.X + 1;
+              int newH = cursorY - m_PressedMarker.Y + 1;
+              // Footprint must stay on the map.
+              if ( m_PressedMarker.X + newW > m_CurrentMap.Tiles.Width )
+              {
+                newW = m_CurrentMap.Tiles.Width - m_PressedMarker.X;
+              }
+              if ( m_PressedMarker.Y + newH > m_CurrentMap.Tiles.Height )
+              {
+                newH = m_CurrentMap.Tiles.Height - m_PressedMarker.Y;
+              }
+              if ( newW < 1 ) newW = 1;
+              if ( newH < 1 ) newH = 1;
+              if ( ( ( m_PressedMarker.Width != newW ) || ( m_PressedMarker.Height != newH ) )
+              &&   ( !MarkerFootprintOverlaps( m_PressedMarker.X, m_PressedMarker.Y, newW, newH, m_PressedMarker ) ) )
+              {
+                m_PressedMarker.Width = newW;
+                m_PressedMarker.Height = newH;
+                SetModified();
+                RedrawMap();
+                pictureEditor.Invalidate();
+              }
+            }
           }
           return;
         }
@@ -2515,25 +2596,29 @@ namespace RetroDevStudio.Documents
                int placeX = trueX + offsetX;
                int placeY = trueY + offsetY;
 
-               // Drag-to-move trigger: if the press lands on the currently
-               // selected marker's cell, grab it instead of placing a new
-               // one. Subsequent mouse-moves drive the position update via
-               // the m_DraggingSelectedMarker continuation block above.
-               // The undo entry is taken once at drag-start so the entire
-               // move (however many cells crossed) collapses to a single
-               // Ctrl+Z. Returns out of this case so the placement code
-               // below doesn't also run.
-               if ( ( m_SelectedMarker != null )
-               &&   ( MarkerContainsPoint( m_SelectedMarker, placeX, placeY ) ) )
+               // Left-press on an existing marker arms it: a plain release
+               // selects it (pictureEditor_MouseUp), a drag moves it, and a
+               // Shift+drag resizes it (see the marker drag block above).
+               // Nothing is selected or moved on the press itself.
+               var pressed = m_CurrentMap.Markers.FirstOrDefault( m => MarkerContainsPoint( m, placeX, placeY ) );
+               if ( pressed != null )
                {
-                 DocumentInfo.UndoManager.AddUndoTask(
-                   new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
-                 m_DraggingSelectedMarker = true;
+                 m_PressedMarker = pressed;
+                 m_PressedMarkerCell = new System.Drawing.Point( placeX, placeY );
                  break;
                }
 
-               // Markers can live anywhere addressable by an u8 — including
-               // outside the map, for global/non-level markers.
+               // Empty cell. A plain click here just clears the marker
+               // selection — markers are only ADDED on a Shift+click, so a
+               // stray click can no longer drop markers by accident.
+               if ( ( ModifierKeys & Keys.Shift ) != Keys.Shift )
+               {
+                 SelectMarker( null );
+                 break;
+               }
+
+               // Shift + empty cell — place a new 1x1 marker. Markers can
+               // live anywhere addressable by an u8, including off the map.
                if ( ( placeX < 0 )
                ||   ( placeY < 0 )
                ||   ( placeX > 255 )
@@ -2547,20 +2632,8 @@ namespace RetroDevStudio.Documents
                  var type = m_MapProject.MarkerTypes.FirstOrDefault( t => t.ID == m_CurrentMap.SelectedMarkerType );
                  if ( type != null )
                  {
-                   // One marker per cell. If the clicked cell already lies
-                   // inside another marker's footprint, leave it alone —
-                   // markers never overlap. Use right-click / delete to
-                   // clear, then place anew.
-                   var existingMarker = m_CurrentMap.Markers.FirstOrDefault( m => MarkerContainsPoint( m, placeX, placeY ) );
-                   if ( existingMarker != null )
-                   {
-                     break;
-                   }
-
                    // Snapshot the marker list before adding so Ctrl+Z removes
-                   // the just-placed marker (mirrors the entity block below).
-                   // Taken after the occupied-cell early-out above so a click
-                   // on a populated cell doesn't push a no-op undo step.
+                   // the just-placed marker.
                    DocumentInfo.UndoManager.AddUndoTask(
                      new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
 
@@ -2848,27 +2921,9 @@ namespace RetroDevStudio.Documents
         }
         else if ( m_ToolMode == ToolMode.MARKER )
         {
-           int clickX = trueX + offsetX;
-           int clickY = trueY + offsetY;
-           if ( ( clickX < 0 )
-           ||   ( clickY < 0 )
-           ||   ( clickX > 255 )
-           ||   ( clickY > 255 ) )
-           {
-             // outside the 0..255 marker coordinate range — do nothing
-           }
-           else
-           {
-             var markerHit = m_CurrentMap.Markers.FirstOrDefault( m => MarkerContainsPoint( m, clickX, clickY ) );
-             if ( markerHit != null )
-             {
-               SelectMarker( markerHit );
-             }
-             else
-             {
-               SelectMarker( null );
-             }
-           }
+           // Right-click does nothing in MARKER mode — marker selection is
+           // left-click only. The branch is kept (empty) so a right-click
+           // here doesn't fall through to the tile-eyedrop action below.
         }
         else if ( string.IsNullOrEmpty( m_MapProject.RightClickAction ) )
         {
@@ -8685,6 +8740,35 @@ namespace RetroDevStudio.Documents
 
 
 
+    private void mapControlsToolStripMenuItem_Click( object sender, EventArgs e )
+    {
+      string controls =
+          "MAP EDITOR CONTROLS\r\n"
+        + "\r\n"
+        + "Feature     Action\r\n"
+        + "\r\n"
+        + "MARKERS\r\n"
+        + "  Add        Shift + click an empty cell\r\n"
+        + "  Select     Click the marker\r\n"
+        + "  Move       Click and drag the marker (on or off the map)\r\n"
+        + "  Resize     Shift + drag the marker, or the H+/H-/V+/V- buttons\r\n"
+        + "  Delete     Select the marker, then press Delete\r\n"
+        + "  Deselect   Click an empty cell, or press Escape\r\n"
+        + "\r\n"
+        + "ENTITIES\r\n"
+        + "  Select     Click the entity\r\n"
+        + "  Move       Click and drag the entity\r\n"
+        + "  Delete     Select the entity, then press Delete\r\n"
+        + "\r\n"
+        + "MAP\r\n"
+        + "  Export     Alt+X, or Map Project menu -> Export Map";
+      System.Windows.Forms.MessageBox.Show( this, controls, "Map controls",
+        System.Windows.Forms.MessageBoxButtons.OK,
+        System.Windows.Forms.MessageBoxIcon.Information );
+    }
+
+
+
     private void ApplyExportSettingsToUI()
     {
       if ( m_MapProject == null )
@@ -8906,6 +8990,13 @@ namespace RetroDevStudio.Documents
     {
       if ( keyData == Keys.Escape )
       {
+        // A selected marker or entity is dropped on Escape regardless of
+        // focus — it is the most common thing the user wants Escape to undo.
+        if ( ( m_SelectedMarker != null ) || ( m_SelectedEntity != null ) )
+        {
+          ClearMarkerEntitySelection();
+          return true;
+        }
         if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.ESCAPE ) )
         {
           // ESC peels back one layer of editing state at a time, in order

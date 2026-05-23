@@ -122,6 +122,8 @@
             this.viewToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.keepMapCharacterAspectRatioToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.mapControlsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.createImageOfMapToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.clearAllMarkersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -414,6 +416,7 @@
             this.pictureEditor.TabStop = false;
             this.pictureEditor.Paint += new System.Windows.Forms.PaintEventHandler(this.pictureEditor_Paint);
             this.pictureEditor.MouseDown += new System.Windows.Forms.MouseEventHandler(this.pictureEditor_MouseDown);
+            this.pictureEditor.MouseUp += new System.Windows.Forms.MouseEventHandler(this.pictureEditor_MouseUp);
             this.pictureEditor.MouseMove += new System.Windows.Forms.MouseEventHandler(this.pictureEditor_MouseMove);
             // 
             // tabMarkers
@@ -1391,7 +1394,8 @@
             this.menuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.fileToolStripMenuItem,
             this.viewToolStripMenuItem,
-            this.toolsToolStripMenuItem});
+            this.toolsToolStripMenuItem,
+            this.helpToolStripMenuItem});
             this.menuStrip1.Location = new System.Drawing.Point(0, 0);
             this.menuStrip1.Name = "menuStrip1";
             this.menuStrip1.Size = new System.Drawing.Size(1670, 24);
@@ -1467,6 +1471,21 @@
             this.toolsToolStripMenuItem.Name = "toolsToolStripMenuItem";
             this.toolsToolStripMenuItem.Size = new System.Drawing.Size(46, 20);
             this.toolsToolStripMenuItem.Text = "Tools";
+            //
+            // helpToolStripMenuItem
+            //
+            this.helpToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.mapControlsToolStripMenuItem});
+            this.helpToolStripMenuItem.Name = "helpToolStripMenuItem";
+            this.helpToolStripMenuItem.Size = new System.Drawing.Size(44, 20);
+            this.helpToolStripMenuItem.Text = "Help";
+            //
+            // mapControlsToolStripMenuItem
+            //
+            this.mapControlsToolStripMenuItem.Name = "mapControlsToolStripMenuItem";
+            this.mapControlsToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.mapControlsToolStripMenuItem.Text = "Map controls...";
+            this.mapControlsToolStripMenuItem.Click += new System.EventHandler(this.mapControlsToolStripMenuItem_Click);
             // 
             // createImageOfMapToolStripMenuItem
             // 
@@ -4370,6 +4389,8 @@
         private System.Windows.Forms.Button btnDesignerBackground;
         private System.Windows.Forms.Label labelDesignerBackground;
         private System.Windows.Forms.ToolStripMenuItem toolsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem helpToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem mapControlsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem clearAllMarkersToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem clearMarkerTypeMenuItem;
         private System.Windows.Forms.ToolStripMenuItem createImageOfMapToolStripMenuItem;
