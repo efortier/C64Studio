@@ -73,6 +73,9 @@ namespace RetroDevStudio.Undo
         } );
       }
       MapEditor.UpdateArea( 0, 0, AffectedMap.Tiles.Width, AffectedMap.Tiles.Height );
+      // Restoring a different number of entities (or different types) changes
+      // what the toolbar's per-type count should show.
+      MapEditor.UpdateEntityCountLabel();
     }
   }
 }

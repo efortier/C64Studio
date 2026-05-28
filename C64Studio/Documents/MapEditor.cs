@@ -56,6 +56,16 @@ namespace RetroDevStudio.Documents
     private const int                   MapZoomMinPercent = 50;
     private const int                   MapZoomMaxPercent = 400;
     private const int                   MapZoomStepPercent = 25;
+    /// <summary>
+    /// Extra characters the user can scroll past the map's right and bottom
+    /// edges, regardless of zoom. Lets them park non-interactive markers in
+    /// empty space outside the map without having to fit them inside the
+    /// map's rendered area. At 100% zoom a small map naturally shows blank
+    /// space alongside it inside the 40×25 view; at higher zoom levels the
+    /// map fills the view and that natural space disappears. This overhang
+    /// makes the off-map work area scroll-accessible at every zoom level.
+    /// </summary>
+    private const int                   MapScrollOverhangChars = 32;
     // Finer step for the mouse wheel — the +/- buttons jump in 25% blocks
     // which is great for quick fit-to-view, but the wheel feels smoother with
     // a smaller increment so the user can fine-tune the zoom level.
@@ -2732,6 +2742,7 @@ namespace RetroDevStudio.Documents
                    RedrawMap();
                    pictureEditor.Invalidate();
                    Modified = true;
+                   UpdateEntityCountLabel();
                  }
                }
              }
@@ -5095,6 +5106,7 @@ namespace RetroDevStudio.Documents
         shiftedEntities.Add( entity );
       }
       m_CurrentMap.Entities = shiftedEntities;
+      UpdateEntityCountLabel();
 
       SetModified();
       RedrawMap();
@@ -5496,7 +5508,13 @@ namespace RetroDevStudio.Documents
       int viewCharWidth = ViewCharWidth;
       int viewCharHeight = ViewCharHeight;
 
-      if ( m_CurrentMap.TileSpacingX * m_CurrentMap.Tiles.Width <= viewCharWidth )
+      // Effective scrollable extent = map size + a fixed character overhang.
+      // The overhang gives the user scrollable empty space past the map's
+      // right/bottom edge for parking off-map markers, at every zoom level.
+      int scrollableWidthChars  = m_CurrentMap.TileSpacingX * m_CurrentMap.Tiles.Width  + MapScrollOverhangChars;
+      int scrollableHeightChars = m_CurrentMap.TileSpacingY * m_CurrentMap.Tiles.Height + MapScrollOverhangChars;
+
+      if ( scrollableWidthChars <= viewCharWidth )
       {
         mapHScroll.Maximum = 0;
         mapHScroll.Enabled = false;
@@ -5504,7 +5522,7 @@ namespace RetroDevStudio.Documents
       }
       else
       {
-        mapHScroll.Maximum = ( m_CurrentMap.TileSpacingX * m_CurrentMap.Tiles.Width - viewCharWidth ) / m_CurrentMap.TileSpacingX + 1;
+        mapHScroll.Maximum = ( scrollableWidthChars - viewCharWidth ) / m_CurrentMap.TileSpacingX + 1;
         mapHScroll.Enabled = true;
       }
       if ( m_CurEditorOffsetX > mapHScroll.Maximum )
@@ -5513,7 +5531,7 @@ namespace RetroDevStudio.Documents
       }
 
       mapVScroll.Minimum = 0;
-      if ( m_CurrentMap.TileSpacingY * m_CurrentMap.Tiles.Height <= viewCharHeight )
+      if ( scrollableHeightChars <= viewCharHeight )
       {
         mapVScroll.Maximum = 0;
         mapVScroll.Enabled = false;
@@ -5521,7 +5539,7 @@ namespace RetroDevStudio.Documents
       }
       else
       {
-        mapVScroll.Maximum = ( m_CurrentMap.TileSpacingY * m_CurrentMap.Tiles.Height - viewCharHeight ) / m_CurrentMap.TileSpacingY + 1;
+        mapVScroll.Maximum = ( scrollableHeightChars - viewCharHeight ) / m_CurrentMap.TileSpacingY + 1;
         mapVScroll.Enabled = true;
       }
       if ( m_CurEditorOffsetY > mapVScroll.Maximum )
@@ -6186,6 +6204,7 @@ namespace RetroDevStudio.Documents
             new Undo.UndoMapEntitiesChange( this, m_CurrentMap ) );
           m_CurrentMap.Entities.RemoveAll(
             en => ( en.X >= w ) || ( en.Y >= h ) );
+          UpdateEntityCountLabel();
         }
       }
 
@@ -7009,6 +7028,7 @@ namespace RetroDevStudio.Documents
       RedrawMap();
       pictureEditor.Invalidate();
       UpdateMarkerOutOfBoundsLabel();
+      UpdateEntityCountLabel();
       SetModified();
     }
 
@@ -11067,6 +11087,36 @@ namespace RetroDevStudio.Documents
 
 
 
+    /// <summary>
+    /// Refresh the entity-count label on the entities toolbar. Shows the
+    /// number of entities on the current map that match the currently
+    /// selected entity type. When no type is selected (or no map is open),
+    /// shows 0. Called from every place that can mutate either the current
+    /// map's entity list (placement / delete / shift / undo / clear) or the
+    /// selected type (combo change, map change, project load).
+    /// </summary>
+    public void UpdateEntityCountLabel()
+    {
+      if ( labelEntityCount == null ) return;
+
+      int count = 0;
+      if ( ( m_CurrentMap != null )
+      &&   ( m_CurrentMap.SelectedEntityType != -1 ) )
+      {
+        int selectedType = m_CurrentMap.SelectedEntityType;
+        foreach ( var entity in m_CurrentMap.Entities )
+        {
+          if ( entity.Type == selectedType )
+          {
+            ++count;
+          }
+        }
+      }
+      labelEntityCount.Text = "Count: " + count;
+    }
+
+
+
     private void btnFindNextMarkerGroup_Click( object sender, EventArgs e )
     {
       if ( m_CurrentMap == null ) return;
@@ -11218,6 +11268,7 @@ namespace RetroDevStudio.Documents
       SetModified();
       RedrawMap();
       pictureEditor.Invalidate();
+      UpdateEntityCountLabel();
     }
 
     private void btnClearMarkers_Click( object sender, EventArgs e )
@@ -12392,6 +12443,7 @@ namespace RetroDevStudio.Documents
       RefreshEntityTypes();
       pictureEditor.Invalidate();
       RedrawMap();
+      UpdateEntityCountLabel();
       SetModified();
     }
 
@@ -12485,6 +12537,12 @@ namespace RetroDevStudio.Documents
         RedrawMap();
         pictureEditor.Invalidate();
       }
+
+      // Type changed (or selection cleared) → entity-count label needs to
+      // reflect the new type's count. Also fires when the selection didn't
+      // really change (same type re-picked) — UpdateEntityCountLabel is
+      // cheap and idempotent, so the redundant call is harmless.
+      UpdateEntityCountLabel();
     }
 
     private void checkShowEntities_CheckedChanged( object sender, EventArgs e )

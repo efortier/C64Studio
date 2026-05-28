@@ -239,6 +239,7 @@
             this.checkEntityDefaultTriggered = new Krypton.Toolkit.KryptonCheckBox();
             this.btnDeleteSelectedEntity = new Krypton.Toolkit.KryptonButton();
             this.checkShowEntities = new Krypton.Toolkit.KryptonCheckBox();
+            this.labelEntityCount = new System.Windows.Forms.Label();
             this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
             this.btnToolEdit = new Krypton.Toolkit.KryptonCheckButton();
             this.btnToolRect = new Krypton.Toolkit.KryptonCheckButton();
@@ -2780,6 +2781,7 @@
             this.flowLayoutPanel2.Controls.Add(this.checkEntityDefaultTriggered);
             this.flowLayoutPanel2.Controls.Add(this.btnDeleteSelectedEntity);
             this.flowLayoutPanel2.Controls.Add(this.checkShowEntities);
+            this.flowLayoutPanel2.Controls.Add(this.labelEntityCount);
             this.flowLayoutPanel2.Location = new System.Drawing.Point(177, 42);
             this.flowLayoutPanel2.Name = "flowLayoutPanel2";
             this.flowLayoutPanel2.Size = new System.Drawing.Size(1116, 31);
@@ -2941,9 +2943,20 @@
             this.checkShowEntities.TabIndex = 47;
             this.checkShowEntities.Values.Text = "Show Entities";
             this.checkShowEntities.CheckedChanged += new System.EventHandler(this.checkShowEntities_CheckedChanged);
-            // 
+            //
+            // labelEntityCount
+            //
+            this.labelEntityCount.AutoSize = true;
+            this.labelEntityCount.Location = new System.Drawing.Point(764, 7);
+            this.labelEntityCount.Margin = new System.Windows.Forms.Padding(12, 7, 0, 0);
+            this.labelEntityCount.Name = "labelEntityCount";
+            this.labelEntityCount.Size = new System.Drawing.Size(57, 13);
+            this.labelEntityCount.TabIndex = 48;
+            this.labelEntityCount.Text = "Count: 0";
+            this.toolTip1.SetToolTip(this.labelEntityCount, "Number of entities of the currently selected type on the current map.");
+            //
             // flowLayoutPanel1
-            // 
+            //
             this.flowLayoutPanel1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.flowLayoutPanel1.Controls.Add(this.btnToolEdit);
@@ -4335,6 +4348,7 @@
         private Krypton.Toolkit.KryptonButton btnMarkerHeightDec;
         private System.Windows.Forms.Label labelMarkersOutOfBounds;
         private Krypton.Toolkit.KryptonCheckBox checkShowEntities;
+        private System.Windows.Forms.Label labelEntityCount;
     private DecentForms.Button btnSetNextTileChar;
     private DecentForms.Button btnTileClone;
         private Krypton.Navigator.KryptonPage tabCharset;
