@@ -245,11 +245,13 @@
             this.btnToolFill = new Krypton.Toolkit.KryptonCheckButton();
             this.btnToolSelect = new Krypton.Toolkit.KryptonCheckButton();
             this.btnToolPassable = new Krypton.Toolkit.KryptonCheckButton();
+            this.btnToolColorReplace = new Krypton.Toolkit.KryptonCheckButton();
             this.btnBrightnessLinearUp = new Krypton.Toolkit.KryptonButton();
             this.btnBrightnessLinearDown = new Krypton.Toolkit.KryptonButton();
             this.btnBrightnessHueUp = new Krypton.Toolkit.KryptonButton();
             this.btnBrightnessHueDown = new Krypton.Toolkit.KryptonButton();
             this.comboTilePlacementColor = new System.Windows.Forms.ComboBox();
+            this.checkLockColor = new Krypton.Toolkit.KryptonCheckBox();
             this.checkAutoTiling = new Krypton.Toolkit.KryptonCheckBox();
             this.btnZoomOut = new Krypton.Toolkit.KryptonButton();
             this.btnZoomIn = new Krypton.Toolkit.KryptonButton();
@@ -2947,11 +2949,13 @@
             this.flowLayoutPanel1.Controls.Add(this.btnToolFill);
             this.flowLayoutPanel1.Controls.Add(this.btnToolSelect);
             this.flowLayoutPanel1.Controls.Add(this.btnToolPassable);
+            this.flowLayoutPanel1.Controls.Add(this.btnToolColorReplace);
             this.flowLayoutPanel1.Controls.Add(this.btnBrightnessLinearUp);
             this.flowLayoutPanel1.Controls.Add(this.btnBrightnessLinearDown);
             this.flowLayoutPanel1.Controls.Add(this.btnBrightnessHueUp);
             this.flowLayoutPanel1.Controls.Add(this.btnBrightnessHueDown);
             this.flowLayoutPanel1.Controls.Add(this.comboTilePlacementColor);
+            this.flowLayoutPanel1.Controls.Add(this.checkLockColor);
             this.flowLayoutPanel1.Controls.Add(this.checkAutoTiling);
             this.flowLayoutPanel1.Controls.Add(this.btnZoomOut);
             this.flowLayoutPanel1.Controls.Add(this.btnZoomIn);
@@ -3031,7 +3035,19 @@
             this.btnToolPassable.Values.DropDownArrowColor = System.Drawing.Color.Empty;
             this.btnToolPassable.Values.Text = "P";
             this.btnToolPassable.CheckedChanged += new System.EventHandler(this.btnToolPassable_CheckedChanged);
-            // 
+            //
+            // btnToolColorReplace
+            //
+            this.btnToolColorReplace.Location = new System.Drawing.Point(183, 3);
+            this.btnToolColorReplace.Name = "btnToolColorReplace";
+            this.btnToolColorReplace.Size = new System.Drawing.Size(24, 24);
+            this.btnToolColorReplace.TabIndex = 10;
+            this.toolTip1.SetToolTip(this.btnToolColorReplace, "Color replace: flood-fills the connected tiles (like the fill tool) with the colo" +
+        "r selected in the dropdown. \"Default\" changes nothing.");
+            this.btnToolColorReplace.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnToolColorReplace.Values.Text = "C";
+            this.btnToolColorReplace.CheckedChanged += new System.EventHandler(this.btnToolColorReplace_CheckedChanged);
+            //
             // btnBrightnessLinearUp
             // 
             this.btnBrightnessLinearUp.Location = new System.Drawing.Point(183, 3);
@@ -3093,9 +3109,19 @@
             this.toolTip1.SetToolTip(this.comboTilePlacementColor, resources.GetString("comboTilePlacementColor.ToolTip"));
             this.comboTilePlacementColor.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.comboTilePlacementColor_DrawItem);
             this.comboTilePlacementColor.SelectedIndexChanged += new System.EventHandler(this.comboTilePlacementColor_SelectedIndexChanged);
-            // 
+            //
+            // checkLockColor
+            //
+            this.checkLockColor.Location = new System.Drawing.Point(389, 3);
+            this.checkLockColor.Name = "checkLockColor";
+            this.checkLockColor.Size = new System.Drawing.Size(82, 27);
+            this.checkLockColor.TabIndex = 15;
+            this.toolTip1.SetToolTip(this.checkLockColor, "Lock the tile-placement color so picking a different tile won\'t reset it back to Default.");
+            this.checkLockColor.Values.Text = "Lock color";
+            this.checkLockColor.CheckedChanged += new System.EventHandler(this.checkLockColor_CheckedChanged);
+            //
             // checkAutoTiling
-            // 
+            //
             this.checkAutoTiling.Location = new System.Drawing.Point(389, 3);
             this.checkAutoTiling.Name = "checkAutoTiling";
             this.checkAutoTiling.Size = new System.Drawing.Size(82, 27);
@@ -4276,6 +4302,7 @@
     private DecentForms.Button btnMoveTileUp;
     private System.Windows.Forms.Label labelEditInfo;
     private Krypton.Toolkit.KryptonCheckButton btnToolSelect;
+    private Krypton.Toolkit.KryptonCheckButton btnToolColorReplace;
     private Krypton.Toolkit.KryptonCheckButton btnToolFill;
     private Krypton.Toolkit.KryptonCheckButton btnToolQuad;
     private Krypton.Toolkit.KryptonCheckButton btnToolRect;
@@ -4285,6 +4312,7 @@
     private DecentForms.Button btnCopyTileCharToNextIncreased;
         private System.Windows.Forms.ToolTip toolTip1;
     private Krypton.Toolkit.KryptonCheckBox checkAutoTiling;
+    private Krypton.Toolkit.KryptonCheckBox checkLockColor;
         private Krypton.Toolkit.KryptonCheckButton btnToolMarker;
         private Krypton.Toolkit.KryptonCheckButton btnToolPassable;
         private Krypton.Toolkit.KryptonButton btnBrightnessLinearUp;

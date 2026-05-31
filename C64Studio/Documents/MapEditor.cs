@@ -26,6 +26,11 @@ namespace RetroDevStudio.Documents
       RECTANGLE,
       FILLED_RECTANGLE,
       FILL,
+      // Flood-fill the COLOR only: clicking a cell recolours every
+      // 4-connected cell of the same tile index with the toolbar's
+      // selected placement color (comboTilePlacementColor). The tile
+      // index is left untouched; "Default" in the dropdown is a no-op.
+      COLOR_REPLACE,
       SELECT,
       MARKER,
       ENTITY,
@@ -1853,6 +1858,143 @@ namespace RetroDevStudio.Documents
 
 
 
+    /// <summary>
+    /// Color-replace flood fill. Starting at (X,Y), recolours every
+    /// 4-connected cell sharing the clicked cell's tile index with the
+    /// toolbar's selected placement color (<see cref="m_TilePlacementColorOverride"/>),
+    /// writing only the per-character color overrides — the tile indices and
+    /// the per-character "blocked" overrides are left untouched. Connectivity
+    /// matches the fill tool (same tile index, 4-neighbour). When the
+    /// placement-color dropdown is on "Default" (override = -1) this is a
+    /// no-op, per the tool's contract.
+    ///
+    /// Unlike <see cref="FillContent"/>, the cells' tile indices don't change,
+    /// so "already processed" can't be inferred from the tile value — we track
+    /// it with an explicit visited grid to avoid re-queuing cells forever.
+    /// </summary>
+    private void ReplaceColorContent( int X, int Y )
+    {
+      if ( m_CurrentMap == null ) return;
+      if ( ( X < 0 ) || ( Y < 0 )
+      ||   ( X >= m_CurrentMap.Tiles.Width )
+      ||   ( Y >= m_CurrentMap.Tiles.Height ) )
+      {
+        return;
+      }
+      // "Default" placement color = nothing to apply.
+      if ( m_TilePlacementColorOverride < 0 )
+      {
+        return;
+      }
+
+      int tileToMatch = m_CurrentMap.Tiles[X, Y];
+
+      // Snapshot the whole map's color/blocked/tile layers for undo. This is
+      // the same task FillContent uses; it captures TileColorOverrides, which
+      // is all we mutate here, so Ctrl+Z restores the prior colors.
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height ) );
+
+      var visited = new bool[m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height];
+      var pointsToCheck = new List<System.Drawing.Point>();
+      pointsToCheck.Add( new System.Drawing.Point( X, Y ) );
+      visited[X, Y] = true;
+
+      while ( pointsToCheck.Count != 0 )
+      {
+        System.Drawing.Point point = pointsToCheck[pointsToCheck.Count - 1];
+        pointsToCheck.RemoveAt( pointsToCheck.Count - 1 );
+
+        ApplyColorOverrideOnly( point.X, point.Y, m_TilePlacementColorOverride );
+
+        if ( ( point.X > 0 )
+        &&   ( !visited[point.X - 1, point.Y] )
+        &&   ( m_CurrentMap.Tiles[point.X - 1, point.Y] == tileToMatch ) )
+        {
+          visited[point.X - 1, point.Y] = true;
+          pointsToCheck.Add( new System.Drawing.Point( point.X - 1, point.Y ) );
+        }
+        if ( ( point.X + 1 < m_CurrentMap.Tiles.Width )
+        &&   ( !visited[point.X + 1, point.Y] )
+        &&   ( m_CurrentMap.Tiles[point.X + 1, point.Y] == tileToMatch ) )
+        {
+          visited[point.X + 1, point.Y] = true;
+          pointsToCheck.Add( new System.Drawing.Point( point.X + 1, point.Y ) );
+        }
+        if ( ( point.Y > 0 )
+        &&   ( !visited[point.X, point.Y - 1] )
+        &&   ( m_CurrentMap.Tiles[point.X, point.Y - 1] == tileToMatch ) )
+        {
+          visited[point.X, point.Y - 1] = true;
+          pointsToCheck.Add( new System.Drawing.Point( point.X, point.Y - 1 ) );
+        }
+        if ( ( point.Y + 1 < m_CurrentMap.Tiles.Height )
+        &&   ( !visited[point.X, point.Y + 1] )
+        &&   ( m_CurrentMap.Tiles[point.X, point.Y + 1] == tileToMatch ) )
+        {
+          visited[point.X, point.Y + 1] = true;
+          pointsToCheck.Add( new System.Drawing.Point( point.X, point.Y + 1 ) );
+        }
+      }
+
+      Modified = true;
+      RedrawMap();
+      Redraw();
+    }
+
+
+
+    /// <summary>
+    /// Write <paramref name="ColorIndex"/> into the per-character color
+    /// override layer for the tile at (cellX, cellY), across the tile's
+    /// footprint (max of the map's tile spacing and the tile's own char
+    /// dimensions, matching <see cref="ApplyPlacementColorOverride"/>).
+    /// Color only — the per-character "blocked" overrides and the tile index
+    /// are deliberately left alone, which is what separates the color-replace
+    /// tool from placing a fresh tile.
+    /// </summary>
+    private void ApplyColorOverrideOnly( int cellX, int cellY, int ColorIndex )
+    {
+      if ( m_CurrentMap == null ) return;
+      int spacingX = m_CurrentMap.TileSpacingX;
+      int spacingY = m_CurrentMap.TileSpacingY;
+
+      int footprintX = spacingX;
+      int footprintY = spacingY;
+      if ( ( cellX >= 0 ) && ( cellY >= 0 )
+      &&   ( cellX < m_CurrentMap.Tiles.Width )
+      &&   ( cellY < m_CurrentMap.Tiles.Height ) )
+      {
+        int tileIndex = m_CurrentMap.Tiles[cellX, cellY];
+        if ( ( tileIndex >= 0 )
+        &&   ( tileIndex < m_MapProject.Tiles.Count ) )
+        {
+          var tile = m_MapProject.Tiles[tileIndex];
+          if ( tile.Chars.Width  > footprintX ) footprintX = tile.Chars.Width;
+          if ( tile.Chars.Height > footprintY ) footprintY = tile.Chars.Height;
+        }
+      }
+
+      int charBaseX = cellX * spacingX;
+      int charBaseY = cellY * spacingY;
+      int charLayerW = m_CurrentMap.TileColorOverrides.Width;
+      int charLayerH = m_CurrentMap.TileColorOverrides.Height;
+      for ( int dy = 0; dy < footprintY; ++dy )
+      {
+        for ( int dx = 0; dx < footprintX; ++dx )
+        {
+          int cx = charBaseX + dx;
+          int cy = charBaseY + dy;
+          if ( ( cx >= 0 ) && ( cy >= 0 )
+          &&   ( cx < charLayerW ) && ( cy < charLayerH ) )
+          {
+            m_CurrentMap.TileColorOverrides[cx, cy] = ColorIndex;
+          }
+        }
+      }
+    }
+
+
+
     private void HandleMouseOnEditor( int X, int Y, MouseButtons Buttons )
     {
       if ( m_CurrentMap == null )
@@ -2464,6 +2606,14 @@ namespace RetroDevStudio.Documents
 
               FillContent( trueX + m_CurEditorOffsetX, trueY + m_CurEditorOffsetY );
               RecalcTileUsageInCurrentMap();
+            }
+            break;
+          case ToolMode.COLOR_REPLACE:
+            if ( m_MouseButtonReleased )
+            {
+              m_MouseButtonReleased = false;
+
+              ReplaceColorContent( trueX + m_CurEditorOffsetX, trueY + m_CurEditorOffsetY );
             }
             break;
           case ToolMode.RECTANGLE:
@@ -3541,6 +3691,13 @@ namespace RetroDevStudio.Documents
         checkAutoTiling.CheckedChanged -= checkAutoTiling_CheckedChanged;
         checkAutoTiling.Checked = m_MapProject.AutoTiling;
         checkAutoTiling.CheckedChanged += checkAutoTiling_CheckedChanged;
+      }
+      // Restore Lock-color toggle. Same detach pattern as Auto-tiling.
+      if ( checkLockColor != null )
+      {
+        checkLockColor.CheckedChanged -= checkLockColor_CheckedChanged;
+        checkLockColor.Checked = m_MapProject.LockTilePlacementColor;
+        checkLockColor.CheckedChanged += checkLockColor_CheckedChanged;
       }
       // Load the saved grid opacity into the slider. Detach the
       // ValueChanged handler around the assignment so it doesn't write
@@ -6541,10 +6698,14 @@ namespace RetroDevStudio.Documents
       // Also skipped when the tile change came from the right-click-
       // on-map eyedropper (m_SuppressTilePickerOverrideReset) — that
       // path should mirror the tile but leave the override color
-      // alone.
+      // alone. And skipped entirely when the user has locked the
+      // placement color (the "Lock color" toolbar toggle): the whole
+      // point of the lock is that picking a new tile keeps the chosen
+      // color instead of snapping back to Default.
       if ( ( comboTilePlacementColor != null )
       &&   ( comboTilePlacementColor.SelectedIndex != 0 )
-      &&   ( !m_SuppressTilePickerOverrideReset ) )
+      &&   ( !m_SuppressTilePickerOverrideReset )
+      &&   ( ( m_MapProject == null ) || ( !m_MapProject.LockTilePlacementColor ) ) )
       {
         m_SuppressTilePlacementColorAutoApply = true;
         try
@@ -7703,6 +7864,7 @@ namespace RetroDevStudio.Documents
         var buttons = new Krypton.Toolkit.KryptonCheckButton[]
         {
           btnToolEdit, btnToolRect, btnToolQuad, btnToolFill,
+          btnToolColorReplace,
           btnToolSelect, btnToolMarker, btnToolEntity,
           btnToolPassable,
         };
@@ -7852,6 +8014,18 @@ namespace RetroDevStudio.Documents
       RemoveFloatingSelection();
       m_ToolMode = ToolMode.FILL;
       UncheckOtherToolButtons( btnToolFill );
+      AfterToolChange();
+    }
+
+
+
+    private void btnToolColorReplace_CheckedChanged( object sender, EventArgs e )
+    {
+      if ( KeepActiveIfUnchecking( btnToolColorReplace ) ) return;
+      HideSelection();
+      RemoveFloatingSelection();
+      m_ToolMode = ToolMode.COLOR_REPLACE;
+      UncheckOtherToolButtons( btnToolColorReplace );
       AfterToolChange();
     }
 
@@ -8380,6 +8554,23 @@ namespace RetroDevStudio.Documents
       if ( m_MapProject == null ) return;
       if ( m_MapProject.AutoTiling == checkAutoTiling.Checked ) return;
       m_MapProject.AutoTiling = checkAutoTiling.Checked;
+      SetModified();
+    }
+
+
+
+    /// <summary>
+    /// Mirror the lock-placement-color checkbox into the project so it
+    /// persists. When on, the tile-pick reset that normally snaps the
+    /// placement color back to "Default" is skipped (see
+    /// PopulateTileCharList), so the user's chosen color sticks across tile
+    /// selections. Same persistence pattern as auto-tiling.
+    /// </summary>
+    private void checkLockColor_CheckedChanged( object sender, EventArgs e )
+    {
+      if ( m_MapProject == null ) return;
+      if ( m_MapProject.LockTilePlacementColor == checkLockColor.Checked ) return;
+      m_MapProject.LockTilePlacementColor = checkLockColor.Checked;
       SetModified();
     }
 

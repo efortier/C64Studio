@@ -452,6 +452,15 @@ namespace RetroDevStudio.Formats
     /// state the user had when last saving.
     /// </summary>
     public bool                         AutoTiling = false;
+    /// <summary>
+    /// State of the "lock placement color" toggle on the Map tab. When true,
+    /// picking a new tile from the tile list no longer resets the toolbar's
+    /// tile-placement color back to "Default" — the user's chosen placement
+    /// color sticks across tile selections. Persisted per-project exactly
+    /// like <see cref="AutoTiling"/> so the editor reopens with the same
+    /// toggle state.
+    /// </summary>
+    public bool                         LockTilePlacementColor = false;
 
     /// <summary>
     /// Optional path to a binary font file used when rendering the Map
@@ -608,6 +617,10 @@ namespace RetroDevStudio.Formats
       // Index of the map that should be treated as the level's starting
       // map at runtime. Append-only; old files default to 0 (first map).
       chunkProjectInfo.AppendI32( StartMapIndex );
+      // "Lock placement color" toggle (per-project). Append-only U8 — same
+      // mechanism as AutoTiling above; old files without this byte fall
+      // through to the default false on load.
+      chunkProjectInfo.AppendU8( LockTilePlacementColor ? (byte)1 : (byte)0 );
       projectFile.Append( chunkProjectInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkCharset = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET );
@@ -942,6 +955,12 @@ namespace RetroDevStudio.Formats
               {
                 StartMapIndex = chunkReader.ReadInt32();
                 if ( StartMapIndex < 0 ) StartMapIndex = 0;
+              }
+              // Optional "lock placement color" toggle (append-only; default
+              // false). Same mechanism as the AutoTiling byte above.
+              if ( chunkReader.Size - chunkReader.Position >= 1 )
+              {
+                LockTilePlacementColor = ( chunkReader.ReadUInt8() != 0 );
               }
             }
             break;
