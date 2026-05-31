@@ -124,8 +124,6 @@
             this.importCharsetToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.saveCharsetProjectToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.closeCharsetProjectToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.viewToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.keepMapCharacterAspectRatioToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.createImageOfMapToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
@@ -1463,7 +1461,6 @@
             this.menuStrip1.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.menuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.fileToolStripMenuItem,
-            this.viewToolStripMenuItem,
             this.toolsToolStripMenuItem,
             this.helpToolStripMenuItem});
             this.menuStrip1.Location = new System.Drawing.Point(0, 0);
@@ -1513,22 +1510,7 @@
             this.closeCharsetProjectToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
             this.closeCharsetProjectToolStripMenuItem.Text = "&Close Charset Project";
             this.closeCharsetProjectToolStripMenuItem.Click += new System.EventHandler(this.closeCharsetProjectToolStripMenuItem_Click);
-            // 
-            // viewToolStripMenuItem
-            // 
-            this.viewToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.keepMapCharacterAspectRatioToolStripMenuItem});
-            this.viewToolStripMenuItem.Name = "viewToolStripMenuItem";
-            this.viewToolStripMenuItem.Size = new System.Drawing.Size(44, 20);
-            this.viewToolStripMenuItem.Text = "View";
-            // 
-            // keepMapCharacterAspectRatioToolStripMenuItem
-            // 
-            this.keepMapCharacterAspectRatioToolStripMenuItem.CheckOnClick = true;
-            this.keepMapCharacterAspectRatioToolStripMenuItem.Name = "keepMapCharacterAspectRatioToolStripMenuItem";
-            this.keepMapCharacterAspectRatioToolStripMenuItem.Size = new System.Drawing.Size(243, 22);
-            this.keepMapCharacterAspectRatioToolStripMenuItem.Text = "Keep map character aspect ratio";
-            // 
+            //
             // toolsToolStripMenuItem
             // 
             this.toolsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -4436,8 +4418,6 @@
         private Krypton.Toolkit.KryptonComboBox comboMapProjectMode;
         private System.Windows.Forms.ToolStripMenuItem editExtraDataToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem brightnessTablesToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem viewToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem keepMapCharacterAspectRatioToolStripMenuItem;
         private Krypton.Navigator.KryptonPage tabMarkers;
         private Krypton.Navigator.KryptonPage tabEntities;
         private Krypton.Navigator.KryptonPage tabMapStrings;

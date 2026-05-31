@@ -709,20 +709,21 @@ namespace RetroDevStudio.Controls
               {
                 int eAddr = entitiesAddr + ek * entityStride;
                 int eFilePos = eAddr - ba;
-                // Current layout (stride 8): tag, x, y, tile, value1, value2, enabled, triggered
-                string line = "  $" + eAddr.ToString( "X4" ) + ": tag=" + HexByte( buf.ByteAt( eFilePos ) )
-                            + " x=" + buf.ByteAt( eFilePos + 1 )
-                            + " y=" + buf.ByteAt( eFilePos + 2 );
-                if ( entityStride >= 4 )
-                  line += " tile=" + buf.ByteAt( eFilePos + 3 );
+                // Current layout (stride 9): index, tag, x, y, tile, value1, value2, enabled, triggered
+                string line = "  $" + eAddr.ToString( "X4" ) + ": index=" + buf.ByteAt( eFilePos )
+                            + " tag=" + HexByte( buf.ByteAt( eFilePos + 1 ) )
+                            + " x=" + buf.ByteAt( eFilePos + 2 )
+                            + " y=" + buf.ByteAt( eFilePos + 3 );
                 if ( entityStride >= 5 )
-                  line += " value1=" + HexByte( buf.ByteAt( eFilePos + 4 ) );
+                  line += " tile=" + buf.ByteAt( eFilePos + 4 );
                 if ( entityStride >= 6 )
-                  line += " value2=" + HexByte( buf.ByteAt( eFilePos + 5 ) );
+                  line += " value1=" + HexByte( buf.ByteAt( eFilePos + 5 ) );
                 if ( entityStride >= 7 )
-                  line += " enabled=" + buf.ByteAt( eFilePos + 6 );
+                  line += " value2=" + HexByte( buf.ByteAt( eFilePos + 6 ) );
                 if ( entityStride >= 8 )
-                  line += " triggered=" + buf.ByteAt( eFilePos + 7 );
+                  line += " enabled=" + buf.ByteAt( eFilePos + 7 );
+                if ( entityStride >= 9 )
+                  line += " triggered=" + buf.ByteAt( eFilePos + 8 );
                 sb.AppendLine( line );
               }
             }

@@ -437,7 +437,6 @@ namespace RetroDevStudio.Documents
       }
 
       pictureEditor.MouseWheel += pictureEditor_MouseWheel;
-      keepMapCharacterAspectRatioToolStripMenuItem.Click += keepMapCharacterAspectRatioToolStripMenuItem_Click;
       tabEditor.Resize += tabEditor_Resize;
       pictureEditor.DisplayPage.Create( MapDisplayBaseWidth, MapDisplayBaseHeight, GR.Drawing.PixelFormat.Format32bppRgb );
       pictureEditor.PostPaint += PictureEditor_PostPaint;
@@ -694,29 +693,11 @@ namespace RetroDevStudio.Documents
 
     private void ApplyMapZoom()
     {
-      int   baseCharWidth = MapDisplayBaseWidth / 8;
-      int   baseCharHeight = MapDisplayBaseHeight / 8;
-      float zoomFactor = m_MapZoomPercent / 100.0f;
-
-      int   viewCharWidth = Math.Max( 1, (int)Math.Round( baseCharWidth / zoomFactor ) );
-      int   viewCharHeight = Math.Max( 1, (int)Math.Round( baseCharHeight / zoomFactor ) );
-
-      int   displayWidth = viewCharWidth * 8;
-      int   displayHeight = viewCharHeight * 8;
-
-      if ( ( pictureEditor.DisplayPage.Width != displayWidth )
-      ||   ( pictureEditor.DisplayPage.Height != displayHeight ) )
-      {
-        pictureEditor.DisplayPage.Resize( displayWidth, displayHeight );
-        m_Image.Create( displayWidth, displayHeight, GR.Drawing.PixelFormat.Format32bppRgb );
-        PaletteManager.ApplyPalette( pictureEditor.DisplayPage );
-        PaletteManager.ApplyPalette( m_Image );
-      }
-
-      // Recompute the integer-scale render rectangle now that DisplayPage
-      // has its new dimensions. Without this, pictureEditor.Size still
-      // reflects the previous zoom's scale and the StretchBlt would use
-      // a fractional ratio again.
+      // The viewport buffer (DisplayPage) AND its on-screen rectangle are
+      // both computed in UpdateMapAspectRatio: it derives the integer
+      // magnification from the zoom level, then sizes the buffer to fill
+      // the actual canvas at that magnification (so a wider/taller window
+      // shows more of the map instead of letterboxing the surplus).
       UpdateMapAspectRatio();
 
       UpdateZoomButtons();
@@ -899,8 +880,14 @@ namespace RetroDevStudio.Documents
         int offsetY = m_CurEditorOffsetY;
         int viewCharWidth = ViewCharWidth;
         int viewCharHeight = ViewCharHeight;
-        int x1 = offsetX;
-        int y1 = offsetY;
+        // Start back far enough to include the columns/rows the centering gap
+        // exposes left/above the scroll position (same reasoning as the tile
+        // loop in RedrawMap), clamped to 0. Otherwise the grid is missing on
+        // the exposed edge of a scrolled, centered map.
+        int gridCellWX = m_CurrentMap.TileSpacingX * 8;
+        int gridCellWY = m_CurrentMap.TileSpacingY * 8;
+        int x1 = Math.Max( 0, offsetX - ( renderOffsetX / gridCellWX ) - 1 );
+        int y1 = Math.Max( 0, offsetY - ( renderOffsetY / gridCellWY ) - 1 );
         int x2 = Math.Min( offsetX + (int)Math.Ceiling( viewCharWidth / (float)m_CurrentMap.TileSpacingX ), offsetX + m_CurrentMap.Tiles.Width );
         int y2 = Math.Min( offsetY + (int)Math.Ceiling( viewCharHeight / (float)m_CurrentMap.TileSpacingY ), offsetY + m_CurrentMap.Tiles.Height );
 
@@ -915,9 +902,14 @@ namespace RetroDevStudio.Documents
         // short-circuited out above.) FastImage primitives don't blend,
         // so each grid pixel does its own read-blend-write below; using
         // Line() with an opaque color would just paint solid white.
-        int gridTopY    = ScaleCoordCeil( renderOffsetY, sourceHeight, targetHeight );
+        // The left/top edge follows the leftmost/topmost visible map cell,
+        // which the centering gap can push left/above renderOffset on a
+        // scrolled map; clamp to the buffer so it never goes negative.
+        int gridSrcLeft = Math.Max( 0, renderOffsetX + ( x1 - offsetX ) * gridCellWX );
+        int gridSrcTop  = Math.Max( 0, renderOffsetY + ( y1 - offsetY ) * gridCellWY );
+        int gridTopY    = ScaleCoordCeil( gridSrcTop,  sourceHeight, targetHeight );
         int gridBottomY = targetMapHeight;
-        int gridLeftX   = ScaleCoordCeil( renderOffsetX, sourceWidth, targetWidth );
+        int gridLeftX   = ScaleCoordCeil( gridSrcLeft, sourceWidth, targetWidth );
         int gridRightX  = targetMapWidth;
         int gridAlpha   = ( m_MapProject.GridOpacity * 255 ) / 100;
         if ( gridAlpha > 255 ) gridAlpha = 255;
@@ -1002,14 +994,20 @@ namespace RetroDevStudio.Documents
         // g = (pixel>>8) & 0xff, b = pixel & 0xff, alpha in top byte. Unlike the
         // marker-dim loop above (uniform scale, channel labels don't matter), this
         // block applies non-uniform per-channel tints, so the order must be correct.
-        for ( int viewCharY = 0; viewCharY < viewCharHeight; ++viewCharY )
+        // Start at negative view-char coords so the chars the centering gap
+        // exposes above/left of the scroll position are tinted too (matches
+        // the tile loop / grid). The charMap < 0 guards below clamp the low
+        // end; sourceY/sourceX below map these to pixels >= 0.
+        int passableStartCharX = -( renderOffsetX / 8 ) - 1;
+        int passableStartCharY = -( renderOffsetY / 8 ) - 1;
+        for ( int viewCharY = passableStartCharY; viewCharY < viewCharHeight; ++viewCharY )
         {
           int charMapY = offsetY * spacingY + viewCharY;
           if ( ( charMapY < 0 ) || ( charMapY >= passableLayerH ) ) continue;
           int tileY = charMapY / spacingY;
           if ( ( tileY < 0 ) || ( tileY >= m_CurrentMap.Tiles.Height ) ) continue;
 
-          for ( int viewCharX = 0; viewCharX < viewCharWidth; ++viewCharX )
+          for ( int viewCharX = passableStartCharX; viewCharX < viewCharWidth; ++viewCharX )
           {
             int charMapX = offsetX * spacingX + viewCharX;
             if ( ( charMapX < 0 ) || ( charMapX >= passableLayerW ) ) continue;
@@ -3029,6 +3027,15 @@ namespace RetroDevStudio.Documents
        long    mapPixelWidth = (long)m_CurrentMap.Tiles.Width * m_CurrentMap.TileSpacingX * 8;
        long    mapPixelHeight = (long)m_CurrentMap.Tiles.Height * m_CurrentMap.TileSpacingY * 8;
 
+       // Center the map within the viewport on any axis where it's smaller
+       // than the buffer. Scrolling is always enabled (off-map overhang), so
+       // this centering gap can be active WHILE the user pans. That's fine:
+       // the centering offset is a constant pixel shift applied on top of the
+       // scroll offset in the render formula (renderOffset + (cell-scroll)*W),
+       // and RedrawMap's cell-iteration + background fill both extend to cover
+       // the columns/rows the gap exposes on the left/top, so panning a
+       // centered map clips nothing. At scroll 0 the map sits centered; as you
+       // scroll it pans toward the off-map overhang.
        if ( mapPixelWidth < pictureEditor.DisplayPage.Width )
        {
          RenderOffsetX = (int)( pictureEditor.DisplayPage.Width - mapPixelWidth ) / 2;
@@ -3192,23 +3199,6 @@ namespace RetroDevStudio.Documents
         bgColor = (uint)m_CurrentMap.AlternativeBackgroundColor;
       }
 
-      int     fillWidth = pictureEditor.DisplayPage.Width;
-      int     fillHeight = pictureEditor.DisplayPage.Height;
-
-      if ( m_CurrentMap != null )
-      {
-        fillWidth = m_CurrentMap.TileSpacingX * 8 * m_CurrentMap.Tiles.Width;
-        fillHeight = m_CurrentMap.TileSpacingY * 8 * m_CurrentMap.Tiles.Height;
-        if ( ( m_CurrentMap.Tiles.Width - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX < pictureEditor.DisplayPage.Width )
-        {
-          fillWidth = ( m_CurrentMap.Tiles.Width - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX;
-        }
-        if ( ( m_CurrentMap.Tiles.Height - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY < pictureEditor.DisplayPage.Height )
-        {
-          fillHeight = ( m_CurrentMap.Tiles.Height - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY;
-        }
-      }
-
       GetMapRenderOffsets( out int renderOffsetX, out int renderOffsetY );
 
       // clean background
@@ -3219,8 +3209,33 @@ namespace RetroDevStudio.Documents
       // older projects.
       pictureEditor.DisplayPage.Box( 0, 0, pictureEditor.DisplayPage.Width, pictureEditor.DisplayPage.Height, GetDesignerBackgroundARGB() );
 
-      // draw map background
-      pictureEditor.DisplayPage.Box( renderOffsetX, renderOffsetY, fillWidth, fillHeight, m_MapProject.Charset.Colors.Palette.ColorValues[bgColor] );
+      // draw map background (the map-colored backdrop behind the tiles).
+      // Compute the map's true pixel rectangle in buffer coordinates so it
+      // tracks BOTH the centering offset and the scroll offset: map cell (0,0)
+      // sits at ( renderOffset - scroll * cellSize ). Clamp to the buffer.
+      // This MUST match how the tile loop below positions cells, otherwise
+      // the backdrop and the tiles disagree when a centered map is scrolled
+      // (the bug that showed as the map being "cut" while scrolling).
+      // Map's visible pixel rectangle in buffer coords. Reused below for both
+      // the map backdrop and the entity-mode dim so they always agree.
+      int mapVisX = 0, mapVisY = 0, mapVisW = 0, mapVisH = 0;
+      if ( m_CurrentMap != null )
+      {
+        int bgCellWX = m_CurrentMap.TileSpacingX * 8;
+        int bgCellWY = m_CurrentMap.TileSpacingY * 8;
+        int mapLeftPx   = renderOffsetX - m_CurEditorOffsetX * bgCellWX;
+        int mapTopPx    = renderOffsetY - m_CurEditorOffsetY * bgCellWY;
+        int mapRightPx  = mapLeftPx + m_CurrentMap.Tiles.Width  * bgCellWX;
+        int mapBottomPx = mapTopPx  + m_CurrentMap.Tiles.Height * bgCellWY;
+        mapVisX = Math.Max( 0, mapLeftPx );
+        mapVisY = Math.Max( 0, mapTopPx );
+        mapVisW = Math.Min( pictureEditor.DisplayPage.Width,  mapRightPx )  - mapVisX;
+        mapVisH = Math.Min( pictureEditor.DisplayPage.Height, mapBottomPx ) - mapVisY;
+        if ( ( mapVisW > 0 ) && ( mapVisH > 0 ) )
+        {
+          pictureEditor.DisplayPage.Box( mapVisX, mapVisY, mapVisW, mapVisH, m_MapProject.Charset.Colors.Palette.ColorValues[bgColor] );
+        }
+      }
 
       if ( m_CurrentMap == null )
       {
@@ -3246,10 +3261,19 @@ namespace RetroDevStudio.Documents
       }
       bool[,] coveredTiles = needsCoverage ? new bool[m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height] : null;
 
-      int x1 = offsetX;
-      int x2 = offsetX + ( pictureEditor.DisplayPage.Width / ( 8 * m_CurrentMap.TileSpacingX ) );
-      int y1 = offsetY;
-      int y2 = offsetY + ( pictureEditor.DisplayPage.Height / ( 8 * m_CurrentMap.TileSpacingY ) );
+      // Cells render at pixel ( renderOffset + (cell - scroll) * cellSize ).
+      // When the map is centered (renderOffset > 0) AND scrolled, columns/rows
+      // to the LEFT/ABOVE the scroll position are still on-screen inside the
+      // centering gap. Start iteration that far back (clamped to 0 so we never
+      // index a negative cell) or those cells get skipped and the map looks
+      // clipped as you scroll. x2/y2 stay generous; off-buffer cells are
+      // clipped by the blit and the >= width/height guard below.
+      int cellPixWidth  = 8 * m_CurrentMap.TileSpacingX;
+      int cellPixHeight = 8 * m_CurrentMap.TileSpacingY;
+      int x1 = Math.Max( 0, offsetX - ( renderOffsetX / cellPixWidth ) - 1 );
+      int x2 = offsetX + ( pictureEditor.DisplayPage.Width / cellPixWidth ) + 1;
+      int y1 = Math.Max( 0, offsetY - ( renderOffsetY / cellPixHeight ) - 1 );
+      int y2 = offsetY + ( pictureEditor.DisplayPage.Height / cellPixHeight ) + 1;
 
       for ( int y = y1; y <= y2; ++y )
       {
@@ -3341,11 +3365,13 @@ namespace RetroDevStudio.Documents
       &&   ( m_CurrentMap.MarkerDimOpacity < 100 ) )
       {
         int opacity = m_CurrentMap.MarkerDimOpacity;
-        int dimEndX = Math.Min( pictureEditor.DisplayPage.Width, renderOffsetX + fillWidth );
-        int dimEndY = Math.Min( pictureEditor.DisplayPage.Height, renderOffsetY + fillHeight );
-        for ( int y = Math.Max( 0, renderOffsetY ); y < dimEndY; ++y )
+        // Dim exactly the map's visible rect (centering + scroll aware),
+        // computed once above and shared with the backdrop fill.
+        int dimEndX = mapVisX + mapVisW;
+        int dimEndY = mapVisY + mapVisH;
+        for ( int y = mapVisY; y < dimEndY; ++y )
         {
-          for ( int x = Math.Max( 0, renderOffsetX ); x < dimEndX; ++x )
+          for ( int x = mapVisX; x < dimEndX; ++x )
           {
             uint pixel = pictureEditor.DisplayPage.GetPixel( x, y );
             uint r = ( pixel & 0xff ) * (uint)opacity / 100;
@@ -3528,7 +3554,6 @@ namespace RetroDevStudio.Documents
         gridOpacitySlider.Value = savedOpacity;
         gridOpacitySlider.ValueChanged += gridOpacitySlider_ValueChanged;
       }
-      keepMapCharacterAspectRatioToolStripMenuItem.Checked = m_MapProject.KeepCharacterAspectRatio;
       UpdateMapAspectRatio();
       ApplyExportSettingsToUI();
 
@@ -5508,40 +5533,35 @@ namespace RetroDevStudio.Documents
       int viewCharWidth = ViewCharWidth;
       int viewCharHeight = ViewCharHeight;
 
-      // Effective scrollable extent = map size + a fixed character overhang.
-      // The overhang gives the user scrollable empty space past the map's
-      // right/bottom edge for parking off-map markers, at every zoom level.
-      int scrollableWidthChars  = m_CurrentMap.TileSpacingX * m_CurrentMap.Tiles.Width  + MapScrollOverhangChars;
-      int scrollableHeightChars = m_CurrentMap.TileSpacingY * m_CurrentMap.Tiles.Height + MapScrollOverhangChars;
+      // Scrollbars are ALWAYS active so the user can scroll past the map's
+      // right/bottom edge into off-map space to park non-interactive markers
+      // — even when the whole map already fits the viewport. The scrollable
+      // extent is the larger of the map or the current viewport, plus a fixed
+      // overhang, so there's always at least MapScrollOverhangChars of empty
+      // space to scroll into beyond whatever is currently visible.
+      //
+      // Consequence: centering (RedrawMap centers a map smaller than the
+      // viewport) and scrolling are BOTH active at once for a fitting map.
+      // The render paths handle that — cell iteration starts far enough
+      // left/up to include the columns/rows the centering gap exposes, and
+      // the background fill spans the map's true on-screen rect — so the map
+      // pans cleanly instead of being clipped. See RedrawMap.
+      int mapCharWidth  = m_CurrentMap.TileSpacingX * m_CurrentMap.Tiles.Width;
+      int mapCharHeight = m_CurrentMap.TileSpacingY * m_CurrentMap.Tiles.Height;
 
-      if ( scrollableWidthChars <= viewCharWidth )
-      {
-        mapHScroll.Maximum = 0;
-        mapHScroll.Enabled = false;
-        m_CurEditorOffsetX = 0;
-      }
-      else
-      {
-        mapHScroll.Maximum = ( scrollableWidthChars - viewCharWidth ) / m_CurrentMap.TileSpacingX + 1;
-        mapHScroll.Enabled = true;
-      }
+      int scrollableWidthChars  = Math.Max( mapCharWidth,  viewCharWidth )  + MapScrollOverhangChars;
+      int scrollableHeightChars = Math.Max( mapCharHeight, viewCharHeight ) + MapScrollOverhangChars;
+
+      mapHScroll.Maximum = ( scrollableWidthChars - viewCharWidth ) / m_CurrentMap.TileSpacingX + 1;
+      mapHScroll.Enabled = true;
       if ( m_CurEditorOffsetX > mapHScroll.Maximum )
       {
         m_CurEditorOffsetX = mapHScroll.Maximum;
       }
 
       mapVScroll.Minimum = 0;
-      if ( scrollableHeightChars <= viewCharHeight )
-      {
-        mapVScroll.Maximum = 0;
-        mapVScroll.Enabled = false;
-        m_CurEditorOffsetY = 0;
-      }
-      else
-      {
-        mapVScroll.Maximum = ( scrollableHeightChars - viewCharHeight ) / m_CurrentMap.TileSpacingY + 1;
-        mapVScroll.Enabled = true;
-      }
+      mapVScroll.Maximum = ( scrollableHeightChars - viewCharHeight ) / m_CurrentMap.TileSpacingY + 1;
+      mapVScroll.Enabled = true;
       if ( m_CurEditorOffsetY > mapVScroll.Maximum )
       {
         m_CurEditorOffsetY = mapVScroll.Maximum;
@@ -12551,13 +12571,6 @@ namespace RetroDevStudio.Documents
       RedrawMap();
     }
 
-    private void keepMapCharacterAspectRatioToolStripMenuItem_Click( object sender, EventArgs e )
-    {
-      m_MapProject.KeepCharacterAspectRatio = keepMapCharacterAspectRatioToolStripMenuItem.Checked;
-      Modified = true;
-      UpdateMapAspectRatio();
-    }
-
     private void UpdateMapAspectRatio()
     {
       if ( ( m_MapProject == null )
@@ -12567,47 +12580,94 @@ namespace RetroDevStudio.Documents
         return;
       }
 
-      int displayW = pictureEditor.DisplayPage.Width;
-      int displayH = pictureEditor.DisplayPage.Height;
-      if ( ( displayW <= 0 )
-      ||   ( displayH <= 0 ) )
+      int availableWidth  = pictureEditor.Parent.ClientSize.Width;
+      int availableHeight = pictureEditor.Parent.ClientSize.Height;
+      if ( ( availableWidth <= 0 )
+      ||   ( availableHeight <= 0 ) )
       {
+        // Parent not laid out yet (e.g. tab never shown). Leave the current
+        // buffer alone; a later resize/zoom re-runs this with real sizes.
         return;
       }
 
-      int availableWidth  = pictureEditor.Parent.ClientSize.Width;
-      int availableHeight = pictureEditor.Parent.ClientSize.Height;
+      // --- Integer magnification ---------------------------------------
+      // Derive the on-screen scale from the zoom-"intended" base viewport
+      // (a MapDisplayBase{Width,Height} screen shrunk by the zoom factor),
+      // NOT from the final buffer. The buffer is grown to fill the canvas
+      // below, so deriving scale from it would feed back and collapse the
+      // magnification to 1x. Using the base viewport here yields exactly
+      // the same scale the editor produced before this change, so tiles
+      // keep their familiar on-screen size at every zoom level.
+      //
+      // Integer scale (not fractional) keeps every output pixel the same
+      // size: GDI StretchBlt at e.g. 2.5x would make some source pixels 2
+      // screen-pixels wide and some 3, showing as uneven tile widths. The
+      // cost is a sub-cell letterbox remainder, centered below. Keep-
+      // CharacterAspectRatio is intentionally not consulted — integer
+      // scale preserves aspect by construction; the toggle stays a no-op
+      // only so older project files that wrote it still load.
+      float zoomFactor = m_MapZoomPercent / 100.0f;
+      int   baseViewCharWidth  = Math.Max( 1, (int)Math.Round( ( MapDisplayBaseWidth  / 8 ) / zoomFactor ) );
+      int   baseViewCharHeight = Math.Max( 1, (int)Math.Round( ( MapDisplayBaseHeight / 8 ) / zoomFactor ) );
 
-      // Integer-scale rendering. pictureEditor.Size is set to the largest
-      // integer multiple of the DisplayPage that still fits the dock cell.
-      // Why: the previous logic stretched DisplayPage to fill the cell at
-      // a fractional ratio (e.g. 2.5x), which made GDI StretchBlt produce
-      // unevenly-sized output pixels — some 2 source-pixels wide, some 3.
-      // Visible as inconsistent tile widths along a row. Snapping to an
-      // integer scale guarantees every output pixel is the same size, so
-      // the editor's render matches the design preview's 2x scale (and
-      // any other clean integer multiple). The cost is letterboxing: the
-      // dock cell may have empty borders when its aspect or size doesn't
-      // match an integer multiple of the visible map area. KeepCharacter-
-      // AspectRatio is no longer consulted — integer scale preserves
-      // aspect by construction, so the toggle is a no-op now and stays
-      // only to avoid breaking older project files that wrote it.
-      int scale = Math.Max( 1, Math.Min( availableWidth / displayW,
-                                         availableHeight / displayH ) );
+      int   scale = Math.Max( 1, Math.Min( availableWidth  / ( baseViewCharWidth  * 8 ),
+                                           availableHeight / ( baseViewCharHeight * 8 ) ) );
 
-      int finalW = displayW * scale;
-      int finalH = displayH * scale;
+      // --- Viewport buffer: fill the actual canvas at that magnification --
+      // Show as many whole character columns/rows as physically fit, so a
+      // wide or tall window reveals more of the map instead of cropping it
+      // to a fixed MapDisplayBase-sized window. Never go below the zoom-
+      // intended size, so we never display LESS than before. The floor
+      // (integer divide) guarantees viewChar*8*scale <= available, i.e. the
+      // scaled buffer always fits the canvas (only a sub-cell remainder is
+      // letterboxed).
+      int   viewCharWidth  = Math.Max( baseViewCharWidth,  availableWidth  / ( 8 * scale ) );
+      int   viewCharHeight = Math.Max( baseViewCharHeight, availableHeight / ( 8 * scale ) );
+
+      int   displayWidth  = viewCharWidth  * 8;
+      int   displayHeight = viewCharHeight * 8;
+
+      bool  bufferChanged = false;
+      if ( ( pictureEditor.DisplayPage.Width != displayWidth )
+      ||   ( pictureEditor.DisplayPage.Height != displayHeight ) )
+      {
+        pictureEditor.DisplayPage.Resize( displayWidth, displayHeight );
+        // m_Image is a same-size back buffer for incremental tile drawing;
+        // it must always match DisplayPage's dimensions.
+        m_Image.Create( displayWidth, displayHeight, GR.Drawing.PixelFormat.Format32bppRgb );
+        PaletteManager.ApplyPalette( pictureEditor.DisplayPage );
+        PaletteManager.ApplyPalette( m_Image );
+        bufferChanged = true;
+      }
+
+      int finalW = displayWidth  * scale;
+      int finalH = displayHeight * scale;
 
       pictureEditor.Anchor   = System.Windows.Forms.AnchorStyles.None;
       pictureEditor.Size     = new System.Drawing.Size( finalW, finalH );
       pictureEditor.Location = new System.Drawing.Point(
         Math.Max( 0, ( availableWidth  - finalW ) / 2 ),
         Math.Max( 0, ( availableHeight - finalH ) / 2 ) );
+
+      // The viewport's character dimensions drive the scroll ranges, so
+      // refresh them whenever the buffer actually changed size (a zoom
+      // change or a window resize that revealed/hid columns or rows).
+      if ( bufferChanged )
+      {
+        AdjustScrollbars();
+      }
     }
 
     private void tabEditor_Resize( object sender, EventArgs e )
     {
+       // Re-fit the viewport to the new canvas size. UpdateMapAspectRatio
+       // re-fills the buffer (and re-runs AdjustScrollbars if the visible
+       // column/row count changed), so a wider window immediately reveals
+       // more of the map. Always repaint — pictureEditor's size/centering
+       // may have shifted even when the buffer dimensions did not.
        UpdateMapAspectRatio();
+       RedrawMap();
+       pictureEditor.Invalidate();
     }
 
     private void editSwatchSize_KeyPress( object sender, KeyPressEventArgs e )

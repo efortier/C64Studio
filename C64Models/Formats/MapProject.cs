@@ -517,6 +517,15 @@ namespace RetroDevStudio.Formats
     /// without scanning the whole map list. Defaults to 0 = the first map.
     /// </summary>
     public int                          StartMapIndex = 0;
+    /// <summary>
+    /// Vestigial. The map editor's "Keep map character aspect ratio" toggle
+    /// was removed once rendering switched to integer-scale (which preserves
+    /// aspect by construction), so nothing reads this anymore. The field and
+    /// its read/write in the MAP_PROJECT_INFO chunk are retained ONLY to keep
+    /// that chunk's fixed sequential byte layout stable — it sits mid-sequence
+    /// (version >= 2), so dropping the I32 would shift every field after it
+    /// and misread existing project files. Do not remove.
+    /// </summary>
     public bool                         KeepCharacterAspectRatio = false;
     public int                          CharactersPerRow = 16;
     public int                          CharacterEditorMode = 1;
@@ -2249,7 +2258,7 @@ namespace RetroDevStudio.Formats
       // 21 x 2-byte offset placeholders (+$04 .. +$2D)
       for ( int i = 0; i < 21; ++i )
         buf.AppendU16( 0 );
-      buf.AppendU8( 8 );    // +$2E entity_stride (bytes per entity record: tag, x, y, tile, value1, value2, enabled, triggered)
+      buf.AppendU8( 9 );    // +$2E entity_stride (bytes per entity record: index, tag, x, y, tile, value1, value2, enabled, triggered)
       // 3 x 2-byte entity offset placeholders (+$2F .. +$34)
       for ( int i = 0; i < 3; ++i )
         buf.AppendU16( 0 );
@@ -2701,11 +2710,18 @@ namespace RetroDevStudio.Formats
           }
           entityTriples.Sort( ( a, b ) => ( a.Value >> 8 ).CompareTo( b.Value >> 8 ) );
 
+          // Per-map, post-sort, zero-based entity index — emitted as the
+          // FIRST byte of each record so the runtime can identify each entity
+          // by its position in this map's entity table without re-counting.
+          // This index is intentionally NOT stored in the editor model:
+          // it's recomputed every export from the live (sorted) order.
+          byte entityIndex = 0;
           foreach ( var pair in entityTriples )
           {
             var entity = pair.Key;
             byte tagId   = (byte)( pair.Value >> 8 );
             byte tileIdx = (byte)( pair.Value & 0xff );
+            buf.AppendU8( entityIndex );
             buf.AppendU8( tagId );
             buf.AppendU8( (byte)entity.X );
             buf.AppendU8( (byte)entity.Y );
@@ -2714,6 +2730,7 @@ namespace RetroDevStudio.Formats
             buf.AppendU8( entity.Value2 );
             buf.AppendU8( (byte)( entity.Enabled ? 1 : 0 ) );
             buf.AppendU8( (byte)( entity.Triggered ? 1 : 0 ) );
+            ++entityIndex;
           }
         }
       }
@@ -2885,19 +2902,24 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( "// MAP_MARKER_FLAGS bit masks. Test with AND, set with ORA." );
       sb.AppendLine( ".const MAP_MARKER_FLAGS_MASK_ENABLED             = %0000_0001" );
       sb.AppendLine( ".const MAP_MARKER_FLAGS_MASK_TRIGGERED           = %0000_0010" );
+      sb.AppendLine( "// Inverse masks: AND with these to CLEAR the corresponding bit." );
+      sb.AppendLine( "// e.g. LDA flags : AND MAP_MARKER_FLAGS_CLEAR_ENABLED : STA flags" );
+      sb.AppendLine( ".const MAP_MARKER_FLAGS_CLEAR_ENABLED            = %1111_1110" );
+      sb.AppendLine( ".const MAP_MARKER_FLAGS_CLEAR_TRIGGERED          = %1111_1101" );
       sb.AppendLine();
-      sb.AppendLine( "// ====== Entity record layout (8 bytes per entity) ======" );
+      sb.AppendLine( "// ====== Entity record layout (9 bytes per entity) ======" );
       sb.AppendLine( "// Byte offsets within a single entity record." );
       sb.AppendLine( "// Use MAP_ENTITY_SIZE to advance between records." );
-      sb.AppendLine( ".const MAP_ENTITY_TAG                            = $00" );
-      sb.AppendLine( ".const MAP_ENTITY_X                              = $01" );
-      sb.AppendLine( ".const MAP_ENTITY_Y                              = $02" );
-      sb.AppendLine( ".const MAP_ENTITY_TILE                           = $03" );
-      sb.AppendLine( ".const MAP_ENTITY_VALUE1                         = $04" );
-      sb.AppendLine( ".const MAP_ENTITY_VALUE2                         = $05" );
-      sb.AppendLine( ".const MAP_ENTITY_ENABLED                        = $06" );
-      sb.AppendLine( ".const MAP_ENTITY_TRIGGERED                      = $07" );
-      sb.AppendLine( ".const MAP_ENTITY_SIZE                           = $08  // bytes per entity" );
+      sb.AppendLine( ".const MAP_ENTITY_INDEX                          = $00  // per-map, post-sort, zero-based position" );
+      sb.AppendLine( ".const MAP_ENTITY_TAG                            = $01" );
+      sb.AppendLine( ".const MAP_ENTITY_X                              = $02" );
+      sb.AppendLine( ".const MAP_ENTITY_Y                              = $03" );
+      sb.AppendLine( ".const MAP_ENTITY_TILE                           = $04" );
+      sb.AppendLine( ".const MAP_ENTITY_VALUE1                         = $05" );
+      sb.AppendLine( ".const MAP_ENTITY_VALUE2                         = $06" );
+      sb.AppendLine( ".const MAP_ENTITY_ENABLED                        = $07" );
+      sb.AppendLine( ".const MAP_ENTITY_TRIGGERED                      = $08" );
+      sb.AppendLine( ".const MAP_ENTITY_SIZE                           = $09  // bytes per entity" );
       return sb.ToString();
     }
 
