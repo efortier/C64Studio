@@ -4684,5 +4684,50 @@ namespace RetroDevStudio.Controls
             }
         }
 
+        /// <summary>
+        /// Apply a custom editing-canvas size from the Width x Height text
+        /// boxes — identical effect to the 1x1/2x2/... preset buttons, just
+        /// for arbitrary sizes. Clamps to a sane 1..16 range, mirrors the
+        /// clamped values back into the boxes, clears the preset highlights
+        /// (a custom size usually matches none), then sets the size last so it
+        /// always wins.
+        /// </summary>
+        private void btnApplyCanvasCustomSize_Click( DecentForms.ControlBase Sender )
+        {
+            if ( !int.TryParse( editCanvasCustomWidth.Text, out int width ) )
+            {
+                width = m_EditorWidthInChars;
+            }
+            if ( !int.TryParse( editCanvasCustomHeight.Text, out int height ) )
+            {
+                height = m_EditorHeightInChars;
+            }
+            // The presets top out at 4x4; allow a bit more for custom editing
+            // but cap so each character stays large enough to edit.
+            if ( width < 1 ) width = 1;
+            if ( height < 1 ) height = 1;
+            if ( width > 16 ) width = 16;
+            if ( height > 16 ) height = 16;
+
+            DoNotUpdateFromControls = true;
+            // Show the clamped values the user actually got.
+            editCanvasCustomWidth.Text = width.ToString();
+            editCanvasCustomHeight.Text = height.ToString();
+            // Clear the preset size highlights — a custom size usually matches
+            // no preset. Unchecking is a no-op in their handlers (they act only
+            // when Checked is true). Even if the radio group re-checks one, the
+            // SetEditorMode call below runs last and wins.
+            ButtonCanvas1x1.Checked = false;
+            ButtonCanvas1x2.Checked = false;
+            ButtonCanvas2x1.Checked = false;
+            ButtonCanvas2x2.Checked = false;
+            ButtonCanvas2x3.Checked = false;
+            ButtonCanvas4x4.Checked = false;
+            DoNotUpdateFromControls = false;
+
+            SetEditorMode( width, height );
+            RaiseModifiedEvent();
+        }
+
     }
 }

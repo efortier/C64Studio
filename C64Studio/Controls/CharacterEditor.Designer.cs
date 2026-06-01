@@ -78,6 +78,11 @@
             this.ButtonCanvas2x2 = new DecentForms.RadioButton();
             this.ButtonCanvas2x3 = new DecentForms.RadioButton();
             this.ButtonCanvas4x4 = new DecentForms.RadioButton();
+            this.labelCanvasCustomSize = new System.Windows.Forms.Label();
+            this.editCanvasCustomWidth = new System.Windows.Forms.TextBox();
+            this.labelCanvasCustomX = new System.Windows.Forms.Label();
+            this.editCanvasCustomHeight = new System.Windows.Forms.TextBox();
+            this.btnApplyCanvasCustomSize = new DecentForms.Button();
             this.labelZoom = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
             this.comboCharactersPerRow = new System.Windows.Forms.ComboBox();
@@ -536,6 +541,11 @@
             this.tabEditor.Controls.Add(this.groupBox1);
             this.tabEditor.Controls.Add(this.panelColorChooser);
             this.tabEditor.Controls.Add(this.groupRightClick);
+            this.tabEditor.Controls.Add(this.labelCanvasCustomSize);
+            this.tabEditor.Controls.Add(this.editCanvasCustomWidth);
+            this.tabEditor.Controls.Add(this.labelCanvasCustomX);
+            this.tabEditor.Controls.Add(this.editCanvasCustomHeight);
+            this.tabEditor.Controls.Add(this.btnApplyCanvasCustomSize);
             this.tabEditor.Controls.Add(this.groupMoveChar);
             this.tabEditor.Controls.Add(this.panelColorSettings);
             this.tabEditor.Controls.Add(this.canvasEditor);
@@ -793,9 +803,59 @@
             this.ButtonCanvas4x4.TabIndex = 62;
             this.ButtonCanvas4x4.Text = "4x4";
             this.ButtonCanvas4x4.CheckedChanged += new DecentForms.EventHandler(this.ButtonCanvas4x4_CheckedChanged);
-            // 
+            //
+            // labelCanvasCustomSize
+            //
+            this.labelCanvasCustomSize.AutoSize = true;
+            this.labelCanvasCustomSize.Location = new System.Drawing.Point(145, 456);
+            this.labelCanvasCustomSize.Name = "labelCanvasCustomSize";
+            this.labelCanvasCustomSize.Size = new System.Drawing.Size(94, 13);
+            this.labelCanvasCustomSize.TabIndex = 70;
+            this.labelCanvasCustomSize.Text = "Custom tile size:";
+            //
+            // editCanvasCustomWidth
+            //
+            this.editCanvasCustomWidth.Location = new System.Drawing.Point(145, 475);
+            this.editCanvasCustomWidth.Name = "editCanvasCustomWidth";
+            this.editCanvasCustomWidth.Size = new System.Drawing.Size(40, 20);
+            this.editCanvasCustomWidth.TabIndex = 71;
+            this.editCanvasCustomWidth.Text = "1";
+            this.toolTip1.SetToolTip(this.editCanvasCustomWidth, "Editor width in characters. Apply sets the editing canvas size just like the 1x1/2x2/... buttons.");
+            //
+            // labelCanvasCustomX
+            //
+            this.labelCanvasCustomX.AutoSize = true;
+            this.labelCanvasCustomX.Location = new System.Drawing.Point(191, 478);
+            this.labelCanvasCustomX.Name = "labelCanvasCustomX";
+            this.labelCanvasCustomX.Size = new System.Drawing.Size(12, 13);
+            this.labelCanvasCustomX.TabIndex = 72;
+            this.labelCanvasCustomX.Text = "x";
+            //
+            // editCanvasCustomHeight
+            //
+            this.editCanvasCustomHeight.Location = new System.Drawing.Point(209, 475);
+            this.editCanvasCustomHeight.Name = "editCanvasCustomHeight";
+            this.editCanvasCustomHeight.Size = new System.Drawing.Size(40, 20);
+            this.editCanvasCustomHeight.TabIndex = 73;
+            this.editCanvasCustomHeight.Text = "1";
+            this.toolTip1.SetToolTip(this.editCanvasCustomHeight, "Editor height in characters. Apply sets the editing canvas size just like the 1x1/2x2/... buttons.");
+            //
+            // btnApplyCanvasCustomSize
+            //
+            this.btnApplyCanvasCustomSize.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnApplyCanvasCustomSize.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnApplyCanvasCustomSize.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnApplyCanvasCustomSize.Image = null;
+            this.btnApplyCanvasCustomSize.Location = new System.Drawing.Point(145, 501);
+            this.btnApplyCanvasCustomSize.Name = "btnApplyCanvasCustomSize";
+            this.btnApplyCanvasCustomSize.Size = new System.Drawing.Size(104, 23);
+            this.btnApplyCanvasCustomSize.TabIndex = 74;
+            this.btnApplyCanvasCustomSize.Text = "Apply size";
+            this.toolTip1.SetToolTip(this.btnApplyCanvasCustomSize, "Resize the editing canvas to the width x height above (same effect as the 1x1/2x2/... buttons).");
+            this.btnApplyCanvasCustomSize.Click += new DecentForms.EventHandler(this.btnApplyCanvasCustomSize_Click);
+            //
             // labelZoom
-            // 
+            //
             this.labelZoom.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left)));
             this.labelZoom.AutoSize = true;
@@ -1498,6 +1558,11 @@
         private DecentForms.RadioButton ButtonCanvas2x1;
         private DecentForms.RadioButton ButtonCanvas1x2;
         private DecentForms.RadioButton ButtonCanvas1x1;
+        private System.Windows.Forms.Label labelCanvasCustomSize;
+        private System.Windows.Forms.TextBox editCanvasCustomWidth;
+        private System.Windows.Forms.Label labelCanvasCustomX;
+        private System.Windows.Forms.TextBox editCanvasCustomHeight;
+        private DecentForms.Button btnApplyCanvasCustomSize;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel1;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel2;
         private DecentForms.RadioButton radioPlaygroundScale1x;
