@@ -497,6 +497,13 @@ namespace RetroDevStudio.Formats
     /// </summary>
     public int                          MapStringsTextAreaWidth = 40;
     /// <summary>
+    /// Free-form scratch text shown on the Map Strings tab (below the
+    /// Add/Delete buttons). Pure authoring convenience — a place to paste a
+    /// block of text and copy line fragments from. Never exported; persisted
+    /// with the project so it survives reopen.
+    /// </summary>
+    public string                       MapStringsScratchText = "";
+    /// <summary>
     /// Index of the inner KryptonNavigator tab that was selected when
     /// the project was last saved. Restored on load so the editor opens
     /// on the same page the user was working on. Default 0 = the Map
@@ -621,6 +628,9 @@ namespace RetroDevStudio.Formats
       // mechanism as AutoTiling above; old files without this byte fall
       // through to the default false on load.
       chunkProjectInfo.AppendU8( LockTilePlacementColor ? (byte)1 : (byte)0 );
+      // Map Strings scratch text. Append-only string; old files without it
+      // fall through to the default empty string on load.
+      chunkProjectInfo.AppendString( MapStringsScratchText ?? "" );
       projectFile.Append( chunkProjectInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkCharset = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET );
@@ -961,6 +971,11 @@ namespace RetroDevStudio.Formats
               if ( chunkReader.Size - chunkReader.Position >= 1 )
               {
                 LockTilePlacementColor = ( chunkReader.ReadUInt8() != 0 );
+              }
+              // Optional Map Strings scratch text (append-only; default empty).
+              if ( chunkReader.Size - chunkReader.Position >= 1 )
+              {
+                MapStringsScratchText = chunkReader.ReadString();
               }
             }
             break;

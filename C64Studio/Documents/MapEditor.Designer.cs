@@ -94,6 +94,8 @@
             this.btnMoveMapStringUp = new DecentForms.Button();
             this.btnMoveMapStringDown = new DecentForms.Button();
             this.btnDuplicateMapString = new DecentForms.Button();
+            this.labelMapStringScratch = new System.Windows.Forms.Label();
+            this.editMapStringScratch = new System.Windows.Forms.TextBox();
             this.labelMapStringFont = new System.Windows.Forms.Label();
             this.editMapStringFont = new System.Windows.Forms.TextBox();
             this.btnBrowseMapStringFont = new System.Windows.Forms.Button();
@@ -697,6 +699,8 @@
             this.tabMapStrings.Controls.Add(this.btnMoveMapStringUp);
             this.tabMapStrings.Controls.Add(this.btnMoveMapStringDown);
             this.tabMapStrings.Controls.Add(this.btnDuplicateMapString);
+            this.tabMapStrings.Controls.Add(this.labelMapStringScratch);
+            this.tabMapStrings.Controls.Add(this.editMapStringScratch);
             this.tabMapStrings.Controls.Add(this.labelMapStringFont);
             this.tabMapStrings.Controls.Add(this.editMapStringFont);
             this.tabMapStrings.Controls.Add(this.btnBrowseMapStringFont);
@@ -794,7 +798,6 @@
             // 
             this.editMapStringLine0.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.editMapStringLine0.Location = new System.Drawing.Point(308, 38);
-            this.editMapStringLine0.MaxLength = 40;
             this.editMapStringLine0.Name = "editMapStringLine0";
             this.editMapStringLine0.Size = new System.Drawing.Size(256, 20);
             this.editMapStringLine0.TabIndex = 5;
@@ -854,7 +857,6 @@
             // 
             this.editMapStringLine1.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.editMapStringLine1.Location = new System.Drawing.Point(308, 66);
-            this.editMapStringLine1.MaxLength = 40;
             this.editMapStringLine1.Name = "editMapStringLine1";
             this.editMapStringLine1.Size = new System.Drawing.Size(256, 20);
             this.editMapStringLine1.TabIndex = 8;
@@ -910,7 +912,6 @@
             // 
             this.editMapStringLine2.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.editMapStringLine2.Location = new System.Drawing.Point(308, 94);
-            this.editMapStringLine2.MaxLength = 40;
             this.editMapStringLine2.Name = "editMapStringLine2";
             this.editMapStringLine2.Size = new System.Drawing.Size(256, 20);
             this.editMapStringLine2.TabIndex = 11;
@@ -966,7 +967,6 @@
             // 
             this.editMapStringLine3.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.editMapStringLine3.Location = new System.Drawing.Point(308, 122);
-            this.editMapStringLine3.MaxLength = 40;
             this.editMapStringLine3.Name = "editMapStringLine3";
             this.editMapStringLine3.Size = new System.Drawing.Size(256, 20);
             this.editMapStringLine3.TabIndex = 14;
@@ -1022,7 +1022,6 @@
             // 
             this.editMapStringLine4.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.editMapStringLine4.Location = new System.Drawing.Point(308, 150);
-            this.editMapStringLine4.MaxLength = 40;
             this.editMapStringLine4.Name = "editMapStringLine4";
             this.editMapStringLine4.Size = new System.Drawing.Size(256, 20);
             this.editMapStringLine4.TabIndex = 17;
@@ -1171,9 +1170,30 @@
             this.btnDuplicateMapString.TabIndex = 24;
             this.btnDuplicateMapString.Text = "Duplicate";
             this.btnDuplicateMapString.Click += new DecentForms.EventHandler(this.btnDuplicateMapString_Click);
-            // 
+            //
+            // labelMapStringScratch
+            //
+            this.labelMapStringScratch.AutoSize = true;
+            this.labelMapStringScratch.Location = new System.Drawing.Point(177, 237);
+            this.labelMapStringScratch.Name = "labelMapStringScratch";
+            this.labelMapStringScratch.Size = new System.Drawing.Size(255, 13);
+            this.labelMapStringScratch.TabIndex = 60;
+            this.labelMapStringScratch.Text = "Scratch area (saved with the project, not exported):";
+            //
+            // editMapStringScratch
+            //
+            this.editMapStringScratch.AcceptsReturn = true;
+            this.editMapStringScratch.Location = new System.Drawing.Point(177, 253);
+            this.editMapStringScratch.Multiline = true;
+            this.editMapStringScratch.Name = "editMapStringScratch";
+            this.editMapStringScratch.ScrollBars = System.Windows.Forms.ScrollBars.Both;
+            this.editMapStringScratch.Size = new System.Drawing.Size(600, 320);
+            this.editMapStringScratch.TabIndex = 61;
+            this.toolTip1.SetToolTip(this.editMapStringScratch, "Free-form scratch space for pasting text to copy line fragments from. Saved with the project; never exported.");
+            this.editMapStringScratch.TextChanged += new System.EventHandler(this.editMapStringScratch_TextChanged);
+            //
             // labelMapStringFont
-            // 
+            //
             this.labelMapStringFont.AutoSize = true;
             this.labelMapStringFont.Location = new System.Drawing.Point(796, 184);
             this.labelMapStringFont.Name = "labelMapStringFont";
@@ -4489,6 +4509,8 @@
         private DecentForms.Button btnDuplicateMapString;
         private System.Windows.Forms.Label labelMapStringPreview;
         private System.Windows.Forms.PictureBox picMapStringPreview;
+        private System.Windows.Forms.Label labelMapStringScratch;
+        private System.Windows.Forms.TextBox editMapStringScratch;
         private System.Windows.Forms.Label labelMapStringFont;
         private System.Windows.Forms.TextBox editMapStringFont;
         private System.Windows.Forms.Button btnBrowseMapStringFont;

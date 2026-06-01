@@ -1859,138 +1859,135 @@ namespace RetroDevStudio.Documents
 
 
     /// <summary>
-    /// Color-replace flood fill. Starting at (X,Y), recolours every
-    /// 4-connected cell sharing the clicked cell's tile index with the
-    /// toolbar's selected placement color (<see cref="m_TilePlacementColorOverride"/>),
-    /// writing only the per-character color overrides — the tile indices and
-    /// the per-character "blocked" overrides are left untouched. Connectivity
-    /// matches the fill tool (same tile index, 4-neighbour). When the
-    /// placement-color dropdown is on "Default" (override = -1) this is a
-    /// no-op, per the tool's contract.
-    ///
-    /// Unlike <see cref="FillContent"/>, the cells' tile indices don't change,
-    /// so "already processed" can't be inferred from the tile value — we track
-    /// it with an explicit visited grid to avoid re-queuing cells forever.
+    /// Color-replace flood fill, per CHARACTER. Starting at the clicked
+    /// character, recolours every 4-connected character that currently shows
+    /// the SAME colour, repainting each with the toolbar's selected placement
+    /// colour (<see cref="m_TilePlacementColorOverride"/>). "Same colour" is
+    /// the colour the user sees: a character's TileColorOverride when one is
+    /// set (>= 0), otherwise the owning tile's intrinsic character colour —
+    /// resolved here exactly the way RedrawMap resolves it (including tiles
+    /// larger than one cell). The flood therefore crosses tile boundaries and
+    /// tile sizes freely (1x1, 2x2, 3x1, ...) and stops only where the colour
+    /// differs or there is no tile. Only the per-character colour overrides
+    /// are written; tile indices and "blocked" overrides are left untouched.
+    /// "Default" in the dropdown (override = -1) is a no-op.
     /// </summary>
-    private void ReplaceColorContent( int X, int Y )
+    private void ReplaceColorContent( int CharX, int CharY )
     {
       if ( m_CurrentMap == null ) return;
-      if ( ( X < 0 ) || ( Y < 0 )
-      ||   ( X >= m_CurrentMap.Tiles.Width )
-      ||   ( Y >= m_CurrentMap.Tiles.Height ) )
+      // "Default" placement colour = nothing to apply.
+      if ( m_TilePlacementColorOverride < 0 ) return;
+
+      int charW = m_CurrentMap.TileColorOverrides.Width;
+      int charH = m_CurrentMap.TileColorOverrides.Height;
+      if ( ( CharX < 0 ) || ( CharY < 0 ) || ( CharX >= charW ) || ( CharY >= charH ) )
       {
         return;
       }
-      // "Default" placement color = nothing to apply.
-      if ( m_TilePlacementColorOverride < 0 )
+
+      int newColor = m_TilePlacementColorOverride;
+
+      // Build the per-character EFFECTIVE colour grid the way RedrawMap draws
+      // it: a char's colour is its override when set (>= 0), else the owning
+      // tile's intrinsic char colour. Characters not covered by any drawn tile
+      // stay NO_CHAR so the flood can't leak into empty space. The tile sweep
+      // mirrors RedrawMap (y outer / x inner, first-claimer coverage) so the
+      // grid matches the screen, including tiles bigger than one cell.
+      const int NO_CHAR = -2;
+      var effective = new int[charW, charH];
+      for ( int i = 0; i < charW; ++i )
       {
-        return;
+        for ( int j = 0; j < charH; ++j )
+        {
+          effective[i, j] = NO_CHAR;
+        }
       }
 
-      int tileToMatch = m_CurrentMap.Tiles[X, Y];
-
-      // Snapshot the whole map's color/blocked/tile layers for undo. This is
-      // the same task FillContent uses; it captures TileColorOverrides, which
-      // is all we mutate here, so Ctrl+Z restores the prior colors.
-      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height ) );
-
-      var visited = new bool[m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height];
-      var pointsToCheck = new List<System.Drawing.Point>();
-      pointsToCheck.Add( new System.Drawing.Point( X, Y ) );
-      visited[X, Y] = true;
-
-      while ( pointsToCheck.Count != 0 )
+      int tw = m_CurrentMap.Tiles.Width;
+      int th = m_CurrentMap.Tiles.Height;
+      int spacingX = Math.Max( 1, m_CurrentMap.TileSpacingX );
+      int spacingY = Math.Max( 1, m_CurrentMap.TileSpacingY );
+      var covered = new bool[tw, th];
+      for ( int y = 0; y < th; ++y )
       {
-        System.Drawing.Point point = pointsToCheck[pointsToCheck.Count - 1];
-        pointsToCheck.RemoveAt( pointsToCheck.Count - 1 );
+        for ( int x = 0; x < tw; ++x )
+        {
+          if ( covered[x, y] ) continue;
+          int idx = m_CurrentMap.Tiles[x, y];
+          if ( ( idx < 0 ) || ( idx >= m_MapProject.Tiles.Count ) ) continue;
+          var tile = m_MapProject.Tiles[idx];
 
-        ApplyColorOverrideOnly( point.X, point.Y, m_TilePlacementColorOverride );
+          int baseX = x * spacingX;
+          int baseY = y * spacingY;
+          for ( int j = 0; j < tile.Chars.Height; ++j )
+          {
+            for ( int i = 0; i < tile.Chars.Width; ++i )
+            {
+              int cx = baseX + i;
+              int cy = baseY + j;
+              if ( ( cx >= 0 ) && ( cy >= 0 ) && ( cx < charW ) && ( cy < charH ) )
+              {
+                int ov = m_CurrentMap.TileColorOverrides[cx, cy];
+                effective[cx, cy] = ( ov >= 0 ) ? ov : tile.Chars[i, j].Color;
+              }
+            }
+          }
 
-        if ( ( point.X > 0 )
-        &&   ( !visited[point.X - 1, point.Y] )
-        &&   ( m_CurrentMap.Tiles[point.X - 1, point.Y] == tileToMatch ) )
-        {
-          visited[point.X - 1, point.Y] = true;
-          pointsToCheck.Add( new System.Drawing.Point( point.X - 1, point.Y ) );
+          int cw = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Width  / (float)spacingX ) );
+          int ch = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Height / (float)spacingY ) );
+          for ( int cy = 0; cy < ch; ++cy )
+          {
+            for ( int cx = 0; cx < cw; ++cx )
+            {
+              if ( ( x + cx < tw ) && ( y + cy < th ) )
+              {
+                covered[x + cx, y + cy] = true;
+              }
+            }
+          }
         }
-        if ( ( point.X + 1 < m_CurrentMap.Tiles.Width )
-        &&   ( !visited[point.X + 1, point.Y] )
-        &&   ( m_CurrentMap.Tiles[point.X + 1, point.Y] == tileToMatch ) )
-        {
-          visited[point.X + 1, point.Y] = true;
-          pointsToCheck.Add( new System.Drawing.Point( point.X + 1, point.Y ) );
-        }
-        if ( ( point.Y > 0 )
-        &&   ( !visited[point.X, point.Y - 1] )
-        &&   ( m_CurrentMap.Tiles[point.X, point.Y - 1] == tileToMatch ) )
-        {
-          visited[point.X, point.Y - 1] = true;
-          pointsToCheck.Add( new System.Drawing.Point( point.X, point.Y - 1 ) );
-        }
-        if ( ( point.Y + 1 < m_CurrentMap.Tiles.Height )
-        &&   ( !visited[point.X, point.Y + 1] )
-        &&   ( m_CurrentMap.Tiles[point.X, point.Y + 1] == tileToMatch ) )
-        {
-          visited[point.X, point.Y + 1] = true;
-          pointsToCheck.Add( new System.Drawing.Point( point.X, point.Y + 1 ) );
-        }
+      }
+
+      int startColor = effective[CharX, CharY];
+      if ( startColor == NO_CHAR ) return;     // clicked empty space — nothing to recolour
+      if ( startColor == newColor ) return;    // already that colour — no-op
+
+      // UndoMapTilesChange snapshots TileColorOverrides for the whole map, so
+      // Ctrl+Z restores the prior colours.
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, tw, th ) );
+
+      // 4-connected flood over characters whose effective colour == startColor.
+      // Matching reads the precomputed grid (stable) while we mutate overrides.
+      var visited = new bool[charW, charH];
+      var queue = new List<System.Drawing.Point>();
+      queue.Add( new System.Drawing.Point( CharX, CharY ) );
+      visited[CharX, CharY] = true;
+
+      void TryFloodChar( int nx, int ny )
+      {
+        if ( ( nx < 0 ) || ( ny < 0 ) || ( nx >= charW ) || ( ny >= charH ) ) return;
+        if ( visited[nx, ny] ) return;
+        if ( effective[nx, ny] != startColor ) return;
+        visited[nx, ny] = true;
+        queue.Add( new System.Drawing.Point( nx, ny ) );
+      }
+
+      while ( queue.Count != 0 )
+      {
+        System.Drawing.Point c = queue[queue.Count - 1];
+        queue.RemoveAt( queue.Count - 1 );
+
+        m_CurrentMap.TileColorOverrides[c.X, c.Y] = newColor;
+
+        TryFloodChar( c.X - 1, c.Y );
+        TryFloodChar( c.X + 1, c.Y );
+        TryFloodChar( c.X, c.Y - 1 );
+        TryFloodChar( c.X, c.Y + 1 );
       }
 
       Modified = true;
       RedrawMap();
       Redraw();
-    }
-
-
-
-    /// <summary>
-    /// Write <paramref name="ColorIndex"/> into the per-character color
-    /// override layer for the tile at (cellX, cellY), across the tile's
-    /// footprint (max of the map's tile spacing and the tile's own char
-    /// dimensions, matching <see cref="ApplyPlacementColorOverride"/>).
-    /// Color only — the per-character "blocked" overrides and the tile index
-    /// are deliberately left alone, which is what separates the color-replace
-    /// tool from placing a fresh tile.
-    /// </summary>
-    private void ApplyColorOverrideOnly( int cellX, int cellY, int ColorIndex )
-    {
-      if ( m_CurrentMap == null ) return;
-      int spacingX = m_CurrentMap.TileSpacingX;
-      int spacingY = m_CurrentMap.TileSpacingY;
-
-      int footprintX = spacingX;
-      int footprintY = spacingY;
-      if ( ( cellX >= 0 ) && ( cellY >= 0 )
-      &&   ( cellX < m_CurrentMap.Tiles.Width )
-      &&   ( cellY < m_CurrentMap.Tiles.Height ) )
-      {
-        int tileIndex = m_CurrentMap.Tiles[cellX, cellY];
-        if ( ( tileIndex >= 0 )
-        &&   ( tileIndex < m_MapProject.Tiles.Count ) )
-        {
-          var tile = m_MapProject.Tiles[tileIndex];
-          if ( tile.Chars.Width  > footprintX ) footprintX = tile.Chars.Width;
-          if ( tile.Chars.Height > footprintY ) footprintY = tile.Chars.Height;
-        }
-      }
-
-      int charBaseX = cellX * spacingX;
-      int charBaseY = cellY * spacingY;
-      int charLayerW = m_CurrentMap.TileColorOverrides.Width;
-      int charLayerH = m_CurrentMap.TileColorOverrides.Height;
-      for ( int dy = 0; dy < footprintY; ++dy )
-      {
-        for ( int dx = 0; dx < footprintX; ++dx )
-        {
-          int cx = charBaseX + dx;
-          int cy = charBaseY + dy;
-          if ( ( cx >= 0 ) && ( cy >= 0 )
-          &&   ( cx < charLayerW ) && ( cy < charLayerH ) )
-          {
-            m_CurrentMap.TileColorOverrides[cx, cy] = ColorIndex;
-          }
-        }
-      }
     }
 
 
@@ -2613,7 +2610,12 @@ namespace RetroDevStudio.Documents
             {
               m_MouseButtonReleased = false;
 
-              ReplaceColorContent( trueX + m_CurEditorOffsetX, trueY + m_CurEditorOffsetY );
+              // Pass the absolute MAP CHARACTER coords under the cursor (the
+              // tool floods per character by colour). charX/charY are visible-
+              // char indices; offset is the scroll in TILES — same conversion
+              // the PASSABLE per-char tool uses.
+              ReplaceColorContent( charX + m_CurEditorOffsetX * m_CurrentMap.TileSpacingX,
+                                   charY + m_CurEditorOffsetY * m_CurrentMap.TileSpacingY );
             }
             break;
           case ToolMode.RECTANGLE:
@@ -3698,6 +3700,14 @@ namespace RetroDevStudio.Documents
         checkLockColor.CheckedChanged -= checkLockColor_CheckedChanged;
         checkLockColor.Checked = m_MapProject.LockTilePlacementColor;
         checkLockColor.CheckedChanged += checkLockColor_CheckedChanged;
+      }
+      // Restore the Map Strings scratch text. Detach the handler around the
+      // assignment so loading doesn't dirty the just-loaded project.
+      if ( editMapStringScratch != null )
+      {
+        editMapStringScratch.TextChanged -= editMapStringScratch_TextChanged;
+        editMapStringScratch.Text = m_MapProject.MapStringsScratchText ?? "";
+        editMapStringScratch.TextChanged += editMapStringScratch_TextChanged;
       }
       // Load the saved grid opacity into the slider. Detach the
       // ValueChanged handler around the assignment so it doesn't write
@@ -10185,12 +10195,47 @@ namespace RetroDevStudio.Documents
       if ( ms == null ) return;
       int lineIdx = MapStringLineIndexOf( sender );
       if ( lineIdx < 0 ) return;
-      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
 
       var box = (System.Windows.Forms.TextBox)sender;
-      ms.Lines[lineIdx].Text = box.Text ?? "";
+
+      // The line textboxes have no MaxLength, so a paste of any size lands
+      // here intact. Keep only the maximum that fits the text area
+      // (MapStringsTextAreaWidth) — trim the overflow so the line never
+      // exceeds the display width. Detach this handler during the trim so
+      // resetting .Text doesn't re-enter (which would double the undo entry).
+      int maxChars = ( m_MapProject != null ) ? m_MapProject.MapStringsTextAreaWidth : 40;
+      if ( maxChars < 1 ) maxChars = 1;
+      string text = box.Text ?? "";
+      if ( text.Length > maxChars )
+      {
+        int caret = box.SelectionStart;
+        box.TextChanged -= editMapStringLine_TextChanged;
+        box.Text = text.Substring( 0, maxChars );
+        box.SelectionStart = Math.Min( caret, box.Text.Length );
+        box.TextChanged += editMapStringLine_TextChanged;
+        text = box.Text;
+      }
+
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+
+      ms.Lines[lineIdx].Text = text;
       SetModified();
       RebuildMapStringPreview();
+    }
+
+
+
+    /// <summary>
+    /// Map Strings scratch text changed — mirror it into the project so it
+    /// persists. Pure authoring aid; not part of any string or export, so no
+    /// undo entry and no preview rebuild.
+    /// </summary>
+    private void editMapStringScratch_TextChanged( object sender, EventArgs e )
+    {
+      if ( m_MapProject == null ) return;
+      if ( m_MapProject.MapStringsScratchText == editMapStringScratch.Text ) return;
+      m_MapProject.MapStringsScratchText = editMapStringScratch.Text;
+      SetModified();
     }
 
 
