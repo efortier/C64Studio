@@ -1804,53 +1804,260 @@ namespace RetroDevStudio.Documents
 
 
 
+    /// <summary>
+    /// Picks the tile index to place at map cell (mapX, mapY) when auto-tiling
+    /// is active, choosing among the current editor tile's group members based
+    /// on the four orthogonal neighbours — the group member that appears least
+    /// among the neighbours wins, ties broken randomly. Returns
+    /// m_CurrentEditorTile.Index unchanged when no group candidate is found.
+    /// Caller must ensure m_CurrentEditorTile.GroupId != 0 (auto-tiling only
+    /// applies to grouped tiles), mirroring the manual-draw gate. Extracted
+    /// from the SINGLE_TILE draw path so the FILL tool can reuse the exact same
+    /// rule — "filling behaves like drawing the cells by hand".
+    /// </summary>
+    private int PickAutoTileIndex( int mapX, int mapY )
+    {
+      int tileIndex = m_CurrentEditorTile.Index;
+
+      // find neighbors
+      var neighbors = new List<int>();
+      if ( mapX > 0 )
+      {
+        neighbors.Add( m_CurrentMap.Tiles[mapX - 1, mapY] );
+      }
+      if ( mapX < m_CurrentMap.Tiles.Width - 1 )
+      {
+        neighbors.Add( m_CurrentMap.Tiles[mapX + 1, mapY] );
+      }
+      if ( mapY > 0 )
+      {
+        neighbors.Add( m_CurrentMap.Tiles[mapX, mapY - 1] );
+      }
+      if ( mapY < m_CurrentMap.Tiles.Height - 1 )
+      {
+        neighbors.Add( m_CurrentMap.Tiles[mapX, mapY + 1] );
+      }
+
+      // filter only group members
+      var groupMembers = new List<int>();
+      foreach ( var tile in m_MapProject.Tiles )
+      {
+        if ( tile.GroupId == m_CurrentEditorTile.GroupId )
+        {
+          groupMembers.Add( tile.Index );
+        }
+      }
+
+      var neighboringGroupMembers = new Dictionary<int,int>();
+      foreach ( int neighborIndex in neighbors )
+      {
+        // A neighbour cell can hold an out-of-range index (empty/corrupt
+        // cell, or a "covered" cell carrying a stale value) — skip those
+        // rather than index past the project tile list. For a well-formed
+        // map every cell is a valid index, so this is a no-op there and the
+        // chosen variant is identical to before the extraction.
+        if ( ( neighborIndex < 0 )
+        ||   ( neighborIndex >= m_MapProject.Tiles.Count ) )
+        {
+          continue;
+        }
+        if ( m_MapProject.Tiles[neighborIndex].GroupId == m_CurrentEditorTile.GroupId )
+        {
+          if ( !neighboringGroupMembers.ContainsKey( neighborIndex ) )
+          {
+            neighboringGroupMembers.Add( neighborIndex, 0 );
+          }
+          neighboringGroupMembers[neighborIndex]++;
+        }
+      }
+
+      var possibleCandidates = new List<int>();
+      if ( neighboringGroupMembers.Count == 0 )
+      {
+        // no neighbors from same group, pick any
+        possibleCandidates.AddRange( groupMembers );
+      }
+      else
+      {
+        // find candidates with least occurrence
+        int minOccurrence = int.MaxValue;
+        foreach ( var member in groupMembers )
+        {
+          int occurrence = 0;
+          if ( neighboringGroupMembers.ContainsKey( member ) )
+          {
+            occurrence = neighboringGroupMembers[member];
+          }
+          if ( occurrence < minOccurrence )
+          {
+            minOccurrence = occurrence;
+            possibleCandidates.Clear();
+            possibleCandidates.Add( member );
+          }
+          else if ( occurrence == minOccurrence )
+          {
+            possibleCandidates.Add( member );
+          }
+        }
+      }
+
+      if ( possibleCandidates.Count > 0 )
+      {
+        tileIndex = possibleCandidates[m_Random.Next( possibleCandidates.Count )];
+      }
+      return tileIndex;
+    }
+
+
+
+    /// <summary>
+    /// Bucket fill, tile-by-tile (multi-cell aware). Starting at the clicked
+    /// cell, replaces every 4-edge-adjacent tile whose index matches the
+    /// clicked tile's index. Because a tile larger than one cell (2x2, 3x1, …)
+    /// is stored only at its top-left anchor — the other footprint cells are
+    /// "covered" and carry stale indices — a naive cell-by-cell flood breaks
+    /// 4-connectivity across such tiles and stops short. We therefore resolve
+    /// which tile owns each cell (the same coverage sweep RedrawMap /
+    /// ReplaceColorContent use) and step the flood whole tiles at a time.
+    ///
+    /// When Auto-Tiling is on, each filled cell picks its own group variant
+    /// from its CURRENT neighbours, exactly as if the cells were drawn by hand
+    /// one after another (filled cells only — tiles surrounding the region are
+    /// left untouched). The placement colour (which the "Lock color" toggle
+    /// keeps from resetting) is stamped over each placed tile's full footprint
+    /// via ApplyPlacementColorOverride.
+    /// </summary>
     private void FillContent( int X, int Y )
     {
-      List<System.Drawing.Point>      pointsToCheck = new List<System.Drawing.Point>();
+      if ( m_CurrentMap == null ) return;
+      if ( m_CurrentEditorTile == null ) return;
 
-      pointsToCheck.Add( new System.Drawing.Point( X, Y ) );
+      int tw = m_CurrentMap.Tiles.Width;
+      int th = m_CurrentMap.Tiles.Height;
+      // The map now scrolls past its own bounds (to place off-map markers),
+      // so a fill click can land outside the tile grid — guard rather than
+      // index out of range.
+      if ( ( X < 0 ) || ( Y < 0 ) || ( X >= tw ) || ( Y >= th ) ) return;
 
-      int     tileToFill = m_CurrentMap.Tiles[X,Y];
-      if ( tileToFill == m_CurrentEditorTile.Index )
+      int spacingX = Math.Max( 1, m_CurrentMap.TileSpacingX );
+      int spacingY = Math.Max( 1, m_CurrentMap.TileSpacingY );
+
+      // Resolve, for every cell, the ANCHOR cell of the tile that visually
+      // occupies it (y outer / x inner, first-claimer-wins — matches the
+      // screen). Cells with no valid owning tile stay hasOwner==false so the
+      // flood can't leak into them.
+      var anchorX  = new int[tw, th];
+      var anchorY  = new int[tw, th];
+      var hasOwner = new bool[tw, th];
+      var covered  = new bool[tw, th];
+      for ( int y = 0; y < th; ++y )
+      {
+        for ( int x = 0; x < tw; ++x )
+        {
+          if ( covered[x, y] ) continue;
+          int idx = m_CurrentMap.Tiles[x, y];
+          if ( ( idx < 0 ) || ( idx >= m_MapProject.Tiles.Count ) ) continue;
+          var tile = m_MapProject.Tiles[idx];
+
+          int cw = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Width  / (float)spacingX ) );
+          int ch = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Height / (float)spacingY ) );
+          for ( int cy = 0; cy < ch; ++cy )
+          {
+            for ( int cx = 0; cx < cw; ++cx )
+            {
+              int fx = x + cx;
+              int fy = y + cy;
+              if ( ( fx < tw ) && ( fy < th ) )
+              {
+                covered[fx, fy]  = true;
+                hasOwner[fx, fy] = true;
+                anchorX[fx, fy]  = x;
+                anchorY[fx, fy]  = y;
+              }
+            }
+          }
+        }
+      }
+
+      if ( !hasOwner[X, Y] ) return;    // clicked empty / invalid cell
+
+      int startAnchorX = anchorX[X, Y];
+      int startAnchorY = anchorY[X, Y];
+      int tileToFill   = m_CurrentMap.Tiles[startAnchorX, startAnchorY];
+
+      bool autoTile = ( checkAutoTiling != null )
+                   && ( checkAutoTiling.Checked )
+                   && ( m_CurrentEditorTile.GroupId != 0 );
+
+      // No-op when the region is already the brush tile — unless auto-tiling,
+      // where re-stamping the region with fresh group variants is the point
+      // (mirrors drawing by hand over existing same-group tiles).
+      if ( ( tileToFill == m_CurrentEditorTile.Index )
+      &&   ( !autoTile ) )
       {
         return;
       }
 
-      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height ) );
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, tw, th ) );
 
-      while ( pointsToCheck.Count != 0 )
+      // All tiles in the region share tileToFill's index, so its footprint
+      // (in cells) is constant for the whole flood.
+      var fillTile = m_MapProject.Tiles[tileToFill];
+      int fillCW   = Math.Max( 1, (int)Math.Ceiling( fillTile.Chars.Width  / (float)spacingX ) );
+      int fillCH   = Math.Max( 1, (int)Math.Ceiling( fillTile.Chars.Height / (float)spacingY ) );
+
+      // Phase 1 — collect the anchors to fill by stepping tile-by-tile across
+      // 4-edge-adjacent tiles whose index matches tileToFill. Membership is
+      // decided on the ORIGINAL map (the anchor grid above), so phase 2's
+      // replacements (which may rewrite indices when auto-tiling) cannot
+      // perturb the region we walk here.
+      var visited   = new bool[tw, th];
+      var fillOrder = new List<System.Drawing.Point>();
+      var queue     = new List<System.Drawing.Point>();
+      queue.Add( new System.Drawing.Point( startAnchorX, startAnchorY ) );
+      visited[startAnchorX, startAnchorY] = true;
+
+      void TryStep( int cellX, int cellY )
       {
-        System.Drawing.Point    point = pointsToCheck[pointsToCheck.Count - 1];
-        pointsToCheck.RemoveAt( pointsToCheck.Count - 1 );
+        if ( ( cellX < 0 ) || ( cellY < 0 ) || ( cellX >= tw ) || ( cellY >= th ) ) return;
+        if ( !hasOwner[cellX, cellY] ) return;
+        int nax = anchorX[cellX, cellY];
+        int nay = anchorY[cellX, cellY];
+        if ( visited[nax, nay] ) return;
+        if ( m_CurrentMap.Tiles[nax, nay] != tileToFill ) return;
+        visited[nax, nay] = true;
+        queue.Add( new System.Drawing.Point( nax, nay ) );
+      }
 
-        if ( m_CurrentMap.Tiles[point.X, point.Y] != m_CurrentEditorTile.Index )
+      while ( queue.Count != 0 )
+      {
+        System.Drawing.Point a = queue[queue.Count - 1];
+        queue.RemoveAt( queue.Count - 1 );
+        fillOrder.Add( a );
+
+        for ( int j = 0; j < fillCH; ++j )
         {
-          DrawTile( point.X, point.Y, m_CurrentEditorTile.Index, m_TilePlacementColorOverride );
-          m_CurrentMap.Tiles[point.X, point.Y] = m_CurrentEditorTile.Index;
-          ApplyPlacementColorOverride( point.X, point.Y );
-
-          if ( ( point.X > 0 )
-          &&   ( m_CurrentMap.Tiles[point.X - 1, point.Y] == tileToFill ) )
-          {
-            pointsToCheck.Add( new System.Drawing.Point( point.X - 1, point.Y ) );
-          }
-          if ( ( point.X + 1 < m_CurrentMap.Tiles.Width )
-          &&   ( m_CurrentMap.Tiles[point.X + 1, point.Y] == tileToFill ) )
-          {
-            pointsToCheck.Add( new System.Drawing.Point( point.X + 1, point.Y ) );
-          }
-          if ( ( point.Y > 0 )
-          &&   ( m_CurrentMap.Tiles[point.X, point.Y - 1] == tileToFill ) )
-          {
-            pointsToCheck.Add( new System.Drawing.Point( point.X, point.Y - 1 ) );
-          }
-          if ( ( point.Y + 1 < m_CurrentMap.Tiles.Height )
-          &&   ( m_CurrentMap.Tiles[point.X, point.Y + 1] == tileToFill ) )
-          {
-            pointsToCheck.Add( new System.Drawing.Point( point.X, point.Y + 1 ) );
-          }
+          TryStep( a.X - 1,      a.Y + j );    // left edge
+          TryStep( a.X + fillCW, a.Y + j );    // right edge
+        }
+        for ( int i = 0; i < fillCW; ++i )
+        {
+          TryStep( a.X + i, a.Y - 1 );         // top edge
+          TryStep( a.X + i, a.Y + fillCH );    // bottom edge
         }
       }
+
+      // Phase 2 — place tiles. Auto-tiling picks each cell's variant from its
+      // current neighbours (evolving as we go, like hand-drawing); otherwise
+      // the brush tile is placed as-is. Either way the placement colour is
+      // applied over the full footprint.
+      foreach ( var a in fillOrder )
+      {
+        int placeIndex = autoTile ? PickAutoTileIndex( a.X, a.Y ) : m_CurrentEditorTile.Index;
+        m_CurrentMap.Tiles[a.X, a.Y] = placeIndex;
+        ApplyPlacementColorOverride( a.X, a.Y );
+      }
+
       Modified = true;
       RedrawMap();
       Redraw();
@@ -2428,83 +2635,10 @@ namespace RetroDevStudio.Documents
                    // same pos, assume same result
                    return;
                 }
-                // auto-tiling with group
-                // find neighbors
-                var neighbors = new List<int>();
-                if ( trueX + offsetX > 0 )
-                {
-                  neighbors.Add( m_CurrentMap.Tiles[trueX + offsetX - 1, trueY + offsetY] );
-                }
-                if ( trueX + offsetX < m_CurrentMap.Tiles.Width - 1 )
-                {
-                  neighbors.Add( m_CurrentMap.Tiles[trueX + offsetX + 1, trueY + offsetY] );
-                }
-                if ( trueY + offsetY > 0 )
-                {
-                  neighbors.Add( m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY - 1] );
-                }
-                if ( trueY + offsetY < m_CurrentMap.Tiles.Height - 1 )
-                {
-                  neighbors.Add( m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY + 1] );
-                }
-
-                // filter only group members
-                var groupMembers = new List<int>();
-                foreach ( var tile in m_MapProject.Tiles )
-                {
-                  if ( tile.GroupId == m_CurrentEditorTile.GroupId )
-                  {
-                    groupMembers.Add( tile.Index );
-                  }
-                }
-
-                var neighboringGroupMembers = new Dictionary<int,int>();
-                foreach ( int neighborIndex in neighbors )
-                {
-                  if ( m_MapProject.Tiles[neighborIndex].GroupId == m_CurrentEditorTile.GroupId )
-                  {
-                    if ( !neighboringGroupMembers.ContainsKey( neighborIndex ) )
-                    {
-                      neighboringGroupMembers.Add( neighborIndex, 0 );
-                    }
-                    neighboringGroupMembers[neighborIndex]++;
-                  }
-                }
-
-                var possibleCandidates = new List<int>();
-                if ( neighboringGroupMembers.Count == 0 )
-                {
-                  // no neighbors from same group, pick any
-                  possibleCandidates.AddRange( groupMembers );
-                }
-                else
-                {
-                  // find candidates with least occurrence
-                  int minOccurrence = int.MaxValue;
-                  foreach ( var member in groupMembers )
-                  {
-                    int occurrence = 0;
-                    if ( neighboringGroupMembers.ContainsKey( member ) )
-                    {
-                      occurrence = neighboringGroupMembers[member];
-                    }
-                    if ( occurrence < minOccurrence )
-                    {
-                      minOccurrence = occurrence;
-                      possibleCandidates.Clear();
-                      possibleCandidates.Add( member );
-                    }
-                    else if ( occurrence == minOccurrence )
-                    {
-                      possibleCandidates.Add( member );
-                    }
-                  }
-                }
-
-                if ( possibleCandidates.Count > 0 )
-                {
-                  tileIndex = possibleCandidates[m_Random.Next( possibleCandidates.Count )];
-                }
+                // auto-tiling with group: pick the variant from neighbours.
+                // Shared with the FILL tool via PickAutoTileIndex so both
+                // paths apply the identical rule.
+                tileIndex = PickAutoTileIndex( trueX + offsetX, trueY + offsetY );
                 m_LastPaintedPos = currentPos;
               }
 
