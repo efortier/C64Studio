@@ -50,6 +50,7 @@
             this.btnFindFreeMarkerTagID = new System.Windows.Forms.Button();
             this.checkMarkerDefaultEnabled = new System.Windows.Forms.CheckBox();
             this.checkMarkerDefaultTriggered = new System.Windows.Forms.CheckBox();
+            this.checkMarkerAutoDisable = new System.Windows.Forms.CheckBox();
             this.comboMarkerColor = new System.Windows.Forms.ComboBox();
             this.labelMarkerColor = new System.Windows.Forms.Label();
             this.editMarkerName = new System.Windows.Forms.TextBox();
@@ -1648,6 +1649,7 @@
             this.flowLayoutPanel4.Controls.Add(this.btnMarkerWidthDec);
             this.flowLayoutPanel4.Controls.Add(this.btnMarkerHeightInc);
             this.flowLayoutPanel4.Controls.Add(this.btnMarkerHeightDec);
+            this.flowLayoutPanel4.Controls.Add(this.checkMarkerAutoDisable);
             this.flowLayoutPanel4.Location = new System.Drawing.Point(177, 77);
             this.flowLayoutPanel4.Name = "flowLayoutPanel4";
             this.flowLayoutPanel4.Size = new System.Drawing.Size(1115, 30);
@@ -1990,7 +1992,19 @@
             this.btnMarkerHeightDec.Values.DropDownArrowColor = System.Drawing.Color.Empty;
             this.btnMarkerHeightDec.Values.Text = "V-";
             this.btnMarkerHeightDec.Click += new System.EventHandler(this.btnMarkerHeightDec_Click);
-            // 
+            //
+            // checkMarkerAutoDisable
+            //
+            this.checkMarkerAutoDisable.AutoSize = true;
+            this.checkMarkerAutoDisable.Margin = new System.Windows.Forms.Padding(6, 7, 3, 0);
+            this.checkMarkerAutoDisable.Name = "checkMarkerAutoDisable";
+            this.checkMarkerAutoDisable.Size = new System.Drawing.Size(133, 17);
+            this.checkMarkerAutoDisable.TabIndex = 42;
+            this.checkMarkerAutoDisable.Text = "Auto-disable on trigger";
+            this.toolTip1.SetToolTip(this.checkMarkerAutoDisable, "When checked, the game runtime disables this marker the moment it is triggered (one-shot). Exported as bit 2 of the marker FLAGS byte.");
+            this.checkMarkerAutoDisable.UseVisualStyleBackColor = true;
+            this.checkMarkerAutoDisable.CheckedChanged += new System.EventHandler(this.checkMarkerAutoDisable_CheckedChanged);
+            //
             // flowLayoutPanel3
             // 
             this.flowLayoutPanel3.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
@@ -4359,6 +4373,7 @@
         private Krypton.Toolkit.KryptonButton btnFindNextMarkerGroup;
         private System.Windows.Forms.CheckBox checkMarkerDefaultEnabled;
         private System.Windows.Forms.CheckBox checkMarkerDefaultTriggered;
+        private System.Windows.Forms.CheckBox checkMarkerAutoDisable;
         private System.Windows.Forms.ComboBox comboMarkerColorOverride;
         private System.Windows.Forms.ComboBox comboTilePlacementColor;
         private Krypton.Toolkit.KryptonCheckButton btnToolEntity;

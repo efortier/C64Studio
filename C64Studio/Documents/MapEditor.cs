@@ -2945,6 +2945,7 @@ namespace RetroDevStudio.Documents
                    marker.Value2 = (byte)editMarkerValue2.Value;
                    marker.Enabled = checkMarkerDefaultEnabled.Checked;
                    marker.Triggered = checkMarkerDefaultTriggered.Checked;
+                   marker.AutoDisableAfterTrigger = checkMarkerAutoDisable.Checked;
                    marker.GroupId = (byte)editMarkerGroupId.Value;
                    marker.LinkToID = (byte)editMarkerLinkToID.Value;
                    marker.LinkID = (byte)editMarkerLinkID.Value;
@@ -11330,6 +11331,21 @@ namespace RetroDevStudio.Documents
 
 
 
+    private void checkMarkerAutoDisable_CheckedChanged( object sender, EventArgs e )
+    {
+      if ( m_PopulatingFromSelection ) return;
+      if ( m_SelectedMarker == null ) return;
+      if ( m_SelectedMarker.AutoDisableAfterTrigger == checkMarkerAutoDisable.Checked ) return;
+
+      DocumentInfo.UndoManager.AddUndoTask(
+        new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
+      m_SelectedMarker.AutoDisableAfterTrigger = checkMarkerAutoDisable.Checked;
+      SetModified();
+      pictureEditor.Invalidate();
+    }
+
+
+
     private void editEntityValue_ValueChanged( object sender, EventArgs e )
     {
       if ( m_PopulatingFromSelection ) return;
@@ -12000,6 +12016,7 @@ namespace RetroDevStudio.Documents
           editMarkerLinkID.Value = marker.LinkID;
           checkMarkerDefaultEnabled.Checked = marker.Enabled;
           checkMarkerDefaultTriggered.Checked = marker.Triggered;
+          checkMarkerAutoDisable.Checked = marker.AutoDisableAfterTrigger;
 
           int typeIndex = m_MapProject.MarkerTypes.FindIndex( t => t.ID == marker.Type );
           if ( typeIndex != -1 )

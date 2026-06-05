@@ -27,6 +27,12 @@ namespace RetroDevStudio.Formats
       public byte       Value2 = 0;
       public bool       Enabled = true;
       public bool       Triggered = false;
+      // When set, the game runtime disables this marker (clears its
+      // Enabled bit) the moment it fires — i.e. a one-shot trigger.
+      // Default false = the marker stays enabled and can fire again.
+      // Exported as bit 2 of the marker FLAGS byte alongside
+      // Enabled (bit 0) and Triggered (bit 1).
+      public bool       AutoDisableAfterTrigger = false;
       // Per-marker group identifier. Lets the game runtime
       // enable/disable batches of markers at once (e.g. "all triggers
       // for room 5" → GroupId == 5). Default 0 = no group / global.
@@ -2263,6 +2269,7 @@ namespace RetroDevStudio.Formats
               Value2    = marker.Value2,
               Enabled   = marker.Enabled,
               Triggered = marker.Triggered,
+              AutoDisableAfterTrigger = marker.AutoDisableAfterTrigger,
               GroupId   = marker.GroupId,
               LinkToID  = marker.LinkToID,
               LinkID    = marker.LinkID
@@ -2282,7 +2289,7 @@ namespace RetroDevStudio.Formats
       int addrBase = BaseAddress;
 
       // ========== HEADER (60 bytes, 0x3C) ==========
-      buf.AppendU8( 9 );    // +$00 marker_stride (bytes per marker record: tag, x, y, value1, value2, flags, group_id, link_to_id, link_id) — flags is a bitfield: bit0 = Enabled, bit1 = Triggered
+      buf.AppendU8( 9 );    // +$00 marker_stride (bytes per marker record: tag, x, y, value1, value2, flags, group_id, link_to_id, link_id) — flags is a bitfield: bit0 = Enabled, bit1 = Triggered, bit2 = AutoDisableAfterTrigger
       buf.AppendU8( (byte)Tiles.Count );  // +$01
       buf.AppendU8( (byte)Maps.Count );   // +$02
       // Starting-map index — points runtime code at the map the level
@@ -2702,12 +2709,15 @@ namespace RetroDevStudio.Formats
             buf.AppendU8( (byte)marker.Y );
             buf.AppendU8( marker.Value1 );
             buf.AppendU8( marker.Value2 );
-            // Packed flags byte: bit 0 = Enabled, bit 1 = Triggered.
-            // Mask constants are emitted into the asm sidecar as
-            // MAP_MARKER_FLAGS_MASK_ENABLED / MAP_MARKER_FLAGS_MASK_TRIGGERED.
+            // Packed flags byte: bit 0 = Enabled, bit 1 = Triggered,
+            // bit 2 = AutoDisableAfterTrigger (disable this marker the
+            // moment it fires — one-shot). Mask constants are emitted into
+            // the asm sidecar as MAP_MARKER_FLAGS_MASK_ENABLED /
+            // MAP_MARKER_FLAGS_MASK_TRIGGERED / MAP_MARKER_FLAGS_MASK_AUTO_DISABLE.
             byte flags = 0;
-            if ( marker.Enabled )   flags |= 0x01;
-            if ( marker.Triggered ) flags |= 0x02;
+            if ( marker.Enabled )                 flags |= 0x01;
+            if ( marker.Triggered )               flags |= 0x02;
+            if ( marker.AutoDisableAfterTrigger ) flags |= 0x04;
             buf.AppendU8( flags );
             buf.AppendU8( marker.GroupId );
             // Trigger-chain link fields — last two bytes of the record.
@@ -2936,10 +2946,12 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( "// MAP_MARKER_FLAGS bit masks. Test with AND, set with ORA." );
       sb.AppendLine( ".const MAP_MARKER_FLAGS_MASK_ENABLED             = %0000_0001" );
       sb.AppendLine( ".const MAP_MARKER_FLAGS_MASK_TRIGGERED           = %0000_0010" );
+      sb.AppendLine( ".const MAP_MARKER_FLAGS_MASK_AUTO_DISABLE        = %0000_0100  // disable this marker once it triggers (one-shot)" );
       sb.AppendLine( "// Inverse masks: AND with these to CLEAR the corresponding bit." );
       sb.AppendLine( "// e.g. LDA flags : AND MAP_MARKER_FLAGS_CLEAR_ENABLED : STA flags" );
       sb.AppendLine( ".const MAP_MARKER_FLAGS_CLEAR_ENABLED            = %1111_1110" );
       sb.AppendLine( ".const MAP_MARKER_FLAGS_CLEAR_TRIGGERED          = %1111_1101" );
+      sb.AppendLine( ".const MAP_MARKER_FLAGS_CLEAR_AUTO_DISABLE       = %1111_1011" );
       sb.AppendLine();
       sb.AppendLine( "// ====== Entity record layout (9 bytes per entity) ======" );
       sb.AppendLine( "// Byte offsets within a single entity record." );
@@ -4281,6 +4293,9 @@ namespace RetroDevStudio.Formats
         // lack these and fall back to a 1x1 marker on read.
         chunkMarker.AppendI32( marker.Width );
         chunkMarker.AppendI32( marker.Height );
+        // Appended auto-disable-after-trigger flag — same forward-compat
+        // pattern, default 0 (marker stays enabled after firing).
+        chunkMarker.AppendU8( (byte)( marker.AutoDisableAfterTrigger ? 1 : 0 ) );
         chunkMap.Append( chunkMarker.ToBuffer() );
       }
 
@@ -4626,6 +4641,16 @@ namespace RetroDevStudio.Formats
               else
               {
                 marker.Height = 1;
+              }
+              // Appended auto-disable-after-trigger flag. Old files stop
+              // before this byte — default false (marker stays enabled).
+              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+              {
+                marker.AutoDisableAfterTrigger = ( mapChunkReader.ReadUInt8() != 0 );
+              }
+              else
+              {
+                marker.AutoDisableAfterTrigger = false;
               }
               map.Markers.Add( marker );
             }

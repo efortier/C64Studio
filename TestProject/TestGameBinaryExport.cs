@@ -381,6 +381,24 @@ namespace TestProject
     }
 
     [TestMethod]
+    public void TestMarkerAutoDisableAfterTriggerFlag()
+    {
+      // AutoDisableAfterTrigger is exported as bit 2 (0x04) of the FLAGS byte,
+      // alongside Enabled (bit 0) and Triggered (bit 1). Adding the bit must NOT
+      // change the 9-byte marker stride. One marker keeps export order moot.
+      var proj = CreateTestProject( 2, 4, 4 );
+      proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 0, Name = "TRAP", TagID = 7 } );
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 1, Type = 0, Enabled = true, AutoDisableAfterTrigger = true } );
+
+      var buf = proj.ExportAsGameBinary( true, false, false );
+      int markersPos = LookupAbsOffset( buf, HDR_MAP_MARKERS_LO, HDR_MAP_MARKERS_HI, 0 );
+
+      Assert.AreEqual( (byte)7, buf.ByteAt( markersPos + 0 ) );      // tag
+      // FLAGS: bit0 Enabled (0x01) | bit2 AutoDisableAfterTrigger (0x04) = 0x05.
+      Assert.AreEqual( (byte)0x05, buf.ByteAt( markersPos + 5 ) );
+    }
+
+    [TestMethod]
     public void TestMarkerCoordsAreTileCoordinates()
     {
       // Previously coordinates were multiplied by TileSpacing on export; that was
