@@ -26,6 +26,17 @@ namespace RetroDevStudio.Undo
         var charData = new CharData();
         charData.Tile.Data        = new GR.Memory.ByteBuffer( Project.Characters[CharIndex + i].Tile.Data );
         charData.Tile.CustomColor = Project.Characters[CharIndex + i].Tile.CustomColor;
+        // Mode must be snapshotted too: ImportChar() flips a character's
+        // Mode (e.g. HIRES <-> MULTICOLOR) based on the imported pixels. Without
+        // capturing it, undo restores the pixel bytes but leaves the wrong mode,
+        // so the bitmap is decoded incorrectly = scrambled graphics on undo.
+        charData.Tile.Mode        = Project.Characters[CharIndex + i].Tile.Mode;
+        // Width/Height travel with Mode: a project mode change (e.g. 8x8 <-> 8x16)
+        // updates Mode, Width, Height and the Data size together. Restoring Mode
+        // alone would leave Width/Height mismatched, so GetPixel/SetPixel would
+        // compute byte offsets past the end of the restored (old-size) buffer.
+        charData.Tile.Width       = Project.Characters[CharIndex + i].Tile.Width;
+        charData.Tile.Height      = Project.Characters[CharIndex + i].Tile.Height;
         charData.Category         = Project.Characters[CharIndex + i].Category;
         charData.Index            = CharIndex + i;
 
@@ -60,6 +71,9 @@ namespace RetroDevStudio.Undo
 
         Project.Characters[CharIndex + i].Tile.Data = new GR.Memory.ByteBuffer( charData.Tile.Data );
         Project.Characters[CharIndex + i].Tile.CustomColor = charData.Tile.CustomColor;
+        Project.Characters[CharIndex + i].Tile.Mode = charData.Tile.Mode;
+        Project.Characters[CharIndex + i].Tile.Width = charData.Tile.Width;
+        Project.Characters[CharIndex + i].Tile.Height = charData.Tile.Height;
         Project.Characters[CharIndex + i].Category = charData.Category;
         Project.Characters[CharIndex + i].Index = charData.Index;
       }

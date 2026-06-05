@@ -25,6 +25,13 @@ namespace RetroDevStudio.Undo
       Char = new CharData();
       Char.Tile.Data        = new GR.Memory.ByteBuffer( Project.Characters[CharIndex].Tile.Data );
       Char.Tile.CustomColor = Project.Characters[CharIndex].Tile.CustomColor;
+      // Snapshot Mode too (import can change it) so undo restores the correct
+      // pixel interpretation, not just the pixel bytes.
+      Char.Tile.Mode        = Project.Characters[CharIndex].Tile.Mode;
+      // Width/Height travel with Mode (see UndoCharacterEditorCharChange) — a
+      // mode change resizes the tile, so they must be restored together.
+      Char.Tile.Width       = Project.Characters[CharIndex].Tile.Width;
+      Char.Tile.Height      = Project.Characters[CharIndex].Tile.Height;
       Char.Category         = Project.Characters[CharIndex].Category;
       Char.Index            = CharIndex;
     }
@@ -52,6 +59,9 @@ namespace RetroDevStudio.Undo
     {
       Project.Characters[CharIndex].Tile.Data = new GR.Memory.ByteBuffer( Char.Tile.Data );
       Project.Characters[CharIndex].Tile.CustomColor = Char.Tile.CustomColor;
+      Project.Characters[CharIndex].Tile.Mode = Char.Tile.Mode;
+      Project.Characters[CharIndex].Tile.Width = Char.Tile.Width;
+      Project.Characters[CharIndex].Tile.Height = Char.Tile.Height;
       Project.Characters[CharIndex].Category = Char.Category;
       Project.Characters[CharIndex].Index = Char.Index;
 

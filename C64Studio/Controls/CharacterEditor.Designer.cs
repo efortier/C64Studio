@@ -643,6 +643,7 @@
             this.picturePlayground.TabStop = false;
             this.picturePlayground.MouseDown += new System.Windows.Forms.MouseEventHandler(this.picturePlayground_MouseDown);
             this.picturePlayground.MouseMove += new System.Windows.Forms.MouseEventHandler(this.picturePlayground_MouseMove);
+            this.picturePlayground.MouseUp += new System.Windows.Forms.MouseEventHandler(this.picturePlayground_MouseUp);
             // 
             // groupBox2
             // 
@@ -1123,6 +1124,7 @@
             this.canvasEditor.Paint += new System.Windows.Forms.PaintEventHandler(this.canvasEditor_Paint);
             this.canvasEditor.MouseDown += new System.Windows.Forms.MouseEventHandler(this.canvasEditor_MouseDown);
             this.canvasEditor.MouseMove += new System.Windows.Forms.MouseEventHandler(this.canvasEditor_MouseMove);
+            this.canvasEditor.MouseUp += new System.Windows.Forms.MouseEventHandler(this.canvasEditor_MouseUp);
             // 
             // comboCharsetMode
             // 

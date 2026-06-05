@@ -29,7 +29,18 @@ namespace RetroDevStudio.Controls
     private ushort                      m_CurrentColor = 1;
     private int                         m_CurrentPaletteMapping = 0;
     private ColorType                   m_CurrentColorType = ColorType.CUSTOM_COLOR;
-    private bool                        m_ButtonReleased = false;
+    // True when the mouse button is up (so the next paint begins a fresh undo
+    // group = one undo step per stroke). Starts true so the very first stroke
+    // after the control loads is recorded as its own step rather than being
+    // grouped with nothing. Reset to true by MouseUp (see canvasEditor_MouseUp /
+    // picturePlayground_MouseUp) so a stroke that ends with the cursor off the
+    // control still closes its group correctly.
+    private bool                        m_ButtonReleased = true;
+    // Characters already snapshotted by the in-progress drawing stroke. A single
+    // stroke can span several characters (2x2 / 3x3 / custom editing canvas);
+    // each is snapshotted once and all are grouped into ONE undo step. Cleared
+    // at the start of each stroke (see DrawPixelWithStrokeUndo).
+    private HashSet<int>                m_StrokeUndoChars = new HashSet<int>();
     public StudioCore                   Core = null;
     public Undo.UndoManager             UndoManager = null;
 
@@ -1590,7 +1601,11 @@ namespace RetroDevStudio.Controls
     {
       DoNotAddUndo = true;
       DoNotUpdateFromControls = true;
-
+      // try/finally so an exception anywhere in the populate below can't leave
+      // DoNotAddUndo stuck true — which would silently stop recording undo
+      // entries (mode changes etc.) for the rest of the session.
+      try
+      {
       _SkipRebuildCharImage = true;
       m_Project = Project;
       ClearRenderCache();
@@ -1680,9 +1695,12 @@ namespace RetroDevStudio.Controls
       panelCharacters.GridColor = System.Drawing.Color.FromArgb( m_Project.PlaygroundGridOpacity, System.Drawing.Color.Gray );
 
       ApplyRightClickDrawing( m_Project.RightClickDrawing );
-
-      DoNotAddUndo = false;
-      DoNotUpdateFromControls = false;
+      }
+      finally
+      {
+        DoNotAddUndo = false;
+        DoNotUpdateFromControls = false;
+      }
     }
 
 
@@ -1808,22 +1826,7 @@ namespace RetroDevStudio.Controls
 
       if ( ( Buttons & MouseButtons.Left ) != 0 )
       {
-        var potentialUndo = new Undo.UndoCharacterEditorCharChange( this, m_Project, affectedCharIndex, 1 );
-        if ( affectedChar.Tile.SetPixel( charX, charY, newColor ) )
-        {
-          if ( m_ButtonReleased )
-          {
-            UndoManager.AddUndoTask( potentialUndo );
-            m_ButtonReleased = false;
-          }
-          RaiseModifiedEvent( new List<int>() { affectedCharIndex } );
-          RebuildAffectedChar( affectedCharIndex );
-          canvasEditor.Invalidate();
-        }
-      }
-      else
-      {
-        m_ButtonReleased = true;
+        DrawPixelWithStrokeUndo( affectedCharIndex, charX, charY, newColor );
       }
       if ( ( Buttons & MouseButtons.Right ) != 0 )
       {
@@ -1856,19 +1859,62 @@ namespace RetroDevStudio.Controls
               break;
           }
 
-          var potentialUndo = new Undo.UndoCharacterEditorCharChange( this, m_Project, affectedCharIndex, 1 );
-          if ( affectedChar.Tile.SetPixel( charX, charY, rightClickColor ) )
-          {
-            if ( m_ButtonReleased )
-            {
-              UndoManager.AddUndoTask( potentialUndo );
-              m_ButtonReleased = false;
-            }
-            RaiseModifiedEvent( new List<int>() { affectedCharIndex } );
-            RebuildAffectedChar( affectedCharIndex );
-            canvasEditor.Invalidate();
-          }
+          DrawPixelWithStrokeUndo( affectedCharIndex, charX, charY, rightClickColor );
         }
+      }
+      // No drawing button held -> the stroke has ended; the next paint starts a
+      // fresh undo group (DrawPixelWithStrokeUndo clears the per-stroke set when
+      // m_ButtonReleased is true). This replaces the old
+      // "else { m_ButtonReleased = true; }" on the LEFT button, which fired
+      // during a right-button drag and fragmented its undo group per pixel.
+      if ( ( Buttons & ( MouseButtons.Left | MouseButtons.Right ) ) == 0 )
+      {
+        m_ButtonReleased = true;
+      }
+    }
+
+
+
+    /// <summary>
+    /// Draws one pixel into a character and records undo so that a single stroke
+    /// spanning multiple characters (2x2 / 3x3 / custom editing canvas) is ONE
+    /// undo step. Each character is snapshotted the FIRST time the stroke changes
+    /// it (capturing its pre-stroke state) and grouped with the rest.
+    /// m_ButtonReleased marks the start of a stroke (set true by the no-button
+    /// branch in HandleMouseOnEditor and by MouseUp); at that point the
+    /// per-stroke character set is cleared. CharIndex must already be the final
+    /// (e.g. ECM-remapped) character index.
+    /// </summary>
+    private void DrawPixelWithStrokeUndo( int CharIndex, int CharX, int CharY, Tupel<ColorType, byte> Color )
+    {
+      if ( m_ButtonReleased )
+      {
+        m_StrokeUndoChars.Clear();
+        m_ButtonReleased = false;
+      }
+      // Snapshot before the change, but only commit it if the pixel actually
+      // changes (matches the original "undo only on real change" behaviour).
+      bool  firstTouch = !m_StrokeUndoChars.Contains( CharIndex );
+      var   potentialUndo = firstTouch
+                            ? new Undo.UndoCharacterEditorCharChange( this, m_Project, CharIndex, 1 )
+                            : null;
+      if ( m_Project.Characters[CharIndex].Tile.SetPixel( CharX, CharY, Color ) )
+      {
+        if ( firstTouch )
+        {
+          if ( m_StrokeUndoChars.Count == 0 )
+          {
+            UndoManager.AddUndoTask( potentialUndo );          // first char of the stroke -> new undo group
+          }
+          else
+          {
+            UndoManager.AddGroupedUndoTask( potentialUndo );   // later chars -> same group
+          }
+          m_StrokeUndoChars.Add( CharIndex );
+        }
+        RaiseModifiedEvent( new List<int>() { CharIndex } );
+        RebuildAffectedChar( CharIndex );
+        canvasEditor.Invalidate();
       }
     }
 
@@ -2249,15 +2295,23 @@ namespace RetroDevStudio.Controls
             if ( m_Project.PlaygroundChars[destIndex] != newValue )
             {
               var undoTask = new Undo.UndoCharacterEditorPlaygroundCharChange( this, m_Project, destX, destY );
-              if ( !modified )
+              // Group the ENTIRE drag (mouse-down..mouse-up) into one undo
+              // step, not one per mouse-move. m_ButtonReleased is true only on
+              // the first painted cell of a fresh stroke; every later cell —
+              // within this move and across subsequent moves — joins that group.
+              // (The old code used the per-move-local 'modified' flag, so each
+              // mouse-move started a new group and one drag became many undo
+              // steps.)
+              if ( m_ButtonReleased )
               {
                 UndoManager.AddUndoTask( undoTask );
-                modified = true;
+                m_ButtonReleased = false;
               }
               else
               {
                 UndoManager.AddGroupedUndoTask( undoTask );
               }
+              modified = true;
 
               m_Project.PlaygroundChars[destIndex] = newValue;
               DrawScaledChar( sourceCharIndex, effectiveColor, destX * scaledCharWidth, destY * scaledCharHeight, scale );
@@ -2889,8 +2943,8 @@ namespace RetroDevStudio.Controls
         if ( !DoNotAddUndo )
         {
           Debug.Log( "comboCharsetMode_SelectedIndexChanged ab" );
-          UndoManager?.AddUndoTask( new Undo.UndoCharacterEditorCharChange( this, m_Project, 0, m_Project.TotalNumberOfCharacters ), true );
-          UndoManager?.AddUndoTask( new Undo.UndoCharacterEditorValuesChange( this, m_Project ), false );
+          UndoManager.AddUndoTask( new Undo.UndoCharacterEditorCharChange( this, m_Project, 0, m_Project.TotalNumberOfCharacters ), true );
+          UndoManager.AddUndoTask( new Undo.UndoCharacterEditorValuesChange( this, m_Project ), false );
         }
         m_Project.Mode = (TextCharMode)comboCharsetMode.SelectedIndex;
         modeChanged = true;
@@ -3883,6 +3937,37 @@ namespace RetroDevStudio.Controls
         buttons = 0;
       }
       HandleMouseOnEditor( e.X, e.Y, buttons );
+    }
+
+
+
+    private void canvasEditor_MouseUp( object sender, MouseEventArgs e )
+    {
+      // End of a brush stroke. Resetting here (rather than relying on a later
+      // no-button MouseMove) guarantees the next stroke starts a fresh undo
+      // group even when the cursor left the control or the button was released
+      // off-canvas mid-drag — the control holds mouse capture during a drag, so
+      // it still receives this MouseUp. Without it, the next stroke could be
+      // merged into the previous undo step ("undo skips a step").
+      // Reset only once NO drawing button (left OR right — both paint here)
+      // remains held, so releasing one button mid-stroke doesn't split the
+      // in-progress stroke into two undo steps.
+      if ( ( Control.MouseButtons & ( MouseButtons.Left | MouseButtons.Right ) ) == MouseButtons.None )
+      {
+        m_ButtonReleased = true;
+      }
+    }
+
+
+
+    private void picturePlayground_MouseUp( object sender, MouseEventArgs e )
+    {
+      // Same reasoning as canvasEditor_MouseUp: close the drag's undo group on
+      // release, but only once no drawing button remains held.
+      if ( ( Control.MouseButtons & ( MouseButtons.Left | MouseButtons.Right ) ) == MouseButtons.None )
+      {
+        m_ButtonReleased = true;
+      }
     }
 
 

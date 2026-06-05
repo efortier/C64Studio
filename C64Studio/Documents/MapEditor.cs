@@ -6480,13 +6480,21 @@ namespace RetroDevStudio.Documents
 
       // Unterschied!
       bool  firstUndo = true;
-      bool  sizeChanged = false;
-      if ( ( w != m_CurrentMap.Tiles.Width )
-      ||   ( h != m_CurrentMap.Tiles.Height ) )
+      bool  sizeChanged = ( ( w != m_CurrentMap.Tiles.Width )
+                         || ( h != m_CurrentMap.Tiles.Height ) );
+      // UndoMapSizeChange now snapshots the per-char override layers
+      // (TileColorOverrides / CharBlockedOverrides) in addition to the tile
+      // grid. Those layers are resized — and on a spacing change wiped — for
+      // EITHER a size change OR a spacing change, so the size-undo task must
+      // run in both cases; otherwise undoing a spacing change silently loses
+      // every per-char colour and blocked override. (spacingChanged is read
+      // again below, before TileSpacingX/Y are overwritten.)
+      bool  spacingChanged = ( ( tw != m_CurrentMap.TileSpacingX )
+                           || ( th != m_CurrentMap.TileSpacingY ) );
+      if ( sizeChanged || spacingChanged )
       {
         DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapSizeChange( this, m_CurrentMap, m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height ) );
         firstUndo = false;
-        sizeChanged = true;
       }
       if ( ( tw != m_CurrentMap.TileSpacingX )
       ||   ( th != m_CurrentMap.TileSpacingY )
@@ -6504,12 +6512,8 @@ namespace RetroDevStudio.Documents
 
 
 
-      // Detect spacing change BEFORE we overwrite the field — a change
-      // in spacing remaps the entire char-grid override layer in a way
-      // that has no obvious right answer, so we clear it.
-      bool spacingChanged = ( tw != m_CurrentMap.TileSpacingX )
-                         || ( th != m_CurrentMap.TileSpacingY );
-
+      // spacingChanged was computed above (it also gates the size-undo task);
+      // it must be read here, BEFORE we overwrite TileSpacingX/Y.
       m_CurrentMap.TileSpacingX = tw;
       m_CurrentMap.TileSpacingY = th;
 

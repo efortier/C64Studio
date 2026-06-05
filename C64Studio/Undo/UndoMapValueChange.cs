@@ -14,7 +14,6 @@ namespace RetroDevStudio.Undo
     public int                    AlternativeColor2 = -1;
     public int                    AlternativeBGColor = -1;
     public int                    AlternativeBGColor4 = -1;
-    public bool                   UseAlternativeMode = false;
     public TextCharMode           AlternativeMode = TextCharMode.COMMODORE_HIRES;
     public int                    TileSpacingX = 0;
     public int                    TileSpacingY = 0;

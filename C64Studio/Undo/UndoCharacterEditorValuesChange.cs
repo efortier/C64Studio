@@ -45,7 +45,11 @@ namespace RetroDevStudio.Undo
 
     public override void Apply()
     {
-      Project.Colors  = Colors;
+      // Deep-copy on restore (mirroring the constructor) so the live project
+      // never shares the snapshot's ColorSettings object — otherwise a later
+      // in-place palette/colour edit would mutate the stored snapshot and
+      // corrupt a subsequent redo.
+      Project.Colors  = new ColorSettings( Colors );
       Project.Mode    = Mode;
 
       Editor.ColorsChanged();
