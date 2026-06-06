@@ -79,6 +79,9 @@ namespace RetroDevStudio
     public DocumentInfo()
     {
       HasBeenSuccessfullyBuilt = false;
+      // Let the per-document UndoManager flag this document modified on
+      // undo/redo. UndoManager is field-initialized above, so it's non-null here.
+      UndoManager.OwnerDocumentInfo = this;
     }
 
 

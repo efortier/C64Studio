@@ -11,6 +11,10 @@ namespace RetroDevStudio.Undo
     private List<UndoTask>      RedoTasks = new List<UndoTask>();
     private int                 CurrentUndoGroup = 0;
     public MainForm             MainForm = null;
+    // Back-reference to the owning document so Undo()/Redo() can flag it
+    // modified (the "*" in the tab). Set by DocumentInfo's constructor; this
+    // UndoManager is created per-document, so it maps to exactly one document.
+    public DocumentInfo         OwnerDocumentInfo = null;
 
 
     public bool CanUndo
@@ -91,6 +95,11 @@ namespace RetroDevStudio.Undo
         task.Apply();
       }
       InsideUndoRedo = false;
+      // An undo or redo changes the document's content, so flag it modified
+      // (adds the "*" to the tab). Reached only when a task was actually applied
+      // — both Undo() and Redo() early-return on an empty stack — so this never
+      // marks an untouched document dirty.
+      OwnerDocumentInfo?.BaseDoc?.SetModified();
       MainForm.UpdateUndoSettings();
     }
 
@@ -118,6 +127,11 @@ namespace RetroDevStudio.Undo
         task.Apply();
       }
       InsideUndoRedo = false;
+      // An undo or redo changes the document's content, so flag it modified
+      // (adds the "*" to the tab). Reached only when a task was actually applied
+      // — both Undo() and Redo() early-return on an empty stack — so this never
+      // marks an untouched document dirty.
+      OwnerDocumentInfo?.BaseDoc?.SetModified();
       MainForm.UpdateUndoSettings();
     }
 
