@@ -3960,7 +3960,14 @@ namespace RetroDevStudio.Documents
                            bs.Tile.Data,
                            bs.Tile.Colors.Palette,
                            bs.Tile.Width, bs.Tile.Height,
-                           slot.CustomColor,
+                           // Animation frames show each bank sprite in ITS OWN
+                           // foreground colour — NOT the overlay slot's colour.
+                           // (The overlay-authoring preview deliberately uses
+                           // slot.CustomColor for per-layer recolouring; the
+                           // animation must not.) Drives both static preview and
+                           // playback. Fixes "first colour comes from the overlay"
+                           // for hires and multicolour alike.
+                           bs.Tile.CustomColor,
                            bs.Mode,
                            m_SpriteProject.Colors.BackgroundColor,
                            m_SpriteProject.Colors.MultiColor1,

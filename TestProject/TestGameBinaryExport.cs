@@ -86,6 +86,94 @@ namespace TestProject
     }
 
     // ================================================================
+    // 0. Editor-only tile layers — persistence round-trip
+    // ================================================================
+
+    [TestMethod]
+    public void TestMapLayersRoundTripWithContent()
+    {
+      var proj = CreateTestProject( 4, 4, 3 );
+      var map = proj.Maps[0];
+      map.EnsureDefaultLayers();                  // Background + 2 empty
+      Assert.AreEqual( 3, map.Layers.Count );
+
+      // Content on the upper layers (tiles + a colour override + metadata).
+      map.Layers[1].Name    = "Decor";
+      map.Layers[1].Visible = false;
+      map.Layers[1].Tiles[1, 1]              = 2;
+      map.Layers[1].TileColorOverrides[1, 1] = 7;
+      map.Layers[2].Tiles[2, 0]              = 3;
+
+      var clone = MapProject.CloneMap( map );
+
+      Assert.AreEqual( 3, clone.Layers.Count );
+      Assert.AreEqual( "Decor", clone.Layers[1].Name );
+      Assert.IsFalse( clone.Layers[1].Visible );
+      Assert.AreEqual( 2, clone.Layers[1].Tiles[1, 1] );
+      Assert.AreEqual( 7, clone.Layers[1].TileColorOverrides[1, 1] );
+      Assert.AreEqual( 3, clone.Layers[2].Tiles[2, 0] );
+      // Untouched upper cells stay transparent (-1).
+      Assert.AreEqual( -1, clone.Layers[1].Tiles[0, 0] );
+      Assert.AreEqual( -1, clone.Layers[2].Tiles[0, 0] );
+      // Background unchanged.
+      Assert.AreEqual( 0, clone.Layers[0].Tiles[0, 0] );
+    }
+
+    [TestMethod]
+    public void TestMapLayersEmptyResynthesizesThree()
+    {
+      var proj = CreateTestProject( 2, 4, 3 );
+      var map = proj.Maps[0];
+      // No upper-layer content -> MAP_LAYERS chunk is suppressed -> the clone
+      // re-synthesizes the default 3 layers with transparent upper cells.
+      var clone = MapProject.CloneMap( map );
+      Assert.AreEqual( 3, clone.Layers.Count );
+      Assert.AreEqual( -1, clone.Layers[1].Tiles[0, 0] );
+      Assert.AreEqual( -1, clone.Layers[2].Tiles[0, 0] );
+      Assert.AreEqual( 0, clone.Layers[0].Tiles[0, 0] );   // background preserved
+    }
+
+    [TestMethod]
+    public void TestMapLayersVisibilityAndSelectionRoundTrip()
+    {
+      var proj = CreateTestProject( 2, 4, 3 );
+      var map = proj.Maps[0];
+      map.EnsureDefaultLayers();
+
+      // Non-default layer state with NO upper-layer tile content — exercises the
+      // widened save gate (a hidden layer or non-zero selection alone must
+      // persist, even though no upper layer has tiles).
+      map.Layers[0].Visible = false;   // hide the Background
+      map.Layers[2].Visible = false;   // hide an upper layer
+      map.SelectedLayerIndex = 2;
+
+      var clone = MapProject.CloneMap( map );
+
+      Assert.AreEqual( 3, clone.Layers.Count );
+      Assert.IsFalse( clone.Layers[0].Visible );           // Background visibility persisted
+      Assert.IsTrue(  clone.Layers[1].Visible );
+      Assert.IsFalse( clone.Layers[2].Visible );           // upper-layer visibility persisted
+      Assert.AreEqual( 2, clone.SelectedLayerIndex );      // selected layer persisted
+    }
+
+    [TestMethod]
+    public void TestMapLayersFlattenOnExport()
+    {
+      // tile 0 -> char 0, tile 1 -> char 1 (CreateTestProject sets char = index).
+      var proj = CreateTestProject( 2, 4, 3 );
+      var map = proj.Maps[0];
+      map.EnsureDefaultLayers();
+      // (0,0): only Background (tile 0). (1,0): upper Layer 1 places tile 1 over
+      // Background's tile 0 -> the upper tile must win in the flattened export.
+      map.Layers[1].Tiles[1, 0] = 1;
+
+      var buf = proj.ExportAsGameBinary( false, false, false );
+      int gridPos = LookupAbsOffset( buf, HDR_MAP_CHAR_GRID_LO, HDR_MAP_CHAR_GRID_HI, 0 );
+      Assert.AreEqual( (byte)0, buf.ByteAt( gridPos + 0 ) );   // Background tile 0
+      Assert.AreEqual( (byte)1, buf.ByteAt( gridPos + 1 ) );   // upper layer tile 1 wins
+    }
+
+    // ================================================================
     // 1. Header
     // ================================================================
 

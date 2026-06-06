@@ -34,10 +34,23 @@ namespace RetroDevStudio.Undo
     // bounds even if the map's spacing changes between create and undo.
     private int                   m_SpacingX = 1;
     private int                   m_SpacingY = 1;
+    // Which editor tile layer this snapshot belongs to (0 = Background). Tiles
+    // and colour overrides are per-layer; blocked overrides are whole-map and
+    // always read/written on AffectedMap directly.
+    public int                    LayerIndex = 0;
+
+    private MapProject.MapLayer ResolveLayer()
+    {
+      if ( ( LayerIndex >= 0 ) && ( LayerIndex < AffectedMap.Layers.Count ) )
+      {
+        return AffectedMap.Layers[LayerIndex];
+      }
+      return AffectedMap.Layers[0];
+    }
 
 
 
-    public UndoMapTilesChange( MapEditor Editor, MapProject.Map Map, int X, int Y, int Width, int Height )
+    public UndoMapTilesChange( MapEditor Editor, MapProject.Map Map, int X, int Y, int Width, int Height, int LayerIndex = 0 )
     {
       this.X = X;
       this.Y = Y;
@@ -45,8 +58,10 @@ namespace RetroDevStudio.Undo
       this.Height = Height;
       MapEditor = Editor;
       AffectedMap = Map;
+      this.LayerIndex = LayerIndex;
       m_SpacingX = Map.TileSpacingX;
       m_SpacingY = Map.TileSpacingY;
+      var layer = ResolveLayer();
 
       ChangedData.Resize( Width, Height );
       ChangedOverrides.Resize( Width * m_SpacingX, Height * m_SpacingY );
@@ -57,7 +72,7 @@ namespace RetroDevStudio.Undo
       {
         for ( int j = 0; j < Height; ++j )
         {
-          ChangedData[i, j] = Map.Tiles[X + i, Y + j];
+          ChangedData[i, j] = layer.Tiles[X + i, Y + j];
         }
       }
 
@@ -75,10 +90,10 @@ namespace RetroDevStudio.Undo
         {
           int srcX = charBaseX + i;
           int srcY = charBaseY + j;
-          if ( ( srcX < Map.TileColorOverrides.Width )
-          &&   ( srcY < Map.TileColorOverrides.Height ) )
+          if ( ( srcX < layer.TileColorOverrides.Width )
+          &&   ( srcY < layer.TileColorOverrides.Height ) )
           {
-            ChangedOverrides[i, j] = Map.TileColorOverrides[srcX, srcY];
+            ChangedOverrides[i, j] = layer.TileColorOverrides[srcX, srcY];
           }
           else
           {
@@ -114,19 +129,20 @@ namespace RetroDevStudio.Undo
 
     public override UndoTask CreateComplementaryTask()
     {
-      return new UndoMapTilesChange( MapEditor, AffectedMap, X, Y, Width, Height );
+      return new UndoMapTilesChange( MapEditor, AffectedMap, X, Y, Width, Height, LayerIndex );
     }
 
 
 
     public override void Apply()
     {
-      // Restore tiles (tile-grid).
+      var layer = ResolveLayer();
+      // Restore tiles (tile-grid) on the snapshot's layer.
       for ( int i = 0; i < Width; ++i )
       {
         for ( int j = 0; j < Height; ++j )
         {
-          AffectedMap.Tiles[X + i, Y + j] = ChangedData[i, j];
+          layer.Tiles[X + i, Y + j] = ChangedData[i, j];
         }
       }
       // Restore per-char overrides (char-grid). Bounds check guards
@@ -143,10 +159,10 @@ namespace RetroDevStudio.Undo
         {
           int dstX = charBaseX + i;
           int dstY = charBaseY + j;
-          if ( ( dstX < AffectedMap.TileColorOverrides.Width )
-          &&   ( dstY < AffectedMap.TileColorOverrides.Height ) )
+          if ( ( dstX < layer.TileColorOverrides.Width )
+          &&   ( dstY < layer.TileColorOverrides.Height ) )
           {
-            AffectedMap.TileColorOverrides[dstX, dstY] = ChangedOverrides[i, j];
+            layer.TileColorOverrides[dstX, dstY] = ChangedOverrides[i, j];
           }
           // Restore per-char blocked-overrides. Same bounds guard.
           if ( ( dstX < AffectedMap.CharBlockedOverrides.Width )

@@ -214,9 +214,46 @@ namespace RetroDevStudio.Formats
       public Map      Snapshot = null;
     };
 
+    /// <summary>
+    /// One editor-only tile layer. Layers flatten on export (the topmost layer
+    /// with a tile at a cell wins). All layers of a map share the map's single
+    /// Width/Height and TileSpacingX/Y. Per the design: COLOUR overrides are
+    /// per-layer (here); PASSABILITY (CharBlockedOverrides) is whole-map and
+    /// lives on Map, not here.
+    /// </summary>
+    public class MapLayer
+    {
+      // Tile-grid (Width×Height). On upper layers, -1 = empty/transparent
+      // (shows the layer below); the Background layer keeps the historical
+      // semantics (0 is a real tile).
+      public GR.Game.Layer<int>  Tiles              = new GR.Game.Layer<int>();
+      // Per-character colour override (charW×charH); -1 = no override.
+      public GR.Game.Layer<int>  TileColorOverrides = new GR.Game.Layer<int>();
+      public string              Name    = "";
+      public bool                Visible = true;
+    }
+
     public class Map
     {
-      public GR.Game.Layer<int> Tiles = new GR.Game.Layer<int>();
+      // Editor-only tile layers. Layers[0] is the Background and holds all
+      // pre-layer map content; higher indices render on top and flatten on
+      // export. Tiles / TileColorOverrides below are PROXIES onto Layers[0] so
+      // the large body of code that reads the background grid (dimensions,
+      // export, undo, tests) keeps working unchanged. CharBlockedOverrides
+      // stays whole-map (a real field, further below).
+      public List<MapLayer>     Layers = new List<MapLayer>() { new MapLayer() { Name = "Background" } };
+
+      // Editor-only: which layer is the active (selected) drawing layer for this
+      // map. Persisted so reopening lands on the same layer. Per-layer visibility
+      // lives on MapLayer.Visible.
+      public int                SelectedLayerIndex = 0;
+
+      // Background-layer tile grid — proxy to Layers[0].Tiles.
+      public GR.Game.Layer<int> Tiles
+      {
+        get { return Layers[0].Tiles; }
+        set { Layers[0].Tiles = value; }
+      }
       /// <summary>
       /// Per-CHARACTER C64 color override applied at placement time. -1
       /// means "no override" — that character renders and exports using
@@ -238,7 +275,11 @@ namespace RetroDevStudio.Formats
       /// spacing block to upgrade in-place — old projects look identical
       /// after the upgrade.
       /// </summary>
-      public GR.Game.Layer<int> TileColorOverrides = new GR.Game.Layer<int>();
+      public GR.Game.Layer<int> TileColorOverrides
+      {
+        get { return Layers[0].TileColorOverrides; }
+        set { Layers[0].TileColorOverrides = value; }
+      }
 
       /// <summary>
       /// Per-character one-way "blocked" override. true at a char =>
@@ -294,6 +335,48 @@ namespace RetroDevStudio.Formats
       /// Always empty inside a <see cref="MapRevision.Snapshot"/> (no nesting).
       /// </summary>
       public List<MapRevision>  Revisions = new List<MapRevision>();
+
+
+      /// <summary>
+      /// Ensures the map has at least <paramref name="MinLayerCount"/> editor
+      /// tile layers (default 3: Background + 2). Newly-added upper layers match
+      /// the Background's dimensions and are filled with -1 (empty/transparent
+      /// tiles, no colour override). Background (Layers[0]) is left untouched.
+      /// Called on load of pre-layer files and on new-map creation. The layer
+      /// list is treated as data, so a future custom count is a trivial change.
+      /// </summary>
+      public void EnsureDefaultLayers( int MinLayerCount = 3 )
+      {
+        if ( Layers.Count == 0 )
+        {
+          Layers.Add( new MapLayer() { Name = "Background" } );
+        }
+        int w     = Layers[0].Tiles.Width;
+        int h     = Layers[0].Tiles.Height;
+        int charW = w * TileSpacingX;
+        int charH = h * TileSpacingY;
+        while ( Layers.Count < MinLayerCount )
+        {
+          var layer = new MapLayer() { Name = "Layer " + Layers.Count };
+          layer.Tiles.Resize( w, h );
+          for ( int j = 0; j < h; ++j )
+          {
+            for ( int i = 0; i < w; ++i )
+            {
+              layer.Tiles[i, j] = -1;
+            }
+          }
+          layer.TileColorOverrides.Resize( charW, charH );
+          for ( int j = 0; j < charH; ++j )
+          {
+            for ( int i = 0; i < charW; ++i )
+            {
+              layer.TileColorOverrides[i, j] = -1;
+            }
+          }
+          Layers.Add( layer );
+        }
+      }
     };
 
     public class ExportSettings
@@ -2283,6 +2366,80 @@ namespace RetroDevStudio.Formats
 
 
 
+    /// <summary>
+    /// Flatten a map's editor tile layers into a single tile grid + per-char
+    /// colour grid for export. For each tile cell, the TOPMOST layer with a tile
+    /// (index >= 0) wins; that layer also contributes the colour override for the
+    /// cell's character block. Empty cells (no layer has a tile) become -1, which
+    /// the export's GetExportTileIndex/skip logic treats as "no tile". Passability
+    /// is whole-map (Map.CharBlockedOverrides) and is NOT flattened here. For a
+    /// single-layer map this returns the Background grids unchanged, so exports
+    /// stay byte-identical.
+    /// </summary>
+    public static void FlattenLayers( Map map, out GR.Game.Layer<int> Tiles, out GR.Game.Layer<int> ColorOverrides )
+    {
+      int w        = map.Tiles.Width;
+      int h        = map.Tiles.Height;
+      int spacingX = map.TileSpacingX;
+      int spacingY = map.TileSpacingY;
+      int charW    = w * spacingX;
+      int charH    = h * spacingY;
+
+      Tiles = new GR.Game.Layer<int>();
+      Tiles.Resize( w, h );
+      ColorOverrides = new GR.Game.Layer<int>();
+      ColorOverrides.Resize( charW, charH );
+      for ( int j = 0; j < h; ++j )
+      {
+        for ( int i = 0; i < w; ++i )
+        {
+          Tiles[i, j] = -1;
+        }
+      }
+      for ( int j = 0; j < charH; ++j )
+      {
+        for ( int i = 0; i < charW; ++i )
+        {
+          ColorOverrides[i, j] = -1;
+        }
+      }
+
+      for ( int ty = 0; ty < h; ++ty )
+      {
+        for ( int tx = 0; tx < w; ++tx )
+        {
+          // Topmost layer wins this cell.
+          for ( int li = map.Layers.Count - 1; li >= 0; --li )
+          {
+            var lay = map.Layers[li];
+            if ( ( tx >= lay.Tiles.Width ) || ( ty >= lay.Tiles.Height ) ) continue;
+            int idx = lay.Tiles[tx, ty];
+            if ( idx < 0 ) continue;                 // transparent on this layer
+            Tiles[tx, ty] = idx;
+            // The winning layer also supplies the colour overrides for this
+            // tile cell's character block.
+            for ( int cy = 0; cy < spacingY; ++cy )
+            {
+              for ( int cx = 0; cx < spacingX; ++cx )
+              {
+                int ccx = tx * spacingX + cx;
+                int ccy = ty * spacingY + cy;
+                if ( ( ccx < charW ) && ( ccy < charH )
+                &&   ( ccx < lay.TileColorOverrides.Width )
+                &&   ( ccy < lay.TileColorOverrides.Height ) )
+                {
+                  ColorOverrides[ccx, ccy] = lay.TileColorOverrides[ccx, ccy];
+                }
+              }
+            }
+            break;
+          }
+        }
+      }
+    }
+
+
+
     public GR.Memory.ByteBuffer ExportAsGameBinary( bool ExportMarkers, bool ExportColors, bool ExportPassable, ushort BaseAddress = 0 )
     {
       var buf = new GR.Memory.ByteBuffer();
@@ -2432,6 +2589,20 @@ namespace RetroDevStudio.Formats
 
       // ========== MAP METADATA ARRAYS ==========
 
+      // Flatten editor tile layers into per-map tile + colour grids. Every tile
+      // read below uses the flattened grid, so upper layers export (topmost tile
+      // wins). Single-layer maps flatten to the Background unchanged (exports
+      // stay byte-identical). Passability is whole-map and read directly.
+      var flatTilesPerMap = new GR.Game.Layer<int>[Maps.Count];
+      var flatColorPerMap = new GR.Game.Layer<int>[Maps.Count];
+      for ( int fm = 0; fm < Maps.Count; ++fm )
+      {
+        GR.Game.Layer<int> ftiles, fcolor;
+        FlattenLayers( Maps[fm], out ftiles, out fcolor );
+        flatTilesPerMap[fm] = ftiles;
+        flatColorPerMap[fm] = fcolor;
+      }
+
       // Pre-compute char-level dimensions and marker counts for all maps
       int[] exportWidths = new int[Maps.Count];
       int[] exportHeights = new int[Maps.Count];
@@ -2446,7 +2617,7 @@ namespace RetroDevStudio.Formats
         {
           for ( int tx = 0; tx < map.Tiles.Width; ++tx )
           {
-            int tileIndex = GetExportTileIndex( map.Tiles[tx, ty] );
+            int tileIndex = GetExportTileIndex( flatTilesPerMap[m][tx, ty] );
             if ( ( tileIndex >= 0 ) && ( tileIndex < Tiles.Count ) )
             {
               var tile = Tiles[tileIndex];
@@ -2550,7 +2721,7 @@ namespace RetroDevStudio.Formats
         {
           for ( int tx = 0; tx < map.Tiles.Width; ++tx )
           {
-            int tileIndex = GetExportTileIndex( map.Tiles[tx, ty] );
+            int tileIndex = GetExportTileIndex( flatTilesPerMap[m][tx, ty] );
             if ( ( tileIndex >= 0 )
             &&   ( tileIndex < Tiles.Count )
             &&   ( tileIndex != Settings.Assembly.EmptyTileIndex || !Settings.Assembly.EmptyTileCompressionEnabled ) )
@@ -2570,10 +2741,11 @@ namespace RetroDevStudio.Formats
                   if ( ( finalX < ew ) && ( finalY < eh ) )
                   {
                     int charOverride = -1;
-                    if ( ( finalX < map.TileColorOverrides.Width )
-                    &&   ( finalY < map.TileColorOverrides.Height ) )
+                    var flatColor = flatColorPerMap[m];
+                    if ( ( finalX < flatColor.Width )
+                    &&   ( finalY < flatColor.Height ) )
                     {
-                      charOverride = map.TileColorOverrides[finalX, finalY];
+                      charOverride = flatColor[finalX, finalY];
                     }
                     int off = finalX + finalY * ew;
                     charGrid[off] = tile.Chars[cx, cy].Character;
@@ -2618,7 +2790,7 @@ namespace RetroDevStudio.Formats
           {
             for ( int tx = 0; tx < map.Tiles.Width; ++tx )
             {
-              int tileIndex = GetExportTileIndex( map.Tiles[tx, ty] );
+              int tileIndex = GetExportTileIndex( flatTilesPerMap[m][tx, ty] );
               if ( ( tileIndex >= 0 ) && ( tileIndex < Tiles.Count ) && ( !Tiles[tileIndex].Passable ) )
               {
                 var tile = Tiles[tileIndex];
@@ -4263,6 +4435,106 @@ namespace RetroDevStudio.Formats
         chunkMap.Append( chunkBlocked.ToBuffer() );
       }
 
+      // Editor-only tile layers above the Background. Layers[0] (Background)
+      // already ships in MAP_DATA / MAP_TILE_COLOR_OVERRIDES, so only the upper
+      // layers go here. Sparse: skip the chunk entirely unless an upper layer
+      // has content (a tile != -1 or a colour override != -1). This keeps
+      // pre-layer and untouched-layer saves byte-identical — the default empty
+      // upper layers are re-synthesized on load.
+      bool anyUpperLayerContent = false;
+      for ( int li = 1; ( li < map.Layers.Count ) && ( !anyUpperLayerContent ); ++li )
+      {
+        var ul = map.Layers[li];
+        for ( int j = 0; ( j < ul.Tiles.Height ) && ( !anyUpperLayerContent ); ++j )
+        {
+          for ( int i = 0; i < ul.Tiles.Width; ++i )
+          {
+            if ( ul.Tiles[i, j] != -1 )
+            {
+              anyUpperLayerContent = true;
+              break;
+            }
+          }
+        }
+        for ( int j = 0; ( j < ul.TileColorOverrides.Height ) && ( !anyUpperLayerContent ); ++j )
+        {
+          for ( int i = 0; i < ul.TileColorOverrides.Width; ++i )
+          {
+            if ( ul.TileColorOverrides[i, j] != -1 )
+            {
+              anyUpperLayerContent = true;
+              break;
+            }
+          }
+        }
+      }
+      // Also persist when a layer is hidden or a non-default layer is selected,
+      // even with no upper-layer tile content — otherwise that state would be
+      // lost on save. A fully-default map (all layers visible, Background
+      // selected, no upper content) still skips the chunk and stays byte-identical.
+      bool anyLayerHidden = false;
+      for ( int li = 0; li < map.Layers.Count; ++li )
+      {
+        if ( !map.Layers[li].Visible )
+        {
+          anyLayerHidden = true;
+          break;
+        }
+      }
+      if ( anyUpperLayerContent || anyLayerHidden || ( map.SelectedLayerIndex != 0 ) )
+      {
+        GR.IO.FileChunk chunkLayers = new GR.IO.FileChunk( FileChunkConstants.MAP_LAYERS );
+        chunkLayers.AppendI32( map.Layers.Count );
+        for ( int li = 1; li < map.Layers.Count; ++li )
+        {
+          var ul = map.Layers[li];
+          chunkLayers.AppendString( ul.Name ?? "" );
+          chunkLayers.AppendU8( ul.Visible ? (byte)1 : (byte)0 );
+          chunkLayers.AppendI32( ul.Tiles.Width );
+          chunkLayers.AppendI32( ul.Tiles.Height );
+          for ( int j = 0; j < ul.Tiles.Height; ++j )
+          {
+            for ( int i = 0; i < ul.Tiles.Width; ++i )
+            {
+              chunkLayers.AppendI32( ul.Tiles[i, j] );
+            }
+          }
+          // Sparse per-char colour overrides: [count] then count × [x][y][color].
+          int cw = ul.TileColorOverrides.Width;
+          int ch = ul.TileColorOverrides.Height;
+          int overrideCount = 0;
+          for ( int j = 0; j < ch; ++j )
+          {
+            for ( int i = 0; i < cw; ++i )
+            {
+              if ( ul.TileColorOverrides[i, j] != -1 )
+              {
+                ++overrideCount;
+              }
+            }
+          }
+          chunkLayers.AppendI32( overrideCount );
+          for ( int j = 0; j < ch; ++j )
+          {
+            for ( int i = 0; i < cw; ++i )
+            {
+              if ( ul.TileColorOverrides[i, j] != -1 )
+              {
+                chunkLayers.AppendI32( i );
+                chunkLayers.AppendI32( j );
+                chunkLayers.AppendI32( ul.TileColorOverrides[i, j] );
+              }
+            }
+          }
+        }
+        // Appended later (position-guarded on read): the per-map selected layer
+        // and the Background's own visibility (the per-upper-layer loop above
+        // doesn't cover Layers[0], so its Visible isn't otherwise stored).
+        chunkLayers.AppendI32( map.SelectedLayerIndex );
+        chunkLayers.AppendU8( map.Layers[0].Visible ? (byte)1 : (byte)0 );
+        chunkMap.Append( chunkLayers.ToBuffer() );
+      }
+
       if ( map.ExtraDataText.Length > 0 )
       {
         GR.IO.FileChunk chunkMapExtraData = new GR.IO.FileChunk( FileChunkConstants.MAP_EXTRA_DATA_TEXT );
@@ -4543,6 +4815,70 @@ namespace RetroDevStudio.Formats
               }
             }
             break;
+          case FileChunkConstants.MAP_LAYERS:
+            {
+              // Editor-only upper tile layers (Layers[1..N-1]). Layers[0]
+              // (Background) was already populated by MAP_DATA /
+              // MAP_TILE_COLOR_OVERRIDES, which precede this chunk in save
+              // order. Replace any pre-seeded upper layers (keep Background).
+              int layerCount = mapChunkReader.ReadInt32();
+              while ( map.Layers.Count > 1 )
+              {
+                map.Layers.RemoveAt( map.Layers.Count - 1 );
+              }
+              for ( int li = 1; li < layerCount; ++li )
+              {
+                var layer = new MapLayer();
+                layer.Name    = mapChunkReader.ReadString();
+                layer.Visible = ( mapChunkReader.ReadUInt8() != 0 );
+                int w = mapChunkReader.ReadInt32();
+                int h = mapChunkReader.ReadInt32();
+                layer.Tiles.Resize( w, h );
+                for ( int j = 0; j < h; ++j )
+                {
+                  for ( int i = 0; i < w; ++i )
+                  {
+                    layer.Tiles[i, j] = mapChunkReader.ReadInt32();
+                  }
+                }
+                // Per-char colour overrides: char-grid sized, default -1, then
+                // sparse [count] × [x][y][color] records.
+                int charW = w * map.TileSpacingX;
+                int charH = h * map.TileSpacingY;
+                layer.TileColorOverrides.Resize( charW, charH );
+                for ( int j = 0; j < charH; ++j )
+                {
+                  for ( int i = 0; i < charW; ++i )
+                  {
+                    layer.TileColorOverrides[i, j] = -1;
+                  }
+                }
+                int overrideCount = mapChunkReader.ReadInt32();
+                for ( int o = 0; o < overrideCount; ++o )
+                {
+                  int ox = mapChunkReader.ReadInt32();
+                  int oy = mapChunkReader.ReadInt32();
+                  int oc = mapChunkReader.ReadInt32();
+                  if ( ( ox >= 0 ) && ( oy >= 0 ) && ( ox < charW ) && ( oy < charH ) )
+                  {
+                    layer.TileColorOverrides[ox, oy] = oc;
+                  }
+                }
+                map.Layers.Add( layer );
+              }
+              // Appended later: the per-map selected layer + Background
+              // visibility (position-guarded so files saved before these were
+              // added fall through to the defaults: layer 0 selected, visible).
+              if ( mapChunkReader.Size - mapChunkReader.Position >= 4 )
+              {
+                map.SelectedLayerIndex = mapChunkReader.ReadInt32();
+              }
+              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+              {
+                map.Layers[0].Visible = ( mapChunkReader.ReadUInt8() != 0 );
+              }
+            }
+            break;
           case FileChunkConstants.MAP_EXTRA_DATA:
             {
               uint len = mapChunkReader.ReadUInt32();
@@ -4716,6 +5052,20 @@ namespace RetroDevStudio.Formats
             }
             break;
         }
+      }
+      // Pre-layer files (and revision snapshots / clones) carry no MAP_LAYERS
+      // chunk — synthesize the default Background + 2 empty upper layers. No-op
+      // when the chunk already supplied >= 3 layers. Empty upper layers are not
+      // written on save, so this keeps pre-layer files byte-identical.
+      map.EnsureDefaultLayers();
+      // Clamp the persisted selected layer to the (now-guaranteed) layer range.
+      if ( map.SelectedLayerIndex < 0 )
+      {
+        map.SelectedLayerIndex = 0;
+      }
+      else if ( map.SelectedLayerIndex >= map.Layers.Count )
+      {
+        map.SelectedLayerIndex = map.Layers.Count - 1;
       }
     }
 

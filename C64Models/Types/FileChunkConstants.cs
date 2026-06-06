@@ -60,6 +60,14 @@
     // then 4 × [string Text][byte Terminator]. New chunk — no MAP_PROJECT_INFO
     // version bump (absent chunk = empty MapStrings list, fully back-compat).
     public const ushort    MAP_STRING                     = 0x1334;
+    // Editor-only tile layers above the Background (Layers[1..N-1]). Background
+    // (Layers[0]) still ships in MAP_DATA / MAP_TILE_COLOR_OVERRIDES. Body:
+    // [i32 LayerCount] then per upper layer [string Name][u8 Visible]
+    // [i32 W][i32 H][i32×W*H tiles] [i32 colorOverrideCount]
+    // (colorOverrideCount × [i32 x][i32 y][i32 color]). Sparse: only written
+    // when an upper layer has content. Absent chunk = re-synthesize the default
+    // empty layers on load (fully back-compat; pre-layer files unchanged).
+    public const ushort    MAP_LAYERS                     = 0x1335;
 
     public const ushort    CHARSET_PROJECT                = 0x1340;
     public const ushort    CHARSET_INFO                   = 0x1341;

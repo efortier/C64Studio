@@ -249,6 +249,7 @@
             this.btnToolSelect = new Krypton.Toolkit.KryptonCheckButton();
             this.btnToolPassable = new Krypton.Toolkit.KryptonCheckButton();
             this.btnToolColorReplace = new Krypton.Toolkit.KryptonCheckButton();
+            this.btnToolEraseColor = new Krypton.Toolkit.KryptonCheckButton();
             this.btnBrightnessLinearUp = new Krypton.Toolkit.KryptonButton();
             this.btnBrightnessLinearDown = new Krypton.Toolkit.KryptonButton();
             this.btnBrightnessHueUp = new Krypton.Toolkit.KryptonButton();
@@ -264,6 +265,11 @@
             this.btnClearPassableMap = new Krypton.Toolkit.KryptonButton();
             this.labelEditInfo = new System.Windows.Forms.Label();
             this.comboTiles = new System.Windows.Forms.ListBox();
+            this.labelLayers = new System.Windows.Forms.Label();
+            this.listLayers = new System.Windows.Forms.ListView();
+            this.columnLayerName = new System.Windows.Forms.ColumnHeader();
+            this.btnFlattenLayers = new Krypton.Toolkit.KryptonButton();
+            this.btnClearLayer = new Krypton.Toolkit.KryptonButton();
             this.mapHScroll = new DecentForms.HScrollBar();
             this.mapVScroll = new DecentForms.VScrollBar();
             this.tabMapEditor = new Krypton.Navigator.KryptonNavigator();
@@ -1609,6 +1615,10 @@
             this.tabEditor.Controls.Add(this.flowLayoutPanel3);
             this.tabEditor.Controls.Add(this.flowLayoutPanel2);
             this.tabEditor.Controls.Add(this.flowLayoutPanel1);
+            this.tabEditor.Controls.Add(this.labelLayers);
+            this.tabEditor.Controls.Add(this.listLayers);
+            this.tabEditor.Controls.Add(this.btnFlattenLayers);
+            this.tabEditor.Controls.Add(this.btnClearLayer);
             this.tabEditor.Controls.Add(this.comboTiles);
             this.tabEditor.Controls.Add(this.mapHScroll);
             this.tabEditor.Controls.Add(this.mapVScroll);
@@ -2984,6 +2994,7 @@
             this.flowLayoutPanel1.Controls.Add(this.btnToolSelect);
             this.flowLayoutPanel1.Controls.Add(this.btnToolPassable);
             this.flowLayoutPanel1.Controls.Add(this.btnToolColorReplace);
+            this.flowLayoutPanel1.Controls.Add(this.btnToolEraseColor);
             this.flowLayoutPanel1.Controls.Add(this.btnBrightnessLinearUp);
             this.flowLayoutPanel1.Controls.Add(this.btnBrightnessLinearDown);
             this.flowLayoutPanel1.Controls.Add(this.btnBrightnessHueUp);
@@ -3081,6 +3092,17 @@
             this.btnToolColorReplace.Values.DropDownArrowColor = System.Drawing.Color.Empty;
             this.btnToolColorReplace.Values.Text = "C";
             this.btnToolColorReplace.CheckedChanged += new System.EventHandler(this.btnToolColorReplace_CheckedChanged);
+            //
+            // btnToolEraseColor
+            //
+            this.btnToolEraseColor.Location = new System.Drawing.Point(213, 3);
+            this.btnToolEraseColor.Name = "btnToolEraseColor";
+            this.btnToolEraseColor.Size = new System.Drawing.Size(24, 24);
+            this.btnToolEraseColor.TabIndex = 11;
+            this.toolTip1.SetToolTip(this.btnToolEraseColor, "Erase by colour: floods the connected same-colour region (same as \'C\') and clears those cells. Background clears to the shift-click blank tile+colour; upper layers clear to transparent.");
+            this.btnToolEraseColor.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnToolEraseColor.Values.Text = "E";
+            this.btnToolEraseColor.CheckedChanged += new System.EventHandler(this.btnToolEraseColor_CheckedChanged);
             //
             // btnBrightnessLinearUp
             // 
@@ -3243,12 +3265,68 @@
             this.comboTiles.FormattingEnabled = true;
             this.comboTiles.IntegralHeight = false;
             this.comboTiles.ItemHeight = 24;
-            this.comboTiles.Location = new System.Drawing.Point(8, 9);
+            this.comboTiles.Location = new System.Drawing.Point(8, 189);
             this.comboTiles.Name = "comboTiles";
-            this.comboTiles.Size = new System.Drawing.Size(160, 866);
+            this.comboTiles.Size = new System.Drawing.Size(160, 686);
             this.comboTiles.TabIndex = 2;
             this.comboTiles.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.comboTiles_DrawItem);
+            this.comboTiles.MouseWheel += new System.Windows.Forms.MouseEventHandler(this.comboTiles_MouseWheel);
             this.comboTiles.SelectedIndexChanged += new System.EventHandler(this.comboTiles_SelectedIndexChanged);
+            //
+            // labelLayers
+            //
+            this.labelLayers.AutoSize = false;
+            this.labelLayers.Location = new System.Drawing.Point(8, 9);
+            this.labelLayers.Name = "labelLayers";
+            this.labelLayers.Size = new System.Drawing.Size(160, 15);
+            this.labelLayers.TabIndex = 60;
+            this.labelLayers.Text = "Layers:";
+            //
+            // listLayers
+            //
+            this.listLayers.CheckBoxes = true;
+            this.listLayers.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
+            this.columnLayerName});
+            this.listLayers.FullRowSelect = true;
+            this.listLayers.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.None;
+            this.listLayers.HideSelection = false;
+            this.listLayers.Location = new System.Drawing.Point(8, 26);
+            this.listLayers.MultiSelect = false;
+            this.listLayers.Name = "listLayers";
+            this.listLayers.Size = new System.Drawing.Size(160, 104);
+            this.listLayers.TabIndex = 61;
+            this.toolTip1.SetToolTip(this.listLayers, "Editor-only layers. Click a row to make it the active drawing layer; tick/untick to show/hide. Layers flatten on export (upper tiles win).");
+            this.listLayers.UseCompatibleStateImageBehavior = false;
+            this.listLayers.View = System.Windows.Forms.View.Details;
+            this.listLayers.ItemChecked += new System.Windows.Forms.ItemCheckedEventHandler(this.listLayers_ItemChecked);
+            this.listLayers.SelectedIndexChanged += new System.EventHandler(this.listLayers_SelectedIndexChanged);
+            //
+            // columnLayerName
+            //
+            this.columnLayerName.Text = "Layer";
+            this.columnLayerName.Width = 152;
+            //
+            // btnFlattenLayers
+            //
+            this.btnFlattenLayers.Location = new System.Drawing.Point(8, 133);
+            this.btnFlattenLayers.Name = "btnFlattenLayers";
+            this.btnFlattenLayers.Size = new System.Drawing.Size(160, 24);
+            this.btnFlattenLayers.TabIndex = 62;
+            this.toolTip1.SetToolTip(this.btnFlattenLayers, "Merge every layer down into the Background (upper layers are cleared). Undoable.");
+            this.btnFlattenLayers.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnFlattenLayers.Values.Text = "Flatten to Background";
+            this.btnFlattenLayers.Click += new System.EventHandler(this.btnFlattenLayers_Click);
+            //
+            // btnClearLayer
+            //
+            this.btnClearLayer.Location = new System.Drawing.Point(8, 161);
+            this.btnClearLayer.Name = "btnClearLayer";
+            this.btnClearLayer.Size = new System.Drawing.Size(160, 24);
+            this.btnClearLayer.TabIndex = 63;
+            this.toolTip1.SetToolTip(this.btnClearLayer, "Clear the active layer. Background fills with the shift-click blank tile+colour; upper layers clear to transparent. Undoable.");
+            this.btnClearLayer.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnClearLayer.Values.Text = "Clear layer";
+            this.btnClearLayer.Click += new System.EventHandler(this.btnClearLayer_Click);
             // 
             // mapHScroll
             // 
@@ -3569,6 +3647,7 @@
             this.listTileInfo.UseCompatibleStateImageBehavior = false;
             this.listTileInfo.View = System.Windows.Forms.View.Details;
             this.listTileInfo.ItemDrag += new System.Windows.Forms.ItemDragEventHandler(this.listTileInfo_ItemDrag);
+            this.listTileInfo.MouseWheel += new System.Windows.Forms.MouseEventHandler(this.listTileInfo_MouseWheel);
             this.listTileInfo.SelectedIndexChanged += new System.EventHandler(this.listTileInfo_SelectedIndexChanged);
             this.listTileInfo.DragDrop += new System.Windows.Forms.DragEventHandler(this.listTileInfo_DragDrop);
             this.listTileInfo.DragEnter += new System.Windows.Forms.DragEventHandler(this.listTileInfo_DragEnter);
@@ -4332,11 +4411,17 @@
     private System.Windows.Forms.ColumnHeader columnHeader6;
     private System.Windows.Forms.ColumnHeader columnHeader7;
     private System.Windows.Forms.ListBox comboTiles;
+    private System.Windows.Forms.Label labelLayers;
+    private System.Windows.Forms.ListView listLayers;
+    private System.Windows.Forms.ColumnHeader columnLayerName;
+    private Krypton.Toolkit.KryptonButton btnFlattenLayers;
+    private Krypton.Toolkit.KryptonButton btnClearLayer;
     private DecentForms.Button btnMoveTileDown;
     private DecentForms.Button btnMoveTileUp;
     private System.Windows.Forms.Label labelEditInfo;
     private Krypton.Toolkit.KryptonCheckButton btnToolSelect;
     private Krypton.Toolkit.KryptonCheckButton btnToolColorReplace;
+    private Krypton.Toolkit.KryptonCheckButton btnToolEraseColor;
     private Krypton.Toolkit.KryptonCheckButton btnToolFill;
     private Krypton.Toolkit.KryptonCheckButton btnToolQuad;
     private Krypton.Toolkit.KryptonCheckButton btnToolRect;

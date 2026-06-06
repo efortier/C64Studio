@@ -78,8 +78,10 @@ namespace RetroDevStudio.Undo
       // remains valid. This is the same pattern btnRevertRevision_Click
       // uses, kept in lockstep so undo restores ALL fields the original
       // revert touched.
-      m_AffectedMap.Tiles                       = m_Snapshot.Tiles;
-      m_AffectedMap.TileColorOverrides          = m_Snapshot.TileColorOverrides;
+      // Assign the whole layer list so ALL layers restore (Map.Tiles /
+      // Map.TileColorOverrides are proxies to Layers[0]; assigning them alone
+      // would leave the upper layers stale).
+      m_AffectedMap.Layers                      = m_Snapshot.Layers;
       m_AffectedMap.CharBlockedOverrides        = m_Snapshot.CharBlockedOverrides;
       m_AffectedMap.Name                        = m_Snapshot.Name;
       m_AffectedMap.TileSpacingX                = m_Snapshot.TileSpacingX;

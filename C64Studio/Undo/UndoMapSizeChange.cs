@@ -1,5 +1,6 @@
 using RetroDevStudio.Documents;
 using RetroDevStudio.Formats;
+using System.Collections.Generic;
 
 
 
@@ -15,15 +16,18 @@ namespace RetroDevStudio.Undo
     public int        Width = 0;
     public int        Height = 0;
 
-    public GR.Game.Layer<int>     ChangedData = new GR.Game.Layer<int>();
-    // Per-CHARACTER override layers, captured at their literal current
-    // dimensions. A resize (a tile size OR a tile-spacing change) resizes —
-    // and on a spacing change WIPES — both override layers, so they must be
-    // snapshotted and restored alongside the tile grid. Without this, undoing
-    // a resize silently drops every per-character colour override and blocked
-    // (passability) flag the user had set.
-    public GR.Game.Layer<int>     ChangedOverrides = new GR.Game.Layer<int>();
-    public GR.Game.Layer<bool>    ChangedBlocked   = new GR.Game.Layer<bool>();
+    // Per-layer snapshot: a resize changes every layer's tile grid and per-char
+    // colour grid (and may wipe them on a spacing change), so all layers must be
+    // captured and restored. Blocked (passability) is whole-map and captured
+    // once below. Grids are captured at their literal current dimensions so
+    // Apply() can resize back even when the resize changed them.
+    private class LayerSnap
+    {
+      public GR.Game.Layer<int> Tiles = new GR.Game.Layer<int>();
+      public GR.Game.Layer<int> Color = new GR.Game.Layer<int>();
+    }
+    private List<LayerSnap>       m_LayerSnaps   = new List<LayerSnap>();
+    public GR.Game.Layer<bool>    ChangedBlocked = new GR.Game.Layer<bool>();
 
 
 
@@ -34,27 +38,29 @@ namespace RetroDevStudio.Undo
       MapEditor = Editor;
       AffectedMap = Map;
 
-      // Tile grid.
-      ChangedData.Resize( Width, Height );
-      for ( int i = 0; i < Width; ++i )
+      foreach ( var lay in Map.Layers )
       {
-        for ( int j = 0; j < Height; ++j )
+        var snap = new LayerSnap();
+        snap.Tiles.Resize( lay.Tiles.Width, lay.Tiles.Height );
+        for ( int i = 0; i < lay.Tiles.Width; ++i )
         {
-          ChangedData[i, j] = Map.Tiles[i, j];
+          for ( int j = 0; j < lay.Tiles.Height; ++j )
+          {
+            snap.Tiles[i, j] = lay.Tiles[i, j];
+          }
         }
+        snap.Color.Resize( lay.TileColorOverrides.Width, lay.TileColorOverrides.Height );
+        for ( int i = 0; i < lay.TileColorOverrides.Width; ++i )
+        {
+          for ( int j = 0; j < lay.TileColorOverrides.Height; ++j )
+          {
+            snap.Color[i, j] = lay.TileColorOverrides[i, j];
+          }
+        }
+        m_LayerSnaps.Add( snap );
       }
 
-      // Per-char colour override layer, captured at its literal current size.
-      ChangedOverrides.Resize( Map.TileColorOverrides.Width, Map.TileColorOverrides.Height );
-      for ( int i = 0; i < Map.TileColorOverrides.Width; ++i )
-      {
-        for ( int j = 0; j < Map.TileColorOverrides.Height; ++j )
-        {
-          ChangedOverrides[i, j] = Map.TileColorOverrides[i, j];
-        }
-      }
-
-      // Per-char blocked (passability) override layer, same approach.
+      // Whole-map blocked (passability) override layer.
       ChangedBlocked.Resize( Map.CharBlockedOverrides.Width, Map.CharBlockedOverrides.Height );
       for ( int i = 0; i < Map.CharBlockedOverrides.Width; ++i )
       {
@@ -86,27 +92,33 @@ namespace RetroDevStudio.Undo
 
     public override void Apply()
     {
-      // Restore the tile grid.
-      AffectedMap.Tiles.Resize( Width, Height );
-      for ( int i = 0; i < Width; ++i )
+      // Restore every layer's tile grid + per-char colour grid to the
+      // snapshotted size and content. Resize count never changes during a map
+      // resize, so index alignment holds; guard defensively anyway.
+      for ( int k = 0; ( k < m_LayerSnaps.Count ) && ( k < AffectedMap.Layers.Count ); ++k )
       {
-        for ( int j = 0; j < Height; ++j )
+        var snap = m_LayerSnaps[k];
+        var lay  = AffectedMap.Layers[k];
+
+        lay.Tiles.Resize( snap.Tiles.Width, snap.Tiles.Height );
+        for ( int i = 0; i < snap.Tiles.Width; ++i )
         {
-          AffectedMap.Tiles[i, j] = ChangedData[i, j];
+          for ( int j = 0; j < snap.Tiles.Height; ++j )
+          {
+            lay.Tiles[i, j] = snap.Tiles[i, j];
+          }
+        }
+        lay.TileColorOverrides.Resize( snap.Color.Width, snap.Color.Height );
+        for ( int i = 0; i < snap.Color.Width; ++i )
+        {
+          for ( int j = 0; j < snap.Color.Height; ++j )
+          {
+            lay.TileColorOverrides[i, j] = snap.Color[i, j];
+          }
         }
       }
 
-      // Restore both per-char override layers to their snapshotted size and
-      // content (a resize may have changed their dimensions, so resize back
-      // before refilling).
-      AffectedMap.TileColorOverrides.Resize( ChangedOverrides.Width, ChangedOverrides.Height );
-      for ( int i = 0; i < ChangedOverrides.Width; ++i )
-      {
-        for ( int j = 0; j < ChangedOverrides.Height; ++j )
-        {
-          AffectedMap.TileColorOverrides[i, j] = ChangedOverrides[i, j];
-        }
-      }
+      // Whole-map blocked layer.
       AffectedMap.CharBlockedOverrides.Resize( ChangedBlocked.Width, ChangedBlocked.Height );
       for ( int i = 0; i < ChangedBlocked.Width; ++i )
       {

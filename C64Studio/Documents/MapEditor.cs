@@ -31,6 +31,11 @@ namespace RetroDevStudio.Documents
       // selected placement color (comboTilePlacementColor). The tile
       // index is left untouched; "Default" in the dropdown is a no-op.
       COLOR_REPLACE,
+      // Flood-ERASE by colour: clicking a cell finds the connected region of
+      // same-colour characters (the same flood as COLOR_REPLACE) and CLEARS
+      // every tile cell it touches. Background clears to the shift-click blank
+      // tile + colour; upper layers clear to transparent (-1).
+      ERASE_COLOR,
       SELECT,
       MARKER,
       ENTITY,
@@ -47,6 +52,132 @@ namespace RetroDevStudio.Documents
     private Formats.MapProject          m_MapProject = new RetroDevStudio.Formats.MapProject();
 
     private Formats.MapProject.Map      m_CurrentMap = null;
+
+    // Index of the editor tile layer currently being drawn on (0 = Background).
+    // All drawing/editing routes through the ActiveLayer accessors below; the
+    // render path and tile-usage count iterate ALL layers instead. Passability
+    // (CharBlockedOverrides) is whole-map, so it is never layer-routed.
+    private int                         m_ActiveLayerIndex = 0;
+
+    private int ClampedActiveLayerIndex()
+    {
+      if ( m_CurrentMap == null ) return 0;
+      if ( m_ActiveLayerIndex < 0 ) return 0;
+      if ( m_ActiveLayerIndex >= m_CurrentMap.Layers.Count ) return m_CurrentMap.Layers.Count - 1;
+      return m_ActiveLayerIndex;
+    }
+    private Formats.MapProject.MapLayer ActiveLayer
+    {
+      get { return m_CurrentMap.Layers[ClampedActiveLayerIndex()]; }
+    }
+    private GR.Game.Layer<int> ActiveTiles
+    {
+      get { return ActiveLayer.Tiles; }
+    }
+    private GR.Game.Layer<int> ActiveColorOverrides
+    {
+      get { return ActiveLayer.TileColorOverrides; }
+    }
+    // The tile-index written when ERASING (Delete / Clear) on the active layer:
+    // Background keeps the historical 0 (tile 0); upper layers erase to -1
+    // (transparent) so the layers below show through.
+    private int ActiveLayerEraseTileIndex
+    {
+      get { return ( ClampedActiveLayerIndex() == 0 ) ? 0 : -1; }
+    }
+    // The tile written when CLEARING to the user-configured "blank" (erase-by-
+    // colour tool, Clear-layer button, shift-click): Background stamps the
+    // shift-click blank tile; upper layers go transparent (-1).
+    private int ActiveLayerClearTileIndex
+    {
+      get { return ( ClampedActiveLayerIndex() == 0 ) ? ResolveShiftClickBlankTileIndex() : -1; }
+    }
+    // The per-char colour written when clearing to "blank": Background uses the
+    // shift-click blank colour; upper layers clear the override (-1 = none).
+    private int ActiveLayerClearColor
+    {
+      get { return ( ClampedActiveLayerIndex() == 0 ) ? m_MapProject.ShiftClickBlankColor : -1; }
+    }
+
+    /// <summary>
+    /// Rebuilds the layer-list panel from the current map's Layers (data-driven
+    /// — never assumes a fixed count). Each row's checkbox = Visible; the
+    /// selected row = the active drawing layer. A ListView (not a CheckedListBox)
+    /// so the checkbox and the row label are separate hit areas: ticking toggles
+    /// visibility, clicking the label selects the active layer — the two never
+    /// trigger each other. Ensures the map has its default layers first. Handlers
+    /// are detached during the rebuild so populating doesn't fire ItemChecked /
+    /// SelectedIndexChanged.
+    /// </summary>
+    private void RefreshLayerList()
+    {
+      if ( listLayers == null ) return;
+      if ( m_CurrentMap == null )
+      {
+        listLayers.Items.Clear();
+        return;
+      }
+      m_CurrentMap.EnsureDefaultLayers();
+      m_ActiveLayerIndex = ClampedActiveLayerIndex();
+
+      listLayers.ItemChecked          -= listLayers_ItemChecked;
+      listLayers.SelectedIndexChanged -= listLayers_SelectedIndexChanged;
+      try
+      {
+        listLayers.BeginUpdate();
+        listLayers.Items.Clear();
+        for ( int i = 0; i < m_CurrentMap.Layers.Count; ++i )
+        {
+          var lay = m_CurrentMap.Layers[i];
+          string name = string.IsNullOrEmpty( lay.Name ) ? ( "Layer " + i ) : lay.Name;
+          var item = new System.Windows.Forms.ListViewItem( name );
+          item.Checked = lay.Visible;
+          listLayers.Items.Add( item );
+        }
+        if ( ( m_ActiveLayerIndex >= 0 ) && ( m_ActiveLayerIndex < listLayers.Items.Count ) )
+        {
+          listLayers.Items[m_ActiveLayerIndex].Selected = true;
+          listLayers.Items[m_ActiveLayerIndex].Focused  = true;
+          listLayers.Items[m_ActiveLayerIndex].EnsureVisible();
+        }
+        listLayers.EndUpdate();
+      }
+      finally
+      {
+        listLayers.ItemChecked          += listLayers_ItemChecked;
+        listLayers.SelectedIndexChanged += listLayers_SelectedIndexChanged;
+      }
+    }
+
+    private void listLayers_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      // Selecting a row picks the active drawing layer. No redraw needed — the
+      // composite is unchanged; only where edits land changes. ListView raises a
+      // transient empty selection mid-change; ignore it and keep the last index.
+      if ( listLayers.SelectedIndices.Count > 0 )
+      {
+        m_ActiveLayerIndex = listLayers.SelectedIndices[0];
+        // Persist the choice on the map so it rides along with the next save.
+        // No SetModified() — picking the active layer is navigation, not an edit
+        // (same rule as the last-selected tab).
+        if ( m_CurrentMap != null )
+        {
+          m_CurrentMap.SelectedLayerIndex = m_ActiveLayerIndex;
+        }
+      }
+    }
+
+    private void listLayers_ItemChecked( object sender, System.Windows.Forms.ItemCheckedEventArgs e )
+    {
+      if ( m_CurrentMap == null ) return;
+      int idx = e.Item.Index;
+      if ( ( idx < 0 ) || ( idx >= m_CurrentMap.Layers.Count ) ) return;
+      // ItemChecked fires AFTER the toggle, so e.Item.Checked is the new state.
+      m_CurrentMap.Layers[idx].Visible = e.Item.Checked;
+      SetModified();
+      RedrawMap();
+      Redraw();
+    }
 
     private Formats.MapProject.Tile     m_CurrentEditedTile = null;
     private Formats.MapProject.TileChar m_CurrentTileChar = null;
@@ -247,6 +378,14 @@ namespace RetroDevStudio.Documents
     // different source) — InsertFloatingSelection then leaves the
     // destination's blocked overrides at false (no-override default).
     private List<bool>                                m_FloatingSelectionBlocked = null;
+    // Per-LAYER verbatim copy/paste payload. Non-null when the clipboard carried
+    // the per-layer trailer (newest copy code): InsertFloatingSelection then
+    // reconstructs every layer's tiles + colour overrides verbatim instead of
+    // writing only the active layer. One entry per source layer; each tile array
+    // is Size.Width*Size.Height (row-major); each colour array is
+    // (Width*srcSpacingX)*(Height*srcSpacingY).
+    private List<int[]>                               m_FloatingSelectionLayerTiles  = null;
+    private List<int[]>                               m_FloatingSelectionLayerColors = null;
 
     private ExportMapFormBase           m_ExportForm = null;
     private ImportMapFormBase           m_ImportForm = null;
@@ -1242,7 +1381,7 @@ namespace RetroDevStudio.Documents
           // Use the actual tile at that map cell to size the outline so a
           // 2x2 tile shows a 2-cell-wide highlight.
           int cw = 1, ch = 1;
-          int idx = m_CurrentMap.Tiles[m_SelectedTilePos.X, m_SelectedTilePos.Y];
+          int idx = ActiveTiles[m_SelectedTilePos.X, m_SelectedTilePos.Y];
           if ( ( idx >= 0 )
           &&   ( idx < m_MapProject.Tiles.Count ) )
           {
@@ -1257,7 +1396,8 @@ namespace RetroDevStudio.Documents
       // pipeline below needs to run in ALL modes — so this is a guarded block,
       // not the early-return it used to be.
       if ( ( m_CurrentMap != null )
-      &&   ( m_ToolMode == ToolMode.SELECT ) )
+      &&   ( m_ToolMode == ToolMode.SELECT )
+      &&   ( m_FloatingSelection == null ) )
       {
 
       // draw selection
@@ -1354,6 +1494,29 @@ namespace RetroDevStudio.Documents
       }
 
       } // end of SELECT-mode selection-rendering guard
+
+      // Paste outline — while a floating (pasted) selection follows the cursor,
+      // outline exactly where it will drop, in ANY tool mode. The normal
+      // selection rendering is suppressed above while this is active, so the
+      // moved region (not the stale source selection) is what's framed.
+      if ( ( m_CurrentMap != null )
+      &&   ( m_FloatingSelection != null ) )
+      {
+        uint pasteColor = Core.Settings.FGColor( ColorableElement.SELECTION_FRAME );
+        int  pSourceX   = renderOffsetX + m_MousePos.X * m_CurrentMap.TileSpacingX * 8;
+        int  pSourceY   = renderOffsetY + m_MousePos.Y * m_CurrentMap.TileSpacingY * 8;
+        int  pSourceX2  = pSourceX + m_FloatingSelectionSize.Width  * m_CurrentMap.TileSpacingX * 8;
+        int  pSourceY2  = pSourceY + m_FloatingSelectionSize.Height * m_CurrentMap.TileSpacingY * 8;
+
+        int  pTargetX   = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( pSourceX,  sourceWidth,  targetWidth  ) ) );
+        int  pTargetY   = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( pSourceY,  sourceHeight, targetHeight ) ) );
+        int  pTargetX2  = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( pSourceX2, sourceWidth,  targetWidth  ) - 1 ) );
+        int  pTargetY2  = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( pSourceY2, sourceHeight, targetHeight ) - 1 ) );
+        int  pTargetW   = Math.Max( 1, pTargetX2 - pTargetX + 1 );
+        int  pTargetH   = Math.Max( 1, pTargetY2 - pTargetY + 1 );
+
+        TargetBuffer.Rectangle( pTargetX, pTargetY, pTargetW, pTargetH, pasteColor );
+      }
 
       // CRT display-filter pipeline runs LAST so it sees the fully composited
       // map (tiles + entities + grid + markers + selection). Filters operate
@@ -1695,7 +1858,16 @@ namespace RetroDevStudio.Documents
         return;
       }
 
-      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, m_MousePos.X + m_CurEditorOffsetX, m_MousePos.Y + m_CurEditorOffsetY, m_FloatingSelectionSize.Width, m_FloatingSelectionSize.Height ) );
+      // Verbatim multi-layer paste: the clipboard carried the per-layer trailer,
+      // so reconstruct every layer's tiles + colours instead of writing only the
+      // active layer.
+      if ( m_FloatingSelectionLayerTiles != null )
+      {
+        InsertFloatingSelectionAllLayers();
+        return;
+      }
+
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, m_MousePos.X + m_CurEditorOffsetX, m_MousePos.Y + m_CurEditorOffsetY, m_FloatingSelectionSize.Width, m_FloatingSelectionSize.Height, m_ActiveLayerIndex ) );
 
       // When the clipboard payload included a per-character override
       // trailer (newer copies — see CopyToClipboard / PasteFromClipboard),
@@ -1712,6 +1884,9 @@ namespace RetroDevStudio.Documents
       int                 dstSpacingX = m_CurrentMap.TileSpacingX;
       int                 dstSpacingY = m_CurrentMap.TileSpacingY;
       int                 captureCharW = m_FloatingSelectionSize.Width  * srcSpacingX;
+      // Paste writes the ACTIVE layer (tiles + colour); blocked stays whole-map.
+      var                 pasteTiles = ActiveTiles;
+      var                 pasteColor = ActiveColorOverrides;
 
       for ( int j = 0; j < m_FloatingSelectionSize.Height; ++j )
       {
@@ -1720,7 +1895,7 @@ namespace RetroDevStudio.Documents
           var selectionChar = m_FloatingSelection[i + j * m_FloatingSelectionSize.Width];
           if ( selectionChar.first )
           {
-            m_CurrentMap.Tiles[m_MousePos.X + m_CurEditorOffsetX + i, m_MousePos.Y + m_CurEditorOffsetY + j] = selectionChar.second;
+            pasteTiles[m_MousePos.X + m_CurEditorOffsetX + i, m_MousePos.Y + m_CurEditorOffsetY + j] = selectionChar.second;
 
             if ( useCapturedOverrides )
             {
@@ -1745,10 +1920,10 @@ namespace RetroDevStudio.Documents
                   int dstCharX = dstCharBaseX + dx;
                   int dstCharY = dstCharBaseY + dy;
                   if ( ( dstCharX >= 0 ) && ( dstCharY >= 0 )
-                  &&   ( dstCharX < m_CurrentMap.TileColorOverrides.Width )
-                  &&   ( dstCharY < m_CurrentMap.TileColorOverrides.Height ) )
+                  &&   ( dstCharX < pasteColor.Width )
+                  &&   ( dstCharY < pasteColor.Height ) )
                   {
-                    m_CurrentMap.TileColorOverrides[dstCharX, dstCharY] = v;
+                    pasteColor[dstCharX, dstCharY] = v;
                   }
                   // Parallel write for the blocked overrides. If the
                   // payload didn't include a blocked trailer (older
@@ -1797,7 +1972,123 @@ namespace RetroDevStudio.Documents
       m_FloatingSelection = null;
       m_FloatingSelectionOverrides = null;
       m_FloatingSelectionBlocked = null;
+      m_FloatingSelectionLayerTiles = null;
+      m_FloatingSelectionLayerColors = null;
       RecalcTileUsageInCurrentMap();
+      Redraw();
+      Modified = true;
+    }
+
+
+
+    /// <summary>
+    /// Paste path for a verbatim multi-layer clipboard payload: writes every
+    /// source layer's tiles + per-char colour overrides back onto the matching
+    /// destination layer (and the whole-map blocked overrides), reconstructing
+    /// the full layer stack. Snapshots every layer in one grouped undo step.
+    /// </summary>
+    private void InsertFloatingSelectionAllLayers()
+    {
+      int selW         = m_FloatingSelectionSize.Width;
+      int selH         = m_FloatingSelectionSize.Height;
+      int srcSpacingX  = m_FloatingSelectionSourceSpacingX;
+      int srcSpacingY  = m_FloatingSelectionSourceSpacingY;
+      int captureCharW = selW * srcSpacingX;
+      int dstSpacingX  = m_CurrentMap.TileSpacingX;
+      int dstSpacingY  = m_CurrentMap.TileSpacingY;
+      int baseCellX    = m_MousePos.X + m_CurEditorOffsetX;
+      int baseCellY    = m_MousePos.Y + m_CurEditorOffsetY;
+      int copyW        = ( srcSpacingX < dstSpacingX ) ? srcSpacingX : dstSpacingX;
+      int copyH        = ( srcSpacingY < dstSpacingY ) ? srcSpacingY : dstSpacingY;
+
+      // Snapshot every destination layer (one grouped undo step) — all written.
+      for ( int li = 0; li < m_CurrentMap.Layers.Count; ++li )
+      {
+        var task = new Undo.UndoMapTilesChange( this, m_CurrentMap, baseCellX, baseCellY, selW, selH, li );
+        if ( li == 0 )
+        {
+          DocumentInfo.UndoManager.AddUndoTask( task );
+        }
+        else
+        {
+          DocumentInfo.UndoManager.AddGroupedUndoTask( task );
+        }
+      }
+
+      int layerCount = Math.Min( m_FloatingSelectionLayerTiles.Count, m_CurrentMap.Layers.Count );
+      for ( int j = 0; j < selH; ++j )
+      {
+        for ( int i = 0; i < selW; ++i )
+        {
+          // Only paste cells that were part of the selection shape.
+          if ( !m_FloatingSelection[i + j * selW].first )
+          {
+            continue;
+          }
+          int dstCellX = baseCellX + i;
+          int dstCellY = baseCellY + j;
+          if ( ( dstCellX < 0 ) || ( dstCellY < 0 )
+          ||   ( dstCellX >= m_CurrentMap.Tiles.Width ) || ( dstCellY >= m_CurrentMap.Tiles.Height ) )
+          {
+            continue;
+          }
+          int dstCharBaseX = dstCellX * dstSpacingX;
+          int dstCharBaseY = dstCellY * dstSpacingY;
+
+          for ( int li = 0; li < layerCount; ++li )
+          {
+            var lay         = m_CurrentMap.Layers[li];
+            var layerColors = m_FloatingSelectionLayerColors[li];
+            lay.Tiles[dstCellX, dstCellY] = m_FloatingSelectionLayerTiles[li][i + j * selW];
+
+            for ( int dy = 0; dy < copyH; ++dy )
+            {
+              for ( int dx = 0; dx < copyW; ++dx )
+              {
+                int dstCharX = dstCharBaseX + dx;
+                int dstCharY = dstCharBaseY + dy;
+                if ( ( dstCharX >= 0 ) && ( dstCharY >= 0 )
+                &&   ( dstCharX < lay.TileColorOverrides.Width )
+                &&   ( dstCharY < lay.TileColorOverrides.Height ) )
+                {
+                  int srcCharX = i * srcSpacingX + dx;
+                  int srcCharY = j * srcSpacingY + dy;
+                  lay.TileColorOverrides[dstCharX, dstCharY] = layerColors[srcCharX + srcCharY * captureCharW];
+                }
+              }
+            }
+          }
+
+          // Whole-map blocked overrides (verbatim from source, when captured).
+          if ( m_FloatingSelectionBlocked != null )
+          {
+            for ( int dy = 0; dy < copyH; ++dy )
+            {
+              for ( int dx = 0; dx < copyW; ++dx )
+              {
+                int dstCharX = dstCharBaseX + dx;
+                int dstCharY = dstCharBaseY + dy;
+                if ( ( dstCharX >= 0 ) && ( dstCharY >= 0 )
+                &&   ( dstCharX < m_CurrentMap.CharBlockedOverrides.Width )
+                &&   ( dstCharY < m_CurrentMap.CharBlockedOverrides.Height ) )
+                {
+                  int srcCharX = i * srcSpacingX + dx;
+                  int srcCharY = j * srcSpacingY + dy;
+                  m_CurrentMap.CharBlockedOverrides[dstCharX, dstCharY] = m_FloatingSelectionBlocked[srcCharX + srcCharY * captureCharW];
+                }
+              }
+            }
+          }
+        }
+      }
+
+      m_FloatingSelection = null;
+      m_FloatingSelectionOverrides = null;
+      m_FloatingSelectionBlocked = null;
+      m_FloatingSelectionLayerTiles = null;
+      m_FloatingSelectionLayerColors = null;
+      RecalcTileUsageInCurrentMap();
+      RedrawMap();
       Redraw();
       Modified = true;
     }
@@ -1819,23 +2110,25 @@ namespace RetroDevStudio.Documents
     {
       int tileIndex = m_CurrentEditorTile.Index;
 
-      // find neighbors
+      // find neighbors (on the ACTIVE layer — auto-tiling matches against what
+      // the user is drawing on, not the composite of all layers)
+      var autoTiles = ActiveTiles;
       var neighbors = new List<int>();
       if ( mapX > 0 )
       {
-        neighbors.Add( m_CurrentMap.Tiles[mapX - 1, mapY] );
+        neighbors.Add( autoTiles[mapX - 1, mapY] );
       }
       if ( mapX < m_CurrentMap.Tiles.Width - 1 )
       {
-        neighbors.Add( m_CurrentMap.Tiles[mapX + 1, mapY] );
+        neighbors.Add( autoTiles[mapX + 1, mapY] );
       }
       if ( mapY > 0 )
       {
-        neighbors.Add( m_CurrentMap.Tiles[mapX, mapY - 1] );
+        neighbors.Add( autoTiles[mapX, mapY - 1] );
       }
       if ( mapY < m_CurrentMap.Tiles.Height - 1 )
       {
-        neighbors.Add( m_CurrentMap.Tiles[mapX, mapY + 1] );
+        neighbors.Add( autoTiles[mapX, mapY + 1] );
       }
 
       // filter only group members
@@ -1942,6 +2235,9 @@ namespace RetroDevStudio.Documents
       int spacingX = Math.Max( 1, m_CurrentMap.TileSpacingX );
       int spacingY = Math.Max( 1, m_CurrentMap.TileSpacingY );
 
+      // Fill operates on the ACTIVE layer's tile grid.
+      var layerTiles = ActiveTiles;
+
       // Resolve, for every cell, the ANCHOR cell of the tile that visually
       // occupies it (y outer / x inner, first-claimer-wins — matches the
       // screen). Cells with no valid owning tile stay hasOwner==false so the
@@ -1955,7 +2251,7 @@ namespace RetroDevStudio.Documents
         for ( int x = 0; x < tw; ++x )
         {
           if ( covered[x, y] ) continue;
-          int idx = m_CurrentMap.Tiles[x, y];
+          int idx = layerTiles[x, y];
           if ( ( idx < 0 ) || ( idx >= m_MapProject.Tiles.Count ) ) continue;
           var tile = m_MapProject.Tiles[idx];
 
@@ -1983,7 +2279,7 @@ namespace RetroDevStudio.Documents
 
       int startAnchorX = anchorX[X, Y];
       int startAnchorY = anchorY[X, Y];
-      int tileToFill   = m_CurrentMap.Tiles[startAnchorX, startAnchorY];
+      int tileToFill   = layerTiles[startAnchorX, startAnchorY];
 
       bool autoTile = ( checkAutoTiling != null )
                    && ( checkAutoTiling.Checked )
@@ -1998,7 +2294,7 @@ namespace RetroDevStudio.Documents
         return;
       }
 
-      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, tw, th ) );
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, tw, th, m_ActiveLayerIndex ) );
 
       // All tiles in the region share tileToFill's index, so its footprint
       // (in cells) is constant for the whole flood.
@@ -2024,7 +2320,7 @@ namespace RetroDevStudio.Documents
         int nax = anchorX[cellX, cellY];
         int nay = anchorY[cellX, cellY];
         if ( visited[nax, nay] ) return;
-        if ( m_CurrentMap.Tiles[nax, nay] != tileToFill ) return;
+        if ( layerTiles[nax, nay] != tileToFill ) return;
         visited[nax, nay] = true;
         queue.Add( new System.Drawing.Point( nax, nay ) );
       }
@@ -2054,7 +2350,7 @@ namespace RetroDevStudio.Documents
       foreach ( var a in fillOrder )
       {
         int placeIndex = autoTile ? PickAutoTileIndex( a.X, a.Y ) : m_CurrentEditorTile.Index;
-        m_CurrentMap.Tiles[a.X, a.Y] = placeIndex;
+        layerTiles[a.X, a.Y] = placeIndex;
         ApplyPlacementColorOverride( a.X, a.Y );
       }
 
@@ -2085,8 +2381,11 @@ namespace RetroDevStudio.Documents
       // "Default" placement colour = nothing to apply.
       if ( m_TilePlacementColorOverride < 0 ) return;
 
-      int charW = m_CurrentMap.TileColorOverrides.Width;
-      int charH = m_CurrentMap.TileColorOverrides.Height;
+      // Colour-replace operates on the ACTIVE layer (its tiles + colour overrides).
+      var rcTiles = ActiveTiles;
+      var rcColor = ActiveColorOverrides;
+      int charW = rcColor.Width;
+      int charH = rcColor.Height;
       if ( ( CharX < 0 ) || ( CharY < 0 ) || ( CharX >= charW ) || ( CharY >= charH ) )
       {
         return;
@@ -2120,7 +2419,7 @@ namespace RetroDevStudio.Documents
         for ( int x = 0; x < tw; ++x )
         {
           if ( covered[x, y] ) continue;
-          int idx = m_CurrentMap.Tiles[x, y];
+          int idx = rcTiles[x, y];
           if ( ( idx < 0 ) || ( idx >= m_MapProject.Tiles.Count ) ) continue;
           var tile = m_MapProject.Tiles[idx];
 
@@ -2134,7 +2433,7 @@ namespace RetroDevStudio.Documents
               int cy = baseY + j;
               if ( ( cx >= 0 ) && ( cy >= 0 ) && ( cx < charW ) && ( cy < charH ) )
               {
-                int ov = m_CurrentMap.TileColorOverrides[cx, cy];
+                int ov = rcColor[cx, cy];
                 effective[cx, cy] = ( ov >= 0 ) ? ov : tile.Chars[i, j].Color;
               }
             }
@@ -2161,7 +2460,7 @@ namespace RetroDevStudio.Documents
 
       // UndoMapTilesChange snapshots TileColorOverrides for the whole map, so
       // Ctrl+Z restores the prior colours.
-      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, tw, th ) );
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, tw, th, m_ActiveLayerIndex ) );
 
       // 4-connected flood over characters whose effective colour == startColor.
       // Matching reads the precomputed grid (stable) while we mutate overrides.
@@ -2184,7 +2483,7 @@ namespace RetroDevStudio.Documents
         System.Drawing.Point c = queue[queue.Count - 1];
         queue.RemoveAt( queue.Count - 1 );
 
-        m_CurrentMap.TileColorOverrides[c.X, c.Y] = newColor;
+        rcColor[c.X, c.Y] = newColor;
 
         TryFloodChar( c.X - 1, c.Y );
         TryFloodChar( c.X + 1, c.Y );
@@ -2193,6 +2492,158 @@ namespace RetroDevStudio.Documents
       }
 
       Modified = true;
+      RedrawMap();
+      Redraw();
+    }
+
+
+
+    /// <summary>
+    /// ERASE-by-colour tool: floods the connected region of same-colour
+    /// characters under the cursor (the exact COLOR_REPLACE flood) and clears
+    /// every tile cell that region touches. "Clear" = the active layer's blank:
+    /// the Background gets the shift-click blank tile + colour; upper layers go
+    /// transparent (tile -1, colour -1).
+    /// </summary>
+    private void EraseColorContent( int CharX, int CharY )
+    {
+      if ( m_CurrentMap == null ) return;
+
+      var rcTiles = ActiveTiles;
+      var rcColor = ActiveColorOverrides;
+      int charW = rcColor.Width;
+      int charH = rcColor.Height;
+      if ( ( CharX < 0 ) || ( CharY < 0 ) || ( CharX >= charW ) || ( CharY >= charH ) )
+      {
+        return;
+      }
+
+      // Per-character EFFECTIVE colour grid, built exactly like COLOR_REPLACE /
+      // RedrawMap (override when set, else the owning tile's char colour). Cells
+      // not covered by a drawn tile stay NO_CHAR so the flood can't leak.
+      const int NO_CHAR = -2;
+      var effective = new int[charW, charH];
+      for ( int i = 0; i < charW; ++i )
+      {
+        for ( int j = 0; j < charH; ++j )
+        {
+          effective[i, j] = NO_CHAR;
+        }
+      }
+
+      int tw = m_CurrentMap.Tiles.Width;
+      int th = m_CurrentMap.Tiles.Height;
+      int spacingX = Math.Max( 1, m_CurrentMap.TileSpacingX );
+      int spacingY = Math.Max( 1, m_CurrentMap.TileSpacingY );
+      var covered = new bool[tw, th];
+      for ( int y = 0; y < th; ++y )
+      {
+        for ( int x = 0; x < tw; ++x )
+        {
+          if ( covered[x, y] ) continue;
+          int idx = rcTiles[x, y];
+          if ( ( idx < 0 ) || ( idx >= m_MapProject.Tiles.Count ) ) continue;
+          var tile = m_MapProject.Tiles[idx];
+
+          int baseX = x * spacingX;
+          int baseY = y * spacingY;
+          for ( int j = 0; j < tile.Chars.Height; ++j )
+          {
+            for ( int i = 0; i < tile.Chars.Width; ++i )
+            {
+              int cx = baseX + i;
+              int cy = baseY + j;
+              if ( ( cx >= 0 ) && ( cy >= 0 ) && ( cx < charW ) && ( cy < charH ) )
+              {
+                int ov = rcColor[cx, cy];
+                effective[cx, cy] = ( ov >= 0 ) ? ov : tile.Chars[i, j].Color;
+              }
+            }
+          }
+
+          int cw = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Width  / (float)spacingX ) );
+          int ch = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Height / (float)spacingY ) );
+          for ( int cy = 0; cy < ch; ++cy )
+          {
+            for ( int cx = 0; cx < cw; ++cx )
+            {
+              if ( ( x + cx < tw ) && ( y + cy < th ) )
+              {
+                covered[x + cx, y + cy] = true;
+              }
+            }
+          }
+        }
+      }
+
+      int startColor = effective[CharX, CharY];
+      if ( startColor == NO_CHAR ) return;     // clicked empty space — nothing to erase
+
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, tw, th, m_ActiveLayerIndex ) );
+
+      // 4-connected flood over same-effective-colour chars; collect the tile
+      // CELLS those chars sit in.
+      var visited     = new bool[charW, charH];
+      var cellToClear = new bool[tw, th];
+      var queue       = new List<System.Drawing.Point>();
+      queue.Add( new System.Drawing.Point( CharX, CharY ) );
+      visited[CharX, CharY] = true;
+
+      void TryFloodChar( int nx, int ny )
+      {
+        if ( ( nx < 0 ) || ( ny < 0 ) || ( nx >= charW ) || ( ny >= charH ) ) return;
+        if ( visited[nx, ny] ) return;
+        if ( effective[nx, ny] != startColor ) return;
+        visited[nx, ny] = true;
+        queue.Add( new System.Drawing.Point( nx, ny ) );
+      }
+
+      while ( queue.Count != 0 )
+      {
+        System.Drawing.Point c = queue[queue.Count - 1];
+        queue.RemoveAt( queue.Count - 1 );
+
+        int cellX = c.X / spacingX;
+        int cellY = c.Y / spacingY;
+        if ( ( cellX >= 0 ) && ( cellY >= 0 ) && ( cellX < tw ) && ( cellY < th ) )
+        {
+          cellToClear[cellX, cellY] = true;
+        }
+
+        TryFloodChar( c.X - 1, c.Y );
+        TryFloodChar( c.X + 1, c.Y );
+        TryFloodChar( c.X, c.Y - 1 );
+        TryFloodChar( c.X, c.Y + 1 );
+      }
+
+      // Clear every touched cell to the active layer's blank value.
+      int clearTile  = ActiveLayerClearTileIndex;
+      int clearColor = ActiveLayerClearColor;
+      for ( int cellY = 0; cellY < th; ++cellY )
+      {
+        for ( int cellX = 0; cellX < tw; ++cellX )
+        {
+          if ( !cellToClear[cellX, cellY] ) continue;
+          rcTiles[cellX, cellY] = clearTile;
+          int baseX = cellX * spacingX;
+          int baseY = cellY * spacingY;
+          for ( int dy = 0; dy < spacingY; ++dy )
+          {
+            for ( int dx = 0; dx < spacingX; ++dx )
+            {
+              int ccx = baseX + dx;
+              int ccy = baseY + dy;
+              if ( ( ccx >= 0 ) && ( ccy >= 0 ) && ( ccx < charW ) && ( ccy < charH ) )
+              {
+                rcColor[ccx, ccy] = clearColor;
+              }
+            }
+          }
+        }
+      }
+
+      Modified = true;
+      RecalcTileUsageInCurrentMap();
       RedrawMap();
       Redraw();
     }
@@ -2313,7 +2764,7 @@ namespace RetroDevStudio.Documents
 
               CalcRect( m_DragStartPos, m_DragEndPos, out p1, out p2 );
 
-              DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, p1.X, p1.Y, p2.X - p1.X + 1, p2.Y - p1.Y + 1 ) );
+              DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, p1.X, p1.Y, p2.X - p1.X + 1, p2.Y - p1.Y + 1, m_ActiveLayerIndex ) );
 
               if ( m_ToolMode == ToolMode.RECTANGLE )
               {
@@ -2321,8 +2772,8 @@ namespace RetroDevStudio.Documents
                 {
                   DrawTile( x - m_CurEditorOffsetX, p1.Y - m_CurEditorOffsetY, m_CurrentEditorTile.Index, m_TilePlacementColorOverride );
                   DrawTile( x - m_CurEditorOffsetX, p2.Y - m_CurEditorOffsetY, m_CurrentEditorTile.Index, m_TilePlacementColorOverride );
-                  m_CurrentMap.Tiles[x, p1.Y] = m_CurrentEditorTile.Index;
-                  m_CurrentMap.Tiles[x, p2.Y] = m_CurrentEditorTile.Index;
+                  ActiveTiles[x, p1.Y] = m_CurrentEditorTile.Index;
+                  ActiveTiles[x, p2.Y] = m_CurrentEditorTile.Index;
                   ApplyPlacementColorOverride( x, p1.Y );
                   ApplyPlacementColorOverride( x, p2.Y );
 
@@ -2343,8 +2794,8 @@ namespace RetroDevStudio.Documents
                 {
                   DrawTile( p1.X - m_CurEditorOffsetX, y - m_CurEditorOffsetY, m_CurrentEditorTile.Index, m_TilePlacementColorOverride );
                   DrawTile( p2.X - m_CurEditorOffsetX, y - m_CurEditorOffsetY, m_CurrentEditorTile.Index, m_TilePlacementColorOverride );
-                  m_CurrentMap.Tiles[p1.X, y] = m_CurrentEditorTile.Index;
-                  m_CurrentMap.Tiles[p2.X, y] = m_CurrentEditorTile.Index;
+                  ActiveTiles[p1.X, y] = m_CurrentEditorTile.Index;
+                  ActiveTiles[p2.X, y] = m_CurrentEditorTile.Index;
                   ApplyPlacementColorOverride( p1.X, y );
                   ApplyPlacementColorOverride( p2.X, y );
 
@@ -2369,7 +2820,7 @@ namespace RetroDevStudio.Documents
                   for ( int x = p1.X; x <= p2.X; ++x )
                   {
                     DrawTile( x - m_CurEditorOffsetX, y - m_CurEditorOffsetY, m_CurrentEditorTile.Index, m_TilePlacementColorOverride );
-                    m_CurrentMap.Tiles[x, y] = m_CurrentEditorTile.Index;
+                    ActiveTiles[x, y] = m_CurrentEditorTile.Index;
                     ApplyPlacementColorOverride( x, y );
                     pictureEditor.DisplayPage.DrawTo( m_Image,
                                     renderOffsetX + ( x - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
@@ -2380,7 +2831,9 @@ namespace RetroDevStudio.Documents
                   }
                 }
               }
-              pictureEditor.Invalidate();
+              // Composite all layers (the per-cell blits above can't layer).
+              RedrawMap();
+              Redraw();
               RecalcTileUsageInCurrentMap();
               Modified = true;
             }
@@ -2571,11 +3024,12 @@ namespace RetroDevStudio.Documents
           // to absolute map char coords.
           int mapCharX = charX + offsetX * m_CurrentMap.TileSpacingX;
           int mapCharY = charY + offsetY * m_CurrentMap.TileSpacingY;
+          var cpColor = ActiveColorOverrides;
           if ( ( mapCharX >= 0 )
           &&   ( mapCharY >= 0 )
-          &&   ( mapCharX < m_CurrentMap.TileColorOverrides.Width )
-          &&   ( mapCharY < m_CurrentMap.TileColorOverrides.Height )
-          &&   ( m_CurrentMap.TileColorOverrides[mapCharX, mapCharY] != m_TilePlacementColorOverride ) )
+          &&   ( mapCharX < cpColor.Width )
+          &&   ( mapCharY < cpColor.Height )
+          &&   ( cpColor[mapCharX, mapCharY] != m_TilePlacementColorOverride ) )
           {
             // First cell of a drag stroke gets one whole-map undo entry,
             // same as the SINGLE_TILE drag below — one Ctrl+Z rewinds the
@@ -2586,9 +3040,9 @@ namespace RetroDevStudio.Documents
               DocumentInfo.UndoManager.AddUndoTask(
                 new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0,
                                              m_CurrentMap.Tiles.Width,
-                                             m_CurrentMap.Tiles.Height ) );
+                                             m_CurrentMap.Tiles.Height, m_ActiveLayerIndex ) );
             }
-            m_CurrentMap.TileColorOverrides[mapCharX, mapCharY] = m_TilePlacementColorOverride;
+            cpColor[mapCharX, mapCharY] = m_TilePlacementColorOverride;
             SetModified();
             // The change is a single character; redraw the parent tile
             // (UpdateArea takes tile coords + tile counts) so the
@@ -2622,8 +3076,19 @@ namespace RetroDevStudio.Documents
               int  savedPlacementColor = m_TilePlacementColorOverride;
               if ( shiftBlankClick )
               {
-                tileIndex = ResolveShiftClickBlankTileIndex();
-                m_TilePlacementColorOverride = m_MapProject.ShiftClickBlankColor;
+                if ( ClampedActiveLayerIndex() == 0 )
+                {
+                  // Background: stamp the configured blank tile + colour.
+                  tileIndex = ResolveShiftClickBlankTileIndex();
+                  m_TilePlacementColorOverride = m_MapProject.ShiftClickBlankColor;
+                }
+                else
+                {
+                  // Upper layers: shift-click erases the cell to transparent
+                  // (no tile, no colour override) instead of stamping a blank.
+                  tileIndex = -1;
+                  m_TilePlacementColorOverride = -1;
+                }
               }
 
               if ( ( !shiftBlankClick )
@@ -2663,8 +3128,9 @@ namespace RetroDevStudio.Documents
                 }
                 int fpBaseX = ( trueX + offsetX ) * m_CurrentMap.TileSpacingX;
                 int fpBaseY = ( trueY + offsetY ) * m_CurrentMap.TileSpacingY;
-                int fpW     = m_CurrentMap.TileColorOverrides.Width;
-                int fpH     = m_CurrentMap.TileColorOverrides.Height;
+                var fpColor = ActiveColorOverrides;
+                int fpW     = fpColor.Width;
+                int fpH     = fpColor.Height;
                 for ( int dy = 0; dy < fpFootprintY && footprintMatchesOverride; ++dy )
                 {
                   for ( int dx = 0; dx < fpFootprintX; ++dx )
@@ -2672,7 +3138,7 @@ namespace RetroDevStudio.Documents
                     int cx = fpBaseX + dx;
                     int cy = fpBaseY + dy;
                     int cur = ( cx >= 0 && cy >= 0 && cx < fpW && cy < fpH )
-                              ? m_CurrentMap.TileColorOverrides[cx, cy] : -1;
+                              ? fpColor[cx, cy] : -1;
                     if ( cur != m_TilePlacementColorOverride )
                     {
                       footprintMatchesOverride = false;
@@ -2681,48 +3147,23 @@ namespace RetroDevStudio.Documents
                   }
                 }
               }
-              if ( ( m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY] != tileIndex )
+              if ( ( ActiveTiles[trueX + offsetX, trueY + offsetY] != tileIndex )
               ||   ( !footprintMatchesOverride ) )
               {
                 if ( m_MouseButtonReleased )
                 {
                   m_MouseButtonReleased = false;
-                  DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height ) );
+                  DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height, m_ActiveLayerIndex ) );
                 }
-                m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY] = tileIndex;
+                ActiveTiles[trueX + offsetX, trueY + offsetY] = tileIndex;
                 ApplyPlacementColorOverride( trueX + offsetX, trueY + offsetY );
                 SetModified();
-                //RecalcTileUsageInCurrentMap();
 
-                DrawTile( trueX, trueY, tileIndex, m_TilePlacementColorOverride );
-                // Copy the freshly-drawn tile from DisplayPage into m_Image
-                // (the cache that Redraw() blits back over DisplayPage on
-                // grid toggles, etc.). DrawTile placed the tile at
-                // renderOffset+(...), so we MUST add renderOffset to the
-                // src/dst coords here too — otherwise we'd sample empty
-                // background pixels and the tile would silently vanish on
-                // the next Redraw(). The RECTANGLE/FILLED_RECTANGLE branch
-                // already gets this right; this branch (and a few others)
-                // were missing it, hence "drag-paint a row of tiles, then
-                // toggle the grid → only the first tile survives."
-                pictureEditor.DisplayPage.DrawTo( m_Image,
-                                renderOffsetX + trueX * 8 * m_CurrentMap.TileSpacingX,
-                                renderOffsetY + trueY * 8 * m_CurrentMap.TileSpacingY,
-                                renderOffsetX + trueX * 8 * m_CurrentMap.TileSpacingX,
-                                renderOffsetY + trueY * 8 * m_CurrentMap.TileSpacingY,
-                                m_MapProject.Tiles[tileIndex].Chars.Width * 8,
-                                m_MapProject.Tiles[tileIndex].Chars.Height * 8 );
-
-                // Use the PLACED tile's dimensions for invalidation, not
-                // m_CurrentEditorTile's — under shift-blank-click those
-                // can differ, and a too-small invalidate rect leaves
-                // stale pixels around larger blank tiles.
-                var placedTile = m_MapProject.Tiles[tileIndex];
-                pictureEditor.Invalidate( new System.Drawing.Rectangle(
-                                            renderOffsetX + ( trueX * m_CurrentMap.TileSpacingX ) * 8,
-                                            renderOffsetY + ( trueY * m_CurrentMap.TileSpacingY ) * 8,
-                                            placedTile.Chars.Width * 8,
-                                            placedTile.Chars.Height * 8 ) );
+                // Layers must composite, so repaint the whole map rather than
+                // blitting just the placed tile — a single-cell blit can't show
+                // a higher layer's tile over (or a lower layer's under) this one.
+                RedrawMap();
+                Redraw();
               }
               if ( shiftBlankClick )
               {
@@ -2750,6 +3191,16 @@ namespace RetroDevStudio.Documents
               // the PASSABLE per-char tool uses.
               ReplaceColorContent( charX + m_CurEditorOffsetX * m_CurrentMap.TileSpacingX,
                                    charY + m_CurEditorOffsetY * m_CurrentMap.TileSpacingY );
+            }
+            break;
+          case ToolMode.ERASE_COLOR:
+            if ( m_MouseButtonReleased )
+            {
+              m_MouseButtonReleased = false;
+              // Same per-character colour flood as COLOR_REPLACE, but clears the
+              // matched cells instead of recolouring.
+              EraseColorContent( charX + m_CurEditorOffsetX * m_CurrentMap.TileSpacingX,
+                                 charY + m_CurEditorOffsetY * m_CurrentMap.TileSpacingY );
             }
             break;
           case ToolMode.RECTANGLE:
@@ -3122,12 +3573,15 @@ namespace RetroDevStudio.Documents
           int sampleCharY = charY + offsetY * m_CurrentMap.TileSpacingY;
           int sampledColor = -1;
 
+          // Eyedrop from the ACTIVE layer only (its tiles + its colour overrides).
+          var pickColor = ActiveColorOverrides;
+
           // Step 1: per-char override layer takes precedence when set.
           if ( ( sampleCharX >= 0 ) && ( sampleCharY >= 0 )
-          &&   ( sampleCharX < m_CurrentMap.TileColorOverrides.Width )
-          &&   ( sampleCharY < m_CurrentMap.TileColorOverrides.Height ) )
+          &&   ( sampleCharX < pickColor.Width )
+          &&   ( sampleCharY < pickColor.Height ) )
           {
-            int ov = m_CurrentMap.TileColorOverrides[sampleCharX, sampleCharY];
+            int ov = pickColor[sampleCharX, sampleCharY];
             if ( ov >= 0 )
             {
               sampledColor = ov;
@@ -3141,7 +3595,7 @@ namespace RetroDevStudio.Documents
           // chars than spacing²).
           if ( sampledColor < 0 )
           {
-            int tileIndex = m_CurrentMap.Tiles[cellX, cellY];
+            int tileIndex = ActiveTiles[cellX, cellY];
             if ( ( tileIndex >= 0 )
             &&   ( tileIndex < m_MapProject.Tiles.Count ) )
             {
@@ -3230,32 +3684,41 @@ namespace RetroDevStudio.Documents
         {
           int cellX = trueX + offsetX;
           int cellY = trueY + offsetY;
-          int tileIndex = m_CurrentMap.Tiles[cellX, cellY];
-          if ( tileIndex < m_MapProject.Tiles.Count )
+          // Eyedrop the tile on the ACTIVE layer. Bounds-guard the cell (the map
+          // can scroll past its own edges) and require a real tile — an empty
+          // active cell (-1 on an upper layer) picks nothing, leaving the brush
+          // tile untouched.
+          if ( ( cellX >= 0 ) && ( cellY >= 0 )
+          &&   ( cellX < m_CurrentMap.Tiles.Width )
+          &&   ( cellY < m_CurrentMap.Tiles.Height ) )
           {
-            m_CurrentEditorTile = m_MapProject.Tiles[tileIndex];
+            int tileIndex = ActiveTiles[cellX, cellY];
             if ( ( tileIndex >= 0 )
-            &&   ( tileIndex < comboTiles.Items.Count ) )
+            &&   ( tileIndex < m_MapProject.Tiles.Count ) )
             {
-              // Right-click on a map tile — eyedrops the tile into
-              // the picker but must NOT reset the user's override
-              // color choice. Suppress the reset that
-              // comboTiles_SelectedIndexChanged otherwise applies
-              // for direct picks from the tile list.
-              m_SuppressTilePickerOverrideReset = true;
-              try
+              m_CurrentEditorTile = m_MapProject.Tiles[tileIndex];
+              if ( tileIndex < comboTiles.Items.Count )
               {
-                comboTiles.SelectedIndex = tileIndex;
+                // Right-click on a map tile — eyedrops the tile into
+                // the picker but must NOT reset the user's override
+                // color choice. Suppress the reset that
+                // comboTiles_SelectedIndexChanged otherwise applies
+                // for direct picks from the tile list.
+                m_SuppressTilePickerOverrideReset = true;
+                try
+                {
+                  comboTiles.SelectedIndex = tileIndex;
+                }
+                finally
+                {
+                  m_SuppressTilePickerOverrideReset = false;
+                }
               }
-              finally
-              {
-                m_SuppressTilePickerOverrideReset = false;
-              }
+              // Remember which cell got picked so the user can press Delete
+              // to clear it. The PostPaint highlight uses the same field.
+              m_SelectedTilePos = new System.Drawing.Point( cellX, cellY );
+              pictureEditor.Invalidate();
             }
-            // Remember which cell got picked so the user can press Delete
-            // to clear it. The PostPaint highlight uses the same field.
-            m_SelectedTilePos = new System.Drawing.Point( cellX, cellY );
-            pictureEditor.Invalidate();
           }
         }
         else
@@ -3279,22 +3742,11 @@ namespace RetroDevStudio.Documents
           }
           if ( tileToUse != null )
           {
-            DrawTile( trueX, trueY, tileToUse.Index, m_TilePlacementColorOverride );
-            m_CurrentMap.Tiles[trueX + offsetX, trueY + offsetY] = tileToUse.Index;
+            ActiveTiles[trueX + offsetX, trueY + offsetY] = tileToUse.Index;
             ApplyPlacementColorOverride( trueX + offsetX, trueY + offsetY );
-
-            // Same renderOffset correction as the SINGLE_TILE drag-paint —
-            // DrawTile placed the tile at renderOffset+(...) so the cache
-            // copy must read/write from the same place.
-            pictureEditor.DisplayPage.DrawTo( m_Image,
-                            renderOffsetX + trueX * 8 * m_CurrentMap.TileSpacingX,
-                            renderOffsetY + trueY * 8 * m_CurrentMap.TileSpacingY,
-                            renderOffsetX + trueX * 8 * m_CurrentMap.TileSpacingX,
-                            renderOffsetY + trueY * 8 * m_CurrentMap.TileSpacingY,
-                            8 * m_CurrentMap.TileSpacingX, 8 * m_CurrentMap.TileSpacingY );
-            pictureEditor.Invalidate( new System.Drawing.Rectangle( ( trueX + offsetX ) * 8 * m_CurrentMap.TileSpacingX,
-                                                                    ( trueY + offsetY ) * 8 * m_CurrentMap.TileSpacingY,
-                                                                    8 * m_CurrentMap.TileSpacingX, 8 * m_CurrentMap.TileSpacingY ) );
+            // Composite all layers (a per-cell blit can't layer correctly).
+            RedrawMap();
+            Redraw();
             Modified = true;
           }
         }
@@ -3546,8 +3998,6 @@ namespace RetroDevStudio.Documents
           break;
         }
       }
-      bool[,] coveredTiles = needsCoverage ? new bool[m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height] : null;
-
       // Cells render at pixel ( renderOffset + (cell - scroll) * cellSize ).
       // When the map is centered (renderOffset > 0) AND scrolled, columns/rows
       // to the LEFT/ABOVE the scroll position are still on-screen inside the
@@ -3561,6 +4011,20 @@ namespace RetroDevStudio.Documents
       int x2 = offsetX + ( pictureEditor.DisplayPage.Width / cellPixWidth ) + 1;
       int y1 = Math.Max( 0, offsetY - ( renderOffsetY / cellPixHeight ) - 1 );
       int y2 = offsetY + ( pictureEditor.DisplayPage.Height / cellPixHeight ) + 1;
+
+      // Composite the editor tile layers bottom (Background = Layers[0]) to top.
+      // Each visible layer draws with its own tiles + per-char colour overrides;
+      // an upper layer's transparent cells (-1) show the layer below. Coverage
+      // tracking is per-layer so a multi-cell tile on one layer never suppresses
+      // drawing on another.
+      for ( int layerIndex = 0; layerIndex < m_CurrentMap.Layers.Count; ++layerIndex )
+      {
+        var renderLayer = m_CurrentMap.Layers[layerIndex];
+        if ( !renderLayer.Visible )
+        {
+          continue;
+        }
+        bool[,] coveredTiles = needsCoverage ? new bool[m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height] : null;
 
       for ( int y = y1; y <= y2; ++y )
       {
@@ -3576,7 +4040,12 @@ namespace RetroDevStudio.Documents
           {
             continue;
           }
-          int tileIndex = m_CurrentMap.Tiles[x, y];
+          int tileIndex = renderLayer.Tiles[x, y];
+          if ( tileIndex < 0 )
+          {
+            // transparent cell on this layer -> shows the layer below
+            continue;
+          }
           if ( tileIndex < m_MapProject.Tiles.Count )
           {
             // a real tile
@@ -3606,10 +4075,10 @@ namespace RetroDevStudio.Documents
                 int charMapX = tileCharBaseX + i;
                 int charMapY = tileCharBaseY + j;
                 int charOverride = -1;
-                if ( ( charMapX < m_CurrentMap.TileColorOverrides.Width )
-                &&   ( charMapY < m_CurrentMap.TileColorOverrides.Height ) )
+                if ( ( charMapX < renderLayer.TileColorOverrides.Width )
+                &&   ( charMapY < renderLayer.TileColorOverrides.Height ) )
                 {
-                  charOverride = m_CurrentMap.TileColorOverrides[charMapX, charMapY];
+                  charOverride = renderLayer.TileColorOverrides[charMapX, charMapY];
                 }
                 alternativeSettings.CustomColor = ( charOverride >= 0 )
                                                   ? charOverride
@@ -3641,6 +4110,7 @@ namespace RetroDevStudio.Documents
             }
           }
         }
+      }
       }
       // Dim the map tiles BEFORE drawing entity overlays so that entities
       // render un-dimmed on top (the user wants the placement indicators to
@@ -4632,6 +5102,39 @@ namespace RetroDevStudio.Documents
 
 
 
+    /// <summary>
+    /// Topmost VISIBLE layer's tile at (cellX, cellY), or -1 if no visible layer
+    /// has a tile there. Used to build the copy/paste floating preview from
+    /// "what you see" (placement itself uses the verbatim per-layer payload).
+    /// </summary>
+    private int CompositeTileAt( int cellX, int cellY )
+    {
+      if ( m_CurrentMap == null )
+      {
+        return -1;
+      }
+      for ( int li = m_CurrentMap.Layers.Count - 1; li >= 0; --li )
+      {
+        var lay = m_CurrentMap.Layers[li];
+        if ( !lay.Visible )
+        {
+          continue;
+        }
+        if ( ( cellX < 0 ) || ( cellY < 0 )
+        ||   ( cellX >= lay.Tiles.Width ) || ( cellY >= lay.Tiles.Height ) )
+        {
+          continue;
+        }
+        if ( lay.Tiles[cellX, cellY] >= 0 )
+        {
+          return lay.Tiles[cellX, cellY];
+        }
+      }
+      return -1;
+    }
+
+
+
     private void CopyToClipboard()
     {
       // not only rectangular pieces
@@ -4690,7 +5193,9 @@ namespace RetroDevStudio.Documents
           ||   ( m_SelectedTiles[x1 + x, y1 + y] ) )
           {
             dataSelection.AppendU8( 1 );
-            dataSelection.AppendI32( m_CurrentMap.Tiles[x1 + x, y1 + y] );
+            // Preview/legacy-fallback layer = the visible composite ("what you
+            // see"); the verbatim per-layer payload is appended further below.
+            dataSelection.AppendI32( CompositeTileAt( x1 + x, y1 + y ) );
           }
           else
           {
@@ -4727,10 +5232,10 @@ namespace RetroDevStudio.Documents
           int srcY = charBaseY + j;
           int v = -1;
           if ( ( srcX >= 0 ) && ( srcY >= 0 )
-          &&   ( srcX < m_CurrentMap.TileColorOverrides.Width )
-          &&   ( srcY < m_CurrentMap.TileColorOverrides.Height ) )
+          &&   ( srcX < ActiveColorOverrides.Width )
+          &&   ( srcY < ActiveColorOverrides.Height ) )
           {
-            v = m_CurrentMap.TileColorOverrides[srcX, srcY];
+            v = ActiveColorOverrides[srcX, srcY];
           }
           dataSelection.AppendI32( v );
         }
@@ -4759,6 +5264,39 @@ namespace RetroDevStudio.Documents
             b = m_CurrentMap.CharBlockedOverrides[srcX, srcY];
           }
           dataSelection.AppendU8( b ? (byte)1 : (byte)0 );
+        }
+      }
+
+      // Per-LAYER verbatim trailer: every layer's tiles + colour overrides for
+      // the selection, so paste reconstructs the full layer stack. Position-
+      // guarded on read; older paste code stops after the blocked trailer.
+      // Layout: [i32 layerCount] then per layer
+      //   [i32 selW*selH tiles (row-major, incl -1)] [i32 charW*charH colours].
+      int selW = x2 - x1 + 1;
+      int selH = y2 - y1 + 1;
+      dataSelection.AppendI32( m_CurrentMap.Layers.Count );
+      for ( int li = 0; li < m_CurrentMap.Layers.Count; ++li )
+      {
+        var lay = m_CurrentMap.Layers[li];
+        for ( int y = 0; y < selH; ++y )
+        {
+          for ( int x = 0; x < selW; ++x )
+          {
+            int sx = x1 + x;
+            int sy = y1 + y;
+            int t = ( ( sx < lay.Tiles.Width ) && ( sy < lay.Tiles.Height ) ) ? lay.Tiles[sx, sy] : -1;
+            dataSelection.AppendI32( t );
+          }
+        }
+        for ( int j = 0; j < charH; ++j )
+        {
+          for ( int i = 0; i < charW; ++i )
+          {
+            int cx = charBaseX + i;
+            int cy = charBaseY + j;
+            int c = ( ( cx < lay.TileColorOverrides.Width ) && ( cy < lay.TileColorOverrides.Height ) ) ? lay.TileColorOverrides[cx, cy] : -1;
+            dataSelection.AppendI32( c );
+          }
         }
       }
 
@@ -4878,6 +5416,47 @@ namespace RetroDevStudio.Documents
             {
               m_FloatingSelectionBlocked.Add( memIn.ReadUInt8() != 0 );
             }
+          }
+        }
+
+        // Optional third trailer — per-LAYER verbatim tiles + colours (newest
+        // copy code). Layout: [i32 layerCount] then per layer
+        //   [i32 selW*selH tiles] [i32 charW*charH colours]. Position-guarded;
+        // older payloads leave these null and paste falls back to the single
+        // active-layer path.
+        m_FloatingSelectionLayerTiles  = null;
+        m_FloatingSelectionLayerColors = null;
+        if ( ( m_FloatingSelectionOverrides != null )
+        &&   ( memIn.Size - memIn.Position >= 4 ) )
+        {
+          int trailerCharW = selectionWidth  * m_FloatingSelectionSourceSpacingX;
+          int trailerCharH = selectionHeight * m_FloatingSelectionSourceSpacingY;
+          int cellCount    = selectionWidth * selectionHeight;
+          int charCount    = trailerCharW * trailerCharH;
+          int layerCount   = memIn.ReadInt32();
+          long needed      = (long)layerCount * ( cellCount * 4L + charCount * 4L );
+          if ( ( layerCount > 0 ) && ( layerCount < 256 )
+          &&   ( memIn.Size - memIn.Position >= needed ) )
+          {
+            var lt = new List<int[]>( layerCount );
+            var lc = new List<int[]>( layerCount );
+            for ( int li = 0; li < layerCount; ++li )
+            {
+              int[] tiles = new int[cellCount];
+              for ( int k = 0; k < cellCount; ++k )
+              {
+                tiles[k] = memIn.ReadInt32();
+              }
+              int[] colors = new int[charCount];
+              for ( int k = 0; k < charCount; ++k )
+              {
+                colors[k] = memIn.ReadInt32();
+              }
+              lt.Add( tiles );
+              lc.Add( colors );
+            }
+            m_FloatingSelectionLayerTiles  = lt;
+            m_FloatingSelectionLayerColors = lc;
           }
         }
 
@@ -5037,6 +5616,143 @@ namespace RetroDevStudio.Documents
 
 
     /// <summary>
+    /// Merges every layer down into the Background (Layers[0]) using the same
+    /// topmost-tile-wins rule as export (FlattenLayers), then clears all upper
+    /// layers to transparent. Hidden layers ARE included — flattening bakes the
+    /// map into exactly what would export. One grouped undo step (one snapshot
+    /// per layer) so Ctrl+Z restores the full pre-flatten state.
+    /// </summary>
+    private void btnClearLayer_Click( object sender, EventArgs e )
+    {
+      if ( m_CurrentMap == null ) return;
+      if ( !IsMapEditable ) return;
+
+      // Clear the ACTIVE layer to its blank: Background -> the shift-click blank
+      // tile + colour; upper layers -> transparent (-1). One undo step.
+      int clearTile  = ActiveLayerClearTileIndex;
+      int clearColor = ActiveLayerClearColor;
+      var layer      = ActiveLayer;
+
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height, m_ActiveLayerIndex ) );
+
+      for ( int j = 0; j < layer.Tiles.Height; ++j )
+      {
+        for ( int i = 0; i < layer.Tiles.Width; ++i )
+        {
+          layer.Tiles[i, j] = clearTile;
+        }
+      }
+      for ( int j = 0; j < layer.TileColorOverrides.Height; ++j )
+      {
+        for ( int i = 0; i < layer.TileColorOverrides.Width; ++i )
+        {
+          layer.TileColorOverrides[i, j] = clearColor;
+        }
+      }
+
+      SetModified();
+      RecalcTileUsageInCurrentMap();
+      RedrawMap();
+      Redraw();
+    }
+
+
+
+    private void btnFlattenLayers_Click( object sender, EventArgs e )
+    {
+      if ( m_CurrentMap == null ) return;
+      if ( !IsMapEditable ) return;
+
+      // Nothing above the Background to merge? Don't push an undo step / dirty
+      // the document for a no-op.
+      bool hasUpperContent = false;
+      for ( int li = 1; ( li < m_CurrentMap.Layers.Count ) && ( !hasUpperContent ); ++li )
+      {
+        var lay = m_CurrentMap.Layers[li];
+        for ( int j = 0; ( j < lay.Tiles.Height ) && ( !hasUpperContent ); ++j )
+        {
+          for ( int i = 0; i < lay.Tiles.Width; ++i )
+          {
+            if ( lay.Tiles[i, j] >= 0 )
+            {
+              hasUpperContent = true;
+              break;
+            }
+          }
+        }
+      }
+      if ( !hasUpperContent )
+      {
+        Core.Notification.MessageBox( "Flatten layers", "There is nothing above the Background layer to flatten." );
+        return;
+      }
+
+      // Snapshot every layer (one grouped undo step) before mutating.
+      for ( int li = 0; li < m_CurrentMap.Layers.Count; ++li )
+      {
+        var task = new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height, li );
+        if ( li == 0 )
+        {
+          DocumentInfo.UndoManager.AddUndoTask( task );
+        }
+        else
+        {
+          DocumentInfo.UndoManager.AddGroupedUndoTask( task );
+        }
+      }
+
+      // Composite (topmost layer with a tile wins; same rule as export) onto the
+      // Background, then clear every upper layer to transparent.
+      GR.Game.Layer<int> flatTiles;
+      GR.Game.Layer<int> flatColor;
+      Formats.MapProject.FlattenLayers( m_CurrentMap, out flatTiles, out flatColor );
+
+      var bg = m_CurrentMap.Layers[0];
+      for ( int j = 0; j < bg.Tiles.Height; ++j )
+      {
+        for ( int i = 0; i < bg.Tiles.Width; ++i )
+        {
+          // The Background carries tile 0 (not -1) where nothing was placed, so
+          // clamp the flatten's "no tile" -1 back to 0 to keep that invariant.
+          int t = flatTiles[i, j];
+          bg.Tiles[i, j] = ( t < 0 ) ? 0 : t;
+        }
+      }
+      for ( int j = 0; j < bg.TileColorOverrides.Height; ++j )
+      {
+        for ( int i = 0; i < bg.TileColorOverrides.Width; ++i )
+        {
+          bg.TileColorOverrides[i, j] = flatColor[i, j];
+        }
+      }
+      for ( int li = 1; li < m_CurrentMap.Layers.Count; ++li )
+      {
+        var lay = m_CurrentMap.Layers[li];
+        for ( int j = 0; j < lay.Tiles.Height; ++j )
+        {
+          for ( int i = 0; i < lay.Tiles.Width; ++i )
+          {
+            lay.Tiles[i, j] = -1;
+          }
+        }
+        for ( int j = 0; j < lay.TileColorOverrides.Height; ++j )
+        {
+          for ( int i = 0; i < lay.TileColorOverrides.Width; ++i )
+          {
+            lay.TileColorOverrides[i, j] = -1;
+          }
+        }
+      }
+
+      SetModified();
+      RecalcTileUsageInCurrentMap();
+      RedrawMap();
+      Redraw();
+    }
+
+
+
+    /// <summary>
     /// Clear every per-character passable override on the current map.
     /// One <see cref="Undo.UndoMapCharBlockedChange"/> snapshot covers
     /// the whole layer so Ctrl+Z restores it. Confirms first because
@@ -5114,6 +5830,11 @@ namespace RetroDevStudio.Documents
       int spacingX = Math.Max( 1, m_CurrentMap.TileSpacingX );
       int spacingY = Math.Max( 1, m_CurrentMap.TileSpacingY );
 
+      // Operate on the ACTIVE layer; clear overlapped cells to its erase value
+      // (Background -> 0, upper layers -> -1 transparent).
+      var roTiles = ActiveTiles;
+      int roErase = ActiveLayerEraseTileIndex;
+
       // Scan once first so we only record an undo (and fire Modified) when
       // there's actually something to change.
       int clearedCount = 0;
@@ -5121,7 +5842,7 @@ namespace RetroDevStudio.Documents
       {
         for ( int x = 0; x < w; ++x )
         {
-          int tileIndex = m_CurrentMap.Tiles[x, y];
+          int tileIndex = roTiles[x, y];
           if ( ( tileIndex <= 0 )
           ||   ( tileIndex >= m_MapProject.Tiles.Count ) )
           {
@@ -5146,7 +5867,7 @@ namespace RetroDevStudio.Documents
               {
                 continue;
               }
-              if ( m_CurrentMap.Tiles[nx, ny] != 0 )
+              if ( roTiles[nx, ny] != roErase )
               {
                 ++clearedCount;
               }
@@ -5166,13 +5887,13 @@ namespace RetroDevStudio.Documents
       // scan order — the second pass sees the same tiles as the first because
       // the anchor cells are never cleared.
       DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange(
-        this, m_CurrentMap, 0, 0, w, h ) );
+        this, m_CurrentMap, 0, 0, w, h, m_ActiveLayerIndex ) );
 
       for ( int y = 0; y < h; ++y )
       {
         for ( int x = 0; x < w; ++x )
         {
-          int tileIndex = m_CurrentMap.Tiles[x, y];
+          int tileIndex = roTiles[x, y];
           if ( ( tileIndex <= 0 )
           ||   ( tileIndex >= m_MapProject.Tiles.Count ) )
           {
@@ -5197,9 +5918,9 @@ namespace RetroDevStudio.Documents
               {
                 continue;
               }
-              if ( m_CurrentMap.Tiles[nx, ny] != 0 )
+              if ( roTiles[nx, ny] != roErase )
               {
-                m_CurrentMap.Tiles[nx, ny] = 0;
+                roTiles[nx, ny] = roErase;
               }
             }
           }
@@ -5234,8 +5955,20 @@ namespace RetroDevStudio.Documents
       {
         return;
       }
-      // Snapshot tiles and markers in one undo group so Ctrl+Z rewinds both at once.
-      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height ) );
+      // Snapshot every layer's tiles + markers + entities in one undo group so
+      // Ctrl+Z rewinds the whole shift at once (all layers move together).
+      for ( int li = 0; li < m_CurrentMap.Layers.Count; ++li )
+      {
+        var shiftUndo = new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height, li );
+        if ( li == 0 )
+        {
+          DocumentInfo.UndoManager.AddUndoTask( shiftUndo );
+        }
+        else
+        {
+          DocumentInfo.UndoManager.AddGroupedUndoTask( shiftUndo );
+        }
+      }
       DocumentInfo.UndoManager.AddGroupedUndoTask( new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
       DocumentInfo.UndoManager.AddGroupedUndoTask( new Undo.UndoMapEntitiesChange( this, m_CurrentMap ) );
 
@@ -5264,77 +5997,86 @@ namespace RetroDevStudio.Documents
       int charDX = DX * spacingX;
       int charDY = DY * spacingY;
 
-      // ----- Tiles layer (tile-grid) -----
-      int[,] newTiles = new int[w, h];
-      for ( int x = 0; x < w; ++x )
+      // ----- Tiles (tile-grid) — every layer shifts together. Background
+      // vacates to tile 0 (historical); upper layers vacate to -1 (transparent).
+      for ( int li = 0; li < m_CurrentMap.Layers.Count; ++li )
       {
-        for ( int y = 0; y < h; ++y )
+        var layerTiles = m_CurrentMap.Layers[li].Tiles;
+        int vacate = ( li == 0 ) ? 0 : -1;
+        int[,] newTiles = new int[w, h];
+        for ( int x = 0; x < w; ++x )
         {
-          int srcX, srcY;
-          if ( Roll )
+          for ( int y = 0; y < h; ++y )
           {
-            srcX = ( ( x - DX ) % w + w ) % w;
-            srcY = ( ( y - DY ) % h + h ) % h;
-            newTiles[x, y] = m_CurrentMap.Tiles[srcX, srcY];
-          }
-          else
-          {
-            srcX = x - DX;
-            srcY = y - DY;
-            if ( ( srcX >= 0 ) && ( srcY >= 0 ) && ( srcX < w ) && ( srcY < h ) )
+            int srcX, srcY;
+            if ( Roll )
             {
-              newTiles[x, y] = m_CurrentMap.Tiles[srcX, srcY];
+              srcX = ( ( x - DX ) % w + w ) % w;
+              srcY = ( ( y - DY ) % h + h ) % h;
+              newTiles[x, y] = layerTiles[srcX, srcY];
             }
             else
             {
-              newTiles[x, y] = 0;   // vacated cell
+              srcX = x - DX;
+              srcY = y - DY;
+              if ( ( srcX >= 0 ) && ( srcY >= 0 ) && ( srcX < w ) && ( srcY < h ) )
+              {
+                newTiles[x, y] = layerTiles[srcX, srcY];
+              }
+              else
+              {
+                newTiles[x, y] = vacate;   // vacated cell
+              }
             }
           }
         }
-      }
-      for ( int x = 0; x < w; ++x )
-      {
-        for ( int y = 0; y < h; ++y )
+        for ( int x = 0; x < w; ++x )
         {
-          m_CurrentMap.Tiles[x, y] = newTiles[x, y];
+          for ( int y = 0; y < h; ++y )
+          {
+            layerTiles[x, y] = newTiles[x, y];
+          }
         }
       }
 
-      // ----- Color override layer (char-grid). -1 is the "no override"
-      // sentinel, used to fill vacated cells in non-roll mode. -----
-      var overrides = m_CurrentMap.TileColorOverrides;
-      int[,] newOverrides = new int[charW, charH];
-      for ( int x = 0; x < charW; ++x )
+      // ----- Colour overrides (char-grid) — per layer. -1 is the "no override"
+      // sentinel, also used to fill vacated cells in non-roll mode. -----
+      for ( int li = 0; li < m_CurrentMap.Layers.Count; ++li )
       {
-        for ( int y = 0; y < charH; ++y )
+        var overrides = m_CurrentMap.Layers[li].TileColorOverrides;
+        int[,] newOverrides = new int[charW, charH];
+        for ( int x = 0; x < charW; ++x )
         {
-          int srcX, srcY;
-          if ( Roll )
+          for ( int y = 0; y < charH; ++y )
           {
-            srcX = ( ( x - charDX ) % charW + charW ) % charW;
-            srcY = ( ( y - charDY ) % charH + charH ) % charH;
-            newOverrides[x, y] = overrides[srcX, srcY];
-          }
-          else
-          {
-            srcX = x - charDX;
-            srcY = y - charDY;
-            if ( ( srcX >= 0 ) && ( srcY >= 0 ) && ( srcX < charW ) && ( srcY < charH ) )
+            int srcX, srcY;
+            if ( Roll )
             {
+              srcX = ( ( x - charDX ) % charW + charW ) % charW;
+              srcY = ( ( y - charDY ) % charH + charH ) % charH;
               newOverrides[x, y] = overrides[srcX, srcY];
             }
             else
             {
-              newOverrides[x, y] = -1;
+              srcX = x - charDX;
+              srcY = y - charDY;
+              if ( ( srcX >= 0 ) && ( srcY >= 0 ) && ( srcX < charW ) && ( srcY < charH ) )
+              {
+                newOverrides[x, y] = overrides[srcX, srcY];
+              }
+              else
+              {
+                newOverrides[x, y] = -1;
+              }
             }
           }
         }
-      }
-      for ( int x = 0; x < charW; ++x )
-      {
-        for ( int y = 0; y < charH; ++y )
+        for ( int x = 0; x < charW; ++x )
         {
-          overrides[x, y] = newOverrides[x, y];
+          for ( int y = 0; y < charH; ++y )
+          {
+            overrides[x, y] = newOverrides[x, y];
+          }
         }
       }
 
@@ -5937,6 +6679,8 @@ namespace RetroDevStudio.Documents
       // The map the user just selected becomes our editable "live" map.
       // Any revision-viewing state was already cleared above.
       m_LiveMap = m_CurrentMap;
+      m_ActiveLayerIndex = m_CurrentMap.SelectedLayerIndex;
+      RefreshLayerList();
       btnCopy.Enabled = true;
 
       btnMoveMapDown.Enabled  = ( ( comboMaps.Items.Count >= 2 ) && ( comboMaps.SelectedIndex + 1 < comboMaps.Items.Count ) );
@@ -6010,11 +6754,19 @@ namespace RetroDevStudio.Documents
       }
       if ( m_CurrentMap != null )
       {
-        for ( int i = 0; i < m_CurrentMap.Tiles.Width; ++i )
+        // Count usage across ALL layers; guard transparent (-1) / out-of-range.
+        foreach ( var usageLayer in m_CurrentMap.Layers )
         {
-          for ( int j = 0; j < m_CurrentMap.Tiles.Height; ++j )
+          for ( int i = 0; i < usageLayer.Tiles.Width; ++i )
           {
-            ++_TileUsage[m_CurrentMap.Tiles[i, j]];
+            for ( int j = 0; j < usageLayer.Tiles.Height; ++j )
+            {
+              int idx = usageLayer.Tiles[i, j];
+              if ( ( idx >= 0 ) && ( idx < _TileUsage.Count ) )
+              {
+                ++_TileUsage[idx];
+              }
+            }
           }
         }
       }
@@ -6185,15 +6937,21 @@ namespace RetroDevStudio.Documents
         listTileInfo.Items[i].Text = i.ToString();
       }
 
+      // Shift cell indices up on EVERY layer (a palette insert at TileIndex
+      // pushes all references >= TileIndex up by one). Upper-layer transparent
+      // cells (-1) are below any valid TileIndex so they're left untouched.
       foreach ( var map in m_MapProject.Maps )
       {
-        for ( int i = 0; i < map.Tiles.Width; ++i )
+        foreach ( var layer in map.Layers )
         {
-          for ( int j = 0; j < map.Tiles.Height; ++j )
+          for ( int i = 0; i < layer.Tiles.Width; ++i )
           {
-            if ( map.Tiles[i, j] >= TileIndex )
+            for ( int j = 0; j < layer.Tiles.Height; ++j )
             {
-              ++map.Tiles[i, j];
+              if ( layer.Tiles[i, j] >= TileIndex )
+              {
+                ++layer.Tiles[i, j];
+              }
             }
           }
         }
@@ -6560,6 +7318,37 @@ namespace RetroDevStudio.Documents
         // existing values in the overlap. No helper needed.
         m_CurrentMap.CharBlockedOverrides.Resize( newCharW, newCharH );
       }
+
+      // Keep the upper layers in lockstep with the Background. Tiles: preserve
+      // the overlap region and fill newly-exposed cells with -1 (transparent).
+      // Colour overrides: reuse the same helpers as the Background (wipe on a
+      // spacing change, preserve-with-default otherwise).
+      for ( int li = 1; li < m_CurrentMap.Layers.Count; ++li )
+      {
+        var up   = m_CurrentMap.Layers[li];
+        var oldT = up.Tiles;
+        int oldW = oldT.Width, oldH = oldT.Height;
+        var newT = new GR.Game.Layer<int>();
+        newT.Resize( w, h );
+        for ( int j = 0; j < h; ++j )
+        {
+          for ( int i = 0; i < w; ++i )
+          {
+            newT[i, j] = ( ( i < oldW ) && ( j < oldH ) ) ? oldT[i, j] : -1;
+          }
+        }
+        up.Tiles = newT;
+
+        if ( spacingChanged )
+        {
+          up.TileColorOverrides.Resize( newCharW, newCharH );
+          ResetColorOverrides( up.TileColorOverrides );
+        }
+        else
+        {
+          ResizeColorOverridesPreservingDefaults( up.TileColorOverrides, newCharW, newCharH );
+        }
+      }
       m_CurrentMap.Name = editMapName.Text;
 
       m_SelectedTiles = new bool[w, h];
@@ -6828,6 +7617,121 @@ namespace RetroDevStudio.Documents
 
 
 
+    /// <summary>
+    /// Shift + mouse wheel page-scrolls the tile list (a visible page per notch)
+    /// instead of the default few-lines scroll. Plain wheel is left untouched.
+    /// Marking the HandledMouseEventArgs handled suppresses the ListBox's own
+    /// line scroll (Control.WmMouseWheel skips DefWndProc when handled), so the
+    /// two don't both fire.
+    /// </summary>
+    private void comboTiles_MouseWheel( object sender, MouseEventArgs e )
+    {
+      if ( ( Control.ModifierKeys & Keys.Shift ) != Keys.Shift )
+      {
+        return;
+      }
+      if ( comboTiles.Items.Count == 0 )
+      {
+        return;
+      }
+      int itemHeight = comboTiles.ItemHeight;
+      if ( itemHeight < 1 )
+      {
+        itemHeight = 1;
+      }
+      int pageSize = Math.Max( 1, comboTiles.ClientSize.Height / itemHeight );
+      int notches  = e.Delta / 120;
+      if ( notches == 0 )
+      {
+        notches = ( e.Delta > 0 ) ? 1 : -1;
+      }
+      // Wheel up (positive delta) scrolls the content up — lower TopIndex.
+      int newTop = comboTiles.TopIndex - notches * pageSize;
+      if ( newTop < 0 )
+      {
+        newTop = 0;
+      }
+      if ( newTop > comboTiles.Items.Count - 1 )
+      {
+        newTop = comboTiles.Items.Count - 1;
+      }
+      comboTiles.TopIndex = newTop;
+
+      var handled = e as HandledMouseEventArgs;
+      if ( handled != null )
+      {
+        handled.Handled = true;
+      }
+    }
+
+
+
+    /// <summary>
+    /// Shift + mouse wheel page-scrolls the Tiles-tab tile list (a visible page
+    /// per notch) instead of the default few-rows scroll. ListView has no
+    /// settable TopIndex, so we scroll via EnsureVisible: moving up (or staying)
+    /// makes the target row the top; moving down makes the bottom row of the
+    /// target page visible, which lands the target page at the top. Marking the
+    /// event handled suppresses the control's own line scroll.
+    /// </summary>
+    private void listTileInfo_MouseWheel( object sender, MouseEventArgs e )
+    {
+      if ( ( Control.ModifierKeys & Keys.Shift ) != Keys.Shift )
+      {
+        return;
+      }
+      int count = listTileInfo.Items.Count;
+      if ( count == 0 )
+      {
+        return;
+      }
+
+      // Visible whole rows = client height / one row's height (Details view rows
+      // are uniform, so item 0's height is the row height).
+      int rowHeight = listTileInfo.GetItemRect( 0 ).Height;
+      if ( rowHeight < 1 )
+      {
+        rowHeight = 1;
+      }
+      int pageRows = Math.Max( 1, listTileInfo.ClientSize.Height / rowHeight );
+
+      int notches = e.Delta / 120;
+      if ( notches == 0 )
+      {
+        notches = ( e.Delta > 0 ) ? 1 : -1;
+      }
+
+      int topIndex   = ( listTileInfo.TopItem != null ) ? listTileInfo.TopItem.Index : 0;
+      int desiredTop = topIndex - notches * pageRows;   // wheel up (notches>0) scrolls up
+      if ( desiredTop < 0 )
+      {
+        desiredTop = 0;
+      }
+      if ( desiredTop > count - 1 )
+      {
+        desiredTop = count - 1;
+      }
+
+      int target;
+      if ( desiredTop <= topIndex )
+      {
+        target = desiredTop;                                    // bring the target to the top
+      }
+      else
+      {
+        target = Math.Min( desiredTop + pageRows - 1, count - 1 ); // bring the page bottom into view
+      }
+      listTileInfo.EnsureVisible( target );
+
+      var handled = e as HandledMouseEventArgs;
+      if ( handled != null )
+      {
+        handled.Handled = true;
+      }
+    }
+
+
+
     private void comboTiles_SelectedIndexChanged( object sender, EventArgs e )
     {
       m_CurrentEditorTile = null;
@@ -6932,19 +7836,16 @@ namespace RetroDevStudio.Documents
       {
         RefreshMapTileList();
       }
-      // Persist the user's last-visited tab so reopening the project
-      // lands on the same page. Mark the project modified so the change
-      // gets saved with the next Save. Guard against the early
-      // SelectedIndexChanged that fires during InitializeComponent
-      // (before m_MapProject is wired up via OpenProject) — at that
-      // point we don't want to dirty a freshly-opened or empty project.
+      // Remember the user's last-visited tab so reopening the project lands on
+      // the same page. We update the in-memory value (so it rides along with
+      // the next real Save), but deliberately do NOT SetModified() here:
+      // switching tabs is a view change, not an edit, and dirtying the document
+      // (the "*" in the tab title) just for clicking a tab is disruptive.
+      // Guard against the early SelectedIndexChanged that fires during
+      // InitializeComponent (before m_MapProject is wired up via OpenProject).
       if ( m_MapProject != null && tabMapEditor.SelectedIndex >= 0 )
       {
-        if ( m_MapProject.LastSelectedTabIndex != tabMapEditor.SelectedIndex )
-        {
-          m_MapProject.LastSelectedTabIndex = tabMapEditor.SelectedIndex;
-          SetModified();
-        }
+        m_MapProject.LastSelectedTabIndex = tabMapEditor.SelectedIndex;
       }
     }
 
@@ -7143,45 +8044,50 @@ namespace RetroDevStudio.Documents
       {
         int clrFootprintX = ( removedFootprintX > map.TileSpacingX ) ? removedFootprintX : map.TileSpacingX;
         int clrFootprintY = ( removedFootprintY > map.TileSpacingY ) ? removedFootprintY : map.TileSpacingY;
-        for ( int i = 0; i < map.Tiles.Width; ++i )
+        // Apply the index shift to EVERY layer. Background erases a removed
+        // tile's cells to tile 0 (historical); upper layers erase to -1
+        // (transparent). Colour overrides are per-layer; blocked is whole-map.
+        for ( int li = 0; li < map.Layers.Count; ++li )
         {
-          for ( int j = 0; j < map.Tiles.Height; ++j )
+          var layer = map.Layers[li];
+          int erase = ( li == 0 ) ? 0 : -1;
+          for ( int i = 0; i < layer.Tiles.Width; ++i )
           {
-            int tile = map.Tiles[i, j];
-            if ( tile > TileIndex )
+            for ( int j = 0; j < layer.Tiles.Height; ++j )
             {
-              map.Tiles[i, j] = tile - 1;
-            }
-            else if ( tile == TileIndex )
-            {
-              map.Tiles[i, j] = 0;
-              // The cell just became empty — drop the per-character
-              // overrides for every char this tile actually rendered so
-              // we don't carry stale tint forward into the exported
-              // color grid (or onto whatever the user paints over next).
-              int charBaseX = i * map.TileSpacingX;
-              int charBaseY = j * map.TileSpacingY;
-              for ( int dy = 0; dy < clrFootprintY; ++dy )
+              int tile = layer.Tiles[i, j];
+              if ( tile > TileIndex )
               {
-                for ( int dx = 0; dx < clrFootprintX; ++dx )
+                layer.Tiles[i, j] = tile - 1;
+              }
+              else if ( tile == TileIndex )
+              {
+                layer.Tiles[i, j] = erase;
+                // The cell just became empty — drop the per-character
+                // overrides for every char this tile actually rendered so
+                // we don't carry stale tint forward into the exported
+                // color grid (or onto whatever the user paints over next).
+                int charBaseX = i * map.TileSpacingX;
+                int charBaseY = j * map.TileSpacingY;
+                for ( int dy = 0; dy < clrFootprintY; ++dy )
                 {
-                  int cx = charBaseX + dx;
-                  int cy = charBaseY + dy;
-                  if ( ( cx < map.TileColorOverrides.Width )
-                  &&   ( cy < map.TileColorOverrides.Height ) )
+                  for ( int dx = 0; dx < clrFootprintX; ++dx )
                   {
-                    map.TileColorOverrides[cx, cy] = -1;
-                  }
-                  // Same reasoning for the blocked-override layer:
-                  // the tile is gone, so any per-char override that
-                  // applied to its footprint is now stale.
-                  // UndoMapTileRemove snapshots both layers (see
-                  // _BlockedOverrideSnapshots) so undo restores them
-                  // alongside the tile.
-                  if ( ( cx < map.CharBlockedOverrides.Width )
-                  &&   ( cy < map.CharBlockedOverrides.Height ) )
-                  {
-                    map.CharBlockedOverrides[cx, cy] = false;
+                    int cx = charBaseX + dx;
+                    int cy = charBaseY + dy;
+                    // This layer's own per-char colour overrides.
+                    if ( ( cx < layer.TileColorOverrides.Width )
+                    &&   ( cy < layer.TileColorOverrides.Height ) )
+                    {
+                      layer.TileColorOverrides[cx, cy] = -1;
+                    }
+                    // Blocked overrides are whole-map; clearing is idempotent
+                    // when more than one layer used the tile at this cell.
+                    if ( ( cx < map.CharBlockedOverrides.Width )
+                    &&   ( cy < map.CharBlockedOverrides.Height ) )
+                    {
+                      map.CharBlockedOverrides[cx, cy] = false;
+                    }
                   }
                 }
               }
@@ -7311,31 +8217,39 @@ namespace RetroDevStudio.Documents
       // for the area passed in.
       int w = m_CurrentMap.Tiles.Width;
       int h = m_CurrentMap.Tiles.Height;
-      DocumentInfo.UndoManager.AddGroupedUndoTask(
-        new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, w, h ) );
+      // Clear wipes every layer, so snapshot each layer (all in the same undo
+      // group) — one Ctrl+Z then restores them together.
+      for ( int li = 0; li < m_CurrentMap.Layers.Count; ++li )
+      {
+        DocumentInfo.UndoManager.AddGroupedUndoTask(
+          new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0, w, h, li ) );
+      }
       DocumentInfo.UndoManager.AddGroupedUndoTask(
         new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
       DocumentInfo.UndoManager.AddGroupedUndoTask(
         new Undo.UndoMapEntitiesChange( this, m_CurrentMap ) );
 
-      // Wipe tile placements (0 = the default empty tile slot).
-      for ( int j = 0; j < h; ++j )
+      // Wipe tile placements + per-char colour on EVERY layer ("Clear map" =
+      // empty the whole map). Background -> tile 0 (historical); upper layers
+      // -> -1 (transparent). Colour overrides cleared (0 on Background to match
+      // the old "set colour to zero" behaviour; harmless on transparent cells).
+      for ( int li = 0; li < m_CurrentMap.Layers.Count; ++li )
       {
-        for ( int i = 0; i < w; ++i )
+        var clrLayer = m_CurrentMap.Layers[li];
+        int clrErase = ( li == 0 ) ? 0 : -1;
+        for ( int j = 0; j < clrLayer.Tiles.Height; ++j )
         {
-          m_CurrentMap.Tiles[i, j] = 0;
+          for ( int i = 0; i < clrLayer.Tiles.Width; ++i )
+          {
+            clrLayer.Tiles[i, j] = clrErase;
+          }
         }
-      }
-
-      // Wipe per-character color overrides (0 = C64 black, per the
-      // user's "set the color to zero" instruction).
-      int charW = m_CurrentMap.TileColorOverrides.Width;
-      int charH = m_CurrentMap.TileColorOverrides.Height;
-      for ( int j = 0; j < charH; ++j )
-      {
-        for ( int i = 0; i < charW; ++i )
+        for ( int j = 0; j < clrLayer.TileColorOverrides.Height; ++j )
         {
-          m_CurrentMap.TileColorOverrides[i, j] = 0;
+          for ( int i = 0; i < clrLayer.TileColorOverrides.Width; ++i )
+          {
+            clrLayer.TileColorOverrides[i, j] = ( li == 0 ) ? 0 : -1;
+          }
         }
       }
 
@@ -7990,6 +8904,8 @@ namespace RetroDevStudio.Documents
         // freshly-pasted tile grid.
         m_FloatingSelectionOverrides = null;
         m_FloatingSelectionBlocked = null;
+        m_FloatingSelectionLayerTiles = null;
+        m_FloatingSelectionLayerColors = null;
         Redraw();
         return true;
       }
@@ -8013,7 +8929,7 @@ namespace RetroDevStudio.Documents
         var buttons = new Krypton.Toolkit.KryptonCheckButton[]
         {
           btnToolEdit, btnToolRect, btnToolQuad, btnToolFill,
-          btnToolColorReplace,
+          btnToolColorReplace, btnToolEraseColor,
           btnToolSelect, btnToolMarker, btnToolEntity,
           btnToolPassable,
         };
@@ -8175,6 +9091,18 @@ namespace RetroDevStudio.Documents
       RemoveFloatingSelection();
       m_ToolMode = ToolMode.COLOR_REPLACE;
       UncheckOtherToolButtons( btnToolColorReplace );
+      AfterToolChange();
+    }
+
+
+
+    private void btnToolEraseColor_CheckedChanged( object sender, EventArgs e )
+    {
+      if ( KeepActiveIfUnchecking( btnToolEraseColor ) ) return;
+      HideSelection();
+      RemoveFloatingSelection();
+      m_ToolMode = ToolMode.ERASE_COLOR;
+      UncheckOtherToolButtons( btnToolEraseColor );
       AfterToolChange();
     }
 
@@ -9743,7 +10671,7 @@ namespace RetroDevStudio.Documents
       int y = m_SelectedTilePos.Y;
       // Already empty? Nothing to undo, but consume the key so it doesn't
       // beep — the selection IS valid, just the action is a no-op.
-      if ( m_CurrentMap.Tiles[x, y] == 0 )
+      if ( ActiveTiles[x, y] == ActiveLayerEraseTileIndex )
       {
         return true;
       }
@@ -9753,7 +10681,7 @@ namespace RetroDevStudio.Documents
       // every cell whose appearance changes. Using the tile-cell footprint
       // here also keeps Ctrl+Z bringing back ALL the characters, not just
       // the upper-left one.
-      int oldIndex = m_CurrentMap.Tiles[x, y];
+      int oldIndex = ActiveTiles[x, y];
       int undoW = 1, undoH = 1;
       if ( ( oldIndex >= 0 )
       &&   ( oldIndex < m_MapProject.Tiles.Count ) )
@@ -9761,8 +10689,8 @@ namespace RetroDevStudio.Documents
         GetTileCellFootprint( m_MapProject.Tiles[oldIndex], out undoW, out undoH );
       }
       DocumentInfo.UndoManager.AddUndoTask(
-        new Undo.UndoMapTilesChange( this, m_CurrentMap, x, y, undoW, undoH ) );
-      m_CurrentMap.Tiles[x, y] = 0;
+        new Undo.UndoMapTilesChange( this, m_CurrentMap, x, y, undoW, undoH, m_ActiveLayerIndex ) );
+      ActiveTiles[x, y] = ActiveLayerEraseTileIndex;
       // Clearing a cell to "empty" means dropping per-character overrides
       // for every char the OLD tile actually occupied — otherwise the
       // overrides would silently linger and tint whatever the user paints
@@ -9788,10 +10716,10 @@ namespace RetroDevStudio.Documents
         {
           int cx = clrCharBaseX + dx;
           int cy = clrCharBaseY + dy;
-          if ( ( cx < m_CurrentMap.TileColorOverrides.Width )
-          &&   ( cy < m_CurrentMap.TileColorOverrides.Height ) )
+          if ( ( cx < ActiveColorOverrides.Width )
+          &&   ( cy < ActiveColorOverrides.Height ) )
           {
-            m_CurrentMap.TileColorOverrides[cx, cy] = -1;
+            ActiveColorOverrides[cx, cy] = -1;
           }
           // Same reasoning for blocked overrides — the tile that owned
           // these chars is being cleared, so any per-char passability
@@ -12272,7 +13200,7 @@ namespace RetroDevStudio.Documents
       if ( ( sx >= m_CurrentMap.Tiles.Width )
       ||   ( sy >= m_CurrentMap.Tiles.Height ) ) return;
 
-      int tileIndex = m_CurrentMap.Tiles[sx, sy];
+      int tileIndex = ActiveTiles[sx, sy];
       if ( ( tileIndex < 0 )
       ||   ( tileIndex >= m_MapProject.Tiles.Count ) ) return;
       var tile = m_MapProject.Tiles[tileIndex];
@@ -12285,7 +13213,7 @@ namespace RetroDevStudio.Documents
       int undoW, undoH;
       GetTileCellFootprint( tile, out undoW, out undoH );
       DocumentInfo.UndoManager.AddUndoTask(
-        new Undo.UndoMapTilesChange( this, m_CurrentMap, sx, sy, undoW, undoH ) );
+        new Undo.UndoMapTilesChange( this, m_CurrentMap, sx, sy, undoW, undoH, m_ActiveLayerIndex ) );
 
       // Char footprint = max(spacing, tile.Chars dims). Same formula as
       // ApplyPlacementColorOverride — when spacing < Chars (e.g.
@@ -12297,8 +13225,9 @@ namespace RetroDevStudio.Documents
       int footprintY = ( tile.Chars.Height > spacingY ) ? tile.Chars.Height : spacingY;
       int charBaseX = sx * spacingX;
       int charBaseY = sy * spacingY;
-      int layerW = m_CurrentMap.TileColorOverrides.Width;
-      int layerH = m_CurrentMap.TileColorOverrides.Height;
+      var selColor = ActiveColorOverrides;
+      int layerW = selColor.Width;
+      int layerH = selColor.Height;
       bool anyChanged = false;
       for ( int dy = 0; dy < footprintY; ++dy )
       {
@@ -12309,9 +13238,9 @@ namespace RetroDevStudio.Documents
           if ( ( cx >= 0 ) && ( cy >= 0 )
           &&   ( cx < layerW ) && ( cy < layerH ) )
           {
-            if ( m_CurrentMap.TileColorOverrides[cx, cy] != m_TilePlacementColorOverride )
+            if ( selColor[cx, cy] != m_TilePlacementColorOverride )
             {
-              m_CurrentMap.TileColorOverrides[cx, cy] = m_TilePlacementColorOverride;
+              selColor[cx, cy] = m_TilePlacementColorOverride;
               anyChanged = true;
             }
           }
@@ -12348,12 +13277,13 @@ namespace RetroDevStudio.Documents
     private int GetEffectiveCharColor( int charMapX, int charMapY )
     {
       if ( m_CurrentMap == null ) return -1;
-      // Override wins when set.
+      // Override wins when set (active layer's colour overrides).
+      var ecColor = ActiveColorOverrides;
       if ( ( charMapX >= 0 ) && ( charMapY >= 0 )
-      &&   ( charMapX < m_CurrentMap.TileColorOverrides.Width )
-      &&   ( charMapY < m_CurrentMap.TileColorOverrides.Height ) )
+      &&   ( charMapX < ecColor.Width )
+      &&   ( charMapY < ecColor.Height ) )
       {
-        int ov = m_CurrentMap.TileColorOverrides[charMapX, charMapY];
+        int ov = ecColor[charMapX, charMapY];
         if ( ov >= 0 ) return ov;
       }
       int spacingX = m_CurrentMap.TileSpacingX;
@@ -12364,7 +13294,7 @@ namespace RetroDevStudio.Documents
       if ( ( tileX < 0 ) || ( tileY < 0 )
       ||   ( tileX >= m_CurrentMap.Tiles.Width )
       ||   ( tileY >= m_CurrentMap.Tiles.Height ) ) return -1;
-      int tileIndex = m_CurrentMap.Tiles[tileX, tileY];
+      int tileIndex = ActiveTiles[tileX, tileY];
       if ( ( tileIndex < 0 ) || ( tileIndex >= m_MapProject.Tiles.Count ) ) return -1;
       var tile = m_MapProject.Tiles[tileIndex];
       int localX = charMapX - tileX * spacingX;
@@ -12454,10 +13384,12 @@ namespace RetroDevStudio.Documents
       // snapshots Tiles + both override layers (color + blocked), so
       // Ctrl+Z restores everything atomically.
       DocumentInfo.UndoManager.AddUndoTask(
-        new Undo.UndoMapTilesChange( this, m_CurrentMap, minTX, minTY, rectW, rectH ) );
+        new Undo.UndoMapTilesChange( this, m_CurrentMap, minTX, minTY, rectW, rectH, m_ActiveLayerIndex ) );
 
       int spacingX = m_CurrentMap.TileSpacingX;
       int spacingY = m_CurrentMap.TileSpacingY;
+      var bsTiles = ActiveTiles;
+      var bsColor = ActiveColorOverrides;
       bool any = false;
 
       for ( int tx = minTX; tx <= maxTX; ++tx )
@@ -12475,7 +13407,7 @@ namespace RetroDevStudio.Documents
             continue;
           }
 
-          int tileIndex = m_CurrentMap.Tiles[tx, ty];
+          int tileIndex = bsTiles[tx, ty];
           if ( ( tileIndex < 0 )
           ||   ( tileIndex >= m_MapProject.Tiles.Count ) ) continue;
           var tile = m_MapProject.Tiles[tileIndex];
@@ -12493,8 +13425,8 @@ namespace RetroDevStudio.Documents
               int cx = tx * spacingX + dx;
               int cy = ty * spacingY + dy;
               if ( ( cx < 0 ) || ( cy < 0 )
-              ||   ( cx >= m_CurrentMap.TileColorOverrides.Width )
-              ||   ( cy >= m_CurrentMap.TileColorOverrides.Height ) ) continue;
+              ||   ( cx >= bsColor.Width )
+              ||   ( cy >= bsColor.Height ) ) continue;
 
               int srcColor = GetEffectiveCharColor( cx, cy );
               if ( ( srcColor < 0 ) || ( srcColor >= 16 ) ) continue;
@@ -12513,9 +13445,9 @@ namespace RetroDevStudio.Documents
               }
 
               int writeValue = ( dstColor == tileColor ) ? -1 : dstColor;
-              if ( m_CurrentMap.TileColorOverrides[cx, cy] != writeValue )
+              if ( bsColor[cx, cy] != writeValue )
               {
-                m_CurrentMap.TileColorOverrides[cx, cy] = writeValue;
+                bsColor[cx, cy] = writeValue;
                 any = true;
               }
             }
@@ -12626,7 +13558,7 @@ namespace RetroDevStudio.Documents
       &&   ( cellX < m_CurrentMap.Tiles.Width )
       &&   ( cellY < m_CurrentMap.Tiles.Height ) )
       {
-        int placedTileIndex = m_CurrentMap.Tiles[cellX, cellY];
+        int placedTileIndex = ActiveTiles[cellX, cellY];
         if ( ( placedTileIndex >= 0 )
         &&   ( placedTileIndex < m_MapProject.Tiles.Count ) )
         {
@@ -12638,8 +13570,10 @@ namespace RetroDevStudio.Documents
 
       int charBaseX = cellX * spacingX;
       int charBaseY = cellY * spacingY;
-      int charLayerW = m_CurrentMap.TileColorOverrides.Width;
-      int charLayerH = m_CurrentMap.TileColorOverrides.Height;
+      // Colour overrides are per-layer -> write the ACTIVE layer's grid.
+      var activeColor = ActiveColorOverrides;
+      int charLayerW = activeColor.Width;
+      int charLayerH = activeColor.Height;
       for ( int dy = 0; dy < footprintY; ++dy )
       {
         for ( int dx = 0; dx < footprintX; ++dx )
@@ -12649,7 +13583,7 @@ namespace RetroDevStudio.Documents
           if ( ( cx >= 0 ) && ( cy >= 0 )
           &&   ( cx < charLayerW ) && ( cy < charLayerH ) )
           {
-            m_CurrentMap.TileColorOverrides[cx, cy] = m_TilePlacementColorOverride;
+            activeColor[cx, cy] = m_TilePlacementColorOverride;
           }
         }
       }
@@ -13680,8 +14614,11 @@ namespace RetroDevStudio.Documents
       // Revisions list is intentionally preserved; it's metadata about
       // m_LiveMap, not part of the snapshot's content.
       var fresh = Formats.MapProject.CloneMap( rev.Snapshot );
-      m_LiveMap.Tiles                       = fresh.Tiles;
-      m_LiveMap.TileColorOverrides          = fresh.TileColorOverrides;
+      // Assign the whole layer list so ALL layers revert. Map.Tiles /
+      // Map.TileColorOverrides are proxies to Layers[0]; assigning them alone
+      // would restore the Background but leave the upper layers showing the
+      // pre-revert content.
+      m_LiveMap.Layers                      = fresh.Layers;
       m_LiveMap.CharBlockedOverrides        = fresh.CharBlockedOverrides;
       m_LiveMap.Name                        = fresh.Name;
       m_LiveMap.TileSpacingX                = fresh.TileSpacingX;
