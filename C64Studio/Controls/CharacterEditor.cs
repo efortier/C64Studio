@@ -481,7 +481,9 @@ namespace RetroDevStudio.Controls
       }
       m_Project.PlaygroundGridOpacity = trackGridOpacity.Value;
       picturePlayground.Invalidate();
-      
+      // The tile-editing canvas grid uses the same opacity — repaint it too.
+      canvasEditor.Invalidate();
+
       panelCharacters.GridColor = System.Drawing.Color.FromArgb( trackGridOpacity.Value, System.Drawing.Color.Gray );
       panelCharacters.Invalidate();
       
@@ -3876,35 +3878,41 @@ namespace RetroDevStudio.Controls
 
           if ( m_Project.ShowGrid )
           {
-            if ( ( ( m_Project.Mode == TextCharMode.COMMODORE_MULTICOLOR )
-            ||     ( m_Project.Mode == TextCharMode.MEGA65_NCM )
-            ||     ( m_Project.Mode == TextCharMode.VIC20 ) )
-            &&   ( m_Project.Characters[charIndex].Tile.CustomColor >= 8 ) )
+            // The tile-editing grid honours the grid-opacity slider, the same
+            // value the playground and character-set overview use. GDI+ alpha-
+            // blends the pen, so 0 = invisible .. 255 = solid white.
+            using ( System.Drawing.Pen gridPen = new System.Drawing.Pen( System.Drawing.Color.FromArgb( m_Project.PlaygroundGridOpacity, 255, 255, 255 ) ) )
             {
-              for ( int i = 0; i < numPixelWidth / 2; ++i )
+              if ( ( ( m_Project.Mode == TextCharMode.COMMODORE_MULTICOLOR )
+              ||     ( m_Project.Mode == TextCharMode.MEGA65_NCM )
+              ||     ( m_Project.Mode == TextCharMode.VIC20 ) )
+              &&   ( m_Project.Characters[charIndex].Tile.CustomColor >= 8 ) )
               {
-                e.Graphics.DrawLine( System.Drawing.Pens.White,
-                                      ( i * localWidth ) / ( numPixelWidth / 2 ), 0,
-                                      ( i * localWidth ) / ( numPixelWidth / 2 ), localHeight - 1 );
+                for ( int i = 0; i < numPixelWidth / 2; ++i )
+                {
+                  e.Graphics.DrawLine( gridPen,
+                                        ( i * localWidth ) / ( numPixelWidth / 2 ), 0,
+                                        ( i * localWidth ) / ( numPixelWidth / 2 ), localHeight - 1 );
+                }
+                for ( int i = 0; i < numPixelHeight; ++i )
+                {
+                  e.Graphics.DrawLine( gridPen,
+                                        0, ( i * localHeight ) / numPixelHeight,
+                                        localWidth - 1, ( i * localHeight ) / numPixelHeight );
+                }
               }
-              for ( int i = 0; i < numPixelHeight; ++i )
+              else
               {
-                e.Graphics.DrawLine( System.Drawing.Pens.White,
-                                      0, ( i * localHeight ) / numPixelHeight,
-                                      localWidth - 1, ( i * localHeight ) / numPixelHeight );
-              }
-            }
-            else
-            {
-              for ( int i = 0; i < numPixelWidth; ++i )
-              {
-                e.Graphics.DrawLine( System.Drawing.Pens.White,
-                                      ( i * localWidth ) / numPixelWidth, 0,
-                                      ( i * localWidth ) / numPixelWidth, localHeight - 1 );
+                for ( int i = 0; i < numPixelWidth; ++i )
+                {
+                  e.Graphics.DrawLine( gridPen,
+                                        ( i * localWidth ) / numPixelWidth, 0,
+                                        ( i * localWidth ) / numPixelWidth, localHeight - 1 );
 
-                e.Graphics.DrawLine( System.Drawing.Pens.White,
-                                      0, ( i * localHeight ) / numPixelHeight,
-                                      localWidth - 1, ( i * localHeight ) / numPixelHeight );
+                  e.Graphics.DrawLine( gridPen,
+                                        0, ( i * localHeight ) / numPixelHeight,
+                                        localWidth - 1, ( i * localHeight ) / numPixelHeight );
+                }
               }
             }
           }

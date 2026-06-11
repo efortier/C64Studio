@@ -177,6 +177,18 @@ namespace RetroDevStudio.Formats
     public int            ExportStartIndex = 0;
     public int            TotalNumberOfSprites = 256;
     public bool           ShowGrid = false;
+    // Opacity (alpha 0..255) of the editor grid overlay drawn on the sprite
+    // canvas. 255 = fully opaque white (the legacy look). Editor-only; persisted
+    // in the SPRITESET_INFO chunk (appended, position-guarded for old files).
+    public int            GridOpacity = 255;
+
+    // Sprite-test panel (Overlay tab) settings — editor-only, persisted in the
+    // SPRITESET_INFO chunk (appended, position-guarded). TestBackgroundColorIndex
+    // is -1 = follow the project background colour, else a palette index 0..15.
+    public int            TestBackgroundColorIndex = -1;
+    public bool           TestExpandX = false;
+    public bool           TestExpandY = false;
+    public bool           TestLoop    = false;
 
     public SpriteProjectMode    Mode = SpriteProjectMode.COMMODORE_24_X_21_HIRES_OR_MC;
 
@@ -211,6 +223,13 @@ namespace RetroDevStudio.Formats
       chunkInfo.AppendString( ExportFilename );
       chunkInfo.AppendI32( ExportStartIndex );
       chunkInfo.AppendI32( ExportSpriteCount );
+      // Appended later (position-guarded on read): editor grid opacity.
+      chunkInfo.AppendI32( GridOpacity );
+      // Appended later (position-guarded): sprite-test panel settings.
+      chunkInfo.AppendI32( TestBackgroundColorIndex );
+      chunkInfo.AppendI32( TestExpandX ? 1 : 0 );
+      chunkInfo.AppendI32( TestExpandY ? 1 : 0 );
+      chunkInfo.AppendI32( TestLoop    ? 1 : 0 );
       chunkProject.Append( chunkInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkScreenMultiColorData = new GR.IO.FileChunk( FileChunkConstants.MULTICOLOR_DATA );
@@ -339,6 +358,37 @@ namespace RetroDevStudio.Formats
                     ExportFilename        = subChunkReader.ReadString();
                     ExportStartIndex      = subChunkReader.ReadInt32();
                     ExportSpriteCount     = subChunkReader.ReadInt32();
+                    // Position-guarded: files saved before this field default to 255.
+                    GridOpacity = 255;
+                    if ( subChunkReader.Size - subChunkReader.Position >= 4 )
+                    {
+                      GridOpacity = subChunkReader.ReadInt32();
+                    }
+                    if ( GridOpacity < 0 )   GridOpacity = 0;
+                    if ( GridOpacity > 255 ) GridOpacity = 255;
+                    // Sprite-test panel settings (position-guarded; defaults for old files).
+                    TestBackgroundColorIndex = -1;
+                    TestExpandX = false;
+                    TestExpandY = false;
+                    TestLoop    = false;
+                    if ( subChunkReader.Size - subChunkReader.Position >= 4 )
+                    {
+                      TestBackgroundColorIndex = subChunkReader.ReadInt32();
+                    }
+                    if ( subChunkReader.Size - subChunkReader.Position >= 4 )
+                    {
+                      TestExpandX = ( subChunkReader.ReadInt32() != 0 );
+                    }
+                    if ( subChunkReader.Size - subChunkReader.Position >= 4 )
+                    {
+                      TestExpandY = ( subChunkReader.ReadInt32() != 0 );
+                    }
+                    if ( subChunkReader.Size - subChunkReader.Position >= 4 )
+                    {
+                      TestLoop = ( subChunkReader.ReadInt32() != 0 );
+                    }
+                    if ( TestBackgroundColorIndex < -1 ) TestBackgroundColorIndex = -1;
+                    if ( TestBackgroundColorIndex > 15 ) TestBackgroundColorIndex = 15;
                     break;
                   case FileChunkConstants.MULTICOLOR_DATA:
                     Mode = (SpriteProjectMode)subChunkReader.ReadInt32();

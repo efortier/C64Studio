@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Standalone content-generator (NOT part of C64Studio.sln).
+    ProjectReferences Tiny64Emu exactly like TestProject does, which bundles the
+    C64Models + Common shared projects, so we get RetroDevStudio.Formats.SpriteProject
+    + GraphicTile + GR.Memory.ByteBuffer off-UI. UseWindowsForms pulls System.Drawing
+    (via Tiny64Emu's Microsoft.Windows.Compatibility) for the PNG preview.
+
+    Build/run:  dotnet run on this csproj, passing an output folder as the argument.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows7.0</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Platforms>AnyCPU;ARM64</Platforms>
+    <AssemblyName>SparkleGen</AssemblyName>
+    <RootNamespace>SparkleGen</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Tiny64Emu\Tiny64Emu.csproj" />
+  </ItemGroup>
+
+</Project>

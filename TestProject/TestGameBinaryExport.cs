@@ -469,21 +469,43 @@ namespace TestProject
     }
 
     [TestMethod]
-    public void TestMarkerAutoDisableAfterTriggerFlag()
+    public void TestMarkerAutoDisableGroupAfterTriggerFlag()
     {
-      // AutoDisableAfterTrigger is exported as bit 2 (0x04) of the FLAGS byte,
+      // AutoDisableGroupAfterTrigger is exported as bit 2 (0x04) of the FLAGS byte,
       // alongside Enabled (bit 0) and Triggered (bit 1). Adding the bit must NOT
       // change the 9-byte marker stride. One marker keeps export order moot.
       var proj = CreateTestProject( 2, 4, 4 );
       proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 0, Name = "TRAP", TagID = 7 } );
-      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 1, Type = 0, Enabled = true, AutoDisableAfterTrigger = true } );
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 1, Type = 0, Enabled = true, AutoDisableGroupAfterTrigger = true } );
 
       var buf = proj.ExportAsGameBinary( true, false, false );
       int markersPos = LookupAbsOffset( buf, HDR_MAP_MARKERS_LO, HDR_MAP_MARKERS_HI, 0 );
 
       Assert.AreEqual( (byte)7, buf.ByteAt( markersPos + 0 ) );      // tag
-      // FLAGS: bit0 Enabled (0x01) | bit2 AutoDisableAfterTrigger (0x04) = 0x05.
+      // FLAGS: bit0 Enabled (0x01) | bit2 AutoDisableGroupAfterTrigger (0x04) = 0x05.
       Assert.AreEqual( (byte)0x05, buf.ByteAt( markersPos + 5 ) );
+    }
+
+    [TestMethod]
+    public void TestMapStringShowNextPageMarkerTailBytes()
+    {
+      // SHOW_NEXT_PAGE_MARKER ($FA) is an optional tail byte emitted after the
+      // optional CLEAR_TEXT_AREA ($FB) and before the mandatory END_OF_TEXT
+      // ($FF). Off by default — old behavior (..., $FB, $FF) must be unchanged.
+      var ms = new MapProject.MapString();
+      ms.Lines[0].Text = "HI";
+      ms.Lines[0].Terminator = MapProject.MAP_STRING_PRESS_FIRE;
+      ms.ClearTextAreaAtEnd = true;
+
+      var stream = MapProject.BuildMapStringByteStream( ms, 1, 33, 48, 32 );
+      Assert.AreEqual( (byte)0xFB, stream.ByteAt( (int)stream.Length - 2 ) );
+      Assert.AreEqual( (byte)0xFF, stream.ByteAt( (int)stream.Length - 1 ) );
+
+      ms.ShowNextPageMarker = true;
+      stream = MapProject.BuildMapStringByteStream( ms, 1, 33, 48, 32 );
+      Assert.AreEqual( (byte)0xFB, stream.ByteAt( (int)stream.Length - 3 ) );
+      Assert.AreEqual( (byte)0xFA, stream.ByteAt( (int)stream.Length - 2 ) );
+      Assert.AreEqual( (byte)0xFF, stream.ByteAt( (int)stream.Length - 1 ) );
     }
 
     [TestMethod]

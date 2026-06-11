@@ -838,6 +838,13 @@ namespace RetroDevStudio.Controls
                   ++p;
                   continue;
                 }
+                if ( b == 0xFA )
+                {
+                  flush();
+                  sb.AppendLine( "  $" + ( (ushort)( streamAddr + p ) ).ToString( "X4" ) + ": $FA SHOW_NEXT_PAGE_MARKER" );
+                  ++p;
+                  continue;
+                }
                 if ( b == 0xFD )
                 {
                   flush();
@@ -881,6 +888,15 @@ namespace RetroDevStudio.Controls
                 flush();
                 sb.AppendLine( "  $" + ( (ushort)( streamAddr + p ) ).ToString( "X4" ) + ": $FC PRESS_FIRE" );
                 atLineStart = true;
+                ++p;
+                continue;
+              }
+              if ( b == 0xFA )
+              {
+                // Tail marker can also land here when the last line has no
+                // terminator (no $FC/$FD before the stream tail).
+                flush();
+                sb.AppendLine( "  $" + ( (ushort)( streamAddr + p ) ).ToString( "X4" ) + ": $FA SHOW_NEXT_PAGE_MARKER" );
                 ++p;
                 continue;
               }

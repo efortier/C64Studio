@@ -27,12 +27,13 @@ namespace RetroDevStudio.Formats
       public byte       Value2 = 0;
       public bool       Enabled = true;
       public bool       Triggered = false;
-      // When set, the game runtime disables this marker (clears its
-      // Enabled bit) the moment it fires — i.e. a one-shot trigger.
-      // Default false = the marker stays enabled and can fire again.
-      // Exported as bit 2 of the marker FLAGS byte alongside
-      // Enabled (bit 0) and Triggered (bit 1).
-      public bool       AutoDisableAfterTrigger = false;
+      // When set, the game runtime disables every marker that shares this
+      // marker's GroupId (clears their Enabled bits) the moment THIS marker
+      // fires — one trigger shuts down its whole group. Default false =
+      // nothing is auto-disabled and the marker can keep firing.
+      // Exported as bit 2 of the marker FLAGS byte alongside Enabled (bit 0)
+      // and Triggered (bit 1); the runtime pairs it with GroupId (offset $06).
+      public bool       AutoDisableGroupAfterTrigger = false;
       // Per-marker group identifier. Lets the game runtime
       // enable/disable batches of markers at once (e.g. "all triggers
       // for room 5" → GroupId == 5). Default 0 = no group / global.
@@ -91,13 +92,14 @@ namespace RetroDevStudio.Formats
     /// Runtime control-byte values for <see cref="MapStringLine.Terminator"/>
     /// and the asm exporter. Values match Dreadhold's map-string runtime
     /// (see Z:\DevC64\Dreadhold\src\map_strings.asm:11-17). Color bytes are
-    /// $00..$0F (the 16 C64 palette indices) and bytes $20..$FA are
+    /// $00..$0F (the 16 C64 palette indices) and bytes $20..$F9 are
     /// screen-code character data — neither needs a constant here.
     /// </summary>
     public const byte MAP_STRING_END_OF_TEXT     = 0xFF;
     public const byte MAP_STRING_END_OF_LINE     = 0xFD;
     public const byte MAP_STRING_PRESS_FIRE      = 0xFC;
     public const byte MAP_STRING_CLEAR_TEXT_AREA = 0xFB;
+    public const byte MAP_STRING_SHOW_NEXT_PAGE_MARKER = 0xFA;
 
     /// <summary>
     /// Sentinel for "this line has no control byte — skip emission". $FF
@@ -162,7 +164,9 @@ namespace RetroDevStudio.Formats
     /// valid asm identifier to be included on export. <see cref="Lines"/> is
     /// always 5 slots — empty trailing slots are dropped at export time. When
     /// <see cref="ClearTextAreaAtEnd"/> is true, a CLEAR_TEXT_AREA byte is
-    /// emitted right before the mandatory END_OF_TEXT terminator.
+    /// emitted right before the mandatory END_OF_TEXT terminator; when
+    /// <see cref="ShowNextPageMarker"/> is true, a SHOW_NEXT_PAGE_MARKER byte
+    /// follows CLEAR_TEXT_AREA (still before END_OF_TEXT).
     /// </summary>
     public class MapString
     {
@@ -172,6 +176,10 @@ namespace RetroDevStudio.Formats
         new MapStringLine(), new MapStringLine(), new MapStringLine(), new MapStringLine(), new MapStringLine()
       };
       public bool            ClearTextAreaAtEnd = false;
+      // When true, a SHOW_NEXT_PAGE_MARKER ($FA) byte is emitted after the
+      // optional CLEAR_TEXT_AREA and before END_OF_TEXT — the runtime shows
+      // its "next page" marker. Default false = no marker byte.
+      public bool            ShowNextPageMarker = false;
       // Per-string numeric identifier (0..255, default 0). Editor metadata
       // exported as the parallel MAP_STRING_ID byte table in the game
       // binary so runtime code can map an ID back to the string's index.
@@ -792,6 +800,9 @@ namespace RetroDevStudio.Formats
           chunkMapString.AppendU8( line4.ControlCode );
           chunkMapString.AppendU8( line4.Justification );
         }
+        // Appended show-next-page-marker flag — same forward-compat pattern,
+        // default 0 (no $FA marker byte in the exported stream).
+        chunkMapString.AppendU8( ms.ShowNextPageMarker ? (byte)1 : (byte)0 );
         chunkProjectData.Append( chunkMapString.ToBuffer() );
       }
 
@@ -1210,6 +1221,12 @@ namespace RetroDevStudio.Formats
                         {
                           ms.Lines[4].Justification = MAP_STRING_JUSTIFY_LEFT;
                         }
+                      }
+                      // Appended show-next-page-marker flag. Old files stop
+                      // before this byte — default false (no $FA emitted).
+                      if ( subChunkReader.Position < subChunkReader.Size )
+                      {
+                        ms.ShowNextPageMarker = ( subChunkReader.ReadUInt8() != 0 );
                       }
                       MapStrings.Add( ms );
                     }
@@ -2352,7 +2369,7 @@ namespace RetroDevStudio.Formats
               Value2    = marker.Value2,
               Enabled   = marker.Enabled,
               Triggered = marker.Triggered,
-              AutoDisableAfterTrigger = marker.AutoDisableAfterTrigger,
+              AutoDisableGroupAfterTrigger = marker.AutoDisableGroupAfterTrigger,
               GroupId   = marker.GroupId,
               LinkToID  = marker.LinkToID,
               LinkID    = marker.LinkID
@@ -2446,7 +2463,7 @@ namespace RetroDevStudio.Formats
       int addrBase = BaseAddress;
 
       // ========== HEADER (60 bytes, 0x3C) ==========
-      buf.AppendU8( 9 );    // +$00 marker_stride (bytes per marker record: tag, x, y, value1, value2, flags, group_id, link_to_id, link_id) — flags is a bitfield: bit0 = Enabled, bit1 = Triggered, bit2 = AutoDisableAfterTrigger
+      buf.AppendU8( 9 );    // +$00 marker_stride (bytes per marker record: tag, x, y, value1, value2, flags, group_id, link_to_id, link_id) — flags is a bitfield: bit0 = Enabled, bit1 = Triggered, bit2 = AutoDisableGroupAfterTrigger
       buf.AppendU8( (byte)Tiles.Count );  // +$01
       buf.AppendU8( (byte)Maps.Count );   // +$02
       // Starting-map index — points runtime code at the map the level
@@ -2882,14 +2899,15 @@ namespace RetroDevStudio.Formats
             buf.AppendU8( marker.Value1 );
             buf.AppendU8( marker.Value2 );
             // Packed flags byte: bit 0 = Enabled, bit 1 = Triggered,
-            // bit 2 = AutoDisableAfterTrigger (disable this marker the
-            // moment it fires — one-shot). Mask constants are emitted into
-            // the asm sidecar as MAP_MARKER_FLAGS_MASK_ENABLED /
-            // MAP_MARKER_FLAGS_MASK_TRIGGERED / MAP_MARKER_FLAGS_MASK_AUTO_DISABLE.
+            // bit 2 = AutoDisableGroupAfterTrigger (when this marker fires the
+            // runtime disables every marker sharing its GroupId). Mask
+            // constants are emitted into the asm sidecar as
+            // MAP_MARKER_FLAGS_MASK_ENABLED / MAP_MARKER_FLAGS_MASK_TRIGGERED /
+            // MAP_MARKER_FLAGS_MASK_AUTO_DISABLE_GROUP.
             byte flags = 0;
             if ( marker.Enabled )                 flags |= 0x01;
             if ( marker.Triggered )               flags |= 0x02;
-            if ( marker.AutoDisableAfterTrigger ) flags |= 0x04;
+            if ( marker.AutoDisableGroupAfterTrigger ) flags |= 0x04;
             buf.AppendU8( flags );
             buf.AppendU8( marker.GroupId );
             // Trigger-chain link fields — last two bytes of the record.
@@ -3118,12 +3136,12 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( "// MAP_MARKER_FLAGS bit masks. Test with AND, set with ORA." );
       sb.AppendLine( ".const MAP_MARKER_FLAGS_MASK_ENABLED             = %0000_0001" );
       sb.AppendLine( ".const MAP_MARKER_FLAGS_MASK_TRIGGERED           = %0000_0010" );
-      sb.AppendLine( ".const MAP_MARKER_FLAGS_MASK_AUTO_DISABLE        = %0000_0100  // disable this marker once it triggers (one-shot)" );
+      sb.AppendLine( ".const MAP_MARKER_FLAGS_MASK_AUTO_DISABLE_GROUP  = %0000_0100  // when this marker triggers, disable every marker with the same MAP_MARKER_GROUP_ID" );
       sb.AppendLine( "// Inverse masks: AND with these to CLEAR the corresponding bit." );
       sb.AppendLine( "// e.g. LDA flags : AND MAP_MARKER_FLAGS_CLEAR_ENABLED : STA flags" );
       sb.AppendLine( ".const MAP_MARKER_FLAGS_CLEAR_ENABLED            = %1111_1110" );
       sb.AppendLine( ".const MAP_MARKER_FLAGS_CLEAR_TRIGGERED          = %1111_1101" );
-      sb.AppendLine( ".const MAP_MARKER_FLAGS_CLEAR_AUTO_DISABLE       = %1111_1011" );
+      sb.AppendLine( ".const MAP_MARKER_FLAGS_CLEAR_AUTO_DISABLE_GROUP = %1111_1011" );
       sb.AppendLine();
       sb.AppendLine( "// ====== Entity record layout (9 bytes per entity) ======" );
       sb.AppendLine( "// Byte offsets within a single entity record." );
@@ -3390,6 +3408,7 @@ namespace RetroDevStudio.Formats
     ///   per non-empty line: [ControlCode] [screen codes...] [Terminator]
     ///   per blank middle line: [Terminator]
     ///   optional [CLEAR_TEXT_AREA]
+    ///   optional [SHOW_NEXT_PAGE_MARKER]
     ///   [END_OF_TEXT] (mandatory)
     ///
     /// ControlCode is the line's leading byte (game_message.asm's "line
@@ -3452,6 +3471,10 @@ namespace RetroDevStudio.Formats
       if ( Msg.ClearTextAreaAtEnd )
       {
         buf.AppendU8( MAP_STRING_CLEAR_TEXT_AREA );
+      }
+      if ( Msg.ShowNextPageMarker )
+      {
+        buf.AppendU8( MAP_STRING_SHOW_NEXT_PAGE_MARKER );
       }
       buf.AppendU8( MAP_STRING_END_OF_TEXT );
       return buf;
@@ -4565,9 +4588,9 @@ namespace RetroDevStudio.Formats
         // lack these and fall back to a 1x1 marker on read.
         chunkMarker.AppendI32( marker.Width );
         chunkMarker.AppendI32( marker.Height );
-        // Appended auto-disable-after-trigger flag — same forward-compat
-        // pattern, default 0 (marker stays enabled after firing).
-        chunkMarker.AppendU8( (byte)( marker.AutoDisableAfterTrigger ? 1 : 0 ) );
+        // Appended auto-disable-group flag — same forward-compat pattern,
+        // default 0 (firing this marker leaves its group enabled).
+        chunkMarker.AppendU8( (byte)( marker.AutoDisableGroupAfterTrigger ? 1 : 0 ) );
         chunkMap.Append( chunkMarker.ToBuffer() );
       }
 
@@ -4978,15 +5001,15 @@ namespace RetroDevStudio.Formats
               {
                 marker.Height = 1;
               }
-              // Appended auto-disable-after-trigger flag. Old files stop
-              // before this byte — default false (marker stays enabled).
+              // Appended auto-disable-group flag. Old files stop before this
+              // byte — default false (firing leaves the group enabled).
               if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
               {
-                marker.AutoDisableAfterTrigger = ( mapChunkReader.ReadUInt8() != 0 );
+                marker.AutoDisableGroupAfterTrigger = ( mapChunkReader.ReadUInt8() != 0 );
               }
               else
               {
-                marker.AutoDisableAfterTrigger = false;
+                marker.AutoDisableGroupAfterTrigger = false;
               }
               map.Markers.Add( marker );
             }

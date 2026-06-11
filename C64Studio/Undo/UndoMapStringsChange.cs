@@ -70,6 +70,7 @@ namespace RetroDevStudio.Undo
       {
         Label              = Source.Label,
         ClearTextAreaAtEnd = Source.ClearTextAreaAtEnd,
+        ShowNextPageMarker = Source.ShowNextPageMarker,
         StringID           = Source.StringID
       };
       for ( int i = 0; i < 5; ++i )

@@ -91,7 +91,13 @@ namespace FastColoredTextBoxNS
                 return Encoding.UTF8;
 
             if (BOMBytes[0] == 0x2b && BOMBytes[1] == 0x2f && BOMBytes[2] == 0x76)
+                // UTF-7 BOM detection only: we IDENTIFY an existing file's
+                // encoding here, we never ENCODE to UTF-7. Encoding.UTF7 is
+                // obsolete (SYSLIB0001) because PRODUCING UTF-7 is insecure;
+                // recognizing an already-UTF-7 file is fine, so suppress here.
+#pragma warning disable SYSLIB0001
                 return Encoding.UTF7;
+#pragma warning restore SYSLIB0001
 
             if (BOMBytes.Length < 4)
                 return null;

@@ -2252,7 +2252,20 @@ namespace RetroDevStudio.Documents
         {
           if ( covered[x, y] ) continue;
           int idx = layerTiles[x, y];
-          if ( ( idx < 0 ) || ( idx >= m_MapProject.Tiles.Count ) ) continue;
+          if ( idx < 0 )
+          {
+            // Transparent/empty cell on an upper layer (-1): treat it as a
+            // fillable single-cell "owner" so Fill can both start in and spread
+            // across empty regions. Without this the anchor grid leaves these
+            // cells hasOwner==false and the fill silently no-ops on upper
+            // layers. The Background layer never stores -1, so it's unaffected.
+            covered[x, y]  = true;
+            hasOwner[x, y] = true;
+            anchorX[x, y]  = x;
+            anchorY[x, y]  = y;
+            continue;
+          }
+          if ( idx >= m_MapProject.Tiles.Count ) continue;    // genuinely invalid index
           var tile = m_MapProject.Tiles[idx];
 
           int cw = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Width  / (float)spacingX ) );
@@ -2298,9 +2311,16 @@ namespace RetroDevStudio.Documents
 
       // All tiles in the region share tileToFill's index, so its footprint
       // (in cells) is constant for the whole flood.
-      var fillTile = m_MapProject.Tiles[tileToFill];
-      int fillCW   = Math.Max( 1, (int)Math.Ceiling( fillTile.Chars.Width  / (float)spacingX ) );
-      int fillCH   = Math.Max( 1, (int)Math.Ceiling( fillTile.Chars.Height / (float)spacingY ) );
+      // tileToFill can be -1 (an empty/transparent region on an upper layer);
+      // its footprint is a single cell. Guard the Tiles[-1] lookup.
+      int fillCW = 1;
+      int fillCH = 1;
+      if ( tileToFill >= 0 )
+      {
+        var fillTile = m_MapProject.Tiles[tileToFill];
+        fillCW = Math.Max( 1, (int)Math.Ceiling( fillTile.Chars.Width  / (float)spacingX ) );
+        fillCH = Math.Max( 1, (int)Math.Ceiling( fillTile.Chars.Height / (float)spacingY ) );
+      }
 
       // Phase 1 — collect the anchors to fill by stepping tile-by-tile across
       // 4-edge-adjacent tiles whose index matches tileToFill. Membership is
@@ -3396,7 +3416,7 @@ namespace RetroDevStudio.Documents
                    marker.Value2 = (byte)editMarkerValue2.Value;
                    marker.Enabled = checkMarkerDefaultEnabled.Checked;
                    marker.Triggered = checkMarkerDefaultTriggered.Checked;
-                   marker.AutoDisableAfterTrigger = checkMarkerAutoDisable.Checked;
+                   marker.AutoDisableGroupAfterTrigger = checkMarkerAutoDisableGroup.Checked;
                    marker.GroupId = (byte)editMarkerGroupId.Value;
                    marker.LinkToID = (byte)editMarkerLinkToID.Value;
                    marker.LinkID = (byte)editMarkerLinkID.Value;
@@ -8009,12 +8029,32 @@ namespace RetroDevStudio.Documents
       }
       if ( indicesToRemove.Count > 0 )
       {
+        // Lowest selected index — after the deletions the tile that shifts into
+        // this slot is the "next" tile to auto-select below. SelectedIndices is
+        // ascending, so [0] is the lowest.
+        int firstRemoved = indicesToRemove[0];
+
         for ( int i = 0; i < indicesToRemove.Count; ++i )
         {
           int   indexToRemove = indicesToRemove[indicesToRemove.Count - 1 - i];
 
           DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileRemove( this, m_MapProject, indexToRemove ), i == 0 );
           RemoveTile( indexToRemove );
+        }
+
+        // Auto-select the next tile (the one that shifted into the first deleted
+        // slot); if the deletion ran off the end of the list, select the last
+        // remaining tile. Selection only — not a separate undo step.
+        if ( listTileInfo.Items.Count > 0 )
+        {
+          int newSelection = firstRemoved;
+          if ( newSelection >= listTileInfo.Items.Count )
+          {
+            newSelection = listTileInfo.Items.Count - 1;
+          }
+          listTileInfo.SelectedIndices.Clear();
+          listTileInfo.SelectedIndices.Add( newSelection );
+          listTileInfo.EnsureVisible( newSelection );
         }
       }
     }
@@ -8397,6 +8437,203 @@ namespace RetroDevStudio.Documents
 
 
 
+    // Move a set of tiles (by their current indices) so they land as a
+    // contiguous block at InsertionPoint, preserving their relative order.
+    // Drives the multi-select drag-reorder on the Tiles tab. Routes through
+    // ReorderTiles (one permutation) so the tile list, maps, entities, UI and
+    // the undo step stay consistent whether one or many tiles move.
+    private void MoveTilesTo( List<int> SourceIndices, int InsertionPoint )
+    {
+      if ( m_MapProject == null )
+      {
+        return;
+      }
+      int count = m_MapProject.Tiles.Count;
+      if ( count == 0 )
+      {
+        return;
+      }
+
+      var movedSet = new HashSet<int>();
+      foreach ( int idx in SourceIndices )
+      {
+        if ( ( idx >= 0 ) && ( idx < count ) )
+        {
+          movedSet.Add( idx );
+        }
+      }
+      if ( movedSet.Count == 0 )
+      {
+        return;
+      }
+      if ( InsertionPoint < 0 )
+      {
+        InsertionPoint = 0;
+      }
+      if ( InsertionPoint > count )
+      {
+        InsertionPoint = count;
+      }
+
+      // Moved tiles in ascending index order (preserves their relative order);
+      // remaining tiles (not moved) in order.
+      var moved = new List<int>( movedSet );
+      moved.Sort();
+      var remaining = new List<int>();
+      for ( int i = 0; i < count; ++i )
+      {
+        if ( !movedSet.Contains( i ) )
+        {
+          remaining.Add( i );
+        }
+      }
+
+      // The insertion point is in the ORIGINAL index space; subtract the moved
+      // tiles that sit above it to get the block's start in the remaining list.
+      int below = 0;
+      foreach ( int s in moved )
+      {
+        if ( s < InsertionPoint )
+        {
+          ++below;
+        }
+      }
+      int insertAt = InsertionPoint - below;
+      if ( insertAt < 0 )
+      {
+        insertAt = 0;
+      }
+      if ( insertAt > remaining.Count )
+      {
+        insertAt = remaining.Count;
+      }
+
+      // Build the permutation: oldToNew[oldIndex] = new index. The moved block
+      // occupies [insertAt .. insertAt + moved.Count) in the new order.
+      int[] oldToNew = new int[count];
+      int pos = 0;
+      for ( int r = 0; r < insertAt; ++r )
+      {
+        oldToNew[remaining[r]] = pos++;
+      }
+      for ( int m = 0; m < moved.Count; ++m )
+      {
+        oldToNew[moved[m]] = pos++;
+      }
+      for ( int r = insertAt; r < remaining.Count; ++r )
+      {
+        oldToNew[remaining[r]] = pos++;
+      }
+
+      // No-op (dropped onto its own position): nothing to do, no undo step.
+      bool changed = false;
+      for ( int i = 0; i < count; ++i )
+      {
+        if ( oldToNew[i] != i )
+        {
+          changed = true;
+          break;
+        }
+      }
+      if ( !changed )
+      {
+        return;
+      }
+
+      // Undo applies the inverse permutation (restores the order); redo (the
+      // complementary task) re-applies the forward one.
+      int[] inverse = new int[count];
+      for ( int i = 0; i < count; ++i )
+      {
+        inverse[oldToNew[i]] = i;
+      }
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesReorder( this, m_MapProject, inverse ) );
+
+      ReorderTiles( oldToNew );
+
+      // Re-select the moved block at its new, contiguous home.
+      listTileInfo.SelectedIndices.Clear();
+      for ( int j = 0; j < moved.Count; ++j )
+      {
+        int newIndex = insertAt + j;
+        if ( ( newIndex >= 0 ) && ( newIndex < listTileInfo.Items.Count ) )
+        {
+          listTileInfo.SelectedIndices.Add( newIndex );
+        }
+      }
+      if ( listTileInfo.SelectedIndices.Count > 0 )
+      {
+        listTileInfo.EnsureVisible( listTileInfo.SelectedIndices[0] );
+      }
+    }
+
+
+
+    // Apply a tile-index permutation (OldToNew[oldIndex] = newIndex) to the
+    // whole project: the tile list, every map cell on EVERY layer, and entity-
+    // type tile bindings. Used by the multi-tile reorder and its undo. (The
+    // older single-tile MoveTile only remaps the Background layer; this is the
+    // layer-complete path.)
+    public void ReorderTiles( int[] OldToNew )
+    {
+      if ( m_MapProject == null )
+      {
+        return;
+      }
+      int count = m_MapProject.Tiles.Count;
+      if ( ( OldToNew == null ) || ( OldToNew.Length != count ) )
+      {
+        return;
+      }
+
+      var newTiles = new Formats.MapProject.Tile[count];
+      for ( int i = 0; i < count; ++i )
+      {
+        newTiles[OldToNew[i]] = m_MapProject.Tiles[i];
+      }
+      m_MapProject.Tiles.Clear();
+      for ( int i = 0; i < count; ++i )
+      {
+        newTiles[i].Index = i;
+        m_MapProject.Tiles.Add( newTiles[i] );
+      }
+
+      // Remap cell references on every layer of every map. Upper-layer
+      // transparent cells (-1) are below any valid index, so they stay -1.
+      foreach ( var map in m_MapProject.Maps )
+      {
+        foreach ( var layer in map.Layers )
+        {
+          for ( int x = 0; x < layer.Tiles.Width; ++x )
+          {
+            for ( int y = 0; y < layer.Tiles.Height; ++y )
+            {
+              int v = layer.Tiles[x, y];
+              if ( ( v >= 0 ) && ( v < count ) )
+              {
+                layer.Tiles[x, y] = OldToNew[v];
+              }
+            }
+          }
+        }
+      }
+
+      // Entity types reference tiles by index — follow the permutation.
+      foreach ( var et in m_MapProject.EntityTypes )
+      {
+        if ( ( et.TileIndex >= 0 ) && ( et.TileIndex < count ) )
+        {
+          et.TileIndex = OldToNew[et.TileIndex];
+        }
+      }
+
+      RefreshMapTileList();
+      RedrawMap();
+      SetModified();
+    }
+
+
+
     // ----------------------------------------------------------------
     // Auto-scroll the tile list while the user is dragging an item near
     // the top/bottom edge — matches Explorer/Outlook/etc. so the user
@@ -8601,32 +8838,28 @@ namespace RetroDevStudio.Documents
         }
       }
 
-      ListViewItem draggedItem = (ListViewItem)e.Data.GetData( typeof( ListViewItem ) );
-      if ( draggedItem == null )
+      // Multi-select aware: move EVERY selected tile (the grabbed row is one of
+      // them) to the drop point, preserving their relative order. Fall back to
+      // the single dragged item if somehow nothing is selected.
+      var sourceIndices = new List<int>();
+      foreach ( int idx in listTileInfo.SelectedIndices )
       {
-        return;
+        sourceIndices.Add( idx );
+      }
+      if ( sourceIndices.Count == 0 )
+      {
+        ListViewItem draggedItem = (ListViewItem)e.Data.GetData( typeof( ListViewItem ) );
+        if ( draggedItem == null )
+        {
+          return;
+        }
+        sourceIndices.Add( draggedItem.Index );
       }
 
-      int fromIndex = draggedItem.Index;
-      int toIndex = targetIndex;
-
-      if ( fromIndex == toIndex )
-      {
-        return;
-      }
-      // adjust toIndex if moving down, because removing the item shifts indices
-      if ( ( toIndex > fromIndex )
-      &&   ( toIndex > 0 ) )
-      {
-        --toIndex;
-      }
-
-      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileMove( this, m_MapProject, fromIndex, toIndex ) );
-      MoveTile( fromIndex, toIndex );
-
-      listTileInfo.SelectedIndices.Clear();
-      listTileInfo.SelectedIndices.Add( toIndex );
-      listTileInfo.EnsureVisible( toIndex );
+      // targetIndex is the insertion point in the current list (0..Count);
+      // MoveTilesTo handles the moved tiles' own positions, the per-layer/
+      // entity remap, and the (multi-tile) undo step internally.
+      MoveTilesTo( sourceIndices, targetIndex );
     }
 
 
@@ -8672,17 +8905,22 @@ namespace RetroDevStudio.Documents
 
       foreach ( var map in m_MapProject.Maps )
       {
-        for ( int i = 0; i < map.Tiles.Width; ++i )
+        // Swap references on EVERY layer (not just Background) so upper-layer
+        // tiles follow the reorder and the map stays visually identical.
+        foreach ( var layer in map.Layers )
         {
-          for ( int j = 0; j < map.Tiles.Height; ++j )
+          for ( int i = 0; i < layer.Tiles.Width; ++i )
           {
-            if ( map.Tiles[i, j] == Index1 )
+            for ( int j = 0; j < layer.Tiles.Height; ++j )
             {
-              map.Tiles[i, j] = Index2;
-            }
-            else if ( map.Tiles[i, j] == Index2 )
-            {
-              map.Tiles[i, j] = Index1;
+              if ( layer.Tiles[i, j] == Index1 )
+              {
+                layer.Tiles[i, j] = Index2;
+              }
+              else if ( layer.Tiles[i, j] == Index2 )
+              {
+                layer.Tiles[i, j] = Index1;
+              }
             }
           }
         }
@@ -9125,56 +9363,16 @@ namespace RetroDevStudio.Documents
         return;
       }
 
-      var newMap = new RetroDevStudio.Formats.MapProject.Map();
-      newMap.ExtraDataOld = new GR.Memory.ByteBuffer( m_CurrentMap.ExtraDataOld );
-      newMap.ExtraDataText = m_CurrentMap.ExtraDataText;
-      newMap.Name = m_CurrentMap.Name;
-      newMap.Tiles = new GR.Game.Layer<int>();
-      newMap.Tiles.Resize( m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height );
-      newMap.TileSpacingX = m_CurrentMap.TileSpacingX;
-      newMap.TileSpacingY = m_CurrentMap.TileSpacingY;
-      // Char-grid override layer: copy slot-for-slot from the source so
-      // the duplicated map looks identical, per-character tweaks
-      // included.
-      int dupCharW = m_CurrentMap.Tiles.Width  * newMap.TileSpacingX;
-      int dupCharH = m_CurrentMap.Tiles.Height * newMap.TileSpacingY;
-      newMap.TileColorOverrides = new GR.Game.Layer<int>();
-      newMap.TileColorOverrides.Resize( dupCharW, dupCharH );
-      for ( int i = 0; i < m_CurrentMap.Tiles.Width; ++i )
-      {
-        for ( int j = 0; j < m_CurrentMap.Tiles.Height; ++j )
-        {
-          newMap.Tiles[i,j] =  m_CurrentMap.Tiles[i,j];
-        }
-      }
-      for ( int j = 0; j < dupCharH; ++j )
-      {
-        for ( int i = 0; i < dupCharW; ++i )
-        {
-          int srcOverride = ( ( i < m_CurrentMap.TileColorOverrides.Width )
-                              && ( j < m_CurrentMap.TileColorOverrides.Height ) )
-                            ? m_CurrentMap.TileColorOverrides[i,j] : -1;
-          newMap.TileColorOverrides[i,j] = srcOverride;
-        }
-      }
-      // Per-character blocked-override layer: deep-copy slot-for-slot
-      // alongside the color overrides so a duplicate map carries every
-      // per-char passability tweak.
-      newMap.CharBlockedOverrides = new GR.Game.Layer<bool>();
-      newMap.CharBlockedOverrides.Resize( dupCharW, dupCharH );
-      for ( int j = 0; j < dupCharH; ++j )
-      {
-        for ( int i = 0; i < dupCharW; ++i )
-        {
-          bool srcBlocked = ( ( i < m_CurrentMap.CharBlockedOverrides.Width )
-                              && ( j < m_CurrentMap.CharBlockedOverrides.Height ) )
-                            ? m_CurrentMap.CharBlockedOverrides[i,j] : false;
-          newMap.CharBlockedOverrides[i,j] = srcBlocked;
-        }
-      }
-      newMap.AlternativeBackgroundColor = m_CurrentMap.AlternativeBackgroundColor;
-      newMap.AlternativeMultiColor1     = m_CurrentMap.AlternativeMultiColor1;
-      newMap.AlternativeMultiColor2     = m_CurrentMap.AlternativeMultiColor2;
+      // Full deep copy via the canonical serializer round-trip. This carries
+      // EVERY field of the map — all tile layers (not just the Background),
+      // markers, entities, per-character color and blocked overrides,
+      // alternative colors/mode, selected layer index — instead of a
+      // hand-picked subset. The previous hand-rolled copy only ever wrote
+      // Tiles / TileColorOverrides, which are proxies onto Layers[0], so it
+      // silently dropped all upper layers (and markers/entities too).
+      // CloneMap is the same deep-copy path the undo/revision system relies
+      // on; it intentionally leaves Revisions empty in the duplicate.
+      var newMap = Formats.MapProject.CloneMap( m_CurrentMap );
 
 
       DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapAdd( this, m_MapProject, m_MapProject.Maps.Count ) );
@@ -10989,6 +11187,7 @@ namespace RetroDevStudio.Documents
       comboMapStringJustify3.SelectedIndexChanged       += comboMapStringJustify_SelectedIndexChanged;
       comboMapStringJustify4.SelectedIndexChanged       += comboMapStringJustify_SelectedIndexChanged;
       checkMapStringClearAtEnd.CheckedChanged           += checkMapStringClearAtEnd_CheckedChanged;
+      checkMapStringShowNextPageMarker.CheckedChanged   += checkMapStringShowNextPageMarker_CheckedChanged;
       editMapStringID.ValueChanged                      += editMapStringID_ValueChanged;
     }
 
@@ -11018,6 +11217,7 @@ namespace RetroDevStudio.Documents
       comboMapStringJustify3.SelectedIndexChanged       -= comboMapStringJustify_SelectedIndexChanged;
       comboMapStringJustify4.SelectedIndexChanged       -= comboMapStringJustify_SelectedIndexChanged;
       checkMapStringClearAtEnd.CheckedChanged           -= checkMapStringClearAtEnd_CheckedChanged;
+      checkMapStringShowNextPageMarker.CheckedChanged   -= checkMapStringShowNextPageMarker_CheckedChanged;
       editMapStringID.ValueChanged                      -= editMapStringID_ValueChanged;
     }
 
@@ -11134,6 +11334,7 @@ namespace RetroDevStudio.Documents
           comboMapStringJustify3.SelectedIndex = 0;
           comboMapStringJustify4.SelectedIndex = 0;
           checkMapStringClearAtEnd.Checked = false;
+          checkMapStringShowNextPageMarker.Checked = false;
           editMapStringID.Value = 0;
           return;
         }
@@ -11183,6 +11384,7 @@ namespace RetroDevStudio.Documents
           justifyCombos[i].SelectedIndex = j;
         }
         checkMapStringClearAtEnd.Checked = ms.ClearTextAreaAtEnd;
+        checkMapStringShowNextPageMarker.Checked = ms.ShowNextPageMarker;
         editMapStringID.Value = ms.StringID;
       }
       finally
@@ -11363,6 +11565,19 @@ namespace RetroDevStudio.Documents
       SetModified();
       // CLEAR_TEXT_AREA is a runtime tail byte; no visual impact in the
       // static preview.
+    }
+
+
+
+    private void checkMapStringShowNextPageMarker_CheckedChanged( object sender, EventArgs e )
+    {
+      var ms = GetSelectedMapString();
+      if ( ms == null ) return;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+      ms.ShowNextPageMarker = checkMapStringShowNextPageMarker.Checked;
+      SetModified();
+      // SHOW_NEXT_PAGE_MARKER is a runtime tail byte; no visual impact in
+      // the static preview.
     }
 
 
@@ -11613,6 +11828,7 @@ namespace RetroDevStudio.Documents
       {
         Label              = MakeUniqueMapStringLabel( ( src.Label ?? "" ) + "_COPY" ),
         ClearTextAreaAtEnd = src.ClearTextAreaAtEnd,
+        ShowNextPageMarker = src.ShowNextPageMarker,
         StringID           = src.StringID
       };
       for ( int i = 0; i < 5; ++i )
@@ -12263,15 +12479,15 @@ namespace RetroDevStudio.Documents
 
 
 
-    private void checkMarkerAutoDisable_CheckedChanged( object sender, EventArgs e )
+    private void checkMarkerAutoDisableGroup_CheckedChanged( object sender, EventArgs e )
     {
       if ( m_PopulatingFromSelection ) return;
       if ( m_SelectedMarker == null ) return;
-      if ( m_SelectedMarker.AutoDisableAfterTrigger == checkMarkerAutoDisable.Checked ) return;
+      if ( m_SelectedMarker.AutoDisableGroupAfterTrigger == checkMarkerAutoDisableGroup.Checked ) return;
 
       DocumentInfo.UndoManager.AddUndoTask(
         new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
-      m_SelectedMarker.AutoDisableAfterTrigger = checkMarkerAutoDisable.Checked;
+      m_SelectedMarker.AutoDisableGroupAfterTrigger = checkMarkerAutoDisableGroup.Checked;
       SetModified();
       pictureEditor.Invalidate();
     }
@@ -12948,7 +13164,7 @@ namespace RetroDevStudio.Documents
           editMarkerLinkID.Value = marker.LinkID;
           checkMarkerDefaultEnabled.Checked = marker.Enabled;
           checkMarkerDefaultTriggered.Checked = marker.Triggered;
-          checkMarkerAutoDisable.Checked = marker.AutoDisableAfterTrigger;
+          checkMarkerAutoDisableGroup.Checked = marker.AutoDisableGroupAfterTrigger;
 
           int typeIndex = m_MapProject.MarkerTypes.FindIndex( t => t.ID == marker.Type );
           if ( typeIndex != -1 )
