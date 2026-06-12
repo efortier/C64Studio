@@ -112,7 +112,8 @@ namespace RetroDevStudio.Formats
     /// Sentinel for "this line has no terminator — skip emission". $00
     /// is COLOR_BLACK in the byte-stream alphabet; using it as a sentinel
     /// for the terminator field is unambiguous because terminators are
-    /// only ever $FC (PRESS_FIRE) or $FD (END_OF_LINE) in the stream.
+    /// only ever $FC (PRESS_FIRE), $FD (END_OF_LINE) or $FA
+    /// (SHOW_NEXT_PAGE_MARKER) in the stream.
     /// </summary>
     public const byte MAP_STRING_NO_TERMINATOR   = 0x00;
 
@@ -132,8 +133,9 @@ namespace RetroDevStudio.Formats
     /// uppercase / numbers offsets, plus the fixed C64 punctuation map.
     ///
     /// <see cref="Terminator"/> is the control byte that ends the line:
-    /// END_OF_LINE for a normal break or PRESS_FIRE to render the static
-    /// "Press Fire to continue" prompt and block until fire.
+    /// END_OF_LINE for a normal break, PRESS_FIRE to render the static
+    /// "Press Fire to continue" prompt and block until fire, or
+    /// SHOW_NEXT_PAGE_MARKER to show the runtime's "more text" marker.
     /// </summary>
     /// <summary>Per-line text justification within the runtime text area.</summary>
     public const byte MAP_STRING_JUSTIFY_LEFT   = 0;
@@ -164,9 +166,7 @@ namespace RetroDevStudio.Formats
     /// valid asm identifier to be included on export. <see cref="Lines"/> is
     /// always 5 slots — empty trailing slots are dropped at export time. When
     /// <see cref="ClearTextAreaAtEnd"/> is true, a CLEAR_TEXT_AREA byte is
-    /// emitted right before the mandatory END_OF_TEXT terminator; when
-    /// <see cref="ShowNextPageMarker"/> is true, a SHOW_NEXT_PAGE_MARKER byte
-    /// follows CLEAR_TEXT_AREA (still before END_OF_TEXT).
+    /// emitted right before the mandatory END_OF_TEXT terminator.
     /// </summary>
     public class MapString
     {
@@ -176,10 +176,6 @@ namespace RetroDevStudio.Formats
         new MapStringLine(), new MapStringLine(), new MapStringLine(), new MapStringLine(), new MapStringLine()
       };
       public bool            ClearTextAreaAtEnd = false;
-      // When true, a SHOW_NEXT_PAGE_MARKER ($FA) byte is emitted after the
-      // optional CLEAR_TEXT_AREA and before END_OF_TEXT — the runtime shows
-      // its "next page" marker. Default false = no marker byte.
-      public bool            ShowNextPageMarker = false;
       // Per-string numeric identifier (0..255, default 0). Editor metadata
       // exported as the parallel MAP_STRING_ID byte table in the game
       // binary so runtime code can map an ID back to the string's index.
@@ -800,9 +796,6 @@ namespace RetroDevStudio.Formats
           chunkMapString.AppendU8( line4.ControlCode );
           chunkMapString.AppendU8( line4.Justification );
         }
-        // Appended show-next-page-marker flag — same forward-compat pattern,
-        // default 0 (no $FA marker byte in the exported stream).
-        chunkMapString.AppendU8( ms.ShowNextPageMarker ? (byte)1 : (byte)0 );
         chunkProjectData.Append( chunkMapString.ToBuffer() );
       }
 
@@ -1162,13 +1155,14 @@ namespace RetroDevStudio.Formats
                         {
                           ms.Lines[li].Terminator = subChunkReader.ReadUInt8();
                         }
-                        // Validate against the three legal values: None,
-                        // END_OF_LINE, PRESS_FIRE. Anything else is a
-                        // corrupt/legacy byte — fall back to None so the
-                        // line emits no terminator.
+                        // Validate against the four legal values: None,
+                        // END_OF_LINE, PRESS_FIRE, SHOW_NEXT_PAGE_MARKER.
+                        // Anything else is a corrupt/legacy byte — fall back
+                        // to None so the line emits no terminator.
                         if ( ( ms.Lines[li].Terminator != MAP_STRING_NO_TERMINATOR )
                         &&   ( ms.Lines[li].Terminator != MAP_STRING_END_OF_LINE )
-                        &&   ( ms.Lines[li].Terminator != MAP_STRING_PRESS_FIRE ) )
+                        &&   ( ms.Lines[li].Terminator != MAP_STRING_PRESS_FIRE )
+                        &&   ( ms.Lines[li].Terminator != MAP_STRING_SHOW_NEXT_PAGE_MARKER ) )
                         {
                           ms.Lines[li].Terminator = MAP_STRING_NO_TERMINATOR;
                         }
@@ -1206,7 +1200,8 @@ namespace RetroDevStudio.Formats
                       }
                       if ( ( ms.Lines[4].Terminator != MAP_STRING_NO_TERMINATOR )
                       &&   ( ms.Lines[4].Terminator != MAP_STRING_END_OF_LINE )
-                      &&   ( ms.Lines[4].Terminator != MAP_STRING_PRESS_FIRE ) )
+                      &&   ( ms.Lines[4].Terminator != MAP_STRING_PRESS_FIRE )
+                      &&   ( ms.Lines[4].Terminator != MAP_STRING_SHOW_NEXT_PAGE_MARKER ) )
                       {
                         ms.Lines[4].Terminator = MAP_STRING_NO_TERMINATOR;
                       }
@@ -1222,12 +1217,11 @@ namespace RetroDevStudio.Formats
                           ms.Lines[4].Justification = MAP_STRING_JUSTIFY_LEFT;
                         }
                       }
-                      // Appended show-next-page-marker flag. Old files stop
-                      // before this byte — default false (no $FA emitted).
-                      if ( subChunkReader.Position < subChunkReader.Size )
-                      {
-                        ms.ShowNextPageMarker = ( subChunkReader.ReadUInt8() != 0 );
-                      }
+                      // (A short-lived per-string "show next page marker" byte
+                      // was appended here by interim builds; it is no longer
+                      // read — $FA is now a per-line Terminator value instead.
+                      // Chunk reads are size-bounded, so the leftover byte in
+                      // files saved by those builds is simply ignored.)
                       MapStrings.Add( ms );
                     }
                     break;
@@ -3408,8 +3402,11 @@ namespace RetroDevStudio.Formats
     ///   per non-empty line: [ControlCode] [screen codes...] [Terminator]
     ///   per blank middle line: [Terminator]
     ///   optional [CLEAR_TEXT_AREA]
-    ///   optional [SHOW_NEXT_PAGE_MARKER]
     ///   [END_OF_TEXT] (mandatory)
+    ///
+    /// Terminator is END_OF_LINE ($FD), PRESS_FIRE ($FC) or
+    /// SHOW_NEXT_PAGE_MARKER ($FA) — the runtime's "more text follows"
+    /// marker, emitted in the same per-line position as the other two.
     ///
     /// ControlCode is the line's leading byte (game_message.asm's "line
     /// color"). $00..$0F set the foreground color; $10..$1F are reserved
@@ -3471,10 +3468,6 @@ namespace RetroDevStudio.Formats
       if ( Msg.ClearTextAreaAtEnd )
       {
         buf.AppendU8( MAP_STRING_CLEAR_TEXT_AREA );
-      }
-      if ( Msg.ShowNextPageMarker )
-      {
-        buf.AppendU8( MAP_STRING_SHOW_NEXT_PAGE_MARKER );
       }
       buf.AppendU8( MAP_STRING_END_OF_TEXT );
       return buf;

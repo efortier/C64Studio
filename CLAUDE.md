@@ -58,6 +58,13 @@ In the constructor or `Foo.cs`, only set properties whose values are **runtime-d
 
 Hand-coding a static button into a form's constructor because "it's faster than opening the designer" is the failure mode this rule prevents.
 
+#### WinForms gotcha: ListView replays ItemChecked on handle creation
+**Items added to a `ListView` before its window handle exists are only buffered — WinForms replays them via `InsertItemsNative` when the handle is created (typically at first `Show()`, e.g. a document tab shown after its load completes). The replay re-raises `ItemChecked` for every checked row, and applies each row's check state in TWO transitions (none → unchecked → checked), so the first event carries `Checked == false`.** Consequences, all observed in the wild (this repo's map editor, 2026-06: "every map project opens already modified"):
+- Detaching handlers around the populate does NOT protect you — the replay happens later, after handlers are reattached and after the load path cleared the modified flag.
+- Value-equality guards (`if (model == item.Checked) return;`) do NOT protect you — the first replay event genuinely differs from the model, and can even write a transient wrong value INTO the model.
+
+**Fix: force the handle inside the populate method, while the handlers are detached** — `if (!list.IsHandleCreated) { _ = list.Handle; }` before adding items. The adds then happen natively and synchronously inside the detach window; nothing is buffered, nothing replays. Audit ANY `CheckBoxes` ListView that gets populated before its first Show, and treat "document/dialog is dirty the moment it opens" as the telltale symptom (fixed sites: `MapEditor.RefreshLayerList`, `DlgDisplayFilters`). Diagnosis technique that found it: temporarily log a stack trace on every clean→modified transition.
+
 ## Project Overview
 C64Studio is a Windows Forms IDE for Commodore 64 / retro computer development. The solution (`C64Studio.sln`) is a .NET project targeting both `net3.5` and `net8.0-windows`.
 

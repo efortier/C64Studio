@@ -10,5 +10,6 @@ namespace RetroDevStudio.IdleQueue
     public string               OpenLastSolution = null;
     public FormSplashScreen     CloseSplashScreen = null;
     public bool                 AutoSaveSettings = false;
+    public bool                 ShowStartPage = false;
   }
 }

@@ -52,6 +52,8 @@ namespace RetroDevStudio
     public PaletteEditor          m_PaletteEditor = null;
     public Documents.Help         m_Help = null;
     public Documents.SampleExplorer   m_SampleExplorer = null;
+    public Documents.StartPage    m_StartPage = null;
+    private Settings.StartPageRecentFiles   m_StartPageFiles = new Settings.StartPageRecentFiles();
     public FormFindReplace        m_FindReplace = null;
     public FormFilesChanged       m_FilesChanged = null;
 
@@ -750,6 +752,7 @@ namespace RetroDevStudio
       panelMain.ActiveContentChanged += new EventHandler( panelMain_ActiveContentChanged );
       panelMain.ActiveDocumentChanged += new EventHandler( panelMain_ActiveDocumentChanged );
       UpdateMenuMRU();
+      SeedStartPageFromMRU();
       UpdateUndoSettings();
 
       // Krypton palette/theme combo on the main toolbar. Populated and
@@ -810,6 +813,10 @@ namespace RetroDevStudio
           IdleQueue.Add( idleRequest );
         }
       }
+
+      // Deferred to the idle queue (after the last-solution restore above) so
+      // the start page costs no startup time and ends up as the active tab.
+      IdleQueue.Add( new IdleRequest() { ShowStartPage = true } );
 
       IdleQueue.Add( new IdleRequest() { CloseSplashScreen = splash } );
 
@@ -1333,6 +1340,10 @@ namespace RetroDevStudio
         {
           OpenFile( request.OpenLastSolution );
         }
+        else if ( request.ShowStartPage )
+        {
+          ShowStartPage();
+        }
         else if ( request.CloseSplashScreen != null )
         {
           request.CloseSplashScreen.Close();
@@ -1644,6 +1655,29 @@ namespace RetroDevStudio
             LastSearchableDocumentInfo = null;
           }
           StudioCore.Navigating.DocumentClosed( Event.Doc );
+          // Closing the last document tab brings the Start Page back —
+          // except when the start page itself is the tab being closed (the
+          // user explicitly dismissed it), and never during application
+          // shutdown (FormClosing sets the exit signals before the open
+          // tabs get torn down). The count check is DEFERRED via
+          // BeginInvoke: this event is raised while the closing tab is
+          // still part of the dock panel, so DocumentsCount hasn't dropped
+          // to zero yet at this point.
+          if ( ( !Program.s_Exiting )
+          &&   ( !StudioCore.ShuttingDown )
+          &&   ( !( Event.Doc?.BaseDoc is Documents.StartPage ) ) )
+          {
+            BeginInvoke( (MethodInvoker)delegate
+            {
+              if ( ( !Program.s_Exiting )
+              &&   ( !StudioCore.ShuttingDown )
+              &&   ( !IsDisposed )
+              &&   ( panelMain.DocumentsCount == 0 ) )
+              {
+                ShowStartPage();
+              }
+            } );
+          }
           break;
         case Types.ApplicationEvent.Type.DOCUMENT_OPENED:
         case Types.ApplicationEvent.Type.ELEMENT_RENAMED:
@@ -2107,6 +2141,10 @@ namespace RetroDevStudio
         if ( OpenProject( sender.ToString() ) == null )
         {
           StudioCore.Settings.RemoveFromMRU( StudioCore.Settings.MRUProjects, sender.ToString(), this );
+        }
+        else
+        {
+          RecordStartPageOpen( sender.ToString() );
         }
       }
       else if ( extension == ".S64" )
@@ -6300,6 +6338,7 @@ namespace RetroDevStudio
         return false;
       }
       StudioCore.Settings.UpdateInMRU( StudioCore.Settings.MRUProjects, Filename, this );
+      RecordStartPageOpen( Filename );
       StudioCore.Settings.LastSolutionWasEmpty = false;
 
       StudioCore.Navigating.Solution.Modified   = false;
@@ -6371,11 +6410,18 @@ namespace RetroDevStudio
       string extension = GR.Path.GetExtension( Filename ).ToUpper();
       if ( extension == ".C64" )
       {
-        OpenProject( Filename );
+        // Recorded only on success, and here rather than inside OpenProject —
+        // OpenProject also runs for every member project while a solution
+        // loads, which would spam the recent list.
+        if ( OpenProject( Filename ) != null )
+        {
+          RecordStartPageOpen( Filename );
+        }
         return null;
       }
       else if ( extension == ".S64" )
       {
+        // OpenSolution records on success.
         OpenSolution( Filename );
         return null;
       }
@@ -6386,6 +6432,7 @@ namespace RetroDevStudio
       {
         // file is part of a project!
         StudioCore.Settings.UpdateInMRU( StudioCore.Settings.MRUFiles, Filename, this );
+        RecordStartPageOpen( Filename );
         return project.ShowDocument( project.GetElementByFilename( Filename ) );
       }
       // file already opened?
@@ -6394,6 +6441,7 @@ namespace RetroDevStudio
       &&   ( docInfo.BaseDoc != null ) )
       {
         StudioCore.Settings.UpdateInMRU( StudioCore.Settings.MRUFiles, Filename, this );
+        RecordStartPageOpen( Filename );
         docInfo.BaseDoc.Show();
         return docInfo.BaseDoc;
       }
@@ -6514,6 +6562,7 @@ namespace RetroDevStudio
       ApplicationEvent += document.OnApplicationEvent;
 
       StudioCore.Settings.UpdateInMRU( StudioCore.Settings.MRUFiles, Filename, this );
+      RecordStartPageOpen( Filename );
 
       RaiseApplicationEvent( new RetroDevStudio.Types.ApplicationEvent( RetroDevStudio.Types.ApplicationEvent.Type.DOCUMENT_INFO_CREATED, document.DocumentInfo ) );
 
@@ -8301,6 +8350,82 @@ namespace RetroDevStudio
       }
       m_SampleExplorer.ShowHint = DockState.Document;
       m_SampleExplorer.Show( panelMain );
+    }
+
+
+
+    /// <summary>
+    /// Show the Start Page maximized in the document area. The page closes
+    /// itself (really closes — no HideOnClose) when a recent file is opened
+    /// from it, so it is lazily recreated here.
+    /// </summary>
+    public void ShowStartPage()
+    {
+      if ( ( m_StartPage == null )
+      ||   ( m_StartPage.IsDisposed ) )
+      {
+        m_StartPage = new Documents.StartPage( StudioCore, m_StartPageFiles );
+        // Theme the fresh instance — documents are only themed through
+        // RefreshDisplayOptions (see ShowDisassemblyAt); without this the
+        // page renders in stock light colors under a dark theme.
+        m_StartPage.RefreshDisplayOptions();
+      }
+      m_StartPage.ShowHint = DockState.Document;
+      m_StartPage.Show( panelMain );
+    }
+
+
+
+    /// <summary>
+    /// Record a user-initiated file open in the Start Page's unlimited
+    /// recent-files list (independent of the MRU and its count limit).
+    /// Called from the same user-action spots that feed the MRU.
+    /// </summary>
+    public void RecordStartPageOpen( string Filename )
+    {
+      if ( string.IsNullOrEmpty( Filename ) )
+      {
+        return;
+      }
+      m_StartPageFiles.RecordOpen( Filename );
+      if ( ( m_StartPage != null )
+      &&   ( !m_StartPage.IsDisposed ) )
+      {
+        m_StartPage.RebuildList();
+      }
+    }
+
+
+
+    private void startPageToolStripMenuItem_Click( object sender, EventArgs e )
+    {
+      ShowStartPage();
+    }
+
+
+
+    /// <summary>
+    /// One-time backfill: the very first time the Start Page list exists
+    /// (no startpage.ini yet), seed it from the already-persisted MRU lists
+    /// so the page isn't empty on its debut. Runs right after settings load,
+    /// BEFORE any open can create the ini — once the file exists this never
+    /// touches the list again. Applied in reverse so the most recent project
+    /// ends on top (RecordOpen inserts at the front).
+    /// </summary>
+    private void SeedStartPageFromMRU()
+    {
+      if ( System.IO.File.Exists( m_StartPageFiles.IniFilename ) )
+      {
+        return;
+      }
+      var seeds = new List<string>();
+      seeds.AddRange( StudioCore.Settings.MRUProjects );
+      seeds.AddRange( StudioCore.Settings.MRUFiles );
+      seeds.Reverse();
+      foreach ( var file in seeds )
+      {
+        m_StartPageFiles.RecordOpen( file );
+      }
     }
 
 

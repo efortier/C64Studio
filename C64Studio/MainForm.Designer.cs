@@ -235,6 +235,7 @@
       this.mainDebugStepOut = new System.Windows.Forms.ToolStripButton();
       this.timerAutoSave = new System.Windows.Forms.Timer(this.components);
       this.sampleExplorerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+      this.startPageToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
       this.mainMenu.SuspendLayout();
       this.mainTools.SuspendLayout();
       this.mainStatus.SuspendLayout();
@@ -1148,6 +1149,7 @@
       // 
       this.toolsToolStripMenuItem.AutoSize = false;
       this.toolsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.startPageToolStripMenuItem,
             this.disassembleToolsToolStripMenuItem,
             this.sampleExplorerToolStripMenuItem});
       this.toolsToolStripMenuItem.Name = "toolsToolStripMenuItem";
@@ -1968,6 +1970,13 @@
       this.sampleExplorerToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
       this.sampleExplorerToolStripMenuItem.Text = "&Sample Explorer";
       this.sampleExplorerToolStripMenuItem.Click += new System.EventHandler(this.sampleExplorerToolStripMenuItem_Click);
+      //
+      // startPageToolStripMenuItem
+      //
+      this.startPageToolStripMenuItem.Name = "startPageToolStripMenuItem";
+      this.startPageToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+      this.startPageToolStripMenuItem.Text = "Open Start &Page";
+      this.startPageToolStripMenuItem.Click += new System.EventHandler(this.startPageToolStripMenuItem_Click);
       // 
       // MainForm
       // 
@@ -2208,6 +2217,7 @@
     private System.Windows.Forms.Timer timerAutoSave;
     private System.Windows.Forms.ToolStripButton mainToolToggleSelection;
     private System.Windows.Forms.ToolStripMenuItem sampleExplorerToolStripMenuItem;
+    private System.Windows.Forms.ToolStripMenuItem startPageToolStripMenuItem;
   }
 }
 

@@ -487,24 +487,32 @@ namespace TestProject
     }
 
     [TestMethod]
-    public void TestMapStringShowNextPageMarkerTailBytes()
+    public void TestMapStringShowNextPageMarkerTerminator()
     {
-      // SHOW_NEXT_PAGE_MARKER ($FA) is an optional tail byte emitted after the
-      // optional CLEAR_TEXT_AREA ($FB) and before the mandatory END_OF_TEXT
-      // ($FF). Off by default — old behavior (..., $FB, $FF) must be unchanged.
+      // SHOW_NEXT_PAGE_MARKER ($FA) is a per-line TERMINATOR (alongside
+      // END_OF_LINE $FD / PRESS_FIRE $FC), emitted in the terminator slot —
+      // NOT a per-string tail byte. With ClearTextAreaAtEnd the stream ends
+      // text, $FA, $FB, $FF.
       var ms = new MapProject.MapString();
       ms.Lines[0].Text = "HI";
-      ms.Lines[0].Terminator = MapProject.MAP_STRING_PRESS_FIRE;
+      ms.Lines[0].Terminator = MapProject.MAP_STRING_SHOW_NEXT_PAGE_MARKER;
       ms.ClearTextAreaAtEnd = true;
 
       var stream = MapProject.BuildMapStringByteStream( ms, 1, 33, 48, 32 );
+      Assert.AreEqual( (byte)0xFA, stream.ByteAt( (int)stream.Length - 3 ) );
       Assert.AreEqual( (byte)0xFB, stream.ByteAt( (int)stream.Length - 2 ) );
       Assert.AreEqual( (byte)0xFF, stream.ByteAt( (int)stream.Length - 1 ) );
 
-      ms.ShowNextPageMarker = true;
+      // A PRESS_FIRE line emits no $FA anywhere — the old tail-byte
+      // behavior is gone.
+      ms.Lines[0].Terminator = MapProject.MAP_STRING_PRESS_FIRE;
       stream = MapProject.BuildMapStringByteStream( ms, 1, 33, 48, 32 );
-      Assert.AreEqual( (byte)0xFB, stream.ByteAt( (int)stream.Length - 3 ) );
-      Assert.AreEqual( (byte)0xFA, stream.ByteAt( (int)stream.Length - 2 ) );
+      for ( int i = 0; i < (int)stream.Length; ++i )
+      {
+        Assert.AreNotEqual( (byte)0xFA, stream.ByteAt( i ) );
+      }
+      Assert.AreEqual( (byte)0xFC, stream.ByteAt( (int)stream.Length - 3 ) );
+      Assert.AreEqual( (byte)0xFB, stream.ByteAt( (int)stream.Length - 2 ) );
       Assert.AreEqual( (byte)0xFF, stream.ByteAt( (int)stream.Length - 1 ) );
     }
 

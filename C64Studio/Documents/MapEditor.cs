@@ -124,6 +124,23 @@ namespace RetroDevStudio.Documents
       listLayers.SelectedIndexChanged -= listLayers_SelectedIndexChanged;
       try
       {
+        // ===== BUG NOTE (the "every map opens already modified" bug) =====
+        // Force the window handle NOW, inside the detach window. Items added
+        // to a handle-less ListView are only buffered and get REPLAYED when
+        // the handle is created — at first Show, long after this method
+        // reattached the handlers and LoadDocument cleared Modified. Worse,
+        // the replay applies each row's check state in TWO transitions
+        // (none -> unchecked -> checked), so ItemChecked fires with
+        // Checked == false first — which defeats value-equality guards and
+        // momentarily flips the layer's Visible in the model. With the
+        // handle in place the adds happen natively right here, while the
+        // handlers above are safely detached. Applies to ANY CheckBoxes
+        // ListView populated before its first Show (see also
+        // DlgDisplayFilters.OnListItemChecked).
+        if ( !listLayers.IsHandleCreated )
+        {
+          _ = listLayers.Handle;
+        }
         listLayers.BeginUpdate();
         listLayers.Items.Clear();
         for ( int i = 0; i < m_CurrentMap.Layers.Count; ++i )
@@ -173,6 +190,16 @@ namespace RetroDevStudio.Documents
       int idx = e.Item.Index;
       if ( ( idx < 0 ) || ( idx >= m_CurrentMap.Layers.Count ) ) return;
       // ItemChecked fires AFTER the toggle, so e.Item.Checked is the new state.
+      // No-op when the model already matches: ListView BUFFERS items added
+      // before its window handle exists and REPLAYS them (re-raising
+      // ItemChecked per checked row) when the handle is created — which
+      // happens at document-Show time, after RefreshLayerList's detached
+      // rebuild and after LoadDocument cleared Modified. Without this guard
+      // every map project went modified the moment it was opened.
+      if ( m_CurrentMap.Layers[idx].Visible == e.Item.Checked )
+      {
+        return;
+      }
       m_CurrentMap.Layers[idx].Visible = e.Item.Checked;
       SetModified();
       RedrawMap();
@@ -11187,7 +11214,6 @@ namespace RetroDevStudio.Documents
       comboMapStringJustify3.SelectedIndexChanged       += comboMapStringJustify_SelectedIndexChanged;
       comboMapStringJustify4.SelectedIndexChanged       += comboMapStringJustify_SelectedIndexChanged;
       checkMapStringClearAtEnd.CheckedChanged           += checkMapStringClearAtEnd_CheckedChanged;
-      checkMapStringShowNextPageMarker.CheckedChanged   += checkMapStringShowNextPageMarker_CheckedChanged;
       editMapStringID.ValueChanged                      += editMapStringID_ValueChanged;
     }
 
@@ -11217,7 +11243,6 @@ namespace RetroDevStudio.Documents
       comboMapStringJustify3.SelectedIndexChanged       -= comboMapStringJustify_SelectedIndexChanged;
       comboMapStringJustify4.SelectedIndexChanged       -= comboMapStringJustify_SelectedIndexChanged;
       checkMapStringClearAtEnd.CheckedChanged           -= checkMapStringClearAtEnd_CheckedChanged;
-      checkMapStringShowNextPageMarker.CheckedChanged   -= checkMapStringShowNextPageMarker_CheckedChanged;
       editMapStringID.ValueChanged                      -= editMapStringID_ValueChanged;
     }
 
@@ -11334,7 +11359,6 @@ namespace RetroDevStudio.Documents
           comboMapStringJustify3.SelectedIndex = 0;
           comboMapStringJustify4.SelectedIndex = 0;
           checkMapStringClearAtEnd.Checked = false;
-          checkMapStringShowNextPageMarker.Checked = false;
           editMapStringID.Value = 0;
           return;
         }
@@ -11360,11 +11384,14 @@ namespace RetroDevStudio.Documents
         {
           lineBoxes[i].Text = ms.Lines[i].Text ?? "";
 
-          // Terminator combo: 0 = None, 1 = END_OF_LINE, 2 = PRESS_FIRE.
+          // Terminator combo: 0 = None, 1 = END_OF_LINE, 2 = PRESS_FIRE,
+          // 3 = SHOW_NEXT_PAGE ($FA).
           if ( ms.Lines[i].Terminator == Formats.MapProject.MAP_STRING_END_OF_LINE )
             termCombos[i].SelectedIndex = 1;
           else if ( ms.Lines[i].Terminator == Formats.MapProject.MAP_STRING_PRESS_FIRE )
             termCombos[i].SelectedIndex = 2;
+          else if ( ms.Lines[i].Terminator == Formats.MapProject.MAP_STRING_SHOW_NEXT_PAGE_MARKER )
+            termCombos[i].SelectedIndex = 3;
           else
             termCombos[i].SelectedIndex = 0;   // None / unknown
 
@@ -11384,7 +11411,6 @@ namespace RetroDevStudio.Documents
           justifyCombos[i].SelectedIndex = j;
         }
         checkMapStringClearAtEnd.Checked = ms.ClearTextAreaAtEnd;
-        checkMapStringShowNextPageMarker.Checked = ms.ShowNextPageMarker;
         editMapStringID.Value = ms.StringID;
       }
       finally
@@ -11522,6 +11548,7 @@ namespace RetroDevStudio.Documents
       {
         case 1:  ms.Lines[lineIdx].Terminator = Formats.MapProject.MAP_STRING_END_OF_LINE; break;
         case 2:  ms.Lines[lineIdx].Terminator = Formats.MapProject.MAP_STRING_PRESS_FIRE;  break;
+        case 3:  ms.Lines[lineIdx].Terminator = Formats.MapProject.MAP_STRING_SHOW_NEXT_PAGE_MARKER; break;
         default: ms.Lines[lineIdx].Terminator = Formats.MapProject.MAP_STRING_NO_TERMINATOR; break;
       }
       SetModified();
@@ -11565,19 +11592,6 @@ namespace RetroDevStudio.Documents
       SetModified();
       // CLEAR_TEXT_AREA is a runtime tail byte; no visual impact in the
       // static preview.
-    }
-
-
-
-    private void checkMapStringShowNextPageMarker_CheckedChanged( object sender, EventArgs e )
-    {
-      var ms = GetSelectedMapString();
-      if ( ms == null ) return;
-      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
-      ms.ShowNextPageMarker = checkMapStringShowNextPageMarker.Checked;
-      SetModified();
-      // SHOW_NEXT_PAGE_MARKER is a runtime tail byte; no visual impact in
-      // the static preview.
     }
 
 
@@ -11828,7 +11842,6 @@ namespace RetroDevStudio.Documents
       {
         Label              = MakeUniqueMapStringLabel( ( src.Label ?? "" ) + "_COPY" ),
         ClearTextAreaAtEnd = src.ClearTextAreaAtEnd,
-        ShowNextPageMarker = src.ShowNextPageMarker,
         StringID           = src.StringID
       };
       for ( int i = 0; i < 5; ++i )

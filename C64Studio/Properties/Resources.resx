@@ -130,6 +130,9 @@
   <data name="binary" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\binary.ico;System.Drawing.Icon, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="filemanager" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\filemanager.ico;System.Drawing.Icon, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="tool_freehand_line" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\tool_freehand_line.ico;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>

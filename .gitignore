@@ -365,3 +365,9 @@ build_final.log
 .gitignore
 /build.log
 /.claude
+/Tools/SparkleGen/bin/Debug/net8.0-windows7.0/*.dll
+/Tools/SparkleGen/bin/Debug/net8.0-windows7.0/*.exe
+*.dll
+*.cache
+*.pdb
+*.exe

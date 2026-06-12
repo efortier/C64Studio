@@ -88,7 +88,6 @@
             this.comboMapStringTerminator4 = new System.Windows.Forms.ComboBox();
             this.comboMapStringJustify4 = new System.Windows.Forms.ComboBox();
             this.checkMapStringClearAtEnd = new System.Windows.Forms.CheckBox();
-            this.checkMapStringShowNextPageMarker = new System.Windows.Forms.CheckBox();
             this.labelMapStringTextAreaWidth = new System.Windows.Forms.Label();
             this.editMapStringTextAreaWidth = new System.Windows.Forms.NumericUpDown();
             this.btnAddMapString = new DecentForms.Button();
@@ -700,7 +699,6 @@
             this.tabMapStrings.Controls.Add(this.comboMapStringTerminator4);
             this.tabMapStrings.Controls.Add(this.comboMapStringJustify4);
             this.tabMapStrings.Controls.Add(this.checkMapStringClearAtEnd);
-            this.tabMapStrings.Controls.Add(this.checkMapStringShowNextPageMarker);
             this.tabMapStrings.Controls.Add(this.labelMapStringTextAreaWidth);
             this.tabMapStrings.Controls.Add(this.editMapStringTextAreaWidth);
             this.tabMapStrings.Controls.Add(this.btnAddMapString);
@@ -820,7 +818,8 @@
             this.comboMapStringTerminator0.Items.AddRange(new object[] {
             "None",
             "END_OF_LINE",
-            "PRESS_FIRE"});
+            "PRESS_FIRE",
+            "SHOW_NEXT_PAGE"});
             this.comboMapStringTerminator0.Location = new System.Drawing.Point(572, 38);
             this.comboMapStringTerminator0.Name = "comboMapStringTerminator0";
             this.comboMapStringTerminator0.Size = new System.Drawing.Size(110, 21);
@@ -877,7 +876,8 @@
             this.comboMapStringTerminator1.Items.AddRange(new object[] {
             "None",
             "END_OF_LINE",
-            "PRESS_FIRE"});
+            "PRESS_FIRE",
+            "SHOW_NEXT_PAGE"});
             this.comboMapStringTerminator1.Location = new System.Drawing.Point(572, 66);
             this.comboMapStringTerminator1.Name = "comboMapStringTerminator1";
             this.comboMapStringTerminator1.Size = new System.Drawing.Size(110, 21);
@@ -932,7 +932,8 @@
             this.comboMapStringTerminator2.Items.AddRange(new object[] {
             "None",
             "END_OF_LINE",
-            "PRESS_FIRE"});
+            "PRESS_FIRE",
+            "SHOW_NEXT_PAGE"});
             this.comboMapStringTerminator2.Location = new System.Drawing.Point(572, 94);
             this.comboMapStringTerminator2.Name = "comboMapStringTerminator2";
             this.comboMapStringTerminator2.Size = new System.Drawing.Size(110, 21);
@@ -987,7 +988,8 @@
             this.comboMapStringTerminator3.Items.AddRange(new object[] {
             "None",
             "END_OF_LINE",
-            "PRESS_FIRE"});
+            "PRESS_FIRE",
+            "SHOW_NEXT_PAGE"});
             this.comboMapStringTerminator3.Location = new System.Drawing.Point(572, 122);
             this.comboMapStringTerminator3.Name = "comboMapStringTerminator3";
             this.comboMapStringTerminator3.Size = new System.Drawing.Size(110, 21);
@@ -1042,7 +1044,8 @@
             this.comboMapStringTerminator4.Items.AddRange(new object[] {
             "None",
             "END_OF_LINE",
-            "PRESS_FIRE"});
+            "PRESS_FIRE",
+            "SHOW_NEXT_PAGE"});
             this.comboMapStringTerminator4.Location = new System.Drawing.Point(572, 150);
             this.comboMapStringTerminator4.Name = "comboMapStringTerminator4";
             this.comboMapStringTerminator4.Size = new System.Drawing.Size(110, 21);
@@ -1071,18 +1074,6 @@
             this.checkMapStringClearAtEnd.TabIndex = 15;
             this.checkMapStringClearAtEnd.Text = "Append CLEAR_TEXT_AREA before END_OF_TEXT";
             this.checkMapStringClearAtEnd.UseVisualStyleBackColor = true;
-            //
-            // checkMapStringShowNextPageMarker
-            //
-            this.checkMapStringShowNextPageMarker.AutoSize = true;
-            this.checkMapStringShowNextPageMarker.Location = new System.Drawing.Point(533, 180);
-            this.checkMapStringShowNextPageMarker.Name = "checkMapStringShowNextPageMarker";
-            this.checkMapStringShowNextPageMarker.Size = new System.Drawing.Size(140, 17);
-            this.checkMapStringShowNextPageMarker.TabIndex = 16;
-            this.checkMapStringShowNextPageMarker.Text = "Show next page marker";
-            this.toolTip1.SetToolTip(this.checkMapStringShowNextPageMarker, "When checked, a SHOW_NEXT_PAGE_MARKER ($FA) byte is exported after CLEAR_TEXT_AR" +
-        "EA and before END_OF_TEXT.");
-            this.checkMapStringShowNextPageMarker.UseVisualStyleBackColor = true;
             //
             // labelMapStringTextAreaWidth
             // 
@@ -4604,7 +4595,6 @@
         private System.Windows.Forms.ComboBox comboMapStringTerminator3;
         private System.Windows.Forms.ComboBox comboMapStringTerminator4;
         private System.Windows.Forms.CheckBox checkMapStringClearAtEnd;
-        private System.Windows.Forms.CheckBox checkMapStringShowNextPageMarker;
         private System.Windows.Forms.ComboBox comboMapStringLineControl0;
         private System.Windows.Forms.ComboBox comboMapStringLineControl1;
         private System.Windows.Forms.ComboBox comboMapStringLineControl2;

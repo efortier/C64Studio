@@ -893,10 +893,11 @@ namespace RetroDevStudio.Controls
               }
               if ( b == 0xFA )
               {
-                // Tail marker can also land here when the last line has no
-                // terminator (no $FC/$FD before the stream tail).
+                // Line terminator like $FD/$FC — the runtime's "more text
+                // follows" marker.
                 flush();
                 sb.AppendLine( "  $" + ( (ushort)( streamAddr + p ) ).ToString( "X4" ) + ": $FA SHOW_NEXT_PAGE_MARKER" );
+                atLineStart = true;
                 ++p;
                 continue;
               }

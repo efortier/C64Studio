@@ -471,6 +471,13 @@ namespace RetroDevStudio.Dialogs
       {
         return;
       }
+      // No-op when the model already matches: ListView replays buffered
+      // checked items (re-raising ItemChecked) when its handle is created
+      // at first Show — same trap as the map editor's layer list.
+      if ( m_Pipeline.Filters[idx].Enabled == item.Checked )
+      {
+        return;
+      }
       m_Pipeline.Filters[idx].Enabled = item.Checked;
       NotifyChanged();
     }
