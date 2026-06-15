@@ -205,6 +205,12 @@
             this.comboBlankColor = new Krypton.Toolkit.KryptonComboBox();
             this.labelBlankColor = new System.Windows.Forms.Label();
             this.collapsiblePanel2 = new RetroDevStudio.Controls.CollapsiblePanel();
+            this.collapsiblePanelFogOfWar = new RetroDevStudio.Controls.CollapsiblePanel();
+            this.checkFOWEnabled = new Krypton.Toolkit.KryptonCheckBox();
+            this.checkFOWClearOnClick = new Krypton.Toolkit.KryptonCheckBox();
+            this.btnFOWClear = new Krypton.Toolkit.KryptonButton();
+            this.labelFOWRadius = new System.Windows.Forms.Label();
+            this.trackFOWRadius = new Krypton.Toolkit.KryptonTrackBar();
             this.labelGridOpacity = new System.Windows.Forms.Label();
             this.gridOpacitySlider = new Krypton.Toolkit.KryptonTrackBar();
             this.dimSlider = new Krypton.Toolkit.KryptonTrackBar();
@@ -385,6 +391,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.comboBlankTile)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.comboBlankColor)).BeginInit();
             this.collapsiblePanel2.SuspendLayout();
+            this.collapsiblePanelFogOfWar.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.comboRightClickBehavior)).BeginInit();
             this.flowLayoutPanel2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.comboEntityTypes)).BeginInit();
@@ -2029,6 +2036,7 @@
             this.flowLayoutPanel3.Controls.Add(this.collapsiblePanel3);
             this.flowLayoutPanel3.Controls.Add(this.collapsiblePanelMapTab);
             this.flowLayoutPanel3.Controls.Add(this.collapsiblePanel2);
+            this.flowLayoutPanel3.Controls.Add(this.collapsiblePanelFogOfWar);
             this.flowLayoutPanel3.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
             this.flowLayoutPanel3.Location = new System.Drawing.Point(1298, 10);
             this.flowLayoutPanel3.Name = "flowLayoutPanel3";
@@ -2539,9 +2547,79 @@
             this.collapsiblePanel2.Size = new System.Drawing.Size(350, 56);
             this.collapsiblePanel2.TabIndex = 42;
             this.collapsiblePanel2.Title = "Map tools";
-            // 
+            //
+            // collapsiblePanelFogOfWar
+            //
+            this.collapsiblePanelFogOfWar.Collapsed = true;
+            this.collapsiblePanelFogOfWar.Controls.Add(this.checkFOWEnabled);
+            this.collapsiblePanelFogOfWar.Controls.Add(this.checkFOWClearOnClick);
+            this.collapsiblePanelFogOfWar.Controls.Add(this.btnFOWClear);
+            this.collapsiblePanelFogOfWar.Controls.Add(this.labelFOWRadius);
+            this.collapsiblePanelFogOfWar.Controls.Add(this.trackFOWRadius);
+            this.collapsiblePanelFogOfWar.ExpandedHeight = 132;
+            this.collapsiblePanelFogOfWar.Location = new System.Drawing.Point(3, 245);
+            this.collapsiblePanelFogOfWar.MinimumSize = new System.Drawing.Size(40, 22);
+            this.collapsiblePanelFogOfWar.Name = "collapsiblePanelFogOfWar";
+            this.collapsiblePanelFogOfWar.Padding = new System.Windows.Forms.Padding(0, 22, 0, 0);
+            this.collapsiblePanelFogOfWar.Size = new System.Drawing.Size(350, 22);
+            this.collapsiblePanelFogOfWar.TabIndex = 43;
+            this.collapsiblePanelFogOfWar.Title = "Fog of war";
+            //
+            // checkFOWEnabled
+            //
+            this.checkFOWEnabled.Location = new System.Drawing.Point(8, 28);
+            this.checkFOWEnabled.Name = "checkFOWEnabled";
+            this.checkFOWEnabled.Size = new System.Drawing.Size(70, 22);
+            this.checkFOWEnabled.TabIndex = 0;
+            this.toolTip1.SetToolTip(this.checkFOWEnabled, "Editor-only preview: hide the whole map and reveal areas by right-clicking. Not " +
+        "saved, not exported.");
+            this.checkFOWEnabled.Values.Text = "Enabled";
+            this.checkFOWEnabled.CheckedChanged += new System.EventHandler(this.checkFOWEnabled_CheckedChanged);
+            //
+            // checkFOWClearOnClick
+            //
+            this.checkFOWClearOnClick.Location = new System.Drawing.Point(8, 52);
+            this.checkFOWClearOnClick.Name = "checkFOWClearOnClick";
+            this.checkFOWClearOnClick.Size = new System.Drawing.Size(98, 22);
+            this.checkFOWClearOnClick.TabIndex = 1;
+            this.toolTip1.SetToolTip(this.checkFOWClearOnClick, "Reset the fog to fully opaque before each reveal, so only the last clicked area " +
+        "is visible.");
+            this.checkFOWClearOnClick.Values.Text = "Clear on click";
+            //
+            // btnFOWClear
+            //
+            this.btnFOWClear.Location = new System.Drawing.Point(240, 28);
+            this.btnFOWClear.Name = "btnFOWClear";
+            this.btnFOWClear.Size = new System.Drawing.Size(100, 23);
+            this.btnFOWClear.TabIndex = 2;
+            this.toolTip1.SetToolTip(this.btnFOWClear, "Set every cell back to opaque (hide the whole map again).");
+            this.btnFOWClear.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            this.btnFOWClear.Values.Text = "Clear";
+            this.btnFOWClear.Click += new System.EventHandler(this.btnFOWClear_Click);
+            //
+            // labelFOWRadius
+            //
+            this.labelFOWRadius.AutoSize = true;
+            this.labelFOWRadius.Location = new System.Drawing.Point(8, 80);
+            this.labelFOWRadius.Name = "labelFOWRadius";
+            this.labelFOWRadius.Size = new System.Drawing.Size(53, 13);
+            this.labelFOWRadius.TabIndex = 3;
+            this.labelFOWRadius.Text = "Radius: 4";
+            //
+            // trackFOWRadius
+            //
+            this.trackFOWRadius.Location = new System.Drawing.Point(8, 98);
+            this.trackFOWRadius.Maximum = 16;
+            this.trackFOWRadius.Minimum = 1;
+            this.trackFOWRadius.Name = "trackFOWRadius";
+            this.trackFOWRadius.Size = new System.Drawing.Size(310, 27);
+            this.trackFOWRadius.TabIndex = 4;
+            this.toolTip1.SetToolTip(this.trackFOWRadius, "Radius (in map cells) of the circle revealed around a right-click.");
+            this.trackFOWRadius.Value = 4;
+            this.trackFOWRadius.ValueChanged += new System.EventHandler(this.trackFOWRadius_ValueChanged);
+            //
             // labelGridOpacity
-            // 
+            //
             this.labelGridOpacity.AutoSize = true;
             this.labelGridOpacity.Location = new System.Drawing.Point(5, 216);
             this.labelGridOpacity.Name = "labelGridOpacity";
@@ -4327,6 +4405,8 @@
             ((System.ComponentModel.ISupportInitialize)(this.comboBlankTile)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.comboBlankColor)).EndInit();
             this.collapsiblePanel2.ResumeLayout(false);
+            this.collapsiblePanelFogOfWar.ResumeLayout(false);
+            this.collapsiblePanelFogOfWar.PerformLayout();
             this.collapsiblePanel2.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.comboRightClickBehavior)).EndInit();
             this.flowLayoutPanel2.ResumeLayout(false);
@@ -4667,6 +4747,12 @@
         private System.Windows.Forms.GroupBox groupBox4;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel3;
         private Controls.CollapsiblePanel collapsiblePanel2;
+        private Controls.CollapsiblePanel collapsiblePanelFogOfWar;
+        private Krypton.Toolkit.KryptonCheckBox checkFOWEnabled;
+        private Krypton.Toolkit.KryptonCheckBox checkFOWClearOnClick;
+        private Krypton.Toolkit.KryptonButton btnFOWClear;
+        private System.Windows.Forms.Label labelFOWRadius;
+        private Krypton.Toolkit.KryptonTrackBar trackFOWRadius;
         private Controls.CollapsiblePanel collapsiblePanel3;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel4;
         private Krypton.Toolkit.KryptonLabel kryptonLabel1;

@@ -143,6 +143,8 @@
       this.systemShutdownToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
       this.dumpBreakpointsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
       this.toolsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+      this.optionsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+      this.keepStartPageOpenToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
       this.disassembleToolsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
       this.windowToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
       this.breakpointsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -265,6 +267,7 @@
             this.buildToolStripMenuItem,
             this.debugToolStripMenuItem,
             this.toolsToolStripMenuItem,
+            this.optionsToolStripMenuItem,
             this.windowToolStripMenuItem,
             this.aboutToolStripMenuItem});
       this.mainMenu.Location = new System.Drawing.Point(0, 0);
@@ -1155,9 +1158,27 @@
       this.toolsToolStripMenuItem.Name = "toolsToolStripMenuItem";
       this.toolsToolStripMenuItem.Size = new System.Drawing.Size(46, 20);
       this.toolsToolStripMenuItem.Text = "&Tools";
-      // 
+      //
+      // optionsToolStripMenuItem
+      //
+      this.optionsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.keepStartPageOpenToolStripMenuItem});
+      this.optionsToolStripMenuItem.Name = "optionsToolStripMenuItem";
+      this.optionsToolStripMenuItem.Size = new System.Drawing.Size(61, 20);
+      this.optionsToolStripMenuItem.Text = "&Options";
+      //
+      // keepStartPageOpenToolStripMenuItem
+      //
+      this.keepStartPageOpenToolStripMenuItem.CheckOnClick = true;
+      this.keepStartPageOpenToolStripMenuItem.Checked = true;
+      this.keepStartPageOpenToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
+      this.keepStartPageOpenToolStripMenuItem.Name = "keepStartPageOpenToolStripMenuItem";
+      this.keepStartPageOpenToolStripMenuItem.Size = new System.Drawing.Size(280, 22);
+      this.keepStartPageOpenToolStripMenuItem.Text = "Keep Start Page open after opening a file";
+      this.keepStartPageOpenToolStripMenuItem.CheckedChanged += new System.EventHandler(this.keepStartPageOpenToolStripMenuItem_CheckedChanged);
+      //
       // disassembleToolsToolStripMenuItem
-      // 
+      //
       this.disassembleToolsToolStripMenuItem.Name = "disassembleToolsToolStripMenuItem";
       this.disassembleToolsToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
       this.disassembleToolsToolStripMenuItem.Text = "&Disassemble File...";
@@ -2094,6 +2115,8 @@
     private System.Windows.Forms.ToolStripMenuItem helpToolStripMenuItem1;
     private System.Windows.Forms.ToolStripSeparator toolStripSeparator5;
     private System.Windows.Forms.ToolStripMenuItem toolsToolStripMenuItem;
+    private System.Windows.Forms.ToolStripMenuItem optionsToolStripMenuItem;
+    private System.Windows.Forms.ToolStripMenuItem keepStartPageOpenToolStripMenuItem;
     private System.Windows.Forms.ToolStripMenuItem disassembleToolsToolStripMenuItem;
     private System.Windows.Forms.ToolStripMenuItem fileNewCharacterScreenEditorToolStripMenuItem;
     private System.Windows.Forms.ToolStripMenuItem petSCIITableToolStripMenuItem;

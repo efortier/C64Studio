@@ -27,6 +27,10 @@ namespace RetroDevStudio.Settings
     // order; SortedEntries() lifts pinned entries to the top for display.
     private List<Entry>     m_Entries = null;   // null = not loaded yet
 
+    // Editor option: keep the Start Page open after launching a file from it
+    // (default true). Persisted in the [Settings] section of the same ini.
+    private bool            m_KeepStartPageOpen = true;
+
 
 
     public string IniFilename
@@ -39,6 +43,32 @@ namespace RetroDevStudio.Settings
 
 
 
+    /// <summary>
+    /// When true (default), opening a file from the Start Page leaves the page
+    /// open; when false, the page closes after launching the file. Persisted
+    /// in the [Settings] section of startpage.ini.
+    /// </summary>
+    public bool KeepStartPageOpen
+    {
+      get
+      {
+        EnsureLoaded();
+        return m_KeepStartPageOpen;
+      }
+      set
+      {
+        EnsureLoaded();
+        if ( m_KeepStartPageOpen == value )
+        {
+          return;
+        }
+        m_KeepStartPageOpen = value;
+        Save();
+      }
+    }
+
+
+
     private void EnsureLoaded()
     {
       if ( m_Entries != null )
@@ -46,15 +76,16 @@ namespace RetroDevStudio.Settings
         return;
       }
       m_Entries = new List<Entry>();
+      m_KeepStartPageOpen = true;   // default when the file omits the setting
 
-      // Missing file (first run) yields "" — empty list.
+      // Missing file (first run) yields "" — empty list, defaults kept.
       string content = GR.IO.File.ReadAllText( IniFilename );
       if ( string.IsNullOrEmpty( content ) )
       {
         return;
       }
 
-      bool inFilesSection = false;
+      string section = "";
       foreach ( var rawLine in content.Split( '\n' ) )
       {
         string line = rawLine.Trim();
@@ -65,10 +96,25 @@ namespace RetroDevStudio.Settings
         }
         if ( line.StartsWith( "[" ) )
         {
-          inFilesSection = ( string.Compare( line, "[Files]", true ) == 0 );
+          section = line;
           continue;
         }
-        if ( !inFilesSection )
+        if ( string.Compare( section, "[Settings]", true ) == 0 )
+        {
+          // key=value settings (currently just KeepOpen=0|1).
+          int eq = line.IndexOf( '=' );
+          if ( eq > 0 )
+          {
+            string key = line.Substring( 0, eq ).Trim();
+            string val = line.Substring( eq + 1 ).Trim();
+            if ( string.Compare( key, "KeepOpen", true ) == 0 )
+            {
+              m_KeepStartPageOpen = ( val != "0" );
+            }
+          }
+          continue;
+        }
+        if ( string.Compare( section, "[Files]", true ) != 0 )
         {
           continue;
         }
@@ -96,6 +142,9 @@ namespace RetroDevStudio.Settings
     {
       var sb = new System.Text.StringBuilder();
       sb.AppendLine( "; C64Studio Start Page settings" );
+      sb.AppendLine( "[Settings]" );
+      sb.AppendLine( "KeepOpen=" + ( m_KeepStartPageOpen ? "1" : "0" ) );
+      sb.AppendLine();
       sb.AppendLine( "[Files]" );
       foreach ( var entry in m_Entries )
       {

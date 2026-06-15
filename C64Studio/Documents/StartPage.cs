@@ -516,7 +516,12 @@ namespace RetroDevStudio.Documents
         Core.MainForm.UseWaitCursor = false;
         Cursor.Current = Cursors.Default;
       }
-      Close();
+      // Options → "Keep Start Page open after opening a file" (default on)
+      // leaves the page as a background tab; otherwise close it.
+      if ( !m_RecentFiles.KeepStartPageOpen )
+      {
+        Close();
+      }
     }
 
 

@@ -206,6 +206,99 @@ namespace RetroDevStudio.Documents
       Redraw();
     }
 
+    // ====== Fog of war (editor-only preview) ======
+    // A per-cell mask over the CURRENT map: true = opaque (hidden). Pure view
+    // state — never saved, never exported, never marks the document modified.
+    // The mask is (re)built all-opaque on enable, map switch, map resize and
+    // Clear; right-clicking the map reveals a circle (radius from the
+    // trackbar) around the clicked cell, replacing the normal right-click
+    // actions while the preview is enabled.
+    private bool[,]                     m_FogOfWar = null;
+
+    private bool FogOfWarActive
+    {
+      get
+      {
+        return ( checkFOWEnabled != null )
+            && ( checkFOWEnabled.Checked )
+            && ( m_FogOfWar != null )
+            && ( m_CurrentMap != null );
+      }
+    }
+
+    private void ResetFogOfWar()
+    {
+      if ( m_CurrentMap == null )
+      {
+        m_FogOfWar = null;
+        return;
+      }
+      m_FogOfWar = new bool[m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height];
+      for ( int y = 0; y < m_CurrentMap.Tiles.Height; ++y )
+      {
+        for ( int x = 0; x < m_CurrentMap.Tiles.Width; ++x )
+        {
+          m_FogOfWar[x, y] = true;
+        }
+      }
+    }
+
+    private void RevealFogOfWar( int CenterX, int CenterY )
+    {
+      if ( m_FogOfWar == null )
+      {
+        return;
+      }
+      if ( checkFOWClearOnClick.Checked )
+      {
+        ResetFogOfWar();
+      }
+      int radius    = trackFOWRadius.Value;
+      int fogWidth  = m_FogOfWar.GetLength( 0 );
+      int fogHeight = m_FogOfWar.GetLength( 1 );
+      for ( int dy = -radius; dy <= radius; ++dy )
+      {
+        for ( int dx = -radius; dx <= radius; ++dx )
+        {
+          // Euclidean disc in map cells.
+          if ( dx * dx + dy * dy > radius * radius )
+          {
+            continue;
+          }
+          int cellX = CenterX + dx;
+          int cellY = CenterY + dy;
+          if ( ( cellX >= 0 ) && ( cellY >= 0 )
+          &&   ( cellX < fogWidth ) && ( cellY < fogHeight ) )
+          {
+            m_FogOfWar[cellX, cellY] = false;
+          }
+        }
+      }
+    }
+
+    private void checkFOWEnabled_CheckedChanged( object sender, EventArgs e )
+    {
+      // View-only feature — deliberately no SetModified in any FOW handler.
+      if ( checkFOWEnabled.Checked )
+      {
+        ResetFogOfWar();
+      }
+      RedrawMap();
+      Redraw();
+    }
+
+    private void btnFOWClear_Click( object sender, EventArgs e )
+    {
+      ResetFogOfWar();
+      RedrawMap();
+      Redraw();
+    }
+
+    private void trackFOWRadius_ValueChanged( object sender, EventArgs e )
+    {
+      labelFOWRadius.Text = "Radius: " + trackFOWRadius.Value;
+    }
+
     private Formats.MapProject.Tile     m_CurrentEditedTile = null;
     private Formats.MapProject.TileChar m_CurrentTileChar = null;
 
@@ -3694,6 +3787,18 @@ namespace RetroDevStudio.Documents
 
       if ( ( Buttons & MouseButtons.Right ) != 0 )
       {
+        if ( FogOfWarActive )
+        {
+          // Fog-of-war preview repurposes right-click entirely: reveal a
+          // circle around the clicked cell. Fires per MouseMove too, so a
+          // right-drag reveals continuously (a moving spotlight with
+          // "Clear on click" enabled). Normal right-click actions resume
+          // when the preview is disabled.
+          RevealFogOfWar( trueX + offsetX, trueY + offsetY );
+          RedrawMap();
+          Redraw();
+          return;
+        }
         if ( m_ToolMode == ToolMode.ENTITY )
         {
            int clickX = trueX + offsetX;
@@ -4059,6 +4164,13 @@ namespace RetroDevStudio.Documents
       int y1 = Math.Max( 0, offsetY - ( renderOffsetY / cellPixHeight ) - 1 );
       int y2 = offsetY + ( pictureEditor.DisplayPage.Height / cellPixHeight ) + 1;
 
+      // Editor-only fog of war: when active, only characters whose map cell is
+      // revealed (non-opaque) are drawn — across every tile layer and the
+      // entity overlay below. Hidden cells keep showing the map backdrop fill.
+      bool fogActive = FogOfWarActive;
+      int  fogWidth  = fogActive ? m_FogOfWar.GetLength( 0 ) : 0;
+      int  fogHeight = fogActive ? m_FogOfWar.GetLength( 1 ) : 0;
+
       // Composite the editor tile layers bottom (Background = Layers[0]) to top.
       // Each visible layer draws with its own tiles + per-char colour overrides;
       // an upper layer's transparent cells (-1) show the layer below. Coverage
@@ -4121,6 +4233,20 @@ namespace RetroDevStudio.Documents
               {
                 int charMapX = tileCharBaseX + i;
                 int charMapY = tileCharBaseY + j;
+                if ( fogActive )
+                {
+                  // Per-CHARACTER fog gate so multi-cell tiles clip cleanly
+                  // at the edge of a revealed circle. Characters past the
+                  // mask bounds (tiles overhanging the map edge) stay hidden.
+                  int fogCellX = charMapX / spacingX;
+                  int fogCellY = charMapY / spacingY;
+                  if ( ( fogCellX >= fogWidth )
+                  ||   ( fogCellY >= fogHeight )
+                  ||   ( m_FogOfWar[fogCellX, fogCellY] ) )
+                  {
+                    continue;
+                  }
+                }
                 int charOverride = -1;
                 if ( ( charMapX < renderLayer.TileColorOverrides.Width )
                 &&   ( charMapY < renderLayer.TileColorOverrides.Height ) )
@@ -4217,6 +4343,19 @@ namespace RetroDevStudio.Documents
           {
             for ( int i = 0; i < tile.Chars.Width; ++i )
             {
+              if ( fogActive )
+              {
+                // Entities on hidden cells stay hidden, same per-character
+                // gate as the tile layers.
+                int fogCellX = entity.X + i / spacingX;
+                int fogCellY = entity.Y + j / spacingY;
+                if ( ( fogCellX < 0 ) || ( fogCellY < 0 )
+                ||   ( fogCellX >= fogWidth ) || ( fogCellY >= fogHeight )
+                ||   ( m_FogOfWar[fogCellX, fogCellY] ) )
+                {
+                  continue;
+                }
+              }
               alternativeSettings.CustomColor = tile.Chars[i, j].Color;
               Displayer.CharacterDisplayer.DisplayChar( m_MapProject.Charset,
                                                         tile.Chars[i, j].Character,
@@ -6734,6 +6873,12 @@ namespace RetroDevStudio.Documents
       btnMoveMapUp.Enabled    = ( ( comboMaps.Items.Count >= 2 ) && ( comboMaps.SelectedIndex > 0 ) );
 
       m_SelectedTiles = new bool[m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height];
+      // The fog-of-war mask is sized to the map — re-init (all opaque) on
+      // map switch while the preview is enabled.
+      if ( checkFOWEnabled.Checked )
+      {
+        ResetFogOfWar();
+      }
 
       editMapName.Text = m_CurrentMap.Name;
       editTileSpacingW.Text = m_CurrentMap.TileSpacingX.ToString();
@@ -7399,6 +7544,11 @@ namespace RetroDevStudio.Documents
       m_CurrentMap.Name = editMapName.Text;
 
       m_SelectedTiles = new bool[w, h];
+      // Map size changed — rebuild the fog-of-war mask to match.
+      if ( checkFOWEnabled.Checked )
+      {
+        ResetFogOfWar();
+      }
 
       // update name in combo
       int index = 0;

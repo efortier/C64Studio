@@ -753,6 +753,10 @@ namespace RetroDevStudio
       panelMain.ActiveDocumentChanged += new EventHandler( panelMain_ActiveDocumentChanged );
       UpdateMenuMRU();
       SeedStartPageFromMRU();
+      // Reflect the persisted "keep start page open" option in the Options
+      // menu (setter is no-op when the value already matches, so syncing the
+      // checkmark here doesn't trigger a redundant ini write).
+      keepStartPageOpenToolStripMenuItem.Checked = m_StartPageFiles.KeepStartPageOpen;
       UpdateUndoSettings();
 
       // Krypton palette/theme combo on the main toolbar. Populated and
@@ -8400,6 +8404,14 @@ namespace RetroDevStudio
     private void startPageToolStripMenuItem_Click( object sender, EventArgs e )
     {
       ShowStartPage();
+    }
+
+
+
+    private void keepStartPageOpenToolStripMenuItem_CheckedChanged( object sender, EventArgs e )
+    {
+      // Persisted in startpage.ini; read live by StartPage.OpenEntry.
+      m_StartPageFiles.KeepStartPageOpen = keepStartPageOpenToolStripMenuItem.Checked;
     }
 
 
