@@ -32,10 +32,11 @@ namespace RetroDevStudio.Controls
       this.checkExportMarkers = new System.Windows.Forms.CheckBox();
       this.checkExportColors = new System.Windows.Forms.CheckBox();
       this.checkExportPassable = new System.Windows.Forms.CheckBox();
-      this.checkAbsoluteBaseAddress = new System.Windows.Forms.CheckBox();
-      this.editAbsoluteBaseAddress = new System.Windows.Forms.TextBox();
       this.checkPrefixLoadAddress = new System.Windows.Forms.CheckBox();
       this.editPrefixLoadAddress = new System.Windows.Forms.TextBox();
+      this.checkMaxExportSize = new System.Windows.Forms.CheckBox();
+      this.editMaxExportSize = new System.Windows.Forms.TextBox();
+      this.labelMaxExportSize = new System.Windows.Forms.Label();
       this.checkSaveOnExport = new System.Windows.Forms.CheckBox();
       this.labelExportDirectory = new System.Windows.Forms.Label();
       this.editExportDirectory = new System.Windows.Forms.TextBox();
@@ -123,30 +124,10 @@ namespace RetroDevStudio.Controls
       this.checkExportPassable.Text = "Export Passable Bits";
       this.checkExportPassable.UseVisualStyleBackColor = true;
       //
-      // checkAbsoluteBaseAddress
-      //
-      this.checkAbsoluteBaseAddress.AutoSize = true;
-      this.checkAbsoluteBaseAddress.Location = new System.Drawing.Point(3, 72);
-      this.checkAbsoluteBaseAddress.Name = "checkAbsoluteBaseAddress";
-      this.checkAbsoluteBaseAddress.Size = new System.Drawing.Size(168, 17);
-      this.checkAbsoluteBaseAddress.TabIndex = 11;
-      this.checkAbsoluteBaseAddress.Text = "Absolute Base Address (hex)";
-      this.checkAbsoluteBaseAddress.UseVisualStyleBackColor = true;
-      this.checkAbsoluteBaseAddress.CheckedChanged += new System.EventHandler(this.checkAbsoluteBaseAddress_CheckedChanged);
-      //
-      // editAbsoluteBaseAddress
-      //
-      this.editAbsoluteBaseAddress.Enabled = false;
-      this.editAbsoluteBaseAddress.Location = new System.Drawing.Point(175, 70);
-      this.editAbsoluteBaseAddress.Name = "editAbsoluteBaseAddress";
-      this.editAbsoluteBaseAddress.Size = new System.Drawing.Size(66, 20);
-      this.editAbsoluteBaseAddress.TabIndex = 12;
-      this.editAbsoluteBaseAddress.Font = new System.Drawing.Font("Courier New", 8.25F);
-      //
       // checkPrefixLoadAddress
       //
       this.checkPrefixLoadAddress.AutoSize = true;
-      this.checkPrefixLoadAddress.Location = new System.Drawing.Point(3, 100);
+      this.checkPrefixLoadAddress.Location = new System.Drawing.Point(3, 72);
       this.checkPrefixLoadAddress.Name = "checkPrefixLoadAddress";
       this.checkPrefixLoadAddress.Size = new System.Drawing.Size(146, 17);
       this.checkPrefixLoadAddress.TabIndex = 3;
@@ -157,10 +138,39 @@ namespace RetroDevStudio.Controls
       // editPrefixLoadAddress
       //
       this.editPrefixLoadAddress.Enabled = false;
-      this.editPrefixLoadAddress.Location = new System.Drawing.Point(155, 98);
+      this.editPrefixLoadAddress.Location = new System.Drawing.Point(155, 70);
       this.editPrefixLoadAddress.Name = "editPrefixLoadAddress";
       this.editPrefixLoadAddress.Size = new System.Drawing.Size(66, 20);
       this.editPrefixLoadAddress.TabIndex = 4;
+      //
+      // checkMaxExportSize
+      //
+      this.checkMaxExportSize.AutoSize = true;
+      this.checkMaxExportSize.Location = new System.Drawing.Point(3, 100);
+      this.checkMaxExportSize.Name = "checkMaxExportSize";
+      this.checkMaxExportSize.Size = new System.Drawing.Size(104, 17);
+      this.checkMaxExportSize.TabIndex = 11;
+      this.checkMaxExportSize.Text = "Max export size";
+      this.checkMaxExportSize.UseVisualStyleBackColor = true;
+      this.checkMaxExportSize.CheckedChanged += new System.EventHandler(this.checkMaxExportSize_CheckedChanged);
+      //
+      // editMaxExportSize
+      //
+      this.editMaxExportSize.Enabled = false;
+      this.editMaxExportSize.Location = new System.Drawing.Point(155, 98);
+      this.editMaxExportSize.Name = "editMaxExportSize";
+      this.editMaxExportSize.Size = new System.Drawing.Size(66, 20);
+      this.editMaxExportSize.TabIndex = 12;
+      this.editMaxExportSize.Text = "0";
+      //
+      // labelMaxExportSize
+      //
+      this.labelMaxExportSize.AutoSize = true;
+      this.labelMaxExportSize.Location = new System.Drawing.Point(227, 101);
+      this.labelMaxExportSize.Name = "labelMaxExportSize";
+      this.labelMaxExportSize.Size = new System.Drawing.Size(78, 13);
+      this.labelMaxExportSize.TabIndex = 11;
+      this.labelMaxExportSize.Text = "bytes (0 = off)";
       //
       // checkSaveOnExport
       //
@@ -682,8 +692,9 @@ namespace RetroDevStudio.Controls
       this.Controls.Add(this.checkSaveOnExport);
       this.Controls.Add(this.editPrefixLoadAddress);
       this.Controls.Add(this.checkPrefixLoadAddress);
-      this.Controls.Add(this.editAbsoluteBaseAddress);
-      this.Controls.Add(this.checkAbsoluteBaseAddress);
+      this.Controls.Add(this.labelMaxExportSize);
+      this.Controls.Add(this.editMaxExportSize);
+      this.Controls.Add(this.checkMaxExportSize);
       this.Controls.Add(this.checkExportPassable);
       this.Controls.Add(this.checkExportColors);
       this.Controls.Add(this.checkExportMarkers);
@@ -701,10 +712,11 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.CheckBox checkExportMarkers;
     private System.Windows.Forms.CheckBox checkExportColors;
     private System.Windows.Forms.CheckBox checkExportPassable;
-    private System.Windows.Forms.CheckBox checkAbsoluteBaseAddress;
-    private System.Windows.Forms.TextBox editAbsoluteBaseAddress;
     private System.Windows.Forms.CheckBox checkPrefixLoadAddress;
     private System.Windows.Forms.TextBox editPrefixLoadAddress;
+    private System.Windows.Forms.CheckBox checkMaxExportSize;
+    private System.Windows.Forms.TextBox editMaxExportSize;
+    private System.Windows.Forms.Label labelMaxExportSize;
     private System.Windows.Forms.CheckBox checkSaveOnExport;
     private System.Windows.Forms.Label labelExportDirectory;
     private System.Windows.Forms.TextBox editExportDirectory;

@@ -30,8 +30,8 @@ namespace RetroDevStudio.Controls
       base( Core )
     {
       InitializeComponent();
-      editAbsoluteBaseAddress.TextChanged += HandleSettingsChanged;
       editPrefixLoadAddress.TextChanged += HandleSettingsChanged;
+      editMaxExportSize.TextChanged += HandleSettingsChanged;
       editExportDirectory.TextChanged += HandleSettingsChanged;
       editExportFilename.TextChanged += HandleSettingsChanged;
       checkExportMarkers.CheckedChanged += HandleSettingsChanged;
@@ -98,17 +98,14 @@ namespace RetroDevStudio.Controls
       bool exportColors = checkExportColors.Checked;
       bool exportPassable = checkExportPassable.Checked;
 
-      ushort baseAddress = 0;
-      if ( checkAbsoluteBaseAddress.Checked && !string.IsNullOrEmpty( editAbsoluteBaseAddress.Text ) )
-      {
-        baseAddress = GR.Convert.ToU16( editAbsoluteBaseAddress.Text, 16 );
-      }
-
+      // Pointers in the binary are always file-relative offsets; the runtime
+      // adds its own load address. (The old absolute base-address option was
+      // removed.) The "Prefix Load Address" option below is independent — it
+      // just prepends the 2-byte PRG load word so the file is loadable.
       GR.Memory.ByteBuffer data = Info.Map.ExportAsGameBinary(
         exportMarkers,
         exportColors,
-        exportPassable,
-        baseAddress );
+        exportPassable );
 
       if ( data == null )
       {
@@ -159,7 +156,7 @@ namespace RetroDevStudio.Controls
         return false;
       }
 
-      string log = GenerateExportLog( data, baseAddress, targetPath,
+      string log = GenerateExportLog( data, targetPath,
                                       exportMarkers, exportColors, exportPassable,
                                       Info.Map );
 
@@ -250,6 +247,27 @@ namespace RetroDevStudio.Controls
       {
         EditOutput.Text = log;
       }
+
+      // Max-export-size check — runs AFTER the export is fully written. When the
+      // option is enabled and the configured byte limit (decimal, 0 = off) is
+      // exceeded by the exported data (finalData already includes the 2-byte
+      // load-address prefix when that option is on), warn the user. Informational
+      // only: the file has already been saved.
+      int maxExportSize = 0;
+      int.TryParse( editMaxExportSize.Text, out maxExportSize );
+      if ( checkMaxExportSize.Checked
+      &&   ( maxExportSize > 0 )
+      &&   ( (long)finalData.Length > maxExportSize ) )
+      {
+        System.Windows.Forms.MessageBox.Show(
+          "The exported data is " + finalData.Length + " bytes"
+          + ( checkPrefixLoadAddress.Checked ? " (including the 2-byte load address)" : "" )
+          + ", which exceeds the configured maximum of " + maxExportSize + " bytes.",
+          "Max export size exceeded",
+          System.Windows.Forms.MessageBoxButtons.OK,
+          System.Windows.Forms.MessageBoxIcon.Warning );
+      }
+
       return true;
     }
 
@@ -426,10 +444,15 @@ namespace RetroDevStudio.Controls
 
 
 
-    private string GenerateExportLog( ByteBuffer buf, ushort baseAddr, string targetPath,
+    private string GenerateExportLog( ByteBuffer buf, string targetPath,
                                        bool exportMarkers, bool exportColors, bool exportPassable,
                                        RetroDevStudio.Formats.MapProject project )
     {
+      // Pointers in the binary are file-relative offsets, so the dump shows the
+      // raw file offset for every address. Kept as a local 0 so the offset/
+      // file-position arithmetic below (Addr(...), "- ba") reads naturally.
+      ushort baseAddr = 0;
+
       int markerStride = buf.ByteAt( 0 );
       int tileCount = buf.ByteAt( 1 );
       int mapCount = buf.ByteAt( 2 );
@@ -518,8 +541,8 @@ namespace RetroDevStudio.Controls
       }
       sb.AppendLine();
 
-      // All offsets stored in the file include baseAddr when absolute mode is on.
-      // To read file data we subtract baseAddr; to display addresses we use the raw value.
+      // Pointers stored in the file are file-relative offsets, so a stored value
+      // is already the byte position to read from (baseAddr is 0).
       int ba = baseAddr;
 
       // --- TILE ARRAYS ---
@@ -577,6 +600,10 @@ namespace RetroDevStudio.Controls
       AppendArraySection( sb, buf, ba, 0x18, mapCount, "map_mc1_color", 1 );
       AppendArraySection( sb, buf, ba, 0x1A, mapCount, "map_mc2_color", 1 );
       AppendArraySection( sb, buf, ba, 0x1C, mapCount, "map_marker_count", 1 );
+      // map_entity_count's array is written right after map_marker_count (before
+      // the lookup tables), so it belongs here in the metadata block — printing
+      // it among the lookup tables put it out of file order in the dump.
+      AppendArraySection( sb, buf, ba, 0x2F, mapCount, "map_entity_count", 1 );
       sb.AppendLine();
 
       // --- MAP DATA LOOKUP TABLES ---
@@ -590,9 +617,9 @@ namespace RetroDevStudio.Controls
       AppendArraySection( sb, buf, ba, 0x2A, mapCount, "map_markers_lo", 1 );
       AppendArraySection( sb, buf, ba, 0x2C, mapCount, "map_markers_hi", 1 );
       // Entity lookup tables — AppendArraySection quietly skips any whose
-      // header pointer is zero, so these just drop out cleanly when a
-      // project has no entities.
-      AppendArraySection( sb, buf, ba, 0x2F, mapCount, "map_entity_count", 1 );
+      // header pointer is zero, so these just drop out cleanly when a project
+      // has no entities. (map_entity_count is a count array, printed above in
+      // the metadata block where it physically lives.)
       AppendArraySection( sb, buf, ba, 0x31, mapCount, "map_entities_lo", 1 );
       AppendArraySection( sb, buf, ba, 0x33, mapCount, "map_entities_hi", 1 );
       sb.AppendLine();
@@ -979,9 +1006,9 @@ namespace RetroDevStudio.Controls
 
 
 
-    private void checkAbsoluteBaseAddress_CheckedChanged( object sender, EventArgs e )
+    private void checkPrefixLoadAddress_CheckedChanged( object sender, EventArgs e )
     {
-      editAbsoluteBaseAddress.Enabled = checkAbsoluteBaseAddress.Checked;
+      editPrefixLoadAddress.Enabled = checkPrefixLoadAddress.Checked;
       if ( !m_ApplyingSettings )
       {
         RaiseSettingsChanged();
@@ -990,9 +1017,9 @@ namespace RetroDevStudio.Controls
 
 
 
-    private void checkPrefixLoadAddress_CheckedChanged( object sender, EventArgs e )
+    private void checkMaxExportSize_CheckedChanged( object sender, EventArgs e )
     {
-      editPrefixLoadAddress.Enabled = checkPrefixLoadAddress.Checked;
+      editMaxExportSize.Enabled = checkMaxExportSize.Checked;
       if ( !m_ApplyingSettings )
       {
         RaiseSettingsChanged();
@@ -1328,12 +1355,12 @@ namespace RetroDevStudio.Controls
         checkExportMarkers.Checked = s.ExportMarkers;
         checkExportColors.Checked = s.ExportColors;
         checkExportPassable.Checked = s.ExportPassableBits;
-        checkAbsoluteBaseAddress.Checked = s.UseAbsoluteAddresses;
-        editAbsoluteBaseAddress.Text = s.AbsoluteBaseAddressHex ?? "";
-        editAbsoluteBaseAddress.Enabled = checkAbsoluteBaseAddress.Checked;
         checkPrefixLoadAddress.Checked = s.PrefixLoadAddress;
         editPrefixLoadAddress.Text = s.PrefixLoadAddressHex ?? "";
         editPrefixLoadAddress.Enabled = checkPrefixLoadAddress.Checked;
+        checkMaxExportSize.Checked = s.MaxExportSizeEnabled;
+        editMaxExportSize.Text = s.MaxExportSizeText ?? "0";
+        editMaxExportSize.Enabled = checkMaxExportSize.Checked;
         checkSaveOnExport.Checked = s.SaveOnExport;
         editExportDirectory.Text = s.ExportDirectory ?? "";
         editExportFilename.Text = s.ExportFilename ?? "";
@@ -1408,10 +1435,10 @@ namespace RetroDevStudio.Controls
       s.ExportMarkers = checkExportMarkers.Checked;
       s.ExportColors = checkExportColors.Checked;
       s.ExportPassableBits = checkExportPassable.Checked;
-      s.UseAbsoluteAddresses = checkAbsoluteBaseAddress.Checked;
-      s.AbsoluteBaseAddressHex = editAbsoluteBaseAddress.Text ?? "";
       s.PrefixLoadAddress = checkPrefixLoadAddress.Checked;
       s.PrefixLoadAddressHex = editPrefixLoadAddress.Text ?? "";
+      s.MaxExportSizeEnabled = checkMaxExportSize.Checked;
+      s.MaxExportSizeText = editMaxExportSize.Text ?? "";
       s.SaveOnExport = checkSaveOnExport.Checked;
       s.ExportDirectory = editExportDirectory.Text ?? "";
       s.ExportFilename = editExportFilename.Text ?? "";
