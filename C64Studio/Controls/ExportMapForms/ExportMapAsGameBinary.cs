@@ -32,6 +32,9 @@ namespace RetroDevStudio.Controls
       InitializeComponent();
       editPrefixLoadAddress.TextChanged += HandleSettingsChanged;
       editMaxExportSize.TextChanged += HandleSettingsChanged;
+      editCompressDirectory.TextChanged += HandleSettingsChanged;
+      editCompressFilename.TextChanged += HandleSettingsChanged;
+      editOverrideLoadAddress.TextChanged += HandleSettingsChanged;
       editExportDirectory.TextChanged += HandleSettingsChanged;
       editExportFilename.TextChanged += HandleSettingsChanged;
       checkExportMarkers.CheckedChanged += HandleSettingsChanged;
@@ -156,9 +159,16 @@ namespace RetroDevStudio.Controls
         return false;
       }
 
+      // Compress the exported map (optional). Runs AFTER the main file is on
+      // disk and writes a SECOND file beside it — the original is never replaced.
+      // The size/ratio report is shown at the top of the export log, right under
+      // the "Exported ..." line.
+      string compressionReport;
+      TryCompressExport( targetPath, finalData.Length, out compressionReport );
+
       string log = GenerateExportLog( data, targetPath,
                                       exportMarkers, exportColors, exportPassable,
-                                      Info.Map );
+                                      Info.Map, compressionReport );
 
       // Optional .def sidecar
       if ( checkGenerateDefFile.Checked )
@@ -444,9 +454,232 @@ namespace RetroDevStudio.Controls
 
 
 
+    /// <summary>
+    /// Parse a C64 hex address ($0000-$FFFF). Accepts an optional "$" or "0x"
+    /// prefix. Returns false for empty/garbage/out-of-range input.
+    /// </summary>
+    private static bool TryParseHexAddress( string Text, out int Address )
+    {
+      Address = 0;
+      string t = ( Text ?? "" ).Trim();
+      if ( t.StartsWith( "$" ) )
+      {
+        t = t.Substring( 1 );
+      }
+      else if ( t.StartsWith( "0x" ) || t.StartsWith( "0X" ) )
+      {
+        t = t.Substring( 2 );
+      }
+      if ( t.Length == 0 )
+      {
+        return false;
+      }
+      if ( !int.TryParse( t, System.Globalization.NumberStyles.HexNumber,
+                          System.Globalization.CultureInfo.InvariantCulture, out Address ) )
+      {
+        return false;
+      }
+      return ( Address >= 0 ) && ( Address <= 0xFFFF );
+    }
+
+
+
+    /// <summary>
+    /// Optionally compress the just-exported map file with the selected Krill
+    /// compressor, writing the result as a SECOND file (the original is never
+    /// touched). Runs only when "Compress map" is checked and a filename is
+    /// given. The filename is used verbatim — no extension is added; a rooted
+    /// path is honored, otherwise the file lands beside the main export. On
+    /// success <paramref name="Report"/> gets a human-readable size/ratio line.
+    /// Any failure (missing tool, same-as-original name, compressor error) is
+    /// reported via a message box and leaves the export itself successful.
+    /// </summary>
+    private bool TryCompressExport( string MainFilePath, long UncompressedSize, out string Report )
+    {
+      Report = null;
+      if ( !checkCompressMap.Checked )
+      {
+        return false;
+      }
+      string outName = editCompressFilename.Text ?? "";
+      if ( string.IsNullOrEmpty( outName ) )
+      {
+        return false;
+      }
+
+      // Output directory: the explicit Directory box, or — when blank — the same
+      // folder as the main export. The filename is used exactly as typed (no
+      // extension added); a rooted filename overrides the directory.
+      string outDir = editCompressDirectory.Text ?? "";
+      if ( string.IsNullOrEmpty( outDir ) )
+      {
+        outDir = System.IO.Path.GetDirectoryName( MainFilePath ) ?? "";
+      }
+      string outPath = System.IO.Path.IsPathRooted( outName )
+                       ? outName
+                       : System.IO.Path.Combine( outDir, outName );
+
+      // Never overwrite the original map file.
+      try
+      {
+        if ( string.Equals( System.IO.Path.GetFullPath( outPath ),
+                            System.IO.Path.GetFullPath( MainFilePath ),
+                            StringComparison.OrdinalIgnoreCase ) )
+        {
+          if ( Core != null )
+          {
+            Core.Notification.MessageBox( "Compression skipped",
+              "The compressed filename is the same as the exported map file.\r\n"
+              + "Pick a different name so the original is not overwritten." );
+          }
+          return false;
+        }
+      }
+      catch ( Exception )
+      {
+        // GetFullPath can throw on a malformed name — fall through and let the
+        // compressor surface the bad path.
+      }
+
+      // Optional load-address override: make the compressed file depack to a
+      // different address than the source PRG header says. Requires a valid hex
+      // address ($0000-$FFFF); a bad/empty value aborts compression so we never
+      // write a file with a silently-wrong load address.
+      string relocateArg = "";
+      bool relocated = false;
+      int loadAddress = -1;   // the address the compressed file depacks to
+      if ( checkOverrideLoadAddress.Checked )
+      {
+        int overrideAddr;
+        if ( !TryParseHexAddress( editOverrideLoadAddress.Text, out overrideAddr ) )
+        {
+          if ( Core != null )
+          {
+            Core.Notification.MessageBox( "Invalid load address",
+              "\"Override file load address\" is on but \"" + ( editOverrideLoadAddress.Text ?? "" )
+              + "\" is not a valid hex address ($0000-$FFFF).\r\n\r\nThe map was exported, but not compressed." );
+          }
+          return false;
+        }
+        // dali's --relocate-origin accepts a decimal value (it also takes $/0x,
+        // but decimal avoids any argument-quoting concerns).
+        relocateArg = " --relocate-origin " + overrideAddr;
+        loadAddress = overrideAddr;
+        relocated = true;
+      }
+
+      string compressor = ( comboCompressor.SelectedItem != null ) ? comboCompressor.SelectedItem.ToString() : "ZX0";
+
+      // Map the selected compressor to its bundled tool + argument template.
+      // (Only ZX0/dali is wired today; the switch leaves room for more.)
+      string exeName;
+      string args;
+      switch ( compressor )
+      {
+        case "ZX0":
+        default:
+          // dali = ZX0 re-encoder for the Krill loader. Input is the PRG we just
+          // wrote (with its 2-byte load address when "Prefix Load Address" is on).
+          // --relocate-origin overrides that embedded load address when requested.
+          exeName = "dali.exe";
+          args = "-o \"" + outPath + "\"" + relocateArg + " \"" + MainFilePath + "\"";
+          break;
+      }
+
+      string toolPath = System.IO.Path.Combine(
+        System.IO.Path.GetDirectoryName( System.Windows.Forms.Application.ExecutablePath ),
+        "Compressors",
+        exeName );
+      if ( !System.IO.File.Exists( toolPath ) )
+      {
+        if ( Core != null )
+        {
+          Core.Notification.MessageBox( "Compressor not found",
+            "Could not find the compressor:\r\n" + toolPath + "\r\n\r\nThe map was exported, but not compressed." );
+        }
+        return false;
+      }
+
+      try
+      {
+        var proc = new System.Diagnostics.Process();
+        proc.StartInfo.FileName = toolPath;
+        proc.StartInfo.Arguments = args;
+        proc.StartInfo.UseShellExecute = false;
+        proc.StartInfo.CreateNoWindow = true;
+        proc.StartInfo.RedirectStandardOutput = true;
+        proc.StartInfo.RedirectStandardError = true;
+        proc.Start();
+        string stdOut = proc.StandardOutput.ReadToEnd();
+        string stdErr = proc.StandardError.ReadToEnd();
+        proc.WaitForExit();
+        int exitCode = proc.ExitCode;
+        proc.Close();
+
+        if ( ( exitCode != 0 )
+        ||   ( !System.IO.File.Exists( outPath ) ) )
+        {
+          if ( Core != null )
+          {
+            Core.Notification.MessageBox( "Compression failed",
+              "The compressor returned an error (exit code " + exitCode + ").\r\n"
+              + "The map was exported, but not compressed.\r\n\r\n"
+              + ( string.IsNullOrEmpty( stdErr ) ? stdOut : stdErr ) );
+          }
+          return false;
+        }
+      }
+      catch ( Exception ex )
+      {
+        if ( Core != null )
+        {
+          Core.Notification.MessageBox( "Compression failed",
+            "Could not run the compressor:\r\n" + toolPath + "\r\n\r\n" + ex.Message );
+        }
+        return false;
+      }
+
+      long compressedSize = new System.IO.FileInfo( outPath ).Length;
+      // Percentage of size REMOVED: 75% means the file is now 1/4 of the original.
+      double percent = ( UncompressedSize > 0 )
+                       ? ( 1.0 - ( compressedSize / (double)UncompressedSize ) ) * 100.0
+                       : 0.0;
+
+      // Depack load address: when not relocating, it's the load address dali
+      // reads from the source — the first two bytes (little-endian) of the file.
+      if ( !relocated )
+      {
+        try
+        {
+          byte[] head = new byte[2];
+          using ( var fs = System.IO.File.OpenRead( MainFilePath ) )
+          {
+            if ( fs.Read( head, 0, 2 ) == 2 )
+            {
+              loadAddress = head[0] | ( head[1] << 8 );
+            }
+          }
+        }
+        catch ( Exception )
+        {
+          loadAddress = -1;
+        }
+      }
+      string addrText = ( loadAddress >= 0 )
+                        ? "  load $" + loadAddress.ToString( "X4" ) + ( relocated ? " (relocated)" : " (original)" )
+                        : "";
+
+      Report = "Compressed (" + compressor + "): " + UncompressedSize + " -> " + compressedSize
+             + " bytes  (" + percent.ToString( "0.0" ) + "% compression; "
+             + ( 100.0 - percent ).ToString( "0.0" ) + "% of original)" + addrText + "  -> " + outPath;
+      return true;
+    }
+
+
+
     private string GenerateExportLog( ByteBuffer buf, string targetPath,
                                        bool exportMarkers, bool exportColors, bool exportPassable,
-                                       RetroDevStudio.Formats.MapProject project )
+                                       RetroDevStudio.Formats.MapProject project, string CompressionReport = null )
     {
       // Pointers in the binary are file-relative offsets, so the dump shows the
       // raw file offset for every address. Kept as a local 0 so the offset/
@@ -462,6 +695,10 @@ namespace RetroDevStudio.Controls
 
       var sb = new StringBuilder();
       sb.AppendLine( "Exported " + buf.Length + " bytes to " + targetPath );
+      if ( !string.IsNullOrEmpty( CompressionReport ) )
+      {
+        sb.AppendLine( CompressionReport );
+      }
       sb.AppendLine();
 
       // Always include the header-constant definitions near the top so the .def
@@ -1028,6 +1265,51 @@ namespace RetroDevStudio.Controls
 
 
 
+    private void checkCompressMap_CheckedChanged( object sender, EventArgs e )
+    {
+      comboCompressor.Enabled = checkCompressMap.Checked;
+      editCompressDirectory.Enabled = checkCompressMap.Checked;
+      btnBrowseCompressDirectory.Enabled = checkCompressMap.Checked;
+      editCompressFilename.Enabled = checkCompressMap.Checked;
+      checkOverrideLoadAddress.Enabled = checkCompressMap.Checked;
+      editOverrideLoadAddress.Enabled = checkCompressMap.Checked && checkOverrideLoadAddress.Checked;
+      if ( !m_ApplyingSettings )
+      {
+        RaiseSettingsChanged();
+      }
+    }
+
+
+
+    private void checkOverrideLoadAddress_CheckedChanged( object sender, EventArgs e )
+    {
+      editOverrideLoadAddress.Enabled = checkCompressMap.Checked && checkOverrideLoadAddress.Checked;
+      if ( !m_ApplyingSettings )
+      {
+        RaiseSettingsChanged();
+      }
+    }
+
+
+
+    private void btnBrowseCompressDirectory_Click( object sender, EventArgs e )
+    {
+      using ( var dlg = new FolderBrowserDialog() )
+      {
+        dlg.Description = "Select compressed map output directory";
+        if ( !string.IsNullOrEmpty( editCompressDirectory.Text ) )
+        {
+          dlg.SelectedPath = editCompressDirectory.Text;
+        }
+        if ( dlg.ShowDialog() == DialogResult.OK )
+        {
+          editCompressDirectory.Text = dlg.SelectedPath;
+        }
+      }
+    }
+
+
+
     private void checkSaveOnExport_CheckedChanged( object sender, EventArgs e )
     {
       editExportDirectory.Enabled = checkSaveOnExport.Checked;
@@ -1361,6 +1643,24 @@ namespace RetroDevStudio.Controls
         checkMaxExportSize.Checked = s.MaxExportSizeEnabled;
         editMaxExportSize.Text = s.MaxExportSizeText ?? "0";
         editMaxExportSize.Enabled = checkMaxExportSize.Checked;
+        checkCompressMap.Checked = s.CompressMap;
+        // Select the stored compressor; fall back to the first item (ZX0) if the
+        // saved name isn't one we currently offer.
+        comboCompressor.SelectedIndex = comboCompressor.Items.IndexOf( s.Compressor ?? "ZX0" );
+        if ( comboCompressor.SelectedIndex < 0 )
+        {
+          comboCompressor.SelectedIndex = ( comboCompressor.Items.Count > 0 ) ? 0 : -1;
+        }
+        editCompressDirectory.Text = s.CompressDirectory ?? "";
+        editCompressFilename.Text = s.CompressFilename ?? "";
+        checkOverrideLoadAddress.Checked = s.OverrideLoadAddress;
+        editOverrideLoadAddress.Text = s.OverrideLoadAddressHex ?? "";
+        comboCompressor.Enabled = checkCompressMap.Checked;
+        editCompressDirectory.Enabled = checkCompressMap.Checked;
+        btnBrowseCompressDirectory.Enabled = checkCompressMap.Checked;
+        editCompressFilename.Enabled = checkCompressMap.Checked;
+        checkOverrideLoadAddress.Enabled = checkCompressMap.Checked;
+        editOverrideLoadAddress.Enabled = checkCompressMap.Checked && checkOverrideLoadAddress.Checked;
         checkSaveOnExport.Checked = s.SaveOnExport;
         editExportDirectory.Text = s.ExportDirectory ?? "";
         editExportFilename.Text = s.ExportFilename ?? "";
@@ -1439,6 +1739,12 @@ namespace RetroDevStudio.Controls
       s.PrefixLoadAddressHex = editPrefixLoadAddress.Text ?? "";
       s.MaxExportSizeEnabled = checkMaxExportSize.Checked;
       s.MaxExportSizeText = editMaxExportSize.Text ?? "";
+      s.CompressMap = checkCompressMap.Checked;
+      s.Compressor = ( comboCompressor.SelectedItem != null ) ? comboCompressor.SelectedItem.ToString() : "ZX0";
+      s.CompressDirectory = editCompressDirectory.Text ?? "";
+      s.CompressFilename = editCompressFilename.Text ?? "";
+      s.OverrideLoadAddress = checkOverrideLoadAddress.Checked;
+      s.OverrideLoadAddressHex = editOverrideLoadAddress.Text ?? "";
       s.SaveOnExport = checkSaveOnExport.Checked;
       s.ExportDirectory = editExportDirectory.Text ?? "";
       s.ExportFilename = editExportFilename.Text ?? "";

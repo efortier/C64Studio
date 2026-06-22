@@ -664,8 +664,14 @@ namespace TestProject
       proj.Settings.GameBinary.SaveOnExport = true;
       proj.Settings.GameBinary.ExportDirectory = @"C:\TestDir";
       proj.Settings.GameBinary.ExportFilename = "test.bin";
-      proj.Settings.GameBinary.UseAbsoluteAddresses = true;
-      proj.Settings.GameBinary.AbsoluteBaseAddressHex = "A000";
+      proj.Settings.GameBinary.MaxExportSizeEnabled = true;
+      proj.Settings.GameBinary.MaxExportSizeText = "16384";
+      proj.Settings.GameBinary.CompressMap = true;
+      proj.Settings.GameBinary.Compressor = "ZX0";
+      proj.Settings.GameBinary.CompressFilename = "map_intro.zx0";
+      proj.Settings.GameBinary.CompressDirectory = @"Z:\DevC64\Dreadhold\Maps";
+      proj.Settings.GameBinary.OverrideLoadAddress = true;
+      proj.Settings.GameBinary.OverrideLoadAddressHex = "C000";
 
       var savedBuffer = proj.SaveToBuffer();
       var proj2 = new MapProject();
@@ -679,8 +685,14 @@ namespace TestProject
       Assert.AreEqual( true, proj2.Settings.GameBinary.SaveOnExport );
       Assert.AreEqual( @"C:\TestDir", proj2.Settings.GameBinary.ExportDirectory );
       Assert.AreEqual( "test.bin", proj2.Settings.GameBinary.ExportFilename );
-      Assert.AreEqual( true, proj2.Settings.GameBinary.UseAbsoluteAddresses );
-      Assert.AreEqual( "A000", proj2.Settings.GameBinary.AbsoluteBaseAddressHex );
+      Assert.AreEqual( true, proj2.Settings.GameBinary.MaxExportSizeEnabled );
+      Assert.AreEqual( "16384", proj2.Settings.GameBinary.MaxExportSizeText );
+      Assert.AreEqual( true, proj2.Settings.GameBinary.CompressMap );
+      Assert.AreEqual( "ZX0", proj2.Settings.GameBinary.Compressor );
+      Assert.AreEqual( "map_intro.zx0", proj2.Settings.GameBinary.CompressFilename );
+      Assert.AreEqual( @"Z:\DevC64\Dreadhold\Maps", proj2.Settings.GameBinary.CompressDirectory );
+      Assert.AreEqual( true, proj2.Settings.GameBinary.OverrideLoadAddress );
+      Assert.AreEqual( "C000", proj2.Settings.GameBinary.OverrideLoadAddressHex );
     }
 
     // ================================================================
@@ -750,70 +762,100 @@ namespace TestProject
     }
 
     // ================================================================
-    // 14. Absolute base address — all offsets shifted by base
+    // 14. File-relative pointers — every stored pointer is a byte offset
+    //     from the start of the binary, with no base address baked in.
     // ================================================================
 
     [TestMethod]
-    public void TestAbsoluteBaseAddressShiftsHeaderOffsets()
+    public void TestFirstSectionStartsAtHeaderSize()
     {
-      var proj = CreateTestProject( 2, 3, 2 );
-      ushort baseAddr = 0xA000;
+      // The first data section (tiles_width) is written immediately after the
+      // fixed 60-byte header, so its pointer must equal HEADER_SIZE exactly —
+      // direct proof the pointer is a pure file offset with no base added.
+      var proj = CreateTestProject( 3, 4, 3 );
 
-      var bufRel = proj.ExportAsGameBinary( true, true, true );
-      var bufAbs = proj.ExportAsGameBinary( true, true, true, baseAddr );
+      var buf = proj.ExportAsGameBinary( true, true, true );
 
-      // Same total size
-      Assert.AreEqual( bufRel.Length, bufAbs.Length );
+      Assert.AreEqual( (ushort)HEADER_SIZE, buf.UInt16At( HDR_TILES_WIDTH ) );
+    }
 
-      // Every header offset should be shifted by baseAddr
-      for ( int i = 0; i < 21; ++i )
+    [TestMethod]
+    public void TestHeaderPointersAreContiguousFileOffsets()
+    {
+      // tiles_width / height / flags are three back-to-back byte arrays of
+      // TILE_COUNT entries each. Under file-relative addressing each pointer is
+      // the previous one plus the array length; a baked-in base would break this.
+      var proj = CreateTestProject( 5, 4, 3 );
+
+      var buf = proj.ExportAsGameBinary( true, true, true );
+
+      int tileCount = buf.ByteAt( HDR_TILE_COUNT );
+      int widthPtr  = buf.UInt16At( HDR_TILES_WIDTH );
+      int heightPtr = buf.UInt16At( HDR_TILES_HEIGHT );
+      int flagsPtr  = buf.UInt16At( HDR_TILES_FLAGS );
+
+      Assert.AreEqual( HEADER_SIZE, widthPtr );
+      Assert.AreEqual( widthPtr + tileCount, heightPtr );
+      Assert.AreEqual( heightPtr + tileCount, flagsPtr );
+    }
+
+    [TestMethod]
+    public void TestAllHeaderPointersAreFileOffsetsNoBase()
+    {
+      // Every non-zero header pointer must land inside the file (>= header size,
+      // < length) when read as a raw file offset — i.e. no load base was added.
+      // With an absolute base these would point past the end of the buffer.
+      var proj = CreateTestProject( 3, 4, 3 );
+      proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 0, Name = "S", TagID = 1 } );
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 1, Type = 0 } );
+
+      var buf = proj.ExportAsGameBinary( true, true, true );
+
+      for ( int field = HDR_TILES_WIDTH; field <= HDR_MAP_MARKERS_HI; field += 2 )
       {
-        int hdrOff = HDR_TILES_WIDTH + i * 2;
-        ushort relVal = bufRel.UInt16At( hdrOff );
-        ushort absVal = bufAbs.UInt16At( hdrOff );
-        if ( relVal == 0 )
-          Assert.AreEqual( (ushort)0, absVal, "Disabled offset at +" + hdrOff.ToString( "X2" ) + " should stay 0" );
-        else
-          Assert.AreEqual( relVal + baseAddr, absVal, "Header offset at +" + hdrOff.ToString( "X2" ) + " should be shifted by base" );
+        int ptr = buf.UInt16At( field );
+        if ( ptr == 0 ) continue;   // section-absent sentinel
+        Assert.IsTrue( ptr >= HEADER_SIZE && ptr < buf.Length,
+          $"Header pointer at +${field:X2} = ${ptr:X4} is not a valid file offset" );
       }
     }
 
     [TestMethod]
-    public void TestAbsoluteBaseAddressShiftsLookupTables()
+    public void TestLookupTableEntriesAreFileOffsets()
     {
+      // The per-map char-grid lo/hi table entry must itself be a file offset:
+      // dereferencing it with no base must land on the real grid data.
       var proj = CreateTestProject( 2, 3, 2 );
-      ushort baseAddr = 0x8000;
+      proj.Maps[0].Tiles[1, 0] = 1;   // tile 1 -> char 1 (char = index)
 
-      var bufRel = proj.ExportAsGameBinary( true, true, true );
-      var bufAbs = proj.ExportAsGameBinary( true, true, true, baseAddr );
+      var buf = proj.ExportAsGameBinary( false, true, false );
 
-      // Tile char offset lookup: read the absolute address from the lookup table
-      int loTableRel = bufRel.UInt16At( HDR_TILE_CHAR_OFF_LO );
-      int hiTableRel = bufRel.UInt16At( HDR_TILE_CHAR_OFF_HI );
-      int loTableAbs = bufAbs.UInt16At( HDR_TILE_CHAR_OFF_LO ) - baseAddr;
-      int hiTableAbs = bufAbs.UInt16At( HDR_TILE_CHAR_OFF_HI ) - baseAddr;
+      int gridPos = LookupAbsOffset( buf, HDR_MAP_CHAR_GRID_LO, HDR_MAP_CHAR_GRID_HI, 0 );
+      Assert.IsTrue( gridPos >= HEADER_SIZE && gridPos < buf.Length,
+        "Map 0 char-grid pointer must be a file offset" );
+      Assert.AreEqual( proj.Tiles[1].Chars[0, 0].Character, buf.ByteAt( gridPos + 1 ) );
+    }
 
-      for ( int t = 0; t < 2; ++t )
-      {
-        int relAddr = bufRel.ByteAt( loTableRel + t ) | ( bufRel.ByteAt( hiTableRel + t ) << 8 );
-        int absAddr = bufAbs.ByteAt( loTableAbs + t ) | ( bufAbs.ByteAt( hiTableAbs + t ) << 8 );
-        Assert.AreEqual( relAddr + baseAddr, absAddr, "Tile " + t + " char offset should be shifted by base" );
-      }
+    [TestMethod]
+    public void TestMapStringPointersAreFileOffsets()
+    {
+      // Map-string LO/HI table pointers (and the per-string stream addresses they
+      // hold) are file-relative offsets too — verify they resolve in-file.
+      var proj = CreateTestProject( 1, 2, 2 );
+      var ms = new MapProject.MapString { Label = "MSG" };
+      ms.Lines[0].Text = "HI";
+      proj.MapStrings.Add( ms );
 
-      // Map char grid lookup
-      int gridLoRel = bufRel.UInt16At( HDR_MAP_CHAR_GRID_LO );
-      int gridHiRel = bufRel.UInt16At( HDR_MAP_CHAR_GRID_HI );
-      int gridLoAbs = bufAbs.UInt16At( HDR_MAP_CHAR_GRID_LO ) - baseAddr;
-      int gridHiAbs = bufAbs.UInt16At( HDR_MAP_CHAR_GRID_HI ) - baseAddr;
+      var buf = proj.ExportAsGameBinary( false, false, false );
 
-      int relGridAddr = bufRel.ByteAt( gridLoRel ) | ( bufRel.ByteAt( gridHiRel ) << 8 );
-      int absGridAddr = bufAbs.ByteAt( gridLoAbs ) | ( bufAbs.ByteAt( gridHiAbs ) << 8 );
-      Assert.AreEqual( relGridAddr + baseAddr, absGridAddr, "Map 0 char grid offset should be shifted by base" );
+      Assert.AreEqual( (byte)1, buf.ByteAt( 0x35 ) );           // map_string_count
+      int loTable = buf.UInt16At( 0x36 );                       // +$36 map_string_lo
+      int hiTable = buf.UInt16At( 0x38 );                       // +$38 map_string_hi
+      Assert.IsTrue( loTable >= HEADER_SIZE && loTable < buf.Length, "string LO table must be a file offset" );
+      Assert.IsTrue( hiTable >= HEADER_SIZE && hiTable < buf.Length, "string HI table must be a file offset" );
 
-      // Actual data bytes should be identical
-      int relDataPos = relGridAddr;
-      int absDataPos = absGridAddr - baseAddr;
-      Assert.AreEqual( bufRel.ByteAt( relDataPos ), bufAbs.ByteAt( absDataPos ), "Grid data should be identical" );
+      int streamAddr = buf.ByteAt( loTable ) | ( buf.ByteAt( hiTable ) << 8 );
+      Assert.IsTrue( streamAddr >= HEADER_SIZE && streamAddr < buf.Length, "string stream must be a file offset" );
     }
 
     // ================================================================

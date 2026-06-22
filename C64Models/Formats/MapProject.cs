@@ -436,8 +436,6 @@ namespace RetroDevStudio.Formats
         public bool   SaveOnExport = false;
         public string ExportDirectory = "";
         public string ExportFilename = "";
-        public bool   UseAbsoluteAddresses = false;
-        public string AbsoluteBaseAddressHex = "";
         // v18: per-method charset export + .def sidecar toggle
         public bool   ExportCharset = false;
         public string CharsetExportDirectory = "";
@@ -469,6 +467,28 @@ namespace RetroDevStudio.Formats
         public string MapStringsDirectory = "";
         public string MapStringsFilename = "map_strings.asm";
         public string MapStringsPrefix = "";
+        // v25: max export size warning. When MaxExportSizeEnabled is true and
+        // MaxExportSizeText parses to a non-zero decimal byte count, exporting
+        // data larger than that (including the 2-byte load-address prefix when
+        // enabled) pops a warning after the file is written. 0 / unparseable /
+        // disabled = no check.
+        public bool   MaxExportSizeEnabled = false;
+        public string MaxExportSizeText = "0";
+        // v26: optional post-export compression of the exported map (Krill loader).
+        // When CompressMap is true and CompressFilename is non-empty, the exported
+        // map file is compressed with the Compressor (currently only "ZX0" via the
+        // bundled dali.exe) and written as a SECOND file beside the main one. The
+        // original is never replaced. CompressFilename is used verbatim (no added
+        // extension).
+        public bool   CompressMap = false;
+        public string Compressor = "ZX0";
+        public string CompressFilename = "";
+        // v27: output directory for the compressed map (blank = beside the .bin).
+        public string CompressDirectory = "";
+        // v28: override the compressed file's load address (--relocate-origin).
+        // Only applied when OverrideLoadAddress is true and the hex is valid.
+        public bool   OverrideLoadAddress = false;
+        public string OverrideLoadAddressHex = "";
       }
 
       public class TargetSettings
@@ -831,7 +851,7 @@ namespace RetroDevStudio.Formats
       projectFile.Append( chunkProjectData.ToBuffer() );
 
       GR.IO.FileChunk chunkExportSettings = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS );
-      chunkExportSettings.AppendU32( 24 );
+      chunkExportSettings.AppendU32( 28 );
       chunkExportSettings.AppendI32(Settings.ExportDataIndex );
       chunkExportSettings.AppendI32(Settings.ExportOrientationIndex );
       chunkExportSettings.AppendI32( Settings.ExportMethodIndex );
@@ -880,9 +900,12 @@ namespace RetroDevStudio.Formats
       chunkExportSettings.AppendI32( Settings.GameBinary.SaveOnExport ? 1 : 0 );
       chunkExportSettings.AppendString( Settings.GameBinary.ExportDirectory ?? "" );
       chunkExportSettings.AppendString( Settings.GameBinary.ExportFilename ?? "" );
-      // version 17: absolute base address
-      chunkExportSettings.AppendI32( Settings.GameBinary.UseAbsoluteAddresses ? 1 : 0 );
-      chunkExportSettings.AppendString( Settings.GameBinary.AbsoluteBaseAddressHex ?? "" );
+      // version 17: (retired) absolute base address. The feature is gone — the
+      // game binary export is always file-relative now — but the two slots are
+      // still written (0 / "") so the chunk's sequential layout is unchanged and
+      // both older and newer builds keep loading these project files.
+      chunkExportSettings.AppendI32( 0 );
+      chunkExportSettings.AppendString( "" );
       // version 18: game binary per-method charset export + .def sidecar toggle
       chunkExportSettings.AppendI32( Settings.GameBinary.ExportCharset ? 1 : 0 );
       chunkExportSettings.AppendString( Settings.GameBinary.CharsetExportDirectory ?? "" );
@@ -918,6 +941,21 @@ namespace RetroDevStudio.Formats
       // We still write the legacy field a few lines up so old apps keep
       // loading the project with a sensible (palette-quantised) color.
       chunkExportSettings.AppendU32( DesignerBackgroundColorARGB );
+      // version 25: max export size warning. Appended AFTER the position-checked
+      // ARGB tail above on purpose — older builds read that tail by a bare length
+      // check, so keeping it physically last for them means they still pick up
+      // the ARGB correctly and simply ignore these trailing bytes.
+      chunkExportSettings.AppendI32( Settings.GameBinary.MaxExportSizeEnabled ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.GameBinary.MaxExportSizeText ?? "" );
+      // version 26: optional post-export compression (Compress map)
+      chunkExportSettings.AppendI32( Settings.GameBinary.CompressMap ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.GameBinary.Compressor ?? "ZX0" );
+      chunkExportSettings.AppendString( Settings.GameBinary.CompressFilename ?? "" );
+      // version 27: compressed-map output directory
+      chunkExportSettings.AppendString( Settings.GameBinary.CompressDirectory ?? "" );
+      // version 28: override compressed-map load address (--relocate-origin)
+      chunkExportSettings.AppendI32( Settings.GameBinary.OverrideLoadAddress ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.GameBinary.OverrideLoadAddressHex ?? "" );
       projectFile.Append( chunkExportSettings.ToBuffer() );
       return projectFile;
     }
@@ -1335,8 +1373,11 @@ namespace RetroDevStudio.Formats
                 }
                 if ( version >= 17 )
                 {
-                  Settings.GameBinary.UseAbsoluteAddresses = ( chunkReader.ReadInt32() != 0 );
-                  Settings.GameBinary.AbsoluteBaseAddressHex = chunkReader.ReadString();
+                  // (retired) absolute base address — consume the two slots so the
+                  // sequential read stays aligned for every field after them. The
+                  // values are ignored; export is always file-relative now.
+                  chunkReader.ReadInt32();
+                  chunkReader.ReadString();
                 }
                 if ( version >= 18 )
                 {
@@ -1406,6 +1447,30 @@ namespace RetroDevStudio.Formats
               if ( chunkReader.Size - chunkReader.Position >= 4 )
               {
                 DesignerBackgroundColorARGB = chunkReader.ReadUInt32();
+              }
+              // version 25: max export size warning — written after the ARGB tail.
+              if ( version >= 25 )
+              {
+                Settings.GameBinary.MaxExportSizeEnabled = ( chunkReader.ReadInt32() != 0 );
+                Settings.GameBinary.MaxExportSizeText = chunkReader.ReadString();
+              }
+              // version 26: optional post-export compression (Compress map).
+              if ( version >= 26 )
+              {
+                Settings.GameBinary.CompressMap = ( chunkReader.ReadInt32() != 0 );
+                Settings.GameBinary.Compressor = chunkReader.ReadString();
+                Settings.GameBinary.CompressFilename = chunkReader.ReadString();
+              }
+              // version 27: compressed-map output directory.
+              if ( version >= 27 )
+              {
+                Settings.GameBinary.CompressDirectory = chunkReader.ReadString();
+              }
+              // version 28: override compressed-map load address.
+              if ( version >= 28 )
+              {
+                Settings.GameBinary.OverrideLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                Settings.GameBinary.OverrideLoadAddressHex = chunkReader.ReadString();
               }
             }
             break;
@@ -2451,10 +2516,15 @@ namespace RetroDevStudio.Formats
 
 
 
-    public GR.Memory.ByteBuffer ExportAsGameBinary( bool ExportMarkers, bool ExportColors, bool ExportPassable, ushort BaseAddress = 0 )
+    public GR.Memory.ByteBuffer ExportAsGameBinary( bool ExportMarkers, bool ExportColors, bool ExportPassable )
     {
       var buf = new GR.Memory.ByteBuffer();
-      int addrBase = BaseAddress;
+
+      // Every pointer written below is a FILE-RELATIVE OFFSET — the distance in
+      // bytes from the start of this binary (the header begins at offset 0). The
+      // runtime is responsible for adding wherever it loaded the file to, so the
+      // data can be relocated freely. (There used to be an absolute BaseAddress
+      // parameter that baked a load address into every pointer; it was removed.)
 
       // ========== HEADER (60 bytes, 0x3C) ==========
       buf.AppendU8( 9 );    // +$00 marker_stride (bytes per marker record: tag, x, y, value1, value2, flags, group_id, link_to_id, link_id) — flags is a bitfield: bit0 = Enabled, bit1 = Triggered, bit2 = AutoDisableGroupAfterTrigger
@@ -2514,17 +2584,17 @@ namespace RetroDevStudio.Formats
       // ========== TILE ARRAYS ==========
 
       // tiles_width[]
-      buf.SetU16At( HDR_TILES_WIDTH, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_TILES_WIDTH, (ushort)( buf.Length ) );
       for ( int t = 0; t < Tiles.Count; ++t )
         buf.AppendU8( (byte)Tiles[t].Chars.Width );
 
       // tiles_height[]
-      buf.SetU16At( HDR_TILES_HEIGHT, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_TILES_HEIGHT, (ushort)( buf.Length ) );
       for ( int t = 0; t < Tiles.Count; ++t )
         buf.AppendU8( (byte)Tiles[t].Chars.Height );
 
       // tiles_flags[]
-      buf.SetU16At( HDR_TILES_FLAGS, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_TILES_FLAGS, (ushort)( buf.Length ) );
       for ( int t = 0; t < Tiles.Count; ++t )
         buf.AppendU8( (byte)( Tiles[t].Passable ? 1 : 0 ) );
 
@@ -2548,27 +2618,27 @@ namespace RetroDevStudio.Formats
         tileColorBlobs.Add( colorBlob );
       }
 
-      // tile_char_offset_lo[] — placeholders, will patch with absolute offsets
+      // tile_char_offset_lo[] — placeholders, will patch with file-relative offsets
       int tileCharOffLoPos = (int)buf.Length;
-      buf.SetU16At( HDR_TILE_CHAR_OFF_LO, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_TILE_CHAR_OFF_LO, (ushort)( buf.Length ) );
       for ( int t = 0; t < Tiles.Count; ++t )
         buf.AppendU8( 0 );
 
       // tile_char_offset_hi[]
       int tileCharOffHiPos = (int)buf.Length;
-      buf.SetU16At( HDR_TILE_CHAR_OFF_HI, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_TILE_CHAR_OFF_HI, (ushort)( buf.Length ) );
       for ( int t = 0; t < Tiles.Count; ++t )
         buf.AppendU8( 0 );
 
       // tile_color_offset_lo[]
       int tileColorOffLoPos = (int)buf.Length;
-      buf.SetU16At( HDR_TILE_COLOR_OFF_LO, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_TILE_COLOR_OFF_LO, (ushort)( buf.Length ) );
       for ( int t = 0; t < Tiles.Count; ++t )
         buf.AppendU8( 0 );
 
       // tile_color_offset_hi[]
       int tileColorOffHiPos = (int)buf.Length;
-      buf.SetU16At( HDR_TILE_COLOR_OFF_HI, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_TILE_COLOR_OFF_HI, (ushort)( buf.Length ) );
       for ( int t = 0; t < Tiles.Count; ++t )
         buf.AppendU8( 0 );
 
@@ -2577,7 +2647,7 @@ namespace RetroDevStudio.Formats
       int runningOffset = 0;
       for ( int t = 0; t < Tiles.Count; ++t )
       {
-        int absAddr = tileCharDataStart + runningOffset + addrBase;
+        int absAddr = tileCharDataStart + runningOffset;
         buf.SetU8At( tileCharOffLoPos + t, (byte)( absAddr & 0xFF ) );
         buf.SetU8At( tileCharOffHiPos + t, (byte)( ( absAddr >> 8 ) & 0xFF ) );
         runningOffset += (int)tileCharBlobs[t].Length;
@@ -2590,7 +2660,7 @@ namespace RetroDevStudio.Formats
       runningOffset = 0;
       for ( int t = 0; t < Tiles.Count; ++t )
       {
-        int absAddr = tileColorDataStart + runningOffset + addrBase;
+        int absAddr = tileColorDataStart + runningOffset;
         buf.SetU8At( tileColorOffLoPos + t, (byte)( absAddr & 0xFF ) );
         buf.SetU8At( tileColorOffHiPos + t, (byte)( ( absAddr >> 8 ) & 0xFF ) );
         runningOffset += (int)tileColorBlobs[t].Length;
@@ -2646,75 +2716,75 @@ namespace RetroDevStudio.Formats
       }
 
       // map_width[]
-      buf.SetU16At( HDR_MAP_WIDTH, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_MAP_WIDTH, (ushort)( buf.Length ) );
       for ( int m = 0; m < Maps.Count; ++m )
         buf.AppendU8( (byte)exportWidths[m] );
 
       // map_height[]
-      buf.SetU16At( HDR_MAP_HEIGHT, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_MAP_HEIGHT, (ushort)( buf.Length ) );
       for ( int m = 0; m < Maps.Count; ++m )
         buf.AppendU8( (byte)exportHeights[m] );
 
       // map_bg_color[]
-      buf.SetU16At( HDR_MAP_BG_COLOR, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_MAP_BG_COLOR, (ushort)( buf.Length ) );
       for ( int m = 0; m < Maps.Count; ++m )
         buf.AppendU8( (byte)( Maps[m].AlternativeBackgroundColor >= 0 ? Maps[m].AlternativeBackgroundColor : BackgroundColor ) );
 
       // map_mc1_color[]
-      buf.SetU16At( HDR_MAP_MC1_COLOR, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_MAP_MC1_COLOR, (ushort)( buf.Length ) );
       for ( int m = 0; m < Maps.Count; ++m )
         buf.AppendU8( (byte)( Maps[m].AlternativeMultiColor1 >= 0 ? Maps[m].AlternativeMultiColor1 : MultiColor1 ) );
 
       // map_mc2_color[]
-      buf.SetU16At( HDR_MAP_MC2_COLOR, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_MAP_MC2_COLOR, (ushort)( buf.Length ) );
       for ( int m = 0; m < Maps.Count; ++m )
         buf.AppendU8( (byte)( Maps[m].AlternativeMultiColor2 >= 0 ? Maps[m].AlternativeMultiColor2 : MultiColor2 ) );
 
       // map_marker_count[]
-      buf.SetU16At( HDR_MAP_MARKER_COUNT, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_MAP_MARKER_COUNT, (ushort)( buf.Length ) );
       for ( int m = 0; m < Maps.Count; ++m )
         buf.AppendU8( (byte)markerCounts[m] );
 
       // map_entity_count[]
-      buf.SetU16At( HDR_MAP_ENTITY_COUNT, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_MAP_ENTITY_COUNT, (ushort)( buf.Length ) );
       for ( int m = 0; m < Maps.Count; ++m )
         buf.AppendU8( (byte)entityCounts[m] );
 
       // ========== MAP DATA LOOKUP TABLES (placeholders) ==========
 
       int mapCharGridLoPos = (int)buf.Length;
-      buf.SetU16At( HDR_MAP_CHAR_GRID_LO, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_MAP_CHAR_GRID_LO, (ushort)( buf.Length ) );
       for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
       int mapCharGridHiPos = (int)buf.Length;
-      buf.SetU16At( HDR_MAP_CHAR_GRID_HI, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_MAP_CHAR_GRID_HI, (ushort)( buf.Length ) );
       for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
 
       int mapColorGridLoPos = (int)buf.Length;
-      buf.SetU16At( HDR_MAP_COLOR_GRID_LO, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_MAP_COLOR_GRID_LO, (ushort)( buf.Length ) );
       for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
       int mapColorGridHiPos = (int)buf.Length;
-      buf.SetU16At( HDR_MAP_COLOR_GRID_HI, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_MAP_COLOR_GRID_HI, (ushort)( buf.Length ) );
       for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
 
       int mapPassableLoPos = (int)buf.Length;
-      buf.SetU16At( HDR_MAP_PASSABLE_LO, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_MAP_PASSABLE_LO, (ushort)( buf.Length ) );
       for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
       int mapPassableHiPos = (int)buf.Length;
-      buf.SetU16At( HDR_MAP_PASSABLE_HI, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_MAP_PASSABLE_HI, (ushort)( buf.Length ) );
       for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
 
       int mapMarkersLoPos = (int)buf.Length;
-      buf.SetU16At( HDR_MAP_MARKERS_LO, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_MAP_MARKERS_LO, (ushort)( buf.Length ) );
       for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
       int mapMarkersHiPos = (int)buf.Length;
-      buf.SetU16At( HDR_MAP_MARKERS_HI, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_MAP_MARKERS_HI, (ushort)( buf.Length ) );
       for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
 
       int mapEntitiesLoPos = (int)buf.Length;
-      buf.SetU16At( HDR_MAP_ENTITIES_LO, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_MAP_ENTITIES_LO, (ushort)( buf.Length ) );
       for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
       int mapEntitiesHiPos = (int)buf.Length;
-      buf.SetU16At( HDR_MAP_ENTITIES_HI, (ushort)( buf.Length + addrBase ) );
+      buf.SetU16At( HDR_MAP_ENTITIES_HI, (ushort)( buf.Length ) );
       for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
 
       // ========== PER-MAP VARIABLE DATA ==========
@@ -2771,7 +2841,7 @@ namespace RetroDevStudio.Formats
         }
 
         // Write char grid, patch lookup table
-        int charGridAddr = (int)buf.Length + addrBase;
+        int charGridAddr = (int)buf.Length;
         buf.SetU8At( mapCharGridLoPos + m, (byte)( charGridAddr & 0xFF ) );
         buf.SetU8At( mapCharGridHiPos + m, (byte)( ( charGridAddr >> 8 ) & 0xFF ) );
         for ( int i = 0; i < charGrid.Length; ++i )
@@ -2780,7 +2850,7 @@ namespace RetroDevStudio.Formats
         // Write color grid
         if ( ExportColors )
         {
-          int colorGridAddr = (int)buf.Length + addrBase;
+          int colorGridAddr = (int)buf.Length;
           buf.SetU8At( mapColorGridLoPos + m, (byte)( colorGridAddr & 0xFF ) );
           buf.SetU8At( mapColorGridHiPos + m, (byte)( ( colorGridAddr >> 8 ) & 0xFF ) );
           for ( int i = 0; i < colorGrid.Length; ++i )
@@ -2790,7 +2860,7 @@ namespace RetroDevStudio.Formats
         // Write passable bits
         if ( ExportPassable )
         {
-          int passableAddr = (int)buf.Length + addrBase;
+          int passableAddr = (int)buf.Length;
           buf.SetU8At( mapPassableLoPos + m, (byte)( passableAddr & 0xFF ) );
           buf.SetU8At( mapPassableHiPos + m, (byte)( ( passableAddr >> 8 ) & 0xFF ) );
 
@@ -2860,7 +2930,7 @@ namespace RetroDevStudio.Formats
         // rely on grouping for early-out scans or bucket-by-tag dispatch.
         if ( ExportMarkers )
         {
-          int markersAddr = (int)buf.Length + addrBase;
+          int markersAddr = (int)buf.Length;
           buf.SetU8At( mapMarkersLoPos + m, (byte)( markersAddr & 0xFF ) );
           buf.SetU8At( mapMarkersHiPos + m, (byte)( ( markersAddr >> 8 ) & 0xFF ) );
 
@@ -2913,7 +2983,7 @@ namespace RetroDevStudio.Formats
         // Write entities — sorted by TagID (ascending), matching marker sort.
         if ( map.Entities.Count > 0 )
         {
-          int entitiesAddr = (int)buf.Length + addrBase;
+          int entitiesAddr = (int)buf.Length;
           buf.SetU8At( mapEntitiesLoPos + m, (byte)( entitiesAddr & 0xFF ) );
           buf.SetU8At( mapEntitiesHiPos + m, (byte)( ( entitiesAddr >> 8 ) & 0xFF ) );
 
@@ -2970,7 +3040,7 @@ namespace RetroDevStudio.Formats
       //   2. MAP_STRING_HI table — N bytes, high byte of each string's address
       //   3. The N concatenated byte streams (one per emitted string)
       //
-      // The header pointers at +$35 / +$37 hold the absolute addresses of
+      // The header pointers at +$35 / +$37 hold the file-relative offsets of
       // the LO and HI tables; +$34 holds N. When the project has no
       // emittable strings the count is 0 and the LO/HI pointers stay
       // zero (the per-map empty-data convention).
@@ -2998,11 +3068,11 @@ namespace RetroDevStudio.Formats
         // LO / HI tables get placeholder bytes; we patch them once we know
         // each stream's final address.
         int loTablePos = (int)buf.Length;
-        buf.SetU16At( HDR_MAP_STRING_LO, (ushort)( loTablePos + addrBase ) );
+        buf.SetU16At( HDR_MAP_STRING_LO, (ushort)( loTablePos ) );
         for ( int i = 0; i < emittableStrings.Count; ++i ) buf.AppendU8( 0 );
 
         int hiTablePos = (int)buf.Length;
-        buf.SetU16At( HDR_MAP_STRING_HI, (ushort)( hiTablePos + addrBase ) );
+        buf.SetU16At( HDR_MAP_STRING_HI, (ushort)( hiTablePos ) );
         for ( int i = 0; i < emittableStrings.Count; ++i ) buf.AppendU8( 0 );
 
         // String-ID table — one byte per string, written right after the
@@ -3010,14 +3080,14 @@ namespace RetroDevStudio.Formats
         // (0..255, default 0). Runtime scans this table to map a StringID
         // back to its index, then uses MAP_STRING_LO/HI[index] for the
         // address. Values are known up front, so no placeholder/patch step.
-        buf.SetU16At( HDR_MAP_STRING_ID, (ushort)( (int)buf.Length + addrBase ) );
+        buf.SetU16At( HDR_MAP_STRING_ID, (ushort)( (int)buf.Length ) );
         for ( int i = 0; i < emittableStrings.Count; ++i )
           buf.AppendU8( emittableStrings[i].StringID );
 
         // Now write the byte streams and patch the LO/HI pointer tables.
         for ( int i = 0; i < emittableStrings.Count; ++i )
         {
-          int streamAddr = (int)buf.Length + addrBase;
+          int streamAddr = (int)buf.Length;
           buf.SetU8At( loTablePos + i, (byte)( streamAddr & 0xFF ) );
           buf.SetU8At( hiTablePos + i, (byte)( ( streamAddr >> 8 ) & 0xFF ) );
           buf.Append( streams[i] );
@@ -3061,6 +3131,15 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( "// All MAP_HEADER_* values are byte OFFSETS into the header, not stored" );
       sb.AppendLine( "// values. To read the stride at runtime: LDA MAP_HEADER + MAP_HEADER_MARKER_STRIDE" );
       sb.AppendLine( "// To step between marker records at compile time, use MAP_MARKER_SIZE." );
+      sb.AppendLine( "//" );
+      sb.AppendLine( "// IMPORTANT: every 16-bit pointer stored in this binary (the header" );
+      sb.AppendLine( "// pointer tables AND the per-tile / per-map LO/HI lookup tables) is a" );
+      sb.AppendLine( "// FILE-RELATIVE OFFSET — the byte distance from the start of the binary" );
+      sb.AppendLine( "// (header byte 0), NOT an absolute address. The runtime must ADD the" );
+      sb.AppendLine( "// address the file was loaded to before dereferencing any pointer, at" );
+      sb.AppendLine( "// both indirection levels. This is what lets the map be relocated in" );
+      sb.AppendLine( "// memory. A pointer of 0 means 'section absent' (the header occupies" );
+      sb.AppendLine( "// offsets 0..$3B, so no real section can start at offset 0)." );
       sb.AppendLine();
       sb.AppendLine( "// ====== Game binary header (60 bytes) ======" );
       sb.AppendLine( "// Direct byte values at the start of the header:" );
@@ -3069,7 +3148,7 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( ".const MAP_HEADER_MAPCOUNT                       = $02  // byte: number of maps" );
       sb.AppendLine( ".const MAP_HEADER_START_MAP_INDEX                = $03  // byte: index of starting map" );
       sb.AppendLine();
-      sb.AppendLine( "// Pointer tables (16-bit each) — absolute addresses into the data section:" );
+      sb.AppendLine( "// Pointer tables (16-bit each) — file-relative offsets into the data section (add your load address at runtime):" );
       sb.AppendLine( ".const MAP_HEADER_OFFSET_TILES_WIDTH             = $04" );
       sb.AppendLine( ".const MAP_HEADER_OFFSET_TILES_HEIGHT            = $06" );
       sb.AppendLine( ".const MAP_HEADER_OFFSET_TILES_FLAGS             = $08" );

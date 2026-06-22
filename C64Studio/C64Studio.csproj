@@ -540,6 +540,9 @@
     <None Remove="Fonts\ZX81-Regular.ttf" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Compressors\dali.exe">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="BASIC Dialects\BASIC 65.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -679,6 +682,7 @@
       if exist "$(TargetDir)*.runtimeconfig.json" copy "$(TargetDir)*.runtimeconfig.json" "$(SolutionDir)C64StudioRelease\$(TargetFramework)\$(Platform)"
       if exist "$(TargetDir)C64Studio.deps.json" copy "$(TargetDir)C64Studio.deps.json" "$(SolutionDir)C64StudioRelease\$(TargetFramework)\$(Platform)"
       if exist "$(TargetDir)runtimes" xcopy /S /Y /I "$(TargetDir)runtimes" "$(SolutionDir)C64StudioRelease\$(TargetFramework)\$(Platform)\runtimes"
+      if exist "$(TargetDir)Compressors" xcopy /S /Y /I "$(TargetDir)Compressors" "$(SolutionDir)C64StudioRelease\$(TargetFramework)\$(Platform)\Compressors"
     </PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Platform)' == 'ARM64' ">
@@ -697,6 +701,7 @@
       if exist "$(TargetDir)*.runtimeconfig.json" copy "$(TargetDir)*.runtimeconfig.json" "$(SolutionDir)C64StudioRelease\$(TargetFramework)\$(Platform)"
       if exist "$(TargetDir)C64Studio.deps.json" copy "$(TargetDir)C64Studio.deps.json" "$(SolutionDir)C64StudioRelease\$(TargetFramework)\$(Platform)"
       if exist "$(TargetDir)runtimes" xcopy /S /Y /I "$(TargetDir)runtimes" "$(SolutionDir)C64StudioRelease\$(TargetFramework)\$(Platform)\runtimes"
+      if exist "$(TargetDir)Compressors" xcopy /S /Y /I "$(TargetDir)Compressors" "$(SolutionDir)C64StudioRelease\$(TargetFramework)\$(Platform)\Compressors"
     </PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net3.5|AnyCPU'">

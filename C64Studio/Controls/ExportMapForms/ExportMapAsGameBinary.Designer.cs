@@ -85,7 +85,18 @@ namespace RetroDevStudio.Controls
       this.editCharsetExportFilename = new System.Windows.Forms.TextBox();
       this.checkCharsetPrefixLoadAddress = new System.Windows.Forms.CheckBox();
       this.editCharsetPrefixLoadAddress = new System.Windows.Forms.TextBox();
+      this.checkCompressMap = new System.Windows.Forms.CheckBox();
+      this.groupCompress = new System.Windows.Forms.GroupBox();
+      this.comboCompressor = new System.Windows.Forms.ComboBox();
+      this.labelCompressDirectory = new System.Windows.Forms.Label();
+      this.editCompressDirectory = new System.Windows.Forms.TextBox();
+      this.btnBrowseCompressDirectory = new System.Windows.Forms.Button();
+      this.labelCompressFilename = new System.Windows.Forms.Label();
+      this.editCompressFilename = new System.Windows.Forms.TextBox();
+      this.checkOverrideLoadAddress = new System.Windows.Forms.CheckBox();
+      this.editOverrideLoadAddress = new System.Windows.Forms.TextBox();
       this.groupCharset.SuspendLayout();
+      this.groupCompress.SuspendLayout();
       this.SuspendLayout();
       //
       // checkExportMarkers
@@ -171,6 +182,112 @@ namespace RetroDevStudio.Controls
       this.labelMaxExportSize.Size = new System.Drawing.Size(78, 13);
       this.labelMaxExportSize.TabIndex = 11;
       this.labelMaxExportSize.Text = "bytes (0 = off)";
+      //
+      // checkCompressMap
+      //
+      this.checkCompressMap.AutoSize = true;
+      this.checkCompressMap.Location = new System.Drawing.Point(325, 5);
+      this.checkCompressMap.Name = "checkCompressMap";
+      this.checkCompressMap.Size = new System.Drawing.Size(95, 17);
+      this.checkCompressMap.TabIndex = 47;
+      this.checkCompressMap.Text = "Compress map";
+      this.checkCompressMap.UseVisualStyleBackColor = true;
+      this.checkCompressMap.CheckedChanged += new System.EventHandler(this.checkCompressMap_CheckedChanged);
+      //
+      // groupCompress
+      //
+      this.groupCompress.Controls.Add(this.comboCompressor);
+      this.groupCompress.Controls.Add(this.labelCompressDirectory);
+      this.groupCompress.Controls.Add(this.editCompressDirectory);
+      this.groupCompress.Controls.Add(this.btnBrowseCompressDirectory);
+      this.groupCompress.Controls.Add(this.labelCompressFilename);
+      this.groupCompress.Controls.Add(this.editCompressFilename);
+      this.groupCompress.Controls.Add(this.checkOverrideLoadAddress);
+      this.groupCompress.Controls.Add(this.editOverrideLoadAddress);
+      this.groupCompress.Location = new System.Drawing.Point(325, 26);
+      this.groupCompress.Name = "groupCompress";
+      this.groupCompress.Size = new System.Drawing.Size(285, 125);
+      this.groupCompress.TabIndex = 48;
+      this.groupCompress.TabStop = false;
+      this.groupCompress.Text = "Compressor";
+      //
+      // comboCompressor
+      //
+      this.comboCompressor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+      this.comboCompressor.Enabled = false;
+      this.comboCompressor.FormattingEnabled = true;
+      this.comboCompressor.Items.AddRange(new object[] {
+      "ZX0"});
+      this.comboCompressor.Location = new System.Drawing.Point(8, 18);
+      this.comboCompressor.Name = "comboCompressor";
+      this.comboCompressor.Size = new System.Drawing.Size(269, 21);
+      this.comboCompressor.TabIndex = 0;
+      this.comboCompressor.SelectedIndexChanged += new System.EventHandler(this.HandleSettingsChanged);
+      //
+      // labelCompressDirectory
+      //
+      this.labelCompressDirectory.AutoSize = true;
+      this.labelCompressDirectory.Location = new System.Drawing.Point(6, 48);
+      this.labelCompressDirectory.Name = "labelCompressDirectory";
+      this.labelCompressDirectory.Size = new System.Drawing.Size(52, 13);
+      this.labelCompressDirectory.TabIndex = 1;
+      this.labelCompressDirectory.Text = "Directory:";
+      //
+      // editCompressDirectory
+      //
+      this.editCompressDirectory.Enabled = false;
+      this.editCompressDirectory.Location = new System.Drawing.Point(66, 45);
+      this.editCompressDirectory.Name = "editCompressDirectory";
+      this.editCompressDirectory.Size = new System.Drawing.Size(171, 20);
+      this.editCompressDirectory.TabIndex = 2;
+      //
+      // btnBrowseCompressDirectory
+      //
+      this.btnBrowseCompressDirectory.Enabled = false;
+      this.btnBrowseCompressDirectory.Location = new System.Drawing.Point(243, 43);
+      this.btnBrowseCompressDirectory.Name = "btnBrowseCompressDirectory";
+      this.btnBrowseCompressDirectory.Size = new System.Drawing.Size(30, 23);
+      this.btnBrowseCompressDirectory.TabIndex = 3;
+      this.btnBrowseCompressDirectory.Text = "...";
+      this.btnBrowseCompressDirectory.UseVisualStyleBackColor = true;
+      this.btnBrowseCompressDirectory.Click += new System.EventHandler(this.btnBrowseCompressDirectory_Click);
+      //
+      // labelCompressFilename
+      //
+      this.labelCompressFilename.AutoSize = true;
+      this.labelCompressFilename.Location = new System.Drawing.Point(6, 75);
+      this.labelCompressFilename.Name = "labelCompressFilename";
+      this.labelCompressFilename.Size = new System.Drawing.Size(52, 13);
+      this.labelCompressFilename.TabIndex = 4;
+      this.labelCompressFilename.Text = "Filename:";
+      //
+      // editCompressFilename
+      //
+      this.editCompressFilename.Enabled = false;
+      this.editCompressFilename.Location = new System.Drawing.Point(66, 72);
+      this.editCompressFilename.Name = "editCompressFilename";
+      this.editCompressFilename.Size = new System.Drawing.Size(207, 20);
+      this.editCompressFilename.TabIndex = 5;
+      //
+      // checkOverrideLoadAddress
+      //
+      this.checkOverrideLoadAddress.AutoSize = true;
+      this.checkOverrideLoadAddress.Location = new System.Drawing.Point(6, 100);
+      this.checkOverrideLoadAddress.Name = "checkOverrideLoadAddress";
+      this.checkOverrideLoadAddress.Size = new System.Drawing.Size(155, 17);
+      this.checkOverrideLoadAddress.TabIndex = 6;
+      this.checkOverrideLoadAddress.Text = "Override file load address";
+      this.checkOverrideLoadAddress.UseVisualStyleBackColor = true;
+      this.checkOverrideLoadAddress.CheckedChanged += new System.EventHandler(this.checkOverrideLoadAddress_CheckedChanged);
+      //
+      // editOverrideLoadAddress
+      //
+      this.editOverrideLoadAddress.Enabled = false;
+      this.editOverrideLoadAddress.Font = new System.Drawing.Font("Courier New", 8.25F);
+      this.editOverrideLoadAddress.Location = new System.Drawing.Point(207, 98);
+      this.editOverrideLoadAddress.Name = "editOverrideLoadAddress";
+      this.editOverrideLoadAddress.Size = new System.Drawing.Size(66, 20);
+      this.editOverrideLoadAddress.TabIndex = 7;
       //
       // checkSaveOnExport
       //
@@ -651,6 +768,8 @@ namespace RetroDevStudio.Controls
       this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
       this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
       this.Controls.Add(this.groupCharset);
+      this.Controls.Add(this.checkCompressMap);
+      this.Controls.Add(this.groupCompress);
       this.Controls.Add(this.editMarkerLabelsPrefix);
       this.Controls.Add(this.labelMarkerLabelsPrefix);
       this.Controls.Add(this.editMarkerLabelsFilename);
@@ -702,6 +821,7 @@ namespace RetroDevStudio.Controls
       this.Size = new System.Drawing.Size(620, 710);
       this.groupCharset.ResumeLayout(false);
       this.groupCharset.PerformLayout();
+      this.groupCompress.ResumeLayout(false);
       this.ResumeLayout(false);
       this.PerformLayout();
 
@@ -717,6 +837,16 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.CheckBox checkMaxExportSize;
     private System.Windows.Forms.TextBox editMaxExportSize;
     private System.Windows.Forms.Label labelMaxExportSize;
+    private System.Windows.Forms.CheckBox checkCompressMap;
+    private System.Windows.Forms.GroupBox groupCompress;
+    private System.Windows.Forms.ComboBox comboCompressor;
+    private System.Windows.Forms.Label labelCompressDirectory;
+    private System.Windows.Forms.TextBox editCompressDirectory;
+    private System.Windows.Forms.Button btnBrowseCompressDirectory;
+    private System.Windows.Forms.Label labelCompressFilename;
+    private System.Windows.Forms.TextBox editCompressFilename;
+    private System.Windows.Forms.CheckBox checkOverrideLoadAddress;
+    private System.Windows.Forms.TextBox editOverrideLoadAddress;
     private System.Windows.Forms.CheckBox checkSaveOnExport;
     private System.Windows.Forms.Label labelExportDirectory;
     private System.Windows.Forms.TextBox editExportDirectory;

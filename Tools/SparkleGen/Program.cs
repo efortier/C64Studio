@@ -39,6 +39,10 @@ namespace SparkleGen
     const int BLOOD_SEED  = 1337;
     const int BLOOD_COLOR = 2;     // C64 red — the per-char colour; change in-game as you like
 
+    // Butterfly twinkle sprite (hi-res, non-multicolour).
+    const int BFLY_COUNT = 4;
+    const int BFLY_SEED  = 7;
+
     [STAThread]
     static int Main( string[] args )
     {
@@ -85,6 +89,10 @@ namespace SparkleGen
 
       // ===== Blood-trail charset: 16 hi-res 8x8 chars, heavy -> faint gradient =====
       ok &= GenerateBloodSet( outDir );
+
+      // ===== Butterfly twinkle: hi-res sprite, a few 3-px butterflies fluttering =====
+      ok &= GenerateButterflySet( outDir, FRAMES, "butterfly",  "Butterflies" );        // 8-frame
+      ok &= GenerateButterflySet( outDir, 4,      "butterfly4", "Butterflies 4f" );      // 4-frame copy: same butterflies, re-timed loop
 
       Console.WriteLine();
       Console.WriteLine( ok ? "VERIFY: all checks passed." : "VERIFY: FAILED — see messages above." );
@@ -191,8 +199,8 @@ namespace SparkleGen
 
     static void WriteSpr( string path, byte[][] frames )
     {
-      byte[] all = new byte[FRAMES * FRAME_BYTES];
-      for ( int f = 0; f < FRAMES; ++f )
+      byte[] all = new byte[frames.Length * FRAME_BYTES];
+      for ( int f = 0; f < frames.Length; ++f )
       {
         Array.Copy( frames[f], 0, all, f * FRAME_BYTES, FRAME_BYTES );
       }
@@ -528,9 +536,155 @@ namespace SparkleGen
     }
 
 
+    // ---- Butterfly twinkle sprite (hi-res, non-multicolour) ----------------
+
+    static bool GenerateButterflySet( string outDir, int frameCount, string baseName, string overlayName )
+    {
+      byte[][] frames = BuildButterflyFrames( frameCount );
+
+      string sprPath  = System.IO.Path.Combine( outDir, baseName + "_hires.spr" );
+      string projPath = System.IO.Path.Combine( outDir, baseName + "_hires.spriteproject" );
+
+      WriteSpr( sprPath, frames );
+      BuildAndSaveProject( false, frames, overlayName, projPath, overlayName );
+      WriteButterflyPreview( System.IO.Path.Combine( outDir, baseName + "_preview.png" ), frames );
+
+      bool ok = Verify( projPath, frames, GraphicTileMode.COMMODORE_HIRES );
+      ok &= ( new System.IO.FileInfo( sprPath ).Length == frames.Length * FRAME_BYTES );
+      return ok;
+    }
+
+    /// <summary>
+    /// A hi-res sprite holding a few "butterflies" that flutter over 8 frames. A
+    /// butterfly is a 3-pixel motif: a centre body + a wing pixel on each side,
+    /// the two wings flapping SYMMETRICALLY so the shape reads cleanly — down = a
+    /// "V" (".x." over "x.x"), flat = "xxx", up = "^" — with some butterflies turned
+    /// sideways. Flap pose, orientation, a tiny circular drift and a once-per-cycle
+    /// blink (folds to just the body) all vary per butterfly, so the field flutters
+    /// and twinkles. Seeded RNG -> organic but reproducible.
+    /// </summary>
+    static byte[][] BuildButterflyFrames( int frameCount )
+    {
+      Random rng = new Random( BFLY_SEED );
+
+      int   n       = BFLY_COUNT;
+      int[] cx      = new int[n];
+      int[] cy      = new int[n];
+      int[] phL     = new int[n];   // wing flap phase
+      int[] phBlk   = new int[n];   // the frame this butterfly folds to just its body
+      int[] phDrift = new int[n];
+      int[] orient  = new int[n];   // 0 = wings left/right (flap up-down), 1 = wings up/down (sideways)
+
+      // Spread with stratified jitter: a grid of more cells than butterflies, pick
+      // cells at random (no two share a cell), and jitter the position inside each
+      // chosen cell -> even coverage of the whole sprite, but irregular (not symmetric).
+      int targetCells = Math.Max( n + 2, (int)Math.Ceiling( n * 1.5 ) );
+      int cols        = Math.Max( 2, (int)Math.Ceiling( Math.Sqrt( targetCells * ( (double)SPR_W / SPR_H ) ) ) );
+      int rows        = Math.Max( 2, (int)Math.Ceiling( (double)targetCells / cols ) );
+      int cellCount   = cols * rows;
+
+      int[] order = new int[cellCount];
+      for ( int k = 0; k < cellCount; ++k ) { order[k] = k; }
+      for ( int k = cellCount - 1; k > 0; --k )           // Fisher-Yates shuffle
+      {
+        int j = rng.Next( k + 1 );
+        int tmp = order[k]; order[k] = order[j]; order[j] = tmp;
+      }
+
+      int placed = 0;
+      for ( int idx = 0; ( idx < cellCount ) && ( placed < n ); ++idx )
+      {
+        int gx   = order[idx] % cols;
+        int gy   = order[idx] / cols;
+        int xMin = 2 + gx * 20 / cols;                    // centre range 2..21 (room for wing + drift)
+        int xMax = 2 + ( gx + 1 ) * 20 / cols - 1;
+        int yMin = 2 + gy * 17 / rows;                    // centre range 2..18
+        int yMax = 2 + ( gy + 1 ) * 17 / rows - 1;
+        cx[placed]      = xMin + rng.Next( Math.Max( 1, xMax - xMin + 1 ) );
+        cy[placed]      = yMin + rng.Next( Math.Max( 1, yMax - yMin + 1 ) );
+        phL[placed]     = rng.Next( 4 );
+        phBlk[placed]   = rng.Next( 8 );   // layout draw fixed at 8 so any frameCount yields the SAME butterflies
+        phDrift[placed] = rng.Next( 8 );
+        orient[placed]  = rng.Next( 2 );
+        ++placed;
+      }
+      n = placed;
+
+      int[] flap = { +1, 0, -1, 0 };                 // wing-tip offset cycle: down, flat, up, flat
+      int[] drx  = new int[frameCount];
+      int[] dry  = new int[frameCount];
+      for ( int k = 0; k < frameCount; ++k )
+      {
+        drx[k] = (int)Math.Round( Math.Cos( Math.PI * 2.0 * k / frameCount ) );   // radius-1 drift, completes its loop in frameCount frames
+        dry[k] = (int)Math.Round( Math.Sin( Math.PI * 2.0 * k / frameCount ) );
+      }
+
+      // Everything below cycles in frameCount frames (flap length 4 divides 4 and 8;
+      // drift array is frameCount long; blink is mod frameCount) -> frame[frameCount] == frame[0],
+      // so the animation loops seamlessly at any supported frame count.
+      byte[][] frames = new byte[frameCount][];
+      for ( int f = 0; f < frameCount; ++f )
+      {
+        byte[] data = new byte[FRAME_BYTES];
+        for ( int b = 0; b < n; ++b )
+        {
+          int dk = ( f + phDrift[b] ) % frameCount;
+          int bx = cx[b] + drx[dk];
+          int by = cy[b] + dry[dk];
+
+          Plot( data, bx, by );                       // body (always shown)
+
+          if ( ( ( f + phBlk[b] ) % frameCount ) == 0 ) continue;   // blink: wings folded this frame
+
+          int o = flap[( f + phL[b] ) % flap.Length];   // both wings symmetric -> clean V / flat / ^
+          if ( orient[b] == 0 )
+          {
+            Plot( data, bx - 1, by + o );             // wings left & right, flapping up/down
+            Plot( data, bx + 1, by + o );
+          }
+          else
+          {
+            Plot( data, bx + o, by - 1 );             // wings above & below, flapping sideways
+            Plot( data, bx + o, by + 1 );
+          }
+        }
+        frames[f] = data;
+      }
+      return frames;
+    }
+
+    static void Plot( byte[] data, int x, int y )
+    {
+      if ( ( x < 0 ) || ( x >= SPR_W ) || ( y < 0 ) || ( y >= SPR_H ) ) return;
+      data[y * 3 + x / 8] |= (byte)( 0x80 >> ( x % 8 ) );
+    }
+
+    static void WriteButterflyPreview( string path, byte[][] frames )
+    {
+      Palette pal = ConstantData.DefaultPaletteC64();
+      const int SC  = 8;
+      const int PAD = 8;
+      int fw = SPR_W * SC;
+      int fh = SPR_H * SC;
+      int totalW = PAD + frames.Length * ( fw + PAD );
+      int totalH = PAD + fh + PAD;
+
+      using ( Bitmap bmp = new Bitmap( totalW, totalH, PixelFormat.Format32bppArgb ) )
+      using ( Graphics g = Graphics.FromImage( bmp ) )
+      {
+        g.Clear( Color.FromArgb( 0x10, 0x10, 0x10 ) );
+        for ( int f = 0; f < frames.Length; ++f )
+        {
+          RenderSprite( g, frames[f], false, PAD + f * ( fw + PAD ), PAD, SC, pal );
+        }
+        bmp.Save( path, ImageFormat.Png );
+      }
+    }
+
+
     // ---- SpriteProject construction (real serializer) ----------------------
 
-    static void BuildAndSaveProject( bool multicolor, byte[][] frameBytes, string name, string path )
+    static void BuildAndSaveProject( bool multicolor, byte[][] frameBytes, string name, string path, string overlayName = "Sparkle" )
     {
       // A fresh project already has 256 banks + the default C64 palette; we
       // overwrite banks 0..7 and add one animated overlay.
@@ -548,7 +702,7 @@ namespace SparkleGen
       GraphicTileMode tileMode    = multicolor ? GraphicTileMode.COMMODORE_MULTICOLOR_SPRITES : GraphicTileMode.COMMODORE_HIRES;
       byte            customColor = (byte)( multicolor ? COL_CYAN : COL_WHITE );   // MC body / hires glint
 
-      for ( int f = 0; f < FRAMES; ++f )
+      for ( int f = 0; f < frameBytes.Length; ++f )
       {
         SpriteProject.SpriteData s = project.Sprites[f];
         s.Mode             = spriteMode;
@@ -560,7 +714,7 @@ namespace SparkleGen
       }
 
       SpriteProject.Overlay ov = new SpriteProject.Overlay();
-      ov.Name                  = "Sparkle";
+      ov.Name                  = overlayName;
       ov.Slots[0].Enabled         = true;
       ov.Slots[0].X               = 0;
       ov.Slots[0].Y               = 0;
@@ -568,7 +722,7 @@ namespace SparkleGen
       ov.Slots[0].BackgroundColor = COL_BLACK;
       ov.Slots[0].MultiColor1     = COL_LTBLUE;
       ov.Slots[0].MultiColor2     = COL_WHITE;
-      for ( int f = 0; f < FRAMES; ++f )
+      for ( int f = 0; f < frameBytes.Length; ++f )
       {
         SpriteProject.OverlayFrame fr = new SpriteProject.OverlayFrame();
         fr.DelayMS      = 100;
@@ -666,9 +820,9 @@ namespace SparkleGen
       else
       {
         SpriteProject.Overlay ov = rt.Overlays[0];
-        if ( ov.Frames.Count != FRAMES ) { ok = false; Console.WriteLine( "  FAIL: frame count = " + ov.Frames.Count ); }
+        if ( ov.Frames.Count != expectedFrames.Length ) { ok = false; Console.WriteLine( "  FAIL: frame count = " + ov.Frames.Count ); }
         if ( !ov.Slots[0].Enabled )      { ok = false; Console.WriteLine( "  FAIL: slot 0 not enabled" ); }
-        for ( int f = 0; ( f < FRAMES ) && ( f < ov.Frames.Count ); ++f )
+        for ( int f = 0; ( f < expectedFrames.Length ) && ( f < ov.Frames.Count ); ++f )
         {
           if ( ov.Frames[f].BankIndex[0] != f )
           {
@@ -678,7 +832,7 @@ namespace SparkleGen
         }
       }
 
-      for ( int f = 0; f < FRAMES; ++f )
+      for ( int f = 0; f < expectedFrames.Length; ++f )
       {
         SpriteProject.SpriteData s = rt.Sprites[f];
         if ( s.Tile.Mode != expectedTileMode )
