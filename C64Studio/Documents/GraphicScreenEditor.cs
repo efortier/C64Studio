@@ -1154,10 +1154,7 @@ namespace RetroDevStudio.Documents
       saveDlg.Title = "Save Graphic Screen Project as";
       saveDlg.Filter = "Graphic Screen Projects|*.graphicscreen|All Files|*.*";
       saveDlg.FileName = GR.Path.GetFileName( PreviousFilename );
-      if ( DocumentInfo.Project != null )
-      {
-        saveDlg.InitialDirectory = DocumentInfo.Project.Settings.BasePath;
-      }
+      ApplySaveDialogInitialDirectory( saveDlg, PreviousFilename );
       if ( saveDlg.ShowDialog() != System.Windows.Forms.DialogResult.OK )
       {
         return false;

@@ -101,6 +101,31 @@ namespace RetroDevStudio.Controls
       bool exportColors = checkExportColors.Checked;
       bool exportPassable = checkExportPassable.Checked;
 
+      // Pre-export validation: a marker whose "Link to ID" points at its own ID
+      // (LinkToID == LinkID) is a self-referential trigger link — always a bug
+      // (the runtime would re-queue it forever). Abort so it gets fixed rather
+      // than shipped. Only relevant when markers are actually being exported.
+      if ( exportMarkers && ( Info.Map != null ) )
+      {
+        var selfLinks = Info.Map.GetMarkerSelfLinkWarnings();
+        if ( selfLinks.Count > 0 )
+        {
+          var sb = new System.Text.StringBuilder();
+          sb.AppendLine( "Export aborted: a marker links to its own ID" );
+          sb.AppendLine( "(\"Link to ID\" equals the marker's own \"ID\")." );
+          sb.AppendLine();
+          foreach ( var w in selfLinks ) sb.AppendLine( "  " + w );
+          sb.AppendLine();
+          sb.AppendLine( "Clear the self-link on the listed marker(s) and export again." );
+          System.Windows.Forms.MessageBox.Show(
+            sb.ToString(),
+            "Marker links to its own ID",
+            System.Windows.Forms.MessageBoxButtons.OK,
+            System.Windows.Forms.MessageBoxIcon.Warning );
+          return false;
+        }
+      }
+
       // Pointers in the binary are always file-relative offsets; the runtime
       // adds its own load address. (The old absolute base-address option was
       // removed.) The "Prefix Load Address" option below is independent — it
@@ -458,32 +483,6 @@ namespace RetroDevStudio.Controls
     /// Parse a C64 hex address ($0000-$FFFF). Accepts an optional "$" or "0x"
     /// prefix. Returns false for empty/garbage/out-of-range input.
     /// </summary>
-    private static bool TryParseHexAddress( string Text, out int Address )
-    {
-      Address = 0;
-      string t = ( Text ?? "" ).Trim();
-      if ( t.StartsWith( "$" ) )
-      {
-        t = t.Substring( 1 );
-      }
-      else if ( t.StartsWith( "0x" ) || t.StartsWith( "0X" ) )
-      {
-        t = t.Substring( 2 );
-      }
-      if ( t.Length == 0 )
-      {
-        return false;
-      }
-      if ( !int.TryParse( t, System.Globalization.NumberStyles.HexNumber,
-                          System.Globalization.CultureInfo.InvariantCulture, out Address ) )
-      {
-        return false;
-      }
-      return ( Address >= 0 ) && ( Address <= 0xFFFF );
-    }
-
-
-
     /// <summary>
     /// Optionally compress the just-exported map file with the selected Krill
     /// compressor, writing the result as a SECOND file (the original is never
@@ -545,13 +544,10 @@ namespace RetroDevStudio.Controls
       // different address than the source PRG header says. Requires a valid hex
       // address ($0000-$FFFF); a bad/empty value aborts compression so we never
       // write a file with a silently-wrong load address.
-      string relocateArg = "";
-      bool relocated = false;
-      int loadAddress = -1;   // the address the compressed file depacks to
+      int overrideAddress = -1;
       if ( checkOverrideLoadAddress.Checked )
       {
-        int overrideAddr;
-        if ( !TryParseHexAddress( editOverrideLoadAddress.Text, out overrideAddr ) )
+        if ( !GameBinaryCompression.TryParseHexAddress( editOverrideLoadAddress.Text, out overrideAddress ) )
         {
           if ( Core != null )
           {
@@ -561,117 +557,21 @@ namespace RetroDevStudio.Controls
           }
           return false;
         }
-        // dali's --relocate-origin accepts a decimal value (it also takes $/0x,
-        // but decimal avoids any argument-quoting concerns).
-        relocateArg = " --relocate-origin " + overrideAddr;
-        loadAddress = overrideAddr;
-        relocated = true;
       }
 
       string compressor = ( comboCompressor.SelectedItem != null ) ? comboCompressor.SelectedItem.ToString() : "ZX0";
-
-      // Map the selected compressor to its bundled tool + argument template.
-      // (Only ZX0/dali is wired today; the switch leaves room for more.)
-      string exeName;
-      string args;
-      switch ( compressor )
-      {
-        case "ZX0":
-        default:
-          // dali = ZX0 re-encoder for the Krill loader. Input is the PRG we just
-          // wrote (with its 2-byte load address when "Prefix Load Address" is on).
-          // --relocate-origin overrides that embedded load address when requested.
-          exeName = "dali.exe";
-          args = "-o \"" + outPath + "\"" + relocateArg + " \"" + MainFilePath + "\"";
-          break;
-      }
-
-      string toolPath = System.IO.Path.Combine(
-        System.IO.Path.GetDirectoryName( System.Windows.Forms.Application.ExecutablePath ),
-        "Compressors",
-        exeName );
-      if ( !System.IO.File.Exists( toolPath ) )
-      {
-        if ( Core != null )
-        {
-          Core.Notification.MessageBox( "Compressor not found",
-            "Could not find the compressor:\r\n" + toolPath + "\r\n\r\nThe map was exported, but not compressed." );
-        }
-        return false;
-      }
-
-      try
-      {
-        var proc = new System.Diagnostics.Process();
-        proc.StartInfo.FileName = toolPath;
-        proc.StartInfo.Arguments = args;
-        proc.StartInfo.UseShellExecute = false;
-        proc.StartInfo.CreateNoWindow = true;
-        proc.StartInfo.RedirectStandardOutput = true;
-        proc.StartInfo.RedirectStandardError = true;
-        proc.Start();
-        string stdOut = proc.StandardOutput.ReadToEnd();
-        string stdErr = proc.StandardError.ReadToEnd();
-        proc.WaitForExit();
-        int exitCode = proc.ExitCode;
-        proc.Close();
-
-        if ( ( exitCode != 0 )
-        ||   ( !System.IO.File.Exists( outPath ) ) )
-        {
-          if ( Core != null )
-          {
-            Core.Notification.MessageBox( "Compression failed",
-              "The compressor returned an error (exit code " + exitCode + ").\r\n"
-              + "The map was exported, but not compressed.\r\n\r\n"
-              + ( string.IsNullOrEmpty( stdErr ) ? stdOut : stdErr ) );
-          }
-          return false;
-        }
-      }
-      catch ( Exception ex )
+      string error;
+      if ( !GameBinaryCompression.RunCompressor( compressor, MainFilePath, outPath,
+                                                 overrideAddress, UncompressedSize, out Report, out error ) )
       {
         if ( Core != null )
         {
           Core.Notification.MessageBox( "Compression failed",
-            "Could not run the compressor:\r\n" + toolPath + "\r\n\r\n" + ex.Message );
+            error + "\r\n\r\nThe map was exported, but not compressed." );
         }
+        Report = null;
         return false;
       }
-
-      long compressedSize = new System.IO.FileInfo( outPath ).Length;
-      // Percentage of size REMOVED: 75% means the file is now 1/4 of the original.
-      double percent = ( UncompressedSize > 0 )
-                       ? ( 1.0 - ( compressedSize / (double)UncompressedSize ) ) * 100.0
-                       : 0.0;
-
-      // Depack load address: when not relocating, it's the load address dali
-      // reads from the source — the first two bytes (little-endian) of the file.
-      if ( !relocated )
-      {
-        try
-        {
-          byte[] head = new byte[2];
-          using ( var fs = System.IO.File.OpenRead( MainFilePath ) )
-          {
-            if ( fs.Read( head, 0, 2 ) == 2 )
-            {
-              loadAddress = head[0] | ( head[1] << 8 );
-            }
-          }
-        }
-        catch ( Exception )
-        {
-          loadAddress = -1;
-        }
-      }
-      string addrText = ( loadAddress >= 0 )
-                        ? "  load $" + loadAddress.ToString( "X4" ) + ( relocated ? " (relocated)" : " (original)" )
-                        : "";
-
-      Report = "Compressed (" + compressor + "): " + UncompressedSize + " -> " + compressedSize
-             + " bytes  (" + percent.ToString( "0.0" ) + "% compression; "
-             + ( 100.0 - percent ).ToString( "0.0" ) + "% of original)" + addrText + "  -> " + outPath;
       return true;
     }
 
@@ -927,7 +827,7 @@ namespace RetroDevStudio.Controls
               {
                 int mAddr = markersAddr + mk * markerStride;
                 int mFilePos = mAddr - ba;
-                // Current layout (stride 9): tag, x, y, value1, value2, flags, group, link_to_id, link_id
+                // Current layout (stride 11): tag, x, y, value1, value2, flags, group, link_to_id, link_id, value3, value4
                 string line = "  $" + mAddr.ToString( "X4" ) + ": tag=" + HexByte( buf.ByteAt( mFilePos ) )
                             + " x=" + buf.ByteAt( mFilePos + 1 )
                             + " y=" + buf.ByteAt( mFilePos + 2 );
@@ -951,6 +851,10 @@ namespace RetroDevStudio.Controls
                   line += " linkTo=" + buf.ByteAt( mFilePos + 7 );
                 if ( markerStride >= 9 )
                   line += " linkId=" + buf.ByteAt( mFilePos + 8 );
+                if ( markerStride >= 10 )
+                  line += " value3=" + HexByte( buf.ByteAt( mFilePos + 9 ) );
+                if ( markerStride >= 11 )
+                  line += " value4=" + HexByte( buf.ByteAt( mFilePos + 10 ) );
                 sb.AppendLine( line );
               }
             }

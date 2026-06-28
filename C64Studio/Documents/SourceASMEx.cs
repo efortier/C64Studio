@@ -2315,10 +2315,7 @@ namespace RetroDevStudio.Documents
       saveDlg.Title = "Save ASM File as";
       saveDlg.Filter = Core.MainForm.FilterString( Types.Constants.FILEFILTER_ASM + Types.Constants.FILEFILTER_ALL );
       saveDlg.FileName = GR.Path.GetFileName( PreviousFilename );
-      if ( DocumentInfo.Project != null )
-      {
-        saveDlg.InitialDirectory = DocumentInfo.Project.Settings.BasePath;
-      }
+      ApplySaveDialogInitialDirectory( saveDlg, PreviousFilename );
       if ( saveDlg.ShowDialog() != System.Windows.Forms.DialogResult.OK )
       {
         return false;

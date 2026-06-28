@@ -1520,6 +1520,7 @@ namespace RetroDevStudio.Documents
       saveDlg.Title = "Save Basic File as";
       saveDlg.Filter = FilterString( Types.Constants.FILEFILTER_BASIC + Types.Constants.FILEFILTER_ALL );
       saveDlg.FileName = GR.Path.GetFileName( PreviousFilename );
+      ApplySaveDialogInitialDirectory( saveDlg, PreviousFilename );
       if ( saveDlg.ShowDialog() != System.Windows.Forms.DialogResult.OK )
       {
         return false;

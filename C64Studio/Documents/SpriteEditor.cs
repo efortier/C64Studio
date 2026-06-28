@@ -51,14 +51,12 @@ namespace RetroDevStudio.Documents
 
         // Animation tab (Phase 4). m_CurrentFrame is the user-selected frame
         // in the current overlay's Frames list; the 8 NUDs hold the per-slot
-        // bank index for that frame. Playback timer ticks at 100ms; each
-        // tick increments m_AnimFrameTicksOverlay by 100 and advances when
-        // it crosses the current frame's DelayMS.
+        // bank index for that frame. Playback advances one frame per timer tick;
+        // the timer interval is the overlay's single FrameDelay (1/50th sec) in ms.
         private Formats.SpriteProject.OverlayFrame m_CurrentFrame = null;
         private System.Windows.Forms.NumericUpDown[] m_FrameSlotBank = new System.Windows.Forms.NumericUpDown[8];
         private System.Windows.Forms.Timer m_OverlayAnimTimer = new System.Windows.Forms.Timer();
         private int m_OverlayAnimFramePos = 0;
-        private int m_OverlayAnimFrameTicks = 0;
 
         // Preview zoom factors. The picture box stretches its DisplayPage
         // to fill the client area, so a smaller page = larger apparent
@@ -82,7 +80,7 @@ namespace RetroDevStudio.Documents
             public int ScreenX;
             public int ScreenY;
             public int FramePos;     // index into m_CurrentOverlay.Frames
-            public int FrameTicks;   // accumulated ms toward the current frame's DelayMS
+            public int FrameTicks;   // accumulated ms toward the animation's frame delay
         }
 
         private bool m_ButtonReleased = false;
@@ -159,7 +157,14 @@ namespace RetroDevStudio.Documents
             comboExportMethod.Items.Add(new GR.Generic.Tupel<string, Type>("to image file", typeof(ExportSpriteAsImageFile)));
             comboExportMethod.Items.Add(new GR.Generic.Tupel<string, Type>("to image (clipboard)", typeof(ExportSpriteAsImage)));
             comboExportMethod.Items.Add(new GR.Generic.Tupel<string, Type>("to Mega65 S-BASIC Spritedef", typeof(ExportSpriteAsSBASICFCSpritedef)));
+            comboExportMethod.Items.Add(new GR.Generic.Tupel<string, Type>("as game binary", typeof(ExportSpriteAsGameBinary)));
+            // Build the default export form WITHOUT going through the change
+            // handler, so constructing the editor never marks the document
+            // modified. The handler is reattached for genuine user selections.
+            comboExportMethod.SelectedIndexChanged -= comboExportMethod_SelectedIndexChanged;
             comboExportMethod.SelectedIndex = 0;
+            comboExportMethod.SelectedIndexChanged += comboExportMethod_SelectedIndexChanged;
+            RebuildExportForm();
 
             comboImportMethod.Items.Add(new GR.Generic.Tupel<string, Type>("from assembly", typeof(ImportSpriteFromASM)));
             comboImportMethod.Items.Add(new GR.Generic.Tupel<string, Type>("from BASIC DATA statements", typeof(ImportSpriteFromBASICDATA)));
@@ -217,6 +222,7 @@ namespace RetroDevStudio.Documents
             RefreshOverlaysList();
             PopulateTestBackColorCombo();
             ResumeLayout();
+            PopulateTestMagnificationFromProject();
             RebuildSpriteTest();
         }
 
@@ -871,6 +877,22 @@ namespace RetroDevStudio.Documents
             checkTestLoop.Checked = m_SpriteProject.TestLoop;
             PopulateTestBackColorCombo();
             DoNotUpdateFromControls = false;
+            PopulateTestMagnificationFromProject();
+
+            // Restore the saved export method. Detach the handler around the
+            // programmatic index change, then rebuild the export sub-form
+            // explicitly, so loading the project does not mark it modified.
+            if (comboExportMethod.Items.Count > 0)
+            {
+                int savedExportMethod = m_SpriteProject.ExportMethodIndex;
+                if (savedExportMethod < 0) savedExportMethod = 0;
+                if (savedExportMethod >= comboExportMethod.Items.Count) savedExportMethod = 0;
+                comboExportMethod.SelectedIndexChanged -= comboExportMethod_SelectedIndexChanged;
+                comboExportMethod.SelectedIndex = savedExportMethod;
+                comboExportMethod.SelectedIndexChanged += comboExportMethod_SelectedIndexChanged;
+                RebuildExportForm();
+            }
+
             RebuildSpriteTest();
             SetUnmodified();
             return true;
@@ -887,10 +909,7 @@ namespace RetroDevStudio.Documents
             saveDlg.Title = "Save Sprite Project as";
             saveDlg.Filter = "Sprite Projects|*.spriteproject|All Files|*.*";
             saveDlg.FileName = GR.Path.GetFileName(PreviousFilename);
-            if (DocumentInfo.Project != null)
-            {
-                saveDlg.InitialDirectory = DocumentInfo.Project.Settings.BasePath;
-            }
+            ApplySaveDialogInitialDirectory(saveDlg, PreviousFilename);
             if (saveDlg.ShowDialog() != System.Windows.Forms.DialogResult.OK)
             {
                 return false;
@@ -961,6 +980,12 @@ namespace RetroDevStudio.Documents
 
             if (m_IsSpriteProject)
             {
+                // Flush the live export form's UI into the project so its export
+                // settings are persisted with the project.
+                if (m_ExportForm != null)
+                {
+                    m_ExportForm.UpdateExportSettings(m_SpriteProject);
+                }
                 projectFile = m_SpriteProject.SaveToBuffer();
             }
             else
@@ -2785,8 +2810,24 @@ namespace RetroDevStudio.Documents
 
         private void comboExportMethod_SelectedIndexChanged(object sender, EventArgs e)
         {
+            // This fires only on a genuine USER change: programmatic restores
+            // detach this handler first (constructor / LoadDocument). So it is
+            // always safe to remember the choice and mark the document modified.
+            RebuildExportForm();
+            m_SpriteProject.ExportMethodIndex = (comboExportMethod.SelectedIndex >= 0) ? comboExportMethod.SelectedIndex : 0;
+            Modified = true;
+        }
+
+
+
+        // Dispose the current export sub-form and build the one for the selected
+        // method. Does NOT touch the modified flag or the saved method index, so
+        // it can be called freely during construction/load.
+        private void RebuildExportForm()
+        {
             if (m_ExportForm != null)
             {
+                m_ExportForm.SettingsChanged -= ExportForm_SettingsChanged;
                 m_ExportForm.Dispose();
                 m_ExportForm = null;
             }
@@ -2803,6 +2844,26 @@ namespace RetroDevStudio.Documents
             m_ExportForm = (ExportSpriteFormBase)Activator.CreateInstance(item.second, new object[] { Core });
             m_ExportForm.Parent = panelExport;
             m_ExportForm.CreateControl();
+            // The document was themed at load time, before this form existed, so
+            // its freshly-created controls are still unthemed - recolor them now.
+            Core.Theming.ApplyTheme(m_ExportForm);
+            // A user edit on the form flushes the values + marks modified via this
+            // subscription. Wire it BEFORE ApplyExportSettings; the form detaches
+            // its own change handlers while populating, so loading the persisted
+            // settings does not raise SettingsChanged (and does not dirty the doc).
+            m_ExportForm.SettingsChanged += ExportForm_SettingsChanged;
+            m_ExportForm.ApplyExportSettings(m_SpriteProject);
+        }
+
+
+
+        private void ExportForm_SettingsChanged(object sender, EventArgs e)
+        {
+            if (m_ExportForm != null)
+            {
+                m_ExportForm.UpdateExportSettings(m_SpriteProject);
+            }
+            Modified = true;
         }
 
 
@@ -2842,6 +2903,8 @@ namespace RetroDevStudio.Documents
             m_ImportForm.Parent = panelImport;
             m_ImportForm.Size = panelImport.ClientSize;
             m_ImportForm.CreateControl();
+            // Theme this freshly-created form (the document was themed before it existed).
+            Core.Theming.ApplyTheme(m_ImportForm);
         }
 
 
@@ -3386,6 +3449,9 @@ namespace RetroDevStudio.Documents
                 if (m_CurrentOverlay == null)
                 {
                     editOverlayName.Text = "";
+                    editFrameDelay.Value = 5;
+                    checkLoop.Checked = true;
+                    editAnimationID.Value = 0;
                     for (int i = 0; i < 8; ++i)
                     {
                         m_SlotEnabled[i].Checked = false;
@@ -3398,6 +3464,9 @@ namespace RetroDevStudio.Documents
                 else
                 {
                     editOverlayName.Text = m_CurrentOverlay.Name ?? "";
+                    editFrameDelay.Value = ClampNudInt(m_CurrentOverlay.FrameDelay, 1, 255);
+                    checkLoop.Checked = m_CurrentOverlay.Loop;
+                    editAnimationID.Value = ClampNudInt(m_CurrentOverlay.AnimationID, 0, 255);
                     for (int i = 0; i < 8; ++i)
                     {
                         var slot = m_CurrentOverlay.Slots[i];
@@ -3442,6 +3511,9 @@ namespace RetroDevStudio.Documents
         private void AttachOverlayFieldHandlers()
         {
             editOverlayName.TextChanged += editOverlayName_TextChanged;
+            editFrameDelay.ValueChanged += editFrameDelay_ValueChanged;
+            checkLoop.CheckedChanged += checkLoop_CheckedChanged;
+            editAnimationID.ValueChanged += editAnimationID_ValueChanged;
             for (int i = 0; i < 8; ++i)
             {
                 m_SlotEnabled[i].CheckedChanged += slotEnabled_CheckedChanged;
@@ -3457,6 +3529,9 @@ namespace RetroDevStudio.Documents
         private void DetachOverlayFieldHandlers()
         {
             editOverlayName.TextChanged -= editOverlayName_TextChanged;
+            editFrameDelay.ValueChanged -= editFrameDelay_ValueChanged;
+            checkLoop.CheckedChanged -= checkLoop_CheckedChanged;
+            editAnimationID.ValueChanged -= editAnimationID_ValueChanged;
             for (int i = 0; i < 8; ++i)
             {
                 m_SlotEnabled[i].CheckedChanged -= slotEnabled_CheckedChanged;
@@ -3476,7 +3551,7 @@ namespace RetroDevStudio.Documents
             var ov = new Formats.SpriteProject.Overlay();
             ov.Name = "Overlay " + (m_SpriteProject.Overlays.Count + 1);
             // Default: one frame so slot bank-index edits have somewhere to land.
-            ov.Frames.Add(new Formats.SpriteProject.OverlayFrame() { DelayMS = 100 });
+            ov.Frames.Add(new Formats.SpriteProject.OverlayFrame());
             m_SpriteProject.Overlays.Add(ov);
             Modified = true;
 
@@ -3567,7 +3642,7 @@ namespace RetroDevStudio.Documents
             // frame 0. Phase 4's animation tab manages the full timeline.
             if (m_CurrentOverlay.Frames.Count == 0)
             {
-                m_CurrentOverlay.Frames.Add(new Formats.SpriteProject.OverlayFrame() { DelayMS = 100 });
+                m_CurrentOverlay.Frames.Add(new Formats.SpriteProject.OverlayFrame());
             }
             m_CurrentOverlay.Frames[0].BankIndex[slotIdx] = (int)ctrl.Value;
             Modified = true;
@@ -3699,7 +3774,7 @@ namespace RetroDevStudio.Documents
                 {
                     for (int i = 0; i < m_CurrentOverlay.Frames.Count; ++i)
                     {
-                        listAnimFrames.Items.Add("Frame " + i + "  (" + m_CurrentOverlay.Frames[i].DelayMS + "ms)");
+                        listAnimFrames.Items.Add("Frame " + i);
                     }
                 }
                 listAnimFrames.EndUpdate();
@@ -3757,12 +3832,10 @@ namespace RetroDevStudio.Documents
             {
                 if (m_CurrentFrame == null)
                 {
-                    editFrameDelay.Value = ClampNudInt(100, 1, 60000);
                     for (int i = 0; i < 8; ++i) m_FrameSlotBank[i].Value = 0;
                 }
                 else
                 {
-                    editFrameDelay.Value = ClampNudInt(m_CurrentFrame.DelayMS, 1, 60000);
                     for (int i = 0; i < 8; ++i)
                     {
                         int v = m_CurrentFrame.BankIndex[i];
@@ -3781,7 +3854,6 @@ namespace RetroDevStudio.Documents
 
         private void AttachFrameFieldHandlers()
         {
-            editFrameDelay.ValueChanged += editFrameDelay_ValueChanged;
             for (int i = 0; i < 8; ++i)
             {
                 m_FrameSlotBank[i].ValueChanged += frameSlotBank_ValueChanged;
@@ -3792,7 +3864,6 @@ namespace RetroDevStudio.Documents
 
         private void DetachFrameFieldHandlers()
         {
-            editFrameDelay.ValueChanged -= editFrameDelay_ValueChanged;
             for (int i = 0; i < 8; ++i)
             {
                 m_FrameSlotBank[i].ValueChanged -= frameSlotBank_ValueChanged;
@@ -3811,11 +3882,9 @@ namespace RetroDevStudio.Documents
             // doesn't blank the slots — common ask is "duplicate as starting
             // point". If no frame selected, start at all-zero.
             var newFrame = new Formats.SpriteProject.OverlayFrame();
-            newFrame.DelayMS = 100;
             if (m_CurrentFrame != null)
             {
                 for (int i = 0; i < 8; ++i) newFrame.BankIndex[i] = m_CurrentFrame.BankIndex[i];
-                newFrame.DelayMS = m_CurrentFrame.DelayMS;
             }
             m_CurrentOverlay.Frames.Add(newFrame);
             Modified = true;
@@ -3848,7 +3917,6 @@ namespace RetroDevStudio.Documents
 
             var src = m_CurrentOverlay.Frames[idx];
             var dup = new Formats.SpriteProject.OverlayFrame();
-            dup.DelayMS = src.DelayMS;
             for (int i = 0; i < 8; ++i) dup.BankIndex[i] = src.BankIndex[i];
             m_CurrentOverlay.Frames.Insert(idx + 1, dup);
             Modified = true;
@@ -3858,66 +3926,39 @@ namespace RetroDevStudio.Documents
 
 
 
-        private void btnApplyDelayToAll_Click(DecentForms.ControlBase Sender)
+        private void editFrameDelay_ValueChanged(object sender, EventArgs e)
         {
             if (m_CurrentOverlay == null) return;
-            if (m_CurrentOverlay.Frames.Count == 0) return;
             DocumentInfo.UndoManager.AddUndoTask(new Undo.UndoSpritesetOverlaysChange(this, m_SpriteProject));
 
-            int delay = (int)editFrameDelay.Value;
-            foreach (var f in m_CurrentOverlay.Frames)
-            {
-                f.DelayMS = delay;
-            }
+            // Single per-animation frame delay, in 1/50th-second units.
+            m_CurrentOverlay.FrameDelay = (int)editFrameDelay.Value;
             Modified = true;
-            // Refresh the listbox so each entry's "(Nms)" trailer reflects the
-            // new uniform delay. Detach to avoid re-entering the populate path.
-            int prev = listAnimFrames.SelectedIndex;
-            listAnimFrames.SelectedIndexChanged -= listAnimFrames_SelectedIndexChanged;
-            try
+            // If the preview animation is playing, apply the new timing at once.
+            if (m_OverlayAnimTimer.Enabled)
             {
-                listAnimFrames.BeginUpdate();
-                for (int i = 0; i < listAnimFrames.Items.Count; ++i)
-                {
-                    listAnimFrames.Items[i] = "Frame " + i + "  (" + delay + "ms)";
-                }
-                listAnimFrames.EndUpdate();
-                if (prev >= 0 && prev < listAnimFrames.Items.Count)
-                {
-                    listAnimFrames.SelectedIndex = prev;
-                }
-            }
-            finally
-            {
-                listAnimFrames.SelectedIndexChanged += listAnimFrames_SelectedIndexChanged;
+                m_OverlayAnimTimer.Interval = OverlayAnimIntervalMs();
             }
         }
 
 
 
-        private void editFrameDelay_ValueChanged(object sender, EventArgs e)
+        private void checkLoop_CheckedChanged(object sender, EventArgs e)
         {
-            if (m_CurrentFrame == null) return;
+            if (m_CurrentOverlay == null) return;
             DocumentInfo.UndoManager.AddUndoTask(new Undo.UndoSpritesetOverlaysChange(this, m_SpriteProject));
-
-            m_CurrentFrame.DelayMS = (int)editFrameDelay.Value;
+            m_CurrentOverlay.Loop = checkLoop.Checked;
             Modified = true;
-            // Refresh the frame's text in the listbox so the "(Nms)" trailer
-            // stays in sync. Detach the handler around the rewrite so we don't
-            // re-enter PopulateFrameFieldsFromSelection mid-typing.
-            int idx = listAnimFrames.SelectedIndex;
-            if (idx >= 0 && idx < listAnimFrames.Items.Count)
-            {
-                listAnimFrames.SelectedIndexChanged -= listAnimFrames_SelectedIndexChanged;
-                try
-                {
-                    listAnimFrames.Items[idx] = "Frame " + idx + "  (" + m_CurrentFrame.DelayMS + "ms)";
-                }
-                finally
-                {
-                    listAnimFrames.SelectedIndexChanged += listAnimFrames_SelectedIndexChanged;
-                }
-            }
+        }
+
+
+
+        private void editAnimationID_ValueChanged(object sender, EventArgs e)
+        {
+            if (m_CurrentOverlay == null) return;
+            DocumentInfo.UndoManager.AddUndoTask(new Undo.UndoSpritesetOverlaysChange(this, m_SpriteProject));
+            m_CurrentOverlay.AnimationID = (int)editAnimationID.Value;
+            Modified = true;
         }
 
 
@@ -3941,7 +3982,8 @@ namespace RetroDevStudio.Documents
             if (m_CurrentOverlay == null) return;
             if (m_CurrentOverlay.Frames.Count == 0) return;
             m_OverlayAnimFramePos = 0;
-            m_OverlayAnimFrameTicks = 0;
+            m_OverlayAnimTimer.Interval = OverlayAnimIntervalMs();
+            RebuildAnimPreviewForFrame(m_CurrentOverlay.Frames[0]);
             m_OverlayAnimTimer.Start();
             UpdateFrameButtonStates();
         }
@@ -3970,16 +4012,26 @@ namespace RetroDevStudio.Documents
             if (m_OverlayAnimFramePos >= m_CurrentOverlay.Frames.Count)
             {
                 m_OverlayAnimFramePos = 0;
-                m_OverlayAnimFrameTicks = 0;
             }
-            m_OverlayAnimFrameTicks += m_OverlayAnimTimer.Interval;
-            var curFrame = m_CurrentOverlay.Frames[m_OverlayAnimFramePos];
-            if (m_OverlayAnimFrameTicks >= curFrame.DelayMS)
-            {
-                m_OverlayAnimFrameTicks -= curFrame.DelayMS;
-                m_OverlayAnimFramePos = (m_OverlayAnimFramePos + 1) % m_CurrentOverlay.Frames.Count;
-            }
+            // One frame per tick: the timer interval IS the single per-animation
+            // frame delay (1/50th-second units). Re-apply it each tick so editing
+            // the delay while playing takes effect immediately.
+            m_OverlayAnimTimer.Interval = OverlayAnimIntervalMs();
+            m_OverlayAnimFramePos = (m_OverlayAnimFramePos + 1) % m_CurrentOverlay.Frames.Count;
             RebuildAnimPreviewForFrame(m_CurrentOverlay.Frames[m_OverlayAnimFramePos]);
+        }
+
+
+
+        /// <summary>
+        /// Preview-timer interval in milliseconds for the current overlay's single
+        /// per-animation frame delay (1/50th-second units -> ms).
+        /// </summary>
+        private int OverlayAnimIntervalMs()
+        {
+            int jiffies = (m_CurrentOverlay != null) ? m_CurrentOverlay.FrameDelay : 5;
+            if (jiffies < 1) jiffies = 1;
+            return jiffies * 20;   // one jiffy = 1/50th second = 20 ms
         }
 
 
@@ -4083,6 +4135,9 @@ namespace RetroDevStudio.Documents
             int dt = m_SpriteTestTimer.Interval;
             int frameCount = m_CurrentOverlay.Frames.Count;
             bool loop = m_SpriteProject.TestLoop;
+            // Single per-animation frame delay (1/50th sec -> ms).
+            int frameDelayMs = m_CurrentOverlay.FrameDelay * 20;
+            if (frameDelayMs < 20) frameDelayMs = 20;
 
             // Iterate backwards so finished instances can be removed in place.
             for (int i = m_TestInstances.Count - 1; i >= 0; --i)
@@ -4090,14 +4145,14 @@ namespace RetroDevStudio.Documents
                 var inst = m_TestInstances[i];
                 inst.FrameTicks += dt;
 
-                // Advance while the accumulated time covers the CURRENT frame's delay,
-                // read live each tick from the frame — so editing a frame's DelayMS
-                // while it plays (including a looping instance) applies immediately; a
-                // shortened delay catches up by advancing multiple frames here.
+                // Advance while the accumulated time covers the animation's frame
+                // delay (read live each tick) — so editing the delay while it plays
+                // (including a looping instance) applies immediately; a shortened
+                // delay catches up by advancing multiple frames here.
                 while ((inst.FramePos < frameCount)
-                && (inst.FrameTicks >= m_CurrentOverlay.Frames[inst.FramePos].DelayMS))
+                && (inst.FrameTicks >= frameDelayMs))
                 {
-                    inst.FrameTicks -= m_CurrentOverlay.Frames[inst.FramePos].DelayMS;
+                    inst.FrameTicks -= frameDelayMs;
                     inst.FramePos++;
                     if (inst.FramePos >= frameCount)
                     {
@@ -4139,6 +4194,10 @@ namespace RetroDevStudio.Documents
             if (picSpriteTest == null) return;
 
             int zoom = (m_AnimPreviewZoom < 1) ? 1 : m_AnimPreviewZoom;
+            if (m_SpriteProject.TestUseC64Magnification)
+            {
+                zoom = ComputeC64Magnification();
+            }
             EnsurePreviewPageSized(picSpriteTest, zoom);
             var page = picSpriteTest.DisplayPage;
 
@@ -4361,6 +4420,116 @@ namespace RetroDevStudio.Documents
             if (DoNotUpdateFromControls) return;
             m_SpriteProject.TestLoop = checkTestLoop.Checked;
             SetModified();
+        }
+
+
+
+        private void checkTestC64Mag_CheckedChanged(object sender, EventArgs e)
+        {
+            if (DoNotUpdateFromControls) return;
+            m_SpriteProject.TestUseC64Magnification = checkTestC64Mag.Checked;
+            UpdateMagResultLabel();
+            RebuildSpriteTest();
+            SetModified();
+        }
+
+
+
+        private void editTestTargetW_TextChanged(object sender, EventArgs e)
+        {
+            if (DoNotUpdateFromControls) return;
+            int v;
+            m_SpriteProject.TestTargetWidth = (int.TryParse(editTestTargetW.Text, out v) && (v > 0)) ? v : 0;
+            UpdateMagResultLabel();
+            if (m_SpriteProject.TestUseC64Magnification) RebuildSpriteTest();
+            SetModified();
+        }
+
+
+
+        private void editTestTargetH_TextChanged(object sender, EventArgs e)
+        {
+            if (DoNotUpdateFromControls) return;
+            int v;
+            m_SpriteProject.TestTargetHeight = (int.TryParse(editTestTargetH.Text, out v) && (v > 0)) ? v : 0;
+            UpdateMagResultLabel();
+            if (m_SpriteProject.TestUseC64Magnification) RebuildSpriteTest();
+            SetModified();
+        }
+
+
+
+        /// <summary>
+        /// Integer playfield magnification for "Use C64 magnification": maps the
+        /// auto-detected monitor resolution onto the C64 SCREEN size the user is
+        /// targeting (editTestTargetW/H, default 320x200). The factor is how many
+        /// monitor pixels one C64 pixel occupies when that C64 screen fills the
+        /// monitor (preserving aspect), rounded to a whole page-zoom. The C64
+        /// screen is configurable so PAL/NTSC and border sizes can be accounted for.
+        /// </summary>
+        private int ComputeC64Magnification()
+        {
+            int c64W = m_SpriteProject.TestTargetWidth;
+            int c64H = m_SpriteProject.TestTargetHeight;
+            if (c64W <= 0) c64W = 320;
+            if (c64H <= 0) c64H = 200;
+            var screen = System.Windows.Forms.Screen.PrimaryScreen.Bounds;
+            double mag = System.Math.Min(screen.Width / (double)c64W, screen.Height / (double)c64H);
+            int z = (int)System.Math.Round(mag);
+            if (z < 1) z = 1;
+            if (z > 64) z = 64;
+            return z;
+        }
+
+
+
+        private void UpdateMagResultLabel()
+        {
+            if (labelTestMagResult == null) return;
+            int z = ComputeC64Magnification();
+            labelTestMagResult.Text = "= " + z + "x";
+
+            int c64W = m_SpriteProject.TestTargetWidth;
+            int c64H = m_SpriteProject.TestTargetHeight;
+            if (c64W <= 0) c64W = 320;
+            if (c64H <= 0) c64H = 200;
+            var screen = System.Windows.Forms.Screen.PrimaryScreen.Bounds;
+            if (toolTip1 != null)
+            {
+                toolTip1.SetToolTip(labelTestMagResult,
+                    "Your screen " + screen.Width + "x" + screen.Height
+                    + " mapped onto a C64 screen of " + c64W + "x" + c64H
+                    + " = " + z + "x magnification.");
+            }
+        }
+
+
+
+        /// <summary>
+        /// Reflect the project's C64-magnification settings in the test controls.
+        /// The target W/H are the C64 SCREEN size (0/unset falls back to 320x200);
+        /// the monitor side is detected when the factor is computed. Guarded so
+        /// populating doesn't dirty the document.
+        /// </summary>
+        private void PopulateTestMagnificationFromProject()
+        {
+            bool prev = DoNotUpdateFromControls;
+            DoNotUpdateFromControls = true;
+            try
+            {
+                checkTestC64Mag.Checked = m_SpriteProject.TestUseC64Magnification;
+                int w = m_SpriteProject.TestTargetWidth;
+                int h = m_SpriteProject.TestTargetHeight;
+                if (w <= 0) w = 320;
+                if (h <= 0) h = 200;
+                editTestTargetW.Text = w.ToString();
+                editTestTargetH.Text = h.ToString();
+            }
+            finally
+            {
+                DoNotUpdateFromControls = prev;
+            }
+            UpdateMagResultLabel();
         }
 
 

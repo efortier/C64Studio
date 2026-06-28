@@ -1543,10 +1543,7 @@ namespace RetroDevStudio.Documents
       saveDlg.Title = "Save Charset Screen Project as";
       saveDlg.Filter = "Charset Screen Projects|*.charscreen|All Files|*.*";
       saveDlg.FileName = GR.Path.GetFileName( PreviousFilename );
-      if ( DocumentInfo.Project != null )
-      {
-        saveDlg.InitialDirectory = DocumentInfo.Project.Settings.BasePath;
-      }
+      ApplySaveDialogInitialDirectory( saveDlg, PreviousFilename );
       if ( saveDlg.ShowDialog() != DialogResult.OK )
       {
         return false;

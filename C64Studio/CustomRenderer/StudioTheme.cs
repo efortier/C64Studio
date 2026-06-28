@@ -140,6 +140,15 @@ namespace RetroDevStudio.CustomRenderer
           button.DisabledTextColor = DarkenColor( GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.CONTROL_TEXT ) ) );
         }
 
+        if ( control is ThemedCheckBox )
+        {
+          var themedCheck = control as ThemedCheckBox;
+
+          // Dimmed-but-readable disabled text: darken the (light) themed
+          // foreground rather than fall through to SystemColors.GrayText.
+          themedCheck.DisabledTextColor = DarkenColor( GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.CONTROL_TEXT ) ) );
+        }
+
         control.ForeColor = GR.Color.Helper.FromARGB( Core.Settings.FGColor( ColorableElement.CONTROL_TEXT ) );
 
         if ( control is ComboBox )
@@ -414,6 +423,21 @@ namespace RetroDevStudio.CustomRenderer
       RecolorControlsRecursive( Form.Controls );
 
       SetDarkTitleBar( Form );
+    }
+
+
+
+    /// <summary>
+    /// Theme a non-Form container (e.g. a UserControl that is created at runtime
+    /// and added to an already-themed document, like the lazily-built export
+    /// forms). Mirrors ApplyTheme(Form) but skips the title-bar handling, which
+    /// only applies to top-level windows.
+    /// </summary>
+    public void ApplyTheme( Control Control )
+    {
+      Control.BackColor = GR.Color.Helper.FromARGB( Core.Settings.BGColor( ColorableElement.BACKGROUND_CONTROL ) );
+
+      RecolorControlsRecursive( Control.Controls );
     }
 
 

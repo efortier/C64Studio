@@ -610,6 +610,42 @@ namespace RetroDevStudio.Documents
 
 
 
+    /// <summary>
+    /// Default a Save dialog's directory to the loaded document's own folder, so
+    /// "Save As" opens where the file lives instead of My Documents. Falls back
+    /// to the project base path, then the OS default. Call from QueryFilename
+    /// after setting the dialog's FileName. <paramref name="PreviousFilename"/>
+    /// is the document's current full path (what QueryFilename receives).
+    /// </summary>
+    protected void ApplySaveDialogInitialDirectory( System.Windows.Forms.SaveFileDialog Dialog, string PreviousFilename )
+    {
+      if ( Dialog == null )
+      {
+        return;
+      }
+      string loadedDir = "";
+      try
+      {
+        if ( !string.IsNullOrEmpty( PreviousFilename ) )
+        {
+          loadedDir = System.IO.Path.GetDirectoryName( PreviousFilename );
+        }
+      }
+      catch ( Exception )
+      {
+      }
+      if ( !string.IsNullOrEmpty( loadedDir ) && System.IO.Directory.Exists( loadedDir ) )
+      {
+        Dialog.InitialDirectory = loadedDir;
+      }
+      else if ( ( DocumentInfo != null ) && ( DocumentInfo.Project != null ) )
+      {
+        Dialog.InitialDirectory = DocumentInfo.Project.Settings.BasePath;
+      }
+    }
+
+
+
     protected virtual bool PerformSave( string FullPath )
     {
       return false;

@@ -76,6 +76,9 @@ namespace RetroDevStudio.Undo
     {
       var c = new SpriteProject.Overlay();
       c.Name = Source.Name;
+      c.FrameDelay = Source.FrameDelay;
+      c.Loop = Source.Loop;
+      c.AnimationID = Source.AnimationID;
       for ( int i = 0; i < c.Slots.Length && i < Source.Slots.Length; ++i )
       {
         var s   = Source.Slots[i];
@@ -93,7 +96,6 @@ namespace RetroDevStudio.Undo
       foreach ( var f in Source.Frames )
       {
         var fc = new SpriteProject.OverlayFrame();
-        fc.DelayMS = f.DelayMS;
         for ( int i = 0; i < fc.BankIndex.Length && i < f.BankIndex.Length; ++i )
         {
           fc.BankIndex[i] = f.BankIndex[i];

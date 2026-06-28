@@ -59,6 +59,12 @@ namespace RetroDevStudio.Documents
             checkTestExpandX = new System.Windows.Forms.CheckBox();
             checkTestExpandY = new System.Windows.Forms.CheckBox();
             checkTestLoop = new System.Windows.Forms.CheckBox();
+            checkTestC64Mag = new System.Windows.Forms.CheckBox();
+            labelTestTarget = new System.Windows.Forms.Label();
+            editTestTargetW = new System.Windows.Forms.TextBox();
+            labelTestTargetX = new System.Windows.Forms.Label();
+            editTestTargetH = new System.Windows.Forms.TextBox();
+            labelTestMagResult = new System.Windows.Forms.Label();
             btnTestStop = new DecentForms.Button();
             btnAddFrame = new DecentForms.Button();
             labelAnimZoom = new System.Windows.Forms.Label();
@@ -71,9 +77,11 @@ namespace RetroDevStudio.Documents
             btnPauseAnim = new DecentForms.Button();
             panelFrameSlots = new System.Windows.Forms.Panel();
             listAnimFrames = new System.Windows.Forms.ListBox();
-            btnApplyDelayToAll = new DecentForms.Button();
             labelFrameDelay = new System.Windows.Forms.Label();
             editFrameDelay = new System.Windows.Forms.NumericUpDown();
+            checkLoop = new System.Windows.Forms.CheckBox();
+            labelAnimationID = new System.Windows.Forms.Label();
+            editAnimationID = new System.Windows.Forms.NumericUpDown();
             btnAddOverlay = new DecentForms.Button();
             btnRemoveOverlay = new DecentForms.Button();
             listOverlays = new System.Windows.Forms.ListBox();
@@ -185,6 +193,7 @@ namespace RetroDevStudio.Documents
             ((System.ComponentModel.ISupportInitialize)picSpriteTest).BeginInit();
             ((System.ComponentModel.ISupportInitialize)picAnimPreview).BeginInit();
             ((System.ComponentModel.ISupportInitialize)editFrameDelay).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)editAnimationID).BeginInit();
             ((System.ComponentModel.ISupportInitialize)picOverlayPreview).BeginInit();
             ((System.ComponentModel.ISupportInitialize)trackGridOpacity).BeginInit();
             ((System.ComponentModel.ISupportInitialize)pictureEditor).BeginInit();
@@ -388,6 +397,12 @@ namespace RetroDevStudio.Documents
             panel1.Controls.Add(checkTestExpandX);
             panel1.Controls.Add(checkTestExpandY);
             panel1.Controls.Add(checkTestLoop);
+            panel1.Controls.Add(checkTestC64Mag);
+            panel1.Controls.Add(labelTestTarget);
+            panel1.Controls.Add(editTestTargetW);
+            panel1.Controls.Add(labelTestTargetX);
+            panel1.Controls.Add(editTestTargetH);
+            panel1.Controls.Add(labelTestMagResult);
             panel1.Controls.Add(btnTestStop);
             panel1.Controls.Add(btnAddFrame);
             panel1.Controls.Add(labelAnimZoom);
@@ -400,21 +415,23 @@ namespace RetroDevStudio.Documents
             panel1.Controls.Add(btnPauseAnim);
             panel1.Controls.Add(panelFrameSlots);
             panel1.Controls.Add(listAnimFrames);
-            panel1.Controls.Add(btnApplyDelayToAll);
             panel1.Controls.Add(labelFrameDelay);
             panel1.Controls.Add(editFrameDelay);
+            panel1.Controls.Add(checkLoop);
+            panel1.Controls.Add(labelAnimationID);
+            panel1.Controls.Add(editAnimationID);
             panel1.Location = new System.Drawing.Point(624, 5);
             panel1.Name = "panel1";
-            panel1.Size = new System.Drawing.Size(784, 525);
+            panel1.Size = new System.Drawing.Size(784, 560);
             panel1.TabIndex = 14;
             panel1.Paint += panel1_Paint;
             // 
             // panelSpriteTest
             // 
             panelSpriteTest.Controls.Add(picSpriteTest);
-            panelSpriteTest.Location = new System.Drawing.Point(150, 311);
+            panelSpriteTest.Location = new System.Drawing.Point(150, 358);
             panelSpriteTest.Name = "panelSpriteTest";
-            panelSpriteTest.Size = new System.Drawing.Size(418, 192);
+            panelSpriteTest.Size = new System.Drawing.Size(418, 145);
             panelSpriteTest.TabIndex = 14;
             // 
             // picSpriteTest
@@ -426,7 +443,7 @@ namespace RetroDevStudio.Documents
             picSpriteTest.Image = null;
             picSpriteTest.Location = new System.Drawing.Point(0, 0);
             picSpriteTest.Name = "picSpriteTest";
-            picSpriteTest.Size = new System.Drawing.Size(418, 192);
+            picSpriteTest.Size = new System.Drawing.Size(418, 145);
             picSpriteTest.TabIndex = 0;
             picSpriteTest.TabStop = false;
             picSpriteTest.MouseDown += picSpriteTest_MouseDown;
@@ -434,7 +451,7 @@ namespace RetroDevStudio.Documents
             // labelTestBack
             // 
             labelTestBack.AutoSize = true;
-            labelTestBack.Location = new System.Drawing.Point(574, 314);
+            labelTestBack.Location = new System.Drawing.Point(574, 358);
             labelTestBack.Name = "labelTestBack";
             labelTestBack.Size = new System.Drawing.Size(68, 13);
             labelTestBack.TabIndex = 15;
@@ -445,7 +462,7 @@ namespace RetroDevStudio.Documents
             comboTestBackColor.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
             comboTestBackColor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             comboTestBackColor.FormattingEnabled = true;
-            comboTestBackColor.Location = new System.Drawing.Point(574, 330);
+            comboTestBackColor.Location = new System.Drawing.Point(574, 374);
             comboTestBackColor.Name = "comboTestBackColor";
             comboTestBackColor.Size = new System.Drawing.Size(160, 21);
             comboTestBackColor.TabIndex = 16;
@@ -455,7 +472,7 @@ namespace RetroDevStudio.Documents
             // checkTestExpandX
             // 
             checkTestExpandX.AutoSize = true;
-            checkTestExpandX.Location = new System.Drawing.Point(574, 360);
+            checkTestExpandX.Location = new System.Drawing.Point(574, 404);
             checkTestExpandX.Name = "checkTestExpandX";
             checkTestExpandX.Size = new System.Drawing.Size(72, 17);
             checkTestExpandX.TabIndex = 17;
@@ -466,7 +483,7 @@ namespace RetroDevStudio.Documents
             // checkTestExpandY
             // 
             checkTestExpandY.AutoSize = true;
-            checkTestExpandY.Location = new System.Drawing.Point(574, 383);
+            checkTestExpandY.Location = new System.Drawing.Point(574, 427);
             checkTestExpandY.Name = "checkTestExpandY";
             checkTestExpandY.Size = new System.Drawing.Size(72, 17);
             checkTestExpandY.TabIndex = 18;
@@ -477,14 +494,69 @@ namespace RetroDevStudio.Documents
             // checkTestLoop
             // 
             checkTestLoop.AutoSize = true;
-            checkTestLoop.Location = new System.Drawing.Point(574, 406);
+            checkTestLoop.Location = new System.Drawing.Point(574, 450);
             checkTestLoop.Name = "checkTestLoop";
             checkTestLoop.Size = new System.Drawing.Size(50, 17);
             checkTestLoop.TabIndex = 19;
             checkTestLoop.Text = "Loop";
             checkTestLoop.UseVisualStyleBackColor = true;
             checkTestLoop.CheckedChanged += checkTestLoop_CheckedChanged;
-            // 
+            //
+            // checkTestC64Mag
+            //
+            checkTestC64Mag.AutoSize = true;
+            checkTestC64Mag.Location = new System.Drawing.Point(574, 505);
+            checkTestC64Mag.Name = "checkTestC64Mag";
+            checkTestC64Mag.Size = new System.Drawing.Size(143, 17);
+            checkTestC64Mag.TabIndex = 21;
+            checkTestC64Mag.Text = "Use C64 magnification";
+            checkTestC64Mag.UseVisualStyleBackColor = true;
+            checkTestC64Mag.CheckedChanged += checkTestC64Mag_CheckedChanged;
+            toolTip1.SetToolTip(checkTestC64Mag, "Magnify the playfield so sprites appear at the size they would on your monitor when the C64 screen (below) fills it.");
+            //
+            // labelTestTarget
+            //
+            labelTestTarget.AutoSize = true;
+            labelTestTarget.Location = new System.Drawing.Point(574, 530);
+            labelTestTarget.Name = "labelTestTarget";
+            labelTestTarget.Size = new System.Drawing.Size(66, 13);
+            labelTestTarget.TabIndex = 22;
+            labelTestTarget.Text = "C64 screen:";
+            //
+            // editTestTargetW
+            //
+            editTestTargetW.Location = new System.Drawing.Point(644, 527);
+            editTestTargetW.Name = "editTestTargetW";
+            editTestTargetW.Size = new System.Drawing.Size(44, 20);
+            editTestTargetW.TabIndex = 23;
+            editTestTargetW.TextChanged += editTestTargetW_TextChanged;
+            toolTip1.SetToolTip(editTestTargetW, "C64 screen width in pixels you are targeting (e.g. 320; raise to include borders / for PAL).");
+            //
+            // labelTestTargetX
+            //
+            labelTestTargetX.AutoSize = true;
+            labelTestTargetX.Location = new System.Drawing.Point(692, 530);
+            labelTestTargetX.Name = "labelTestTargetX";
+            labelTestTargetX.Size = new System.Drawing.Size(12, 13);
+            labelTestTargetX.Text = "x";
+            //
+            // editTestTargetH
+            //
+            editTestTargetH.Location = new System.Drawing.Point(708, 527);
+            editTestTargetH.Name = "editTestTargetH";
+            editTestTargetH.Size = new System.Drawing.Size(44, 20);
+            editTestTargetH.TabIndex = 24;
+            editTestTargetH.TextChanged += editTestTargetH_TextChanged;
+            toolTip1.SetToolTip(editTestTargetH, "C64 screen height in pixels you are targeting (e.g. 200; raise to include borders / for PAL).");
+            //
+            // labelTestMagResult
+            //
+            labelTestMagResult.AutoSize = true;
+            labelTestMagResult.Location = new System.Drawing.Point(740, 506);
+            labelTestMagResult.Name = "labelTestMagResult";
+            labelTestMagResult.Size = new System.Drawing.Size(33, 13);
+            labelTestMagResult.Text = "= 1x";
+            //
             // btnTestStop
             // 
             btnTestStop.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
@@ -492,7 +564,7 @@ namespace RetroDevStudio.Documents
             btnTestStop.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             btnTestStop.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnTestStop.Image = null;
-            btnTestStop.Location = new System.Drawing.Point(574, 432);
+            btnTestStop.Location = new System.Drawing.Point(574, 476);
             btnTestStop.Name = "btnTestStop";
             btnTestStop.Size = new System.Drawing.Size(80, 24);
             btnTestStop.TabIndex = 20;
@@ -625,7 +697,7 @@ namespace RetroDevStudio.Documents
             // 
             // panelFrameSlots
             // 
-            panelFrameSlots.Location = new System.Drawing.Point(149, 67);
+            panelFrameSlots.Location = new System.Drawing.Point(154, 119);
             panelFrameSlots.Name = "panelFrameSlots";
             panelFrameSlots.Size = new System.Drawing.Size(200, 180);
             panelFrameSlots.TabIndex = 8;
@@ -641,40 +713,54 @@ namespace RetroDevStudio.Documents
             listAnimFrames.TabIndex = 5;
             listAnimFrames.SelectedIndexChanged += listAnimFrames_SelectedIndexChanged;
             // 
-            // btnApplyDelayToAll
-            // 
-            btnApplyDelayToAll.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            btnApplyDelayToAll.BorderStyle = DecentForms.BorderStyle.FLAT;
-            btnApplyDelayToAll.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            btnApplyDelayToAll.DialogResult = System.Windows.Forms.DialogResult.OK;
-            btnApplyDelayToAll.Image = null;
-            btnApplyDelayToAll.Location = new System.Drawing.Point(304, 35);
-            btnApplyDelayToAll.Name = "btnApplyDelayToAll";
-            btnApplyDelayToAll.Size = new System.Drawing.Size(100, 23);
-            btnApplyDelayToAll.TabIndex = 10;
-            btnApplyDelayToAll.Text = "Apply to all";
-            toolTip1.SetToolTip(btnApplyDelayToAll, "Set every frame in the current overlay to the delay shown above.");
-            btnApplyDelayToAll.Click += btnApplyDelayToAll_Click;
-            // 
             // labelFrameDelay
             // 
             labelFrameDelay.AutoSize = true;
             labelFrameDelay.Location = new System.Drawing.Point(149, 40);
             labelFrameDelay.Name = "labelFrameDelay";
-            labelFrameDelay.Size = new System.Drawing.Size(59, 13);
+            labelFrameDelay.Size = new System.Drawing.Size(74, 13);
             labelFrameDelay.TabIndex = 6;
-            labelFrameDelay.Text = "Delay (ms):";
+            labelFrameDelay.Text = "Delay (1/50s):";
             // 
             // editFrameDelay
             // 
-            editFrameDelay.Location = new System.Drawing.Point(219, 37);
-            editFrameDelay.Maximum = new decimal(new int[] { 60000, 0, 0, 0 });
+            editFrameDelay.Location = new System.Drawing.Point(235, 37);
+            editFrameDelay.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
             editFrameDelay.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             editFrameDelay.Name = "editFrameDelay";
             editFrameDelay.Size = new System.Drawing.Size(80, 20);
             editFrameDelay.TabIndex = 7;
-            editFrameDelay.Value = new decimal(new int[] { 100, 0, 0, 0 });
+            editFrameDelay.Value = new decimal(new int[] { 5, 0, 0, 0 });
             editFrameDelay.ValueChanged += editFrameDelay_ValueChanged;
+            // 
+            // checkLoop
+            // 
+            checkLoop.AutoSize = true;
+            checkLoop.Location = new System.Drawing.Point(330, 39);
+            checkLoop.Name = "checkLoop";
+            checkLoop.Size = new System.Drawing.Size(50, 17);
+            checkLoop.TabIndex = 8;
+            checkLoop.Text = "Loop";
+            checkLoop.UseVisualStyleBackColor = true;
+            checkLoop.CheckedChanged += checkLoop_CheckedChanged;
+            // 
+            // labelAnimationID
+            // 
+            labelAnimationID.AutoSize = true;
+            labelAnimationID.Location = new System.Drawing.Point(400, 40);
+            labelAnimationID.Name = "labelAnimationID";
+            labelAnimationID.Size = new System.Drawing.Size(47, 13);
+            labelAnimationID.TabIndex = 9;
+            labelAnimationID.Text = "Anim ID:";
+            // 
+            // editAnimationID
+            // 
+            editAnimationID.Location = new System.Drawing.Point(455, 37);
+            editAnimationID.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
+            editAnimationID.Name = "editAnimationID";
+            editAnimationID.Size = new System.Drawing.Size(60, 20);
+            editAnimationID.TabIndex = 10;
+            editAnimationID.ValueChanged += editAnimationID_ValueChanged;
             // 
             // btnAddOverlay
             // 
@@ -828,7 +914,7 @@ namespace RetroDevStudio.Documents
             tabPageAnimation.Location = new System.Drawing.Point(4, 24);
             tabPageAnimation.Name = "tabPageAnimation";
             tabPageAnimation.Padding = new System.Windows.Forms.Padding(3);
-            tabPageAnimation.Size = new System.Drawing.Size(1558, 535);
+            tabPageAnimation.Size = new System.Drawing.Size(1558, 631);
             tabPageAnimation.TabIndex = 3;
             tabPageAnimation.Text = "Animation";
             tabPageAnimation.UseVisualStyleBackColor = true;
@@ -1119,7 +1205,7 @@ namespace RetroDevStudio.Documents
             tabExport.Location = new System.Drawing.Point(4, 22);
             tabExport.Name = "tabExport";
             tabExport.Padding = new System.Windows.Forms.Padding(3);
-            tabExport.Size = new System.Drawing.Size(2046, 639);
+            tabExport.Size = new System.Drawing.Size(2046, 735);
             tabExport.TabIndex = 2;
             tabExport.Text = "Export";
             tabExport.UseVisualStyleBackColor = true;
@@ -1136,11 +1222,12 @@ namespace RetroDevStudio.Documents
             // editDataExport
             // 
             editDataExport.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
-            editDataExport.Location = new System.Drawing.Point(314, 7);
+            editDataExport.Font = new System.Drawing.Font("Courier New", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            editDataExport.Location = new System.Drawing.Point(541, 7);
             editDataExport.Multiline = true;
             editDataExport.Name = "editDataExport";
             editDataExport.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            editDataExport.Size = new System.Drawing.Size(1724, 626);
+            editDataExport.Size = new System.Drawing.Size(1497, 722);
             editDataExport.TabIndex = 33;
             editDataExport.WordWrap = false;
             // 
@@ -1182,7 +1269,7 @@ namespace RetroDevStudio.Documents
             panelExport.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
             panelExport.Location = new System.Drawing.Point(6, 61);
             panelExport.Name = "panelExport";
-            panelExport.Size = new System.Drawing.Size(302, 572);
+            panelExport.Size = new System.Drawing.Size(529, 668);
             panelExport.TabIndex = 28;
             // 
             // comboExportRange
@@ -1227,7 +1314,7 @@ namespace RetroDevStudio.Documents
             tabImport.Location = new System.Drawing.Point(4, 22);
             tabImport.Name = "tabImport";
             tabImport.Padding = new System.Windows.Forms.Padding(3);
-            tabImport.Size = new System.Drawing.Size(2046, 639);
+            tabImport.Size = new System.Drawing.Size(2046, 735);
             tabImport.TabIndex = 3;
             tabImport.Text = "Import";
             tabImport.UseVisualStyleBackColor = true;
@@ -1237,7 +1324,7 @@ namespace RetroDevStudio.Documents
             panelImport.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
             panelImport.Location = new System.Drawing.Point(6, 33);
             panelImport.Name = "panelImport";
-            panelImport.Size = new System.Drawing.Size(2032, 600);
+            panelImport.Size = new System.Drawing.Size(2032, 696);
             panelImport.TabIndex = 40;
             // 
             // btnImport
@@ -1635,6 +1722,7 @@ namespace RetroDevStudio.Documents
             ((System.ComponentModel.ISupportInitialize)picSpriteTest).EndInit();
             ((System.ComponentModel.ISupportInitialize)picAnimPreview).EndInit();
             ((System.ComponentModel.ISupportInitialize)editFrameDelay).EndInit();
+            ((System.ComponentModel.ISupportInitialize)editAnimationID).EndInit();
             ((System.ComponentModel.ISupportInitialize)picOverlayPreview).EndInit();
             ((System.ComponentModel.ISupportInitialize)trackGridOpacity).EndInit();
             ((System.ComponentModel.ISupportInitialize)pictureEditor).EndInit();
@@ -1774,7 +1862,9 @@ namespace RetroDevStudio.Documents
     private System.Windows.Forms.ListBox listAnimFrames;
     private System.Windows.Forms.Label labelFrameDelay;
     private System.Windows.Forms.NumericUpDown editFrameDelay;
-    private DecentForms.Button btnApplyDelayToAll;
+    private System.Windows.Forms.CheckBox checkLoop;
+    private System.Windows.Forms.Label labelAnimationID;
+    private System.Windows.Forms.NumericUpDown editAnimationID;
     private System.Windows.Forms.Panel panelFrameSlots;
     private GR.Forms.FastPictureBox picAnimPreview;
     private DecentForms.Button btnAnimZoomOut;
@@ -1788,6 +1878,12 @@ namespace RetroDevStudio.Documents
         private System.Windows.Forms.CheckBox checkTestExpandX;
         private System.Windows.Forms.CheckBox checkTestExpandY;
         private System.Windows.Forms.CheckBox checkTestLoop;
+        private System.Windows.Forms.CheckBox checkTestC64Mag;
+        private System.Windows.Forms.Label labelTestTarget;
+        private System.Windows.Forms.TextBox editTestTargetW;
+        private System.Windows.Forms.Label labelTestTargetX;
+        private System.Windows.Forms.TextBox editTestTargetH;
+        private System.Windows.Forms.Label labelTestMagResult;
         private DecentForms.Button btnTestStop;
     }
 }

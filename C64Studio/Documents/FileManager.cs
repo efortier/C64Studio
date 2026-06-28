@@ -148,6 +148,7 @@ namespace RetroDevStudio.Documents
 
       saveDlg.Title = "Save media as";
       saveDlg.FileName = GR.Path.GetFileName( PreviousFilename );
+      ApplySaveDialogInitialDirectory( saveDlg, PreviousFilename );
       if ( m_Media != null )
       {
         saveDlg.Filter = m_Media.FileFilter;

@@ -3534,6 +3534,8 @@ namespace RetroDevStudio.Documents
                    marker.Name = type.Name + " " + ( m_CurrentMap.Markers.Count + 1 );
                    marker.Value1 = (byte)editMarkerValue1.Value;
                    marker.Value2 = (byte)editMarkerValue2.Value;
+                   marker.Value3 = (byte)editMarkerValue3.Value;
+                   marker.Value4 = (byte)editMarkerValue4.Value;
                    marker.Enabled = checkMarkerDefaultEnabled.Checked;
                    marker.Triggered = checkMarkerDefaultTriggered.Checked;
                    marker.AutoDisableGroupAfterTrigger = checkMarkerAutoDisableGroup.Checked;
@@ -5028,10 +5030,7 @@ namespace RetroDevStudio.Documents
       saveDlg.Title = "Save Map Editor Project as";
       saveDlg.Filter = "Map Editor Projects|*.mapproject|All Files|*.*";
       saveDlg.FileName = GR.Path.GetFileName( PreviousFilename );
-      if ( DocumentInfo.Project != null )
-      {
-        saveDlg.InitialDirectory = DocumentInfo.Project.Settings.BasePath;
-      }
+      ApplySaveDialogInitialDirectory( saveDlg, PreviousFilename );
       if ( saveDlg.ShowDialog() != System.Windows.Forms.DialogResult.OK )
       {
         return false;
@@ -10652,6 +10651,9 @@ namespace RetroDevStudio.Documents
       m_ExportForm = (ExportMapFormBase)Activator.CreateInstance( item.second, new object[] { Core } );
       m_ExportForm.Parent = panelExport;
       m_ExportForm.CreateControl();
+      // The document was themed at load time; a form selected later (rather than
+      // restored on open) would otherwise be left unthemed - recolor it now.
+      Core.Theming.ApplyTheme( m_ExportForm );
       m_ExportForm.SettingsChanged += ExportForm_SettingsChanged;
       ApplyExportSettingsToForm();
       UpdateExportDataDropdownsState();
@@ -10710,6 +10712,8 @@ namespace RetroDevStudio.Documents
       m_ImportForm.Parent = panelImport;
       m_ImportForm.Size = panelImport.ClientSize;
       m_ImportForm.CreateControl();
+      // Theme this freshly-created form (the document was themed before it existed).
+      Core.Theming.ApplyTheme( m_ImportForm );
     }
 
 
@@ -12498,6 +12502,18 @@ namespace RetroDevStudio.Documents
            comboMarkerColorOverride.SelectedIndex = type.Color;
            comboMarkerColorOverride.Enabled = btnToolMarker.Checked;
            SetModified();
+
+           // User switched marker type with NO marker selected: reset the
+           // placement-default fields (values, group, ID, link-to-ID) so leftovers
+           // from the previous type don't carry into the next marker dropped.
+           // m_PopulatingFromSelection guards out the right-click-to-edit path;
+           // retyping a *selected* marker is handled by the branch below.
+           if ( ( !m_PopulatingFromSelection )
+           &&   ( btnToolMarker != null ) && ( btnToolMarker.Checked )
+           &&   ( m_SelectedMarker == null ) )
+           {
+             ClearMarkerPlacementDefaults();
+           }
          }
          else
          {
@@ -12530,6 +12546,26 @@ namespace RetroDevStudio.Documents
       }
     }
 
+    /// <summary>
+    /// Reset the marker toolbar's placement-default spinners (Values 1-4, Group,
+    /// ID, Link to ID) to 0. Used when the user switches marker type with no
+    /// marker selected. The spinners' ValueChanged handlers no-op while
+    /// m_SelectedMarker is null, so this only resets the UI — it does not mutate
+    /// any marker or mark the document modified.
+    /// </summary>
+    private void ClearMarkerPlacementDefaults()
+    {
+      editMarkerValue1.Value  = 0;
+      editMarkerValue2.Value  = 0;
+      editMarkerValue3.Value  = 0;
+      editMarkerValue4.Value  = 0;
+      editMarkerGroupId.Value = 0;
+      editMarkerLinkID.Value  = 0;
+      editMarkerLinkToID.Value = 0;
+    }
+
+
+
     private void editMarkerValue_ValueChanged( object sender, EventArgs e )
     {
       // When a marker is selected (right-clicked), treat these controls as a
@@ -12541,8 +12577,12 @@ namespace RetroDevStudio.Documents
 
       byte newV1 = (byte)editMarkerValue1.Value;
       byte newV2 = (byte)editMarkerValue2.Value;
+      byte newV3 = (byte)editMarkerValue3.Value;
+      byte newV4 = (byte)editMarkerValue4.Value;
       if ( ( m_SelectedMarker.Value1 == newV1 )
-      &&   ( m_SelectedMarker.Value2 == newV2 ) )
+      &&   ( m_SelectedMarker.Value2 == newV2 )
+      &&   ( m_SelectedMarker.Value3 == newV3 )
+      &&   ( m_SelectedMarker.Value4 == newV4 ) )
       {
         return;
       }
@@ -12550,6 +12590,8 @@ namespace RetroDevStudio.Documents
         new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
       m_SelectedMarker.Value1 = newV1;
       m_SelectedMarker.Value2 = newV2;
+      m_SelectedMarker.Value3 = newV3;
+      m_SelectedMarker.Value4 = newV4;
       SetModified();
       pictureEditor.Invalidate();
     }
@@ -12876,6 +12918,43 @@ namespace RetroDevStudio.Documents
 
 
 
+    private void btnFindNextMarkerLinkID_Click( object sender, EventArgs e )
+    {
+      if ( m_CurrentMap == null ) return;
+
+      // Lowest unused marker ID (Marker.LinkID) on THIS map, starting at 1 — ID 0
+      // is reserved for "no id". The currently-selected marker is excluded so
+      // reassigning it doesn't treat its own id as taken (same rule the Value ?
+      // buttons use). Cap at 255 because LinkID is a byte in the map binary.
+      var inUse = new System.Collections.Generic.HashSet<int>();
+      foreach ( var marker in m_CurrentMap.Markers )
+      {
+        if ( marker == m_SelectedMarker ) continue;
+        inUse.Add( marker.LinkID );
+      }
+
+      int candidate = 1;
+      while ( ( candidate <= 255 ) && inUse.Contains( candidate ) )
+      {
+        ++candidate;
+      }
+      if ( candidate > 255 )
+      {
+        System.Windows.Forms.MessageBox.Show(
+          "All marker ids from 1 to 255 are already in use on the current map.",
+          "No free marker id",
+          System.Windows.Forms.MessageBoxButtons.OK,
+          System.Windows.Forms.MessageBoxIcon.Warning );
+        return;
+      }
+      // Assigning to the spinner fires editMarkerLink_ValueChanged, which updates
+      // the selected marker (with undo) or sets the placement default for new
+      // markers — same path as typing the value manually.
+      editMarkerLinkID.Value = candidate;
+    }
+
+
+
     /// <summary>
     /// Shared search for the lowest unused Value1 or Value2 (starting at 1,
     /// cap 255) among markers of the currently selected marker type on the
@@ -13080,8 +13159,21 @@ namespace RetroDevStudio.Documents
        if ( editMarkerValue1        != null ) editMarkerValue1.Enabled        = markerMode;
        if ( labelMarkerValue2       != null ) labelMarkerValue2.Enabled       = markerMode;
        if ( editMarkerValue2        != null ) editMarkerValue2.Enabled        = markerMode;
+       if ( labelMarkerValue3       != null ) labelMarkerValue3.Enabled       = markerMode;
+       if ( editMarkerValue3        != null ) editMarkerValue3.Enabled        = markerMode;
+       if ( labelMarkerValue4       != null ) labelMarkerValue4.Enabled       = markerMode;
+       if ( editMarkerValue4        != null ) editMarkerValue4.Enabled        = markerMode;
        if ( labelMarkerGroupId      != null ) labelMarkerGroupId.Enabled      = markerMode;
        if ( editMarkerGroupId       != null ) editMarkerGroupId.Enabled       = markerMode;
+       if ( btnFindNextMarkerValue1 != null ) btnFindNextMarkerValue1.Enabled = markerMode;
+       if ( btnFindNextMarkerValue2 != null ) btnFindNextMarkerValue2.Enabled = markerMode;
+       if ( btnFindNextMarkerGroup  != null ) btnFindNextMarkerGroup.Enabled  = markerMode;
+       if ( labelMarkerLinkID       != null ) labelMarkerLinkID.Enabled       = markerMode;
+       if ( editMarkerLinkID        != null ) editMarkerLinkID.Enabled        = markerMode;
+       if ( btnFindNextMarkerLinkID != null ) btnFindNextMarkerLinkID.Enabled = markerMode;
+       if ( labelMarkerLinkToID     != null ) labelMarkerLinkToID.Enabled     = markerMode;
+       if ( editMarkerLinkToID      != null ) editMarkerLinkToID.Enabled      = markerMode;
+       if ( checkMarkerAutoDisableGroup != null ) checkMarkerAutoDisableGroup.Enabled = markerMode;
        if ( btnReflowOOBMarkers     != null ) btnReflowOOBMarkers.Enabled     = markerMode;
        UpdateMarkerOutOfBoundsLabel();
 
@@ -13322,6 +13414,8 @@ namespace RetroDevStudio.Documents
         {
           editMarkerValue1.Value = marker.Value1;
           editMarkerValue2.Value = marker.Value2;
+          editMarkerValue3.Value = marker.Value3;
+          editMarkerValue4.Value = marker.Value4;
           editMarkerGroupId.Value = marker.GroupId;
           editMarkerLinkToID.Value = marker.LinkToID;
           editMarkerLinkID.Value = marker.LinkID;

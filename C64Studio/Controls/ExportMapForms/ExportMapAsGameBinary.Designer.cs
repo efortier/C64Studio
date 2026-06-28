@@ -93,7 +93,7 @@ namespace RetroDevStudio.Controls
       this.btnBrowseCompressDirectory = new System.Windows.Forms.Button();
       this.labelCompressFilename = new System.Windows.Forms.Label();
       this.editCompressFilename = new System.Windows.Forms.TextBox();
-      this.checkOverrideLoadAddress = new System.Windows.Forms.CheckBox();
+      this.checkOverrideLoadAddress = new ThemedCheckBox();
       this.editOverrideLoadAddress = new System.Windows.Forms.TextBox();
       this.groupCharset.SuspendLayout();
       this.groupCompress.SuspendLayout();
@@ -271,10 +271,10 @@ namespace RetroDevStudio.Controls
       //
       // checkOverrideLoadAddress
       //
-      this.checkOverrideLoadAddress.AutoSize = true;
+      this.checkOverrideLoadAddress.AutoSize = false;
       this.checkOverrideLoadAddress.Location = new System.Drawing.Point(6, 100);
       this.checkOverrideLoadAddress.Name = "checkOverrideLoadAddress";
-      this.checkOverrideLoadAddress.Size = new System.Drawing.Size(155, 17);
+      this.checkOverrideLoadAddress.Size = new System.Drawing.Size(180, 18);
       this.checkOverrideLoadAddress.TabIndex = 6;
       this.checkOverrideLoadAddress.Text = "Override file load address";
       this.checkOverrideLoadAddress.UseVisualStyleBackColor = true;
@@ -845,7 +845,7 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.Button btnBrowseCompressDirectory;
     private System.Windows.Forms.Label labelCompressFilename;
     private System.Windows.Forms.TextBox editCompressFilename;
-    private System.Windows.Forms.CheckBox checkOverrideLoadAddress;
+    private ThemedCheckBox checkOverrideLoadAddress;
     private System.Windows.Forms.TextBox editOverrideLoadAddress;
     private System.Windows.Forms.CheckBox checkSaveOnExport;
     private System.Windows.Forms.Label labelExportDirectory;

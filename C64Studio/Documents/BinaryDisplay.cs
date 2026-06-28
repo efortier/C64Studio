@@ -301,10 +301,7 @@ namespace RetroDevStudio.Documents
       saveDlg.Title = "Save binary file as";
       saveDlg.Filter = FilterString( Types.Constants.FILEFILTER_BINARY_FILES + Types.Constants.FILEFILTER_ALL );
       saveDlg.FileName = GR.Path.GetFileName( PreviousFilename );
-      if ( DocumentInfo.Project != null )
-      {
-        saveDlg.InitialDirectory = DocumentInfo.Project.Settings.BasePath;
-      }
+      ApplySaveDialogInitialDirectory( saveDlg, PreviousFilename );
       if ( saveDlg.ShowDialog() != System.Windows.Forms.DialogResult.OK )
       {
         return false;

@@ -16,6 +16,14 @@ namespace RetroDevStudio.Controls
   {
     public StudioCore                   Core = null;
 
+    /// <summary>
+    /// Raised when the user changes any export setting on the form, so the host
+    /// editor can flush the values into the project and mark the document
+    /// modified. Derived forms call RaiseSettingsChanged() from their input
+    /// handlers (and suppress it while programmatically populating).
+    /// </summary>
+    public event EventHandler           SettingsChanged;
+
 
 
     public ExportSpriteFormBase()
@@ -37,6 +45,33 @@ namespace RetroDevStudio.Controls
     public virtual bool HandleExport( ExportSpriteInfo Info, TextBox EditOutput, DocumentInfo DocInfo )
     {
       return false;
+    }
+
+
+
+    /// <summary>
+    /// Load this export form's UI from the project's persisted settings. Default
+    /// no-op; export forms that persist settings override it.
+    /// </summary>
+    public virtual void ApplyExportSettings( SpriteProject Project )
+    {
+    }
+
+
+
+    /// <summary>
+    /// Write this export form's UI back into the project's persisted settings.
+    /// Default no-op.
+    /// </summary>
+    public virtual void UpdateExportSettings( SpriteProject Project )
+    {
+    }
+
+
+
+    protected void RaiseSettingsChanged()
+    {
+      SettingsChanged?.Invoke( this, EventArgs.Empty );
     }
 
 

@@ -138,7 +138,14 @@ namespace RetroDevStudio.Dialogs
 
     private void btn_Click( DecentForms.ControlBase Sender )
     {
-      ChosenResult = (UserChoice)Sender.Tag;
+      ChooseAndClose( (UserChoice)Sender.Tag );
+    }
+
+
+
+    private void ChooseAndClose( UserChoice Choice )
+    {
+      ChosenResult = Choice;
       DialogResult = DialogResult.OK;
 
       if ( checkRememberDecision.Visible )
@@ -147,6 +154,60 @@ namespace RetroDevStudio.Dialogs
       }
       _isClosing = true;
       Close();
+    }
+
+
+
+    /// <summary>
+    /// Activate the visible button whose Tag matches <paramref name="Choice"/>.
+    /// Returns false when no such button is shown.
+    /// </summary>
+    private bool TryChoose( UserChoice Choice )
+    {
+      foreach ( var btn in new DecentForms.Button[] { btnYes, btnNo, btnCancel } )
+      {
+        if ( ( btn != null )
+        &&   ( btn.Visible )
+        &&   ( btn.Tag is UserChoice )
+        &&   ( (UserChoice)btn.Tag == Choice ) )
+        {
+          ChooseAndClose( Choice );
+          return true;
+        }
+      }
+      return false;
+    }
+
+
+
+    // Keyboard accelerators: Y = Yes/OK, N = No, Esc = Cancel. The DecentForms
+    // buttons are not native IButtonControls and carry no mnemonics, so none of
+    // these keys work on their own. ProcessCmdKey runs before dialog-key handling
+    // and regardless of which child has focus, so it is the robust hook.
+    protected override bool ProcessCmdKey( ref Message msg, Keys keyData )
+    {
+      if ( keyData == Keys.Y )
+      {
+        if ( TryChoose( UserChoice.YES ) || TryChoose( UserChoice.OK ) )
+        {
+          return true;
+        }
+      }
+      else if ( keyData == Keys.N )
+      {
+        if ( TryChoose( UserChoice.NO ) )
+        {
+          return true;
+        }
+      }
+      else if ( keyData == Keys.Escape )
+      {
+        if ( TryChoose( UserChoice.CANCEL ) )
+        {
+          return true;
+        }
+      }
+      return base.ProcessCmdKey( ref msg, keyData );
     }
 
 
