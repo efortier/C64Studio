@@ -74,35 +74,7 @@ namespace RetroDevStudio.Undo
 
     private static SpriteProject.Overlay CloneOverlay( SpriteProject.Overlay Source )
     {
-      var c = new SpriteProject.Overlay();
-      c.Name = Source.Name;
-      c.FrameDelay = Source.FrameDelay;
-      c.Loop = Source.Loop;
-      c.AnimationID = Source.AnimationID;
-      for ( int i = 0; i < c.Slots.Length && i < Source.Slots.Length; ++i )
-      {
-        var s   = Source.Slots[i];
-        var dst = c.Slots[i];
-        dst.Enabled         = s.Enabled;
-        dst.X               = s.X;
-        dst.Y               = s.Y;
-        dst.BackgroundColor = s.BackgroundColor;
-        dst.MultiColor1     = s.MultiColor1;
-        dst.MultiColor2     = s.MultiColor2;
-        dst.CustomColor     = s.CustomColor;
-        dst.ExpandX         = s.ExpandX;
-        dst.ExpandY         = s.ExpandY;
-      }
-      foreach ( var f in Source.Frames )
-      {
-        var fc = new SpriteProject.OverlayFrame();
-        for ( int i = 0; i < fc.BankIndex.Length && i < f.BankIndex.Length; ++i )
-        {
-          fc.BankIndex[i] = f.BankIndex[i];
-        }
-        c.Frames.Add( fc );
-      }
-      return c;
+      return Source.Clone();
     }
   }
 }

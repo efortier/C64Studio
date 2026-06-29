@@ -34,10 +34,10 @@ namespace RetroDevStudio.Documents
         {
             components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(SpriteEditor));
-            GR.Image.FastImage fastImage8 = new GR.Image.FastImage();
-            GR.Image.FastImage fastImage5 = new GR.Image.FastImage();
-            GR.Image.FastImage fastImage6 = new GR.Image.FastImage();
-            GR.Image.FastImage fastImage7 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage4 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage3 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage2 = new GR.Image.FastImage();
+            GR.Image.FastImage fastImage1 = new GR.Image.FastImage();
             tabSpriteEditor = new System.Windows.Forms.TabControl();
             tabEditor = new System.Windows.Forms.TabPage();
             editMoveTargetIndex = new System.Windows.Forms.TextBox();
@@ -49,51 +49,6 @@ namespace RetroDevStudio.Documents
             btnToolEdit = new DecentForms.RadioButton();
             btnToolFill = new DecentForms.RadioButton();
             label11 = new System.Windows.Forms.Label();
-            tabSpriteDetails = new System.Windows.Forms.TabControl();
-            tabPageOverlay = new System.Windows.Forms.TabPage();
-            panel1 = new System.Windows.Forms.Panel();
-            panelSpriteTest = new System.Windows.Forms.Panel();
-            picSpriteTest = new GR.Forms.FastPictureBox();
-            labelTestBack = new System.Windows.Forms.Label();
-            comboTestBackColor = new System.Windows.Forms.ComboBox();
-            checkTestExpandX = new System.Windows.Forms.CheckBox();
-            checkTestExpandY = new System.Windows.Forms.CheckBox();
-            checkTestLoop = new System.Windows.Forms.CheckBox();
-            checkTestC64Mag = new System.Windows.Forms.CheckBox();
-            labelTestTarget = new System.Windows.Forms.Label();
-            editTestTargetW = new System.Windows.Forms.TextBox();
-            labelTestTargetX = new System.Windows.Forms.Label();
-            editTestTargetH = new System.Windows.Forms.TextBox();
-            labelTestMagResult = new System.Windows.Forms.Label();
-            btnTestStop = new DecentForms.Button();
-            btnAddFrame = new DecentForms.Button();
-            labelAnimZoom = new System.Windows.Forms.Label();
-            btnRemoveFrame = new DecentForms.Button();
-            btnAnimZoomIn = new DecentForms.Button();
-            btnDuplicateFrame = new DecentForms.Button();
-            btnAnimZoomOut = new DecentForms.Button();
-            btnPlayAnim = new DecentForms.Button();
-            picAnimPreview = new GR.Forms.FastPictureBox();
-            btnPauseAnim = new DecentForms.Button();
-            panelFrameSlots = new System.Windows.Forms.Panel();
-            listAnimFrames = new System.Windows.Forms.ListBox();
-            labelFrameDelay = new System.Windows.Forms.Label();
-            editFrameDelay = new System.Windows.Forms.NumericUpDown();
-            checkLoop = new System.Windows.Forms.CheckBox();
-            labelAnimationID = new System.Windows.Forms.Label();
-            editAnimationID = new System.Windows.Forms.NumericUpDown();
-            btnAddOverlay = new DecentForms.Button();
-            btnRemoveOverlay = new DecentForms.Button();
-            listOverlays = new System.Windows.Forms.ListBox();
-            labelOverlayName = new System.Windows.Forms.Label();
-            editOverlayName = new System.Windows.Forms.TextBox();
-            panelOverlaySlots = new System.Windows.Forms.Panel();
-            picOverlayPreview = new GR.Forms.FastPictureBox();
-            btnOverlayZoomOut = new DecentForms.Button();
-            btnOverlayZoomIn = new DecentForms.Button();
-            labelOverlayZoom = new System.Windows.Forms.Label();
-            panelSprites = new GR.Forms.ImageListbox();
-            tabPageAnimation = new System.Windows.Forms.TabPage();
             btnClearSprite = new DecentForms.Button();
             btnDeleteSprite = new DecentForms.Button();
             btnBankCopy = new DecentForms.Button();
@@ -183,24 +138,69 @@ namespace RetroDevStudio.Documents
             x16_16x64x256ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             x16_32x64x256ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             x16_64x64x256ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            tabPageOverlay = new System.Windows.Forms.TabPage();
+            panelSprites = new GR.Forms.ImageListbox();
+            labelOverlayZoom = new System.Windows.Forms.Label();
+            btnOverlayZoomIn = new DecentForms.Button();
+            btnOverlayZoomOut = new DecentForms.Button();
+            picOverlayPreview = new GR.Forms.FastPictureBox();
+            panelOverlaySlots = new System.Windows.Forms.Panel();
+            editOverlayName = new System.Windows.Forms.TextBox();
+            labelOverlayName = new System.Windows.Forms.Label();
+            listOverlays = new System.Windows.Forms.ListBox();
+            btnRemoveOverlay = new DecentForms.Button();
+            btnAddOverlay = new DecentForms.Button();
+            btnCloneOverlay = new DecentForms.Button();
+            panel1 = new System.Windows.Forms.Panel();
+            editAnimationID = new System.Windows.Forms.NumericUpDown();
+            labelAnimationID = new System.Windows.Forms.Label();
+            checkLoop = new System.Windows.Forms.CheckBox();
+            editFrameDelay = new System.Windows.Forms.NumericUpDown();
+            labelFrameDelay = new System.Windows.Forms.Label();
+            listAnimFrames = new System.Windows.Forms.ListBox();
+            panelFrameSlots = new System.Windows.Forms.Panel();
+            btnPauseAnim = new DecentForms.Button();
+            picAnimPreview = new GR.Forms.FastPictureBox();
+            btnPlayAnim = new DecentForms.Button();
+            btnAnimZoomOut = new DecentForms.Button();
+            btnDuplicateFrame = new DecentForms.Button();
+            btnAnimZoomIn = new DecentForms.Button();
+            btnRemoveFrame = new DecentForms.Button();
+            labelAnimZoom = new System.Windows.Forms.Label();
+            btnAddFrame = new DecentForms.Button();
+            btnTestStop = new DecentForms.Button();
+            labelTestMagResult = new System.Windows.Forms.Label();
+            editTestTargetH = new System.Windows.Forms.TextBox();
+            labelTestTargetX = new System.Windows.Forms.Label();
+            editTestTargetW = new System.Windows.Forms.TextBox();
+            labelTestTarget = new System.Windows.Forms.Label();
+            checkTestC64Mag = new System.Windows.Forms.CheckBox();
+            checkTestLoop = new System.Windows.Forms.CheckBox();
+            checkTestExpandY = new System.Windows.Forms.CheckBox();
+            checkTestExpandX = new System.Windows.Forms.CheckBox();
+            comboTestBackColor = new System.Windows.Forms.ComboBox();
+            labelTestBack = new System.Windows.Forms.Label();
+            panelSpriteTest = new System.Windows.Forms.Panel();
+            picSpriteTest = new GR.Forms.FastPictureBox();
+            tabSpriteDetails = new System.Windows.Forms.TabControl();
             ((System.ComponentModel.ISupportInitialize)m_FileWatcher).BeginInit();
             tabSpriteEditor.SuspendLayout();
             tabEditor.SuspendLayout();
-            tabSpriteDetails.SuspendLayout();
-            tabPageOverlay.SuspendLayout();
-            panel1.SuspendLayout();
-            panelSpriteTest.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)picSpriteTest).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)picAnimPreview).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)editFrameDelay).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)editAnimationID).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)picOverlayPreview).BeginInit();
             ((System.ComponentModel.ISupportInitialize)trackGridOpacity).BeginInit();
             ((System.ComponentModel.ISupportInitialize)pictureEditor).BeginInit();
             tabExport.SuspendLayout();
             tabImport.SuspendLayout();
             menuStrip1.SuspendLayout();
             contextMenuChangeMode.SuspendLayout();
+            tabPageOverlay.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)picOverlayPreview).BeginInit();
+            panel1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)editAnimationID).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)editFrameDelay).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)picAnimPreview).BeginInit();
+            panelSpriteTest.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)picSpriteTest).BeginInit();
+            tabSpriteDetails.SuspendLayout();
             SuspendLayout();
             // 
             // tabSpriteEditor
@@ -212,7 +212,7 @@ namespace RetroDevStudio.Documents
             tabSpriteEditor.Location = new System.Drawing.Point(0, 24);
             tabSpriteEditor.Name = "tabSpriteEditor";
             tabSpriteEditor.SelectedIndex = 0;
-            tabSpriteEditor.Size = new System.Drawing.Size(2054, 761);
+            tabSpriteEditor.Size = new System.Drawing.Size(2054, 762);
             tabSpriteEditor.TabIndex = 0;
             // 
             // tabEditor
@@ -250,7 +250,7 @@ namespace RetroDevStudio.Documents
             tabEditor.Location = new System.Drawing.Point(4, 22);
             tabEditor.Name = "tabEditor";
             tabEditor.Padding = new System.Windows.Forms.Padding(3);
-            tabEditor.Size = new System.Drawing.Size(2046, 735);
+            tabEditor.Size = new System.Drawing.Size(2046, 736);
             tabEditor.TabIndex = 0;
             tabEditor.Text = "Sprite";
             tabEditor.UseVisualStyleBackColor = true;
@@ -355,569 +355,6 @@ namespace RetroDevStudio.Documents
             label11.Size = new System.Drawing.Size(37, 13);
             label11.TabIndex = 16;
             label11.Text = "Mode:";
-            // 
-            // tabSpriteDetails
-            // 
-            tabSpriteDetails.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
-            tabSpriteDetails.Controls.Add(tabPageOverlay);
-            tabSpriteDetails.Controls.Add(tabPageAnimation);
-            tabSpriteDetails.Location = new System.Drawing.Point(480, 2);
-            tabSpriteDetails.Name = "tabSpriteDetails";
-            tabSpriteDetails.SelectedIndex = 0;
-            tabSpriteDetails.Size = new System.Drawing.Size(1566, 659);
-            tabSpriteDetails.TabIndex = 18;
-            // 
-            // tabPageOverlay
-            // 
-            tabPageOverlay.Controls.Add(panel1);
-            tabPageOverlay.Controls.Add(btnAddOverlay);
-            tabPageOverlay.Controls.Add(btnRemoveOverlay);
-            tabPageOverlay.Controls.Add(listOverlays);
-            tabPageOverlay.Controls.Add(labelOverlayName);
-            tabPageOverlay.Controls.Add(editOverlayName);
-            tabPageOverlay.Controls.Add(panelOverlaySlots);
-            tabPageOverlay.Controls.Add(picOverlayPreview);
-            tabPageOverlay.Controls.Add(btnOverlayZoomOut);
-            tabPageOverlay.Controls.Add(btnOverlayZoomIn);
-            tabPageOverlay.Controls.Add(labelOverlayZoom);
-            tabPageOverlay.Controls.Add(panelSprites);
-            tabPageOverlay.Location = new System.Drawing.Point(4, 22);
-            tabPageOverlay.Name = "tabPageOverlay";
-            tabPageOverlay.Padding = new System.Windows.Forms.Padding(3);
-            tabPageOverlay.Size = new System.Drawing.Size(1558, 633);
-            tabPageOverlay.TabIndex = 2;
-            tabPageOverlay.Text = "Overlay";
-            tabPageOverlay.UseVisualStyleBackColor = true;
-            // 
-            // panel1
-            // 
-            panel1.Controls.Add(panelSpriteTest);
-            panel1.Controls.Add(labelTestBack);
-            panel1.Controls.Add(comboTestBackColor);
-            panel1.Controls.Add(checkTestExpandX);
-            panel1.Controls.Add(checkTestExpandY);
-            panel1.Controls.Add(checkTestLoop);
-            panel1.Controls.Add(checkTestC64Mag);
-            panel1.Controls.Add(labelTestTarget);
-            panel1.Controls.Add(editTestTargetW);
-            panel1.Controls.Add(labelTestTargetX);
-            panel1.Controls.Add(editTestTargetH);
-            panel1.Controls.Add(labelTestMagResult);
-            panel1.Controls.Add(btnTestStop);
-            panel1.Controls.Add(btnAddFrame);
-            panel1.Controls.Add(labelAnimZoom);
-            panel1.Controls.Add(btnRemoveFrame);
-            panel1.Controls.Add(btnAnimZoomIn);
-            panel1.Controls.Add(btnDuplicateFrame);
-            panel1.Controls.Add(btnAnimZoomOut);
-            panel1.Controls.Add(btnPlayAnim);
-            panel1.Controls.Add(picAnimPreview);
-            panel1.Controls.Add(btnPauseAnim);
-            panel1.Controls.Add(panelFrameSlots);
-            panel1.Controls.Add(listAnimFrames);
-            panel1.Controls.Add(labelFrameDelay);
-            panel1.Controls.Add(editFrameDelay);
-            panel1.Controls.Add(checkLoop);
-            panel1.Controls.Add(labelAnimationID);
-            panel1.Controls.Add(editAnimationID);
-            panel1.Location = new System.Drawing.Point(624, 5);
-            panel1.Name = "panel1";
-            panel1.Size = new System.Drawing.Size(784, 560);
-            panel1.TabIndex = 14;
-            panel1.Paint += panel1_Paint;
-            // 
-            // panelSpriteTest
-            // 
-            panelSpriteTest.Controls.Add(picSpriteTest);
-            panelSpriteTest.Location = new System.Drawing.Point(150, 358);
-            panelSpriteTest.Name = "panelSpriteTest";
-            panelSpriteTest.Size = new System.Drawing.Size(418, 145);
-            panelSpriteTest.TabIndex = 14;
-            // 
-            // picSpriteTest
-            // 
-            picSpriteTest.AutoResize = false;
-            picSpriteTest.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            picSpriteTest.DisplayPage = fastImage8;
-            picSpriteTest.Dock = System.Windows.Forms.DockStyle.Fill;
-            picSpriteTest.Image = null;
-            picSpriteTest.Location = new System.Drawing.Point(0, 0);
-            picSpriteTest.Name = "picSpriteTest";
-            picSpriteTest.Size = new System.Drawing.Size(418, 145);
-            picSpriteTest.TabIndex = 0;
-            picSpriteTest.TabStop = false;
-            picSpriteTest.MouseDown += picSpriteTest_MouseDown;
-            // 
-            // labelTestBack
-            // 
-            labelTestBack.AutoSize = true;
-            labelTestBack.Location = new System.Drawing.Point(574, 358);
-            labelTestBack.Name = "labelTestBack";
-            labelTestBack.Size = new System.Drawing.Size(68, 13);
-            labelTestBack.TabIndex = 15;
-            labelTestBack.Text = "Background:";
-            // 
-            // comboTestBackColor
-            // 
-            comboTestBackColor.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
-            comboTestBackColor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            comboTestBackColor.FormattingEnabled = true;
-            comboTestBackColor.Location = new System.Drawing.Point(574, 374);
-            comboTestBackColor.Name = "comboTestBackColor";
-            comboTestBackColor.Size = new System.Drawing.Size(160, 21);
-            comboTestBackColor.TabIndex = 16;
-            comboTestBackColor.DrawItem += comboTestBackColor_DrawItem;
-            comboTestBackColor.SelectedIndexChanged += comboTestBackColor_SelectedIndexChanged;
-            // 
-            // checkTestExpandX
-            // 
-            checkTestExpandX.AutoSize = true;
-            checkTestExpandX.Location = new System.Drawing.Point(574, 404);
-            checkTestExpandX.Name = "checkTestExpandX";
-            checkTestExpandX.Size = new System.Drawing.Size(72, 17);
-            checkTestExpandX.TabIndex = 17;
-            checkTestExpandX.Text = "Expand X";
-            checkTestExpandX.UseVisualStyleBackColor = true;
-            checkTestExpandX.CheckedChanged += checkTestExpandX_CheckedChanged;
-            // 
-            // checkTestExpandY
-            // 
-            checkTestExpandY.AutoSize = true;
-            checkTestExpandY.Location = new System.Drawing.Point(574, 427);
-            checkTestExpandY.Name = "checkTestExpandY";
-            checkTestExpandY.Size = new System.Drawing.Size(72, 17);
-            checkTestExpandY.TabIndex = 18;
-            checkTestExpandY.Text = "Expand Y";
-            checkTestExpandY.UseVisualStyleBackColor = true;
-            checkTestExpandY.CheckedChanged += checkTestExpandY_CheckedChanged;
-            // 
-            // checkTestLoop
-            // 
-            checkTestLoop.AutoSize = true;
-            checkTestLoop.Location = new System.Drawing.Point(574, 450);
-            checkTestLoop.Name = "checkTestLoop";
-            checkTestLoop.Size = new System.Drawing.Size(50, 17);
-            checkTestLoop.TabIndex = 19;
-            checkTestLoop.Text = "Loop";
-            checkTestLoop.UseVisualStyleBackColor = true;
-            checkTestLoop.CheckedChanged += checkTestLoop_CheckedChanged;
-            //
-            // checkTestC64Mag
-            //
-            checkTestC64Mag.AutoSize = true;
-            checkTestC64Mag.Location = new System.Drawing.Point(574, 505);
-            checkTestC64Mag.Name = "checkTestC64Mag";
-            checkTestC64Mag.Size = new System.Drawing.Size(143, 17);
-            checkTestC64Mag.TabIndex = 21;
-            checkTestC64Mag.Text = "Use C64 magnification";
-            checkTestC64Mag.UseVisualStyleBackColor = true;
-            checkTestC64Mag.CheckedChanged += checkTestC64Mag_CheckedChanged;
-            toolTip1.SetToolTip(checkTestC64Mag, "Magnify the playfield so sprites appear at the size they would on your monitor when the C64 screen (below) fills it.");
-            //
-            // labelTestTarget
-            //
-            labelTestTarget.AutoSize = true;
-            labelTestTarget.Location = new System.Drawing.Point(574, 530);
-            labelTestTarget.Name = "labelTestTarget";
-            labelTestTarget.Size = new System.Drawing.Size(66, 13);
-            labelTestTarget.TabIndex = 22;
-            labelTestTarget.Text = "C64 screen:";
-            //
-            // editTestTargetW
-            //
-            editTestTargetW.Location = new System.Drawing.Point(644, 527);
-            editTestTargetW.Name = "editTestTargetW";
-            editTestTargetW.Size = new System.Drawing.Size(44, 20);
-            editTestTargetW.TabIndex = 23;
-            editTestTargetW.TextChanged += editTestTargetW_TextChanged;
-            toolTip1.SetToolTip(editTestTargetW, "C64 screen width in pixels you are targeting (e.g. 320; raise to include borders / for PAL).");
-            //
-            // labelTestTargetX
-            //
-            labelTestTargetX.AutoSize = true;
-            labelTestTargetX.Location = new System.Drawing.Point(692, 530);
-            labelTestTargetX.Name = "labelTestTargetX";
-            labelTestTargetX.Size = new System.Drawing.Size(12, 13);
-            labelTestTargetX.Text = "x";
-            //
-            // editTestTargetH
-            //
-            editTestTargetH.Location = new System.Drawing.Point(708, 527);
-            editTestTargetH.Name = "editTestTargetH";
-            editTestTargetH.Size = new System.Drawing.Size(44, 20);
-            editTestTargetH.TabIndex = 24;
-            editTestTargetH.TextChanged += editTestTargetH_TextChanged;
-            toolTip1.SetToolTip(editTestTargetH, "C64 screen height in pixels you are targeting (e.g. 200; raise to include borders / for PAL).");
-            //
-            // labelTestMagResult
-            //
-            labelTestMagResult.AutoSize = true;
-            labelTestMagResult.Location = new System.Drawing.Point(740, 506);
-            labelTestMagResult.Name = "labelTestMagResult";
-            labelTestMagResult.Size = new System.Drawing.Size(33, 13);
-            labelTestMagResult.Text = "= 1x";
-            //
-            // btnTestStop
-            // 
-            btnTestStop.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            btnTestStop.BorderStyle = DecentForms.BorderStyle.FLAT;
-            btnTestStop.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            btnTestStop.DialogResult = System.Windows.Forms.DialogResult.OK;
-            btnTestStop.Image = null;
-            btnTestStop.Location = new System.Drawing.Point(574, 476);
-            btnTestStop.Name = "btnTestStop";
-            btnTestStop.Size = new System.Drawing.Size(80, 24);
-            btnTestStop.TabIndex = 20;
-            btnTestStop.Text = "Stop";
-            btnTestStop.Click += btnTestStop_Click;
-            // 
-            // btnAddFrame
-            // 
-            btnAddFrame.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            btnAddFrame.BorderStyle = DecentForms.BorderStyle.FLAT;
-            btnAddFrame.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            btnAddFrame.DialogResult = System.Windows.Forms.DialogResult.OK;
-            btnAddFrame.Image = null;
-            btnAddFrame.Location = new System.Drawing.Point(14, 7);
-            btnAddFrame.Name = "btnAddFrame";
-            btnAddFrame.Size = new System.Drawing.Size(60, 23);
-            btnAddFrame.TabIndex = 0;
-            btnAddFrame.Text = "Add";
-            btnAddFrame.Click += btnAddFrame_Click;
-            // 
-            // labelAnimZoom
-            // 
-            labelAnimZoom.AutoSize = true;
-            labelAnimZoom.Location = new System.Drawing.Point(435, 263);
-            labelAnimZoom.Name = "labelAnimZoom";
-            labelAnimZoom.Size = new System.Drawing.Size(51, 13);
-            labelAnimZoom.TabIndex = 13;
-            labelAnimZoom.Text = "Zoom: 1x";
-            // 
-            // btnRemoveFrame
-            // 
-            btnRemoveFrame.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            btnRemoveFrame.BorderStyle = DecentForms.BorderStyle.FLAT;
-            btnRemoveFrame.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            btnRemoveFrame.DialogResult = System.Windows.Forms.DialogResult.OK;
-            btnRemoveFrame.Enabled = false;
-            btnRemoveFrame.Image = null;
-            btnRemoveFrame.Location = new System.Drawing.Point(77, 7);
-            btnRemoveFrame.Name = "btnRemoveFrame";
-            btnRemoveFrame.Size = new System.Drawing.Size(60, 23);
-            btnRemoveFrame.TabIndex = 1;
-            btnRemoveFrame.Text = "Remove";
-            btnRemoveFrame.Click += btnRemoveFrame_Click;
-            // 
-            // btnAnimZoomIn
-            // 
-            btnAnimZoomIn.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            btnAnimZoomIn.BorderStyle = DecentForms.BorderStyle.FLAT;
-            btnAnimZoomIn.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            btnAnimZoomIn.DialogResult = System.Windows.Forms.DialogResult.OK;
-            btnAnimZoomIn.Image = null;
-            btnAnimZoomIn.Location = new System.Drawing.Point(395, 258);
-            btnAnimZoomIn.Name = "btnAnimZoomIn";
-            btnAnimZoomIn.Size = new System.Drawing.Size(30, 23);
-            btnAnimZoomIn.TabIndex = 12;
-            btnAnimZoomIn.Text = "+";
-            toolTip1.SetToolTip(btnAnimZoomIn, "Zoom in");
-            btnAnimZoomIn.Click += btnAnimZoomIn_Click;
-            // 
-            // btnDuplicateFrame
-            // 
-            btnDuplicateFrame.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            btnDuplicateFrame.BorderStyle = DecentForms.BorderStyle.FLAT;
-            btnDuplicateFrame.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            btnDuplicateFrame.DialogResult = System.Windows.Forms.DialogResult.OK;
-            btnDuplicateFrame.Enabled = false;
-            btnDuplicateFrame.Image = null;
-            btnDuplicateFrame.Location = new System.Drawing.Point(140, 7);
-            btnDuplicateFrame.Name = "btnDuplicateFrame";
-            btnDuplicateFrame.Size = new System.Drawing.Size(80, 23);
-            btnDuplicateFrame.TabIndex = 2;
-            btnDuplicateFrame.Text = "Duplicate";
-            btnDuplicateFrame.Click += btnDuplicateFrame_Click;
-            // 
-            // btnAnimZoomOut
-            // 
-            btnAnimZoomOut.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            btnAnimZoomOut.BorderStyle = DecentForms.BorderStyle.FLAT;
-            btnAnimZoomOut.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            btnAnimZoomOut.DialogResult = System.Windows.Forms.DialogResult.OK;
-            btnAnimZoomOut.Image = null;
-            btnAnimZoomOut.Location = new System.Drawing.Point(360, 258);
-            btnAnimZoomOut.Name = "btnAnimZoomOut";
-            btnAnimZoomOut.Size = new System.Drawing.Size(30, 23);
-            btnAnimZoomOut.TabIndex = 11;
-            btnAnimZoomOut.Text = "-";
-            toolTip1.SetToolTip(btnAnimZoomOut, "Zoom out");
-            btnAnimZoomOut.Click += btnAnimZoomOut_Click;
-            // 
-            // btnPlayAnim
-            // 
-            btnPlayAnim.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            btnPlayAnim.BorderStyle = DecentForms.BorderStyle.FLAT;
-            btnPlayAnim.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            btnPlayAnim.DialogResult = System.Windows.Forms.DialogResult.OK;
-            btnPlayAnim.Image = null;
-            btnPlayAnim.Location = new System.Drawing.Point(349, 7);
-            btnPlayAnim.Name = "btnPlayAnim";
-            btnPlayAnim.Size = new System.Drawing.Size(60, 23);
-            btnPlayAnim.TabIndex = 3;
-            btnPlayAnim.Text = "Play";
-            btnPlayAnim.Click += btnPlayAnim_Click;
-            // 
-            // picAnimPreview
-            // 
-            picAnimPreview.AutoResize = false;
-            picAnimPreview.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            picAnimPreview.DisplayPage = fastImage5;
-            picAnimPreview.Image = null;
-            picAnimPreview.Location = new System.Drawing.Point(360, 67);
-            picAnimPreview.Name = "picAnimPreview";
-            picAnimPreview.Size = new System.Drawing.Size(208, 183);
-            picAnimPreview.TabIndex = 9;
-            picAnimPreview.TabStop = false;
-            // 
-            // btnPauseAnim
-            // 
-            btnPauseAnim.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            btnPauseAnim.BorderStyle = DecentForms.BorderStyle.FLAT;
-            btnPauseAnim.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            btnPauseAnim.DialogResult = System.Windows.Forms.DialogResult.OK;
-            btnPauseAnim.Enabled = false;
-            btnPauseAnim.Image = null;
-            btnPauseAnim.Location = new System.Drawing.Point(412, 7);
-            btnPauseAnim.Name = "btnPauseAnim";
-            btnPauseAnim.Size = new System.Drawing.Size(60, 23);
-            btnPauseAnim.TabIndex = 4;
-            btnPauseAnim.Text = "Pause";
-            btnPauseAnim.Click += btnPauseAnim_Click;
-            // 
-            // panelFrameSlots
-            // 
-            panelFrameSlots.Location = new System.Drawing.Point(154, 119);
-            panelFrameSlots.Name = "panelFrameSlots";
-            panelFrameSlots.Size = new System.Drawing.Size(200, 180);
-            panelFrameSlots.TabIndex = 8;
-            // 
-            // listAnimFrames
-            // 
-            listAnimFrames.FormattingEnabled = true;
-            listAnimFrames.IntegralHeight = false;
-            listAnimFrames.ItemHeight = 13;
-            listAnimFrames.Location = new System.Drawing.Point(14, 35);
-            listAnimFrames.Name = "listAnimFrames";
-            listAnimFrames.Size = new System.Drawing.Size(130, 468);
-            listAnimFrames.TabIndex = 5;
-            listAnimFrames.SelectedIndexChanged += listAnimFrames_SelectedIndexChanged;
-            // 
-            // labelFrameDelay
-            // 
-            labelFrameDelay.AutoSize = true;
-            labelFrameDelay.Location = new System.Drawing.Point(149, 40);
-            labelFrameDelay.Name = "labelFrameDelay";
-            labelFrameDelay.Size = new System.Drawing.Size(74, 13);
-            labelFrameDelay.TabIndex = 6;
-            labelFrameDelay.Text = "Delay (1/50s):";
-            // 
-            // editFrameDelay
-            // 
-            editFrameDelay.Location = new System.Drawing.Point(235, 37);
-            editFrameDelay.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
-            editFrameDelay.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
-            editFrameDelay.Name = "editFrameDelay";
-            editFrameDelay.Size = new System.Drawing.Size(80, 20);
-            editFrameDelay.TabIndex = 7;
-            editFrameDelay.Value = new decimal(new int[] { 5, 0, 0, 0 });
-            editFrameDelay.ValueChanged += editFrameDelay_ValueChanged;
-            // 
-            // checkLoop
-            // 
-            checkLoop.AutoSize = true;
-            checkLoop.Location = new System.Drawing.Point(330, 39);
-            checkLoop.Name = "checkLoop";
-            checkLoop.Size = new System.Drawing.Size(50, 17);
-            checkLoop.TabIndex = 8;
-            checkLoop.Text = "Loop";
-            checkLoop.UseVisualStyleBackColor = true;
-            checkLoop.CheckedChanged += checkLoop_CheckedChanged;
-            // 
-            // labelAnimationID
-            // 
-            labelAnimationID.AutoSize = true;
-            labelAnimationID.Location = new System.Drawing.Point(400, 40);
-            labelAnimationID.Name = "labelAnimationID";
-            labelAnimationID.Size = new System.Drawing.Size(47, 13);
-            labelAnimationID.TabIndex = 9;
-            labelAnimationID.Text = "Anim ID:";
-            // 
-            // editAnimationID
-            // 
-            editAnimationID.Location = new System.Drawing.Point(455, 37);
-            editAnimationID.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
-            editAnimationID.Name = "editAnimationID";
-            editAnimationID.Size = new System.Drawing.Size(60, 20);
-            editAnimationID.TabIndex = 10;
-            editAnimationID.ValueChanged += editAnimationID_ValueChanged;
-            // 
-            // btnAddOverlay
-            // 
-            btnAddOverlay.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            btnAddOverlay.BorderStyle = DecentForms.BorderStyle.FLAT;
-            btnAddOverlay.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            btnAddOverlay.DialogResult = System.Windows.Forms.DialogResult.OK;
-            btnAddOverlay.Image = null;
-            btnAddOverlay.Location = new System.Drawing.Point(5, 5);
-            btnAddOverlay.Name = "btnAddOverlay";
-            btnAddOverlay.Size = new System.Drawing.Size(60, 23);
-            btnAddOverlay.TabIndex = 0;
-            btnAddOverlay.Text = "Add";
-            btnAddOverlay.Click += btnAddOverlay_Click;
-            // 
-            // btnRemoveOverlay
-            // 
-            btnRemoveOverlay.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            btnRemoveOverlay.BorderStyle = DecentForms.BorderStyle.FLAT;
-            btnRemoveOverlay.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            btnRemoveOverlay.DialogResult = System.Windows.Forms.DialogResult.OK;
-            btnRemoveOverlay.Enabled = false;
-            btnRemoveOverlay.Image = null;
-            btnRemoveOverlay.Location = new System.Drawing.Point(68, 5);
-            btnRemoveOverlay.Name = "btnRemoveOverlay";
-            btnRemoveOverlay.Size = new System.Drawing.Size(60, 23);
-            btnRemoveOverlay.TabIndex = 1;
-            btnRemoveOverlay.Text = "Remove";
-            btnRemoveOverlay.Click += btnRemoveOverlay_Click;
-            // 
-            // listOverlays
-            // 
-            listOverlays.FormattingEnabled = true;
-            listOverlays.IntegralHeight = false;
-            listOverlays.ItemHeight = 13;
-            listOverlays.Location = new System.Drawing.Point(5, 33);
-            listOverlays.Name = "listOverlays";
-            listOverlays.Size = new System.Drawing.Size(130, 470);
-            listOverlays.TabIndex = 2;
-            listOverlays.SelectedIndexChanged += listOverlays_SelectedIndexChanged;
-            // 
-            // labelOverlayName
-            // 
-            labelOverlayName.AutoSize = true;
-            labelOverlayName.Location = new System.Drawing.Point(140, 9);
-            labelOverlayName.Name = "labelOverlayName";
-            labelOverlayName.Size = new System.Drawing.Size(38, 13);
-            labelOverlayName.TabIndex = 3;
-            labelOverlayName.Text = "Name:";
-            // 
-            // editOverlayName
-            // 
-            editOverlayName.Location = new System.Drawing.Point(180, 6);
-            editOverlayName.Name = "editOverlayName";
-            editOverlayName.Size = new System.Drawing.Size(200, 20);
-            editOverlayName.TabIndex = 4;
-            editOverlayName.TextChanged += editOverlayName_TextChanged;
-            // 
-            // panelOverlaySlots
-            // 
-            panelOverlaySlots.Location = new System.Drawing.Point(140, 33);
-            panelOverlaySlots.Name = "panelOverlaySlots";
-            panelOverlaySlots.Size = new System.Drawing.Size(328, 180);
-            panelOverlaySlots.TabIndex = 5;
-            // 
-            // picOverlayPreview
-            // 
-            picOverlayPreview.AutoResize = false;
-            picOverlayPreview.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            picOverlayPreview.DisplayPage = fastImage6;
-            picOverlayPreview.Image = null;
-            picOverlayPreview.Location = new System.Drawing.Point(140, 220);
-            picOverlayPreview.Name = "picOverlayPreview";
-            picOverlayPreview.Size = new System.Drawing.Size(170, 186);
-            picOverlayPreview.TabIndex = 6;
-            picOverlayPreview.TabStop = false;
-            // 
-            // btnOverlayZoomOut
-            // 
-            btnOverlayZoomOut.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            btnOverlayZoomOut.BorderStyle = DecentForms.BorderStyle.FLAT;
-            btnOverlayZoomOut.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            btnOverlayZoomOut.DialogResult = System.Windows.Forms.DialogResult.OK;
-            btnOverlayZoomOut.Image = null;
-            btnOverlayZoomOut.Location = new System.Drawing.Point(141, 412);
-            btnOverlayZoomOut.Name = "btnOverlayZoomOut";
-            btnOverlayZoomOut.Size = new System.Drawing.Size(30, 23);
-            btnOverlayZoomOut.TabIndex = 7;
-            btnOverlayZoomOut.Text = "-";
-            toolTip1.SetToolTip(btnOverlayZoomOut, "Zoom out");
-            btnOverlayZoomOut.Click += btnOverlayZoomOut_Click;
-            // 
-            // btnOverlayZoomIn
-            // 
-            btnOverlayZoomIn.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
-            btnOverlayZoomIn.BorderStyle = DecentForms.BorderStyle.FLAT;
-            btnOverlayZoomIn.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
-            btnOverlayZoomIn.DialogResult = System.Windows.Forms.DialogResult.OK;
-            btnOverlayZoomIn.Image = null;
-            btnOverlayZoomIn.Location = new System.Drawing.Point(176, 412);
-            btnOverlayZoomIn.Name = "btnOverlayZoomIn";
-            btnOverlayZoomIn.Size = new System.Drawing.Size(30, 23);
-            btnOverlayZoomIn.TabIndex = 8;
-            btnOverlayZoomIn.Text = "+";
-            toolTip1.SetToolTip(btnOverlayZoomIn, "Zoom in");
-            btnOverlayZoomIn.Click += btnOverlayZoomIn_Click;
-            // 
-            // labelOverlayZoom
-            // 
-            labelOverlayZoom.AutoSize = true;
-            labelOverlayZoom.Location = new System.Drawing.Point(216, 417);
-            labelOverlayZoom.Name = "labelOverlayZoom";
-            labelOverlayZoom.Size = new System.Drawing.Size(51, 13);
-            labelOverlayZoom.TabIndex = 9;
-            labelOverlayZoom.Text = "Zoom: 1x";
-            // 
-            // panelSprites
-            // 
-            panelSprites.AllowPopup = false;
-            panelSprites.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
-            panelSprites.AutoScroll = true;
-            panelSprites.AutoScrollHorizontalMaximum = 100;
-            panelSprites.AutoScrollHorizontalMinimum = 0;
-            panelSprites.AutoScrollHPos = 0;
-            panelSprites.AutoScrollVerticalMaximum = -23;
-            panelSprites.AutoScrollVerticalMinimum = 0;
-            panelSprites.AutoScrollVPos = 0;
-            panelSprites.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            panelSprites.EnableAutoScrollHorizontal = false;
-            panelSprites.EnableAutoScrollVertical = true;
-            panelSprites.GridColor = System.Drawing.SystemColors.ControlDark;
-            panelSprites.HottrackColor = 2151694591U;
-            panelSprites.ItemHeight = 21;
-            panelSprites.ItemWidth = 24;
-            panelSprites.Location = new System.Drawing.Point(316, 220);
-            panelSprites.Name = "panelSprites";
-            panelSprites.PixelFormat = GR.Drawing.PixelFormat.DontCare;
-            panelSprites.SelectedIndex = -1;
-            panelSprites.ShowGrid = false;
-            panelSprites.Size = new System.Drawing.Size(302, 180);
-            panelSprites.TabIndex = 4;
-            panelSprites.TabStop = true;
-            panelSprites.VisibleAutoScrollHorizontal = false;
-            panelSprites.VisibleAutoScrollVertical = false;
-            panelSprites.SelectedIndexChanged += panelSprites_SelectedIndexChanged;
-            panelSprites.SelectionChanged += panelSprites_SelectionChanged;
-            panelSprites.ClientSizeChanged += panelSprites_ClientSizeChanged;
-            // 
-            // tabPageAnimation
-            // 
-            tabPageAnimation.Location = new System.Drawing.Point(4, 24);
-            tabPageAnimation.Name = "tabPageAnimation";
-            tabPageAnimation.Padding = new System.Windows.Forms.Padding(3);
-            tabPageAnimation.Size = new System.Drawing.Size(1558, 631);
-            tabPageAnimation.TabIndex = 3;
-            tabPageAnimation.Text = "Animation";
-            tabPageAnimation.UseVisualStyleBackColor = true;
             // 
             // btnClearSprite
             // 
@@ -1180,7 +617,7 @@ namespace RetroDevStudio.Documents
             // 
             pictureEditor.AutoResize = false;
             pictureEditor.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            pictureEditor.DisplayPage = fastImage7;
+            pictureEditor.DisplayPage = fastImage4;
             pictureEditor.Image = null;
             pictureEditor.Location = new System.Drawing.Point(40, 6);
             pictureEditor.Name = "pictureEditor";
@@ -1700,10 +1137,580 @@ namespace RetroDevStudio.Documents
             x16_64x64x256ToolStripMenuItem.Text = "64x64";
             x16_64x64x256ToolStripMenuItem.Click += spriteModeChangedMenuItem_Click;
             // 
+            // tabPageOverlay
+            // 
+            tabPageOverlay.Controls.Add(panel1);
+            tabPageOverlay.Controls.Add(btnAddOverlay);
+            tabPageOverlay.Controls.Add(btnRemoveOverlay);
+            tabPageOverlay.Controls.Add(btnCloneOverlay);
+            tabPageOverlay.Controls.Add(listOverlays);
+            tabPageOverlay.Controls.Add(labelOverlayName);
+            tabPageOverlay.Controls.Add(editOverlayName);
+            tabPageOverlay.Controls.Add(panelSprites);
+            tabPageOverlay.Controls.Add(panelOverlaySlots);
+            tabPageOverlay.Controls.Add(picOverlayPreview);
+            tabPageOverlay.Controls.Add(btnOverlayZoomOut);
+            tabPageOverlay.Controls.Add(btnOverlayZoomIn);
+            tabPageOverlay.Controls.Add(labelOverlayZoom);
+            tabPageOverlay.Location = new System.Drawing.Point(4, 22);
+            tabPageOverlay.Name = "tabPageOverlay";
+            tabPageOverlay.Padding = new System.Windows.Forms.Padding(3);
+            tabPageOverlay.Size = new System.Drawing.Size(1558, 634);
+            tabPageOverlay.TabIndex = 2;
+            tabPageOverlay.Text = "Animation";
+            tabPageOverlay.UseVisualStyleBackColor = true;
+            // 
+            // panelSprites
+            // 
+            panelSprites.AllowPopup = false;
+            panelSprites.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
+            panelSprites.AutoScroll = true;
+            panelSprites.AutoScrollHorizontalMaximum = 100;
+            panelSprites.AutoScrollHorizontalMinimum = 0;
+            panelSprites.AutoScrollHPos = 0;
+            panelSprites.AutoScrollVerticalMaximum = -23;
+            panelSprites.AutoScrollVerticalMinimum = 0;
+            panelSprites.AutoScrollVPos = 0;
+            panelSprites.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            panelSprites.EnableAutoScrollHorizontal = false;
+            panelSprites.EnableAutoScrollVertical = true;
+            panelSprites.GridColor = System.Drawing.SystemColors.ControlDark;
+            panelSprites.HottrackColor = 2151694591U;
+            panelSprites.ItemHeight = 21;
+            panelSprites.ItemWidth = 24;
+            panelSprites.Location = new System.Drawing.Point(316, 277);
+            panelSprites.Name = "panelSprites";
+            panelSprites.PixelFormat = GR.Drawing.PixelFormat.DontCare;
+            panelSprites.SelectedIndex = -1;
+            panelSprites.ShowGrid = false;
+            panelSprites.Size = new System.Drawing.Size(302, 187);
+            panelSprites.TabIndex = 4;
+            panelSprites.TabStop = true;
+            panelSprites.VisibleAutoScrollHorizontal = false;
+            panelSprites.VisibleAutoScrollVertical = false;
+            panelSprites.SelectedIndexChanged += panelSprites_SelectedIndexChanged;
+            panelSprites.SelectionChanged += panelSprites_SelectionChanged;
+            panelSprites.ClientSizeChanged += panelSprites_ClientSizeChanged;
+            // 
+            // labelOverlayZoom
+            // 
+            labelOverlayZoom.AutoSize = true;
+            labelOverlayZoom.Location = new System.Drawing.Point(217, 475);
+            labelOverlayZoom.Name = "labelOverlayZoom";
+            labelOverlayZoom.Size = new System.Drawing.Size(51, 13);
+            labelOverlayZoom.TabIndex = 9;
+            labelOverlayZoom.Text = "Zoom: 1x";
+            // 
+            // btnOverlayZoomIn
+            // 
+            btnOverlayZoomIn.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnOverlayZoomIn.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnOverlayZoomIn.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnOverlayZoomIn.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnOverlayZoomIn.Image = null;
+            btnOverlayZoomIn.Location = new System.Drawing.Point(177, 470);
+            btnOverlayZoomIn.Name = "btnOverlayZoomIn";
+            btnOverlayZoomIn.Size = new System.Drawing.Size(30, 24);
+            btnOverlayZoomIn.TabIndex = 8;
+            btnOverlayZoomIn.Text = "+";
+            toolTip1.SetToolTip(btnOverlayZoomIn, "Zoom in");
+            btnOverlayZoomIn.Click += btnOverlayZoomIn_Click;
+            // 
+            // btnOverlayZoomOut
+            // 
+            btnOverlayZoomOut.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnOverlayZoomOut.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnOverlayZoomOut.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnOverlayZoomOut.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnOverlayZoomOut.Image = null;
+            btnOverlayZoomOut.Location = new System.Drawing.Point(142, 470);
+            btnOverlayZoomOut.Name = "btnOverlayZoomOut";
+            btnOverlayZoomOut.Size = new System.Drawing.Size(30, 24);
+            btnOverlayZoomOut.TabIndex = 7;
+            btnOverlayZoomOut.Text = "-";
+            toolTip1.SetToolTip(btnOverlayZoomOut, "Zoom out");
+            btnOverlayZoomOut.Click += btnOverlayZoomOut_Click;
+            // 
+            // picOverlayPreview
+            // 
+            picOverlayPreview.AutoResize = false;
+            picOverlayPreview.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            picOverlayPreview.DisplayPage = fastImage3;
+            picOverlayPreview.Image = null;
+            picOverlayPreview.Location = new System.Drawing.Point(140, 277);
+            picOverlayPreview.Name = "picOverlayPreview";
+            picOverlayPreview.Size = new System.Drawing.Size(170, 187);
+            picOverlayPreview.TabIndex = 6;
+            picOverlayPreview.TabStop = false;
+            // 
+            // panelOverlaySlots
+            // 
+            panelOverlaySlots.Location = new System.Drawing.Point(140, 56);
+            panelOverlaySlots.Name = "panelOverlaySlots";
+            panelOverlaySlots.Size = new System.Drawing.Size(328, 215);
+            panelOverlaySlots.TabIndex = 5;
+            // 
+            // editOverlayName
+            // 
+            editOverlayName.Location = new System.Drawing.Point(182, 30);
+            editOverlayName.Name = "editOverlayName";
+            editOverlayName.Size = new System.Drawing.Size(200, 20);
+            editOverlayName.TabIndex = 4;
+            editOverlayName.TextChanged += editOverlayName_TextChanged;
+            // 
+            // labelOverlayName
+            // 
+            labelOverlayName.AutoSize = true;
+            labelOverlayName.Location = new System.Drawing.Point(142, 33);
+            labelOverlayName.Name = "labelOverlayName";
+            labelOverlayName.Size = new System.Drawing.Size(38, 13);
+            labelOverlayName.TabIndex = 3;
+            labelOverlayName.Text = "Name:";
+            // 
+            // listOverlays
+            // 
+            listOverlays.FormattingEnabled = true;
+            listOverlays.IntegralHeight = false;
+            listOverlays.ItemHeight = 13;
+            listOverlays.Location = new System.Drawing.Point(5, 33);
+            listOverlays.Name = "listOverlays";
+            listOverlays.Size = new System.Drawing.Size(130, 470);
+            listOverlays.TabIndex = 2;
+            listOverlays.SelectedIndexChanged += listOverlays_SelectedIndexChanged;
+            // 
+            // btnRemoveOverlay
+            // 
+            btnRemoveOverlay.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnRemoveOverlay.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnRemoveOverlay.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnRemoveOverlay.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnRemoveOverlay.Enabled = false;
+            btnRemoveOverlay.Image = null;
+            btnRemoveOverlay.Location = new System.Drawing.Point(68, 5);
+            btnRemoveOverlay.Name = "btnRemoveOverlay";
+            btnRemoveOverlay.Size = new System.Drawing.Size(60, 23);
+            btnRemoveOverlay.TabIndex = 1;
+            btnRemoveOverlay.Text = "Remove";
+            btnRemoveOverlay.Click += btnRemoveOverlay_Click;
+            // 
+            // btnAddOverlay
+            // 
+            btnAddOverlay.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnAddOverlay.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnAddOverlay.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnAddOverlay.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnAddOverlay.Image = null;
+            btnAddOverlay.Location = new System.Drawing.Point(5, 5);
+            btnAddOverlay.Name = "btnAddOverlay";
+            btnAddOverlay.Size = new System.Drawing.Size(60, 23);
+            btnAddOverlay.TabIndex = 0;
+            btnAddOverlay.Text = "Add";
+            btnAddOverlay.Click += btnAddOverlay_Click;
+            //
+            // btnCloneOverlay
+            //
+            btnCloneOverlay.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnCloneOverlay.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnCloneOverlay.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnCloneOverlay.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnCloneOverlay.Enabled = false;
+            btnCloneOverlay.Image = null;
+            btnCloneOverlay.Location = new System.Drawing.Point(131, 5);
+            btnCloneOverlay.Name = "btnCloneOverlay";
+            btnCloneOverlay.Size = new System.Drawing.Size(60, 23);
+            btnCloneOverlay.TabIndex = 2;
+            btnCloneOverlay.Text = "Clone";
+            btnCloneOverlay.Click += btnCloneOverlay_Click;
+            // 
+            // panel1
+            // 
+            panel1.Controls.Add(panelSpriteTest);
+            panel1.Controls.Add(labelTestBack);
+            panel1.Controls.Add(comboTestBackColor);
+            panel1.Controls.Add(checkTestExpandX);
+            panel1.Controls.Add(checkTestExpandY);
+            panel1.Controls.Add(checkTestLoop);
+            panel1.Controls.Add(checkTestC64Mag);
+            panel1.Controls.Add(labelTestTarget);
+            panel1.Controls.Add(editTestTargetW);
+            panel1.Controls.Add(labelTestTargetX);
+            panel1.Controls.Add(editTestTargetH);
+            panel1.Controls.Add(labelTestMagResult);
+            panel1.Controls.Add(btnTestStop);
+            panel1.Controls.Add(btnAddFrame);
+            panel1.Controls.Add(labelAnimZoom);
+            panel1.Controls.Add(btnRemoveFrame);
+            panel1.Controls.Add(btnAnimZoomIn);
+            panel1.Controls.Add(btnDuplicateFrame);
+            panel1.Controls.Add(btnAnimZoomOut);
+            panel1.Controls.Add(btnPlayAnim);
+            panel1.Controls.Add(picAnimPreview);
+            panel1.Controls.Add(btnPauseAnim);
+            panel1.Controls.Add(panelFrameSlots);
+            panel1.Controls.Add(listAnimFrames);
+            panel1.Controls.Add(labelFrameDelay);
+            panel1.Controls.Add(editFrameDelay);
+            panel1.Controls.Add(checkLoop);
+            panel1.Controls.Add(labelAnimationID);
+            panel1.Controls.Add(editAnimationID);
+            panel1.Location = new System.Drawing.Point(624, 5);
+            panel1.Name = "panel1";
+            panel1.Size = new System.Drawing.Size(784, 568);
+            panel1.TabIndex = 14;
+            panel1.Paint += panel1_Paint;
+            // 
+            // editAnimationID
+            // 
+            editAnimationID.Location = new System.Drawing.Point(455, 37);
+            editAnimationID.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
+            editAnimationID.Name = "editAnimationID";
+            editAnimationID.Size = new System.Drawing.Size(60, 20);
+            editAnimationID.TabIndex = 10;
+            editAnimationID.ValueChanged += editAnimationID_ValueChanged;
+            // 
+            // labelAnimationID
+            // 
+            labelAnimationID.AutoSize = true;
+            labelAnimationID.Location = new System.Drawing.Point(400, 40);
+            labelAnimationID.Name = "labelAnimationID";
+            labelAnimationID.Size = new System.Drawing.Size(47, 13);
+            labelAnimationID.TabIndex = 9;
+            labelAnimationID.Text = "Anim ID:";
+            // 
+            // checkLoop
+            // 
+            checkLoop.AutoSize = true;
+            checkLoop.Location = new System.Drawing.Point(330, 39);
+            checkLoop.Name = "checkLoop";
+            checkLoop.Size = new System.Drawing.Size(50, 17);
+            checkLoop.TabIndex = 8;
+            checkLoop.Text = "Loop";
+            checkLoop.UseVisualStyleBackColor = true;
+            checkLoop.CheckedChanged += checkLoop_CheckedChanged;
+            // 
+            // editFrameDelay
+            // 
+            editFrameDelay.Location = new System.Drawing.Point(235, 37);
+            editFrameDelay.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
+            editFrameDelay.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            editFrameDelay.Name = "editFrameDelay";
+            editFrameDelay.Size = new System.Drawing.Size(80, 20);
+            editFrameDelay.TabIndex = 7;
+            editFrameDelay.Value = new decimal(new int[] { 5, 0, 0, 0 });
+            editFrameDelay.ValueChanged += editFrameDelay_ValueChanged;
+            // 
+            // labelFrameDelay
+            // 
+            labelFrameDelay.AutoSize = true;
+            labelFrameDelay.Location = new System.Drawing.Point(149, 40);
+            labelFrameDelay.Name = "labelFrameDelay";
+            labelFrameDelay.Size = new System.Drawing.Size(74, 13);
+            labelFrameDelay.TabIndex = 6;
+            labelFrameDelay.Text = "Delay (1/50s):";
+            // 
+            // listAnimFrames
+            // 
+            listAnimFrames.FormattingEnabled = true;
+            listAnimFrames.IntegralHeight = false;
+            listAnimFrames.ItemHeight = 13;
+            listAnimFrames.Location = new System.Drawing.Point(14, 35);
+            listAnimFrames.Name = "listAnimFrames";
+            listAnimFrames.Size = new System.Drawing.Size(130, 468);
+            listAnimFrames.TabIndex = 5;
+            listAnimFrames.SelectedIndexChanged += listAnimFrames_SelectedIndexChanged;
+            // 
+            // panelFrameSlots
+            // 
+            panelFrameSlots.Location = new System.Drawing.Point(154, 119);
+            panelFrameSlots.Name = "panelFrameSlots";
+            panelFrameSlots.Size = new System.Drawing.Size(200, 180);
+            panelFrameSlots.TabIndex = 8;
+            // 
+            // btnPauseAnim
+            // 
+            btnPauseAnim.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnPauseAnim.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnPauseAnim.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnPauseAnim.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnPauseAnim.Enabled = false;
+            btnPauseAnim.Image = null;
+            btnPauseAnim.Location = new System.Drawing.Point(412, 7);
+            btnPauseAnim.Name = "btnPauseAnim";
+            btnPauseAnim.Size = new System.Drawing.Size(60, 23);
+            btnPauseAnim.TabIndex = 4;
+            btnPauseAnim.Text = "Pause";
+            btnPauseAnim.Click += btnPauseAnim_Click;
+            // 
+            // picAnimPreview
+            // 
+            picAnimPreview.AutoResize = false;
+            picAnimPreview.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            picAnimPreview.DisplayPage = fastImage2;
+            picAnimPreview.Image = null;
+            picAnimPreview.Location = new System.Drawing.Point(360, 67);
+            picAnimPreview.Name = "picAnimPreview";
+            picAnimPreview.Size = new System.Drawing.Size(208, 183);
+            picAnimPreview.TabIndex = 9;
+            picAnimPreview.TabStop = false;
+            // 
+            // btnPlayAnim
+            // 
+            btnPlayAnim.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnPlayAnim.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnPlayAnim.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnPlayAnim.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnPlayAnim.Image = null;
+            btnPlayAnim.Location = new System.Drawing.Point(349, 7);
+            btnPlayAnim.Name = "btnPlayAnim";
+            btnPlayAnim.Size = new System.Drawing.Size(60, 23);
+            btnPlayAnim.TabIndex = 3;
+            btnPlayAnim.Text = "Play";
+            btnPlayAnim.Click += btnPlayAnim_Click;
+            // 
+            // btnAnimZoomOut
+            // 
+            btnAnimZoomOut.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnAnimZoomOut.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnAnimZoomOut.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnAnimZoomOut.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnAnimZoomOut.Image = null;
+            btnAnimZoomOut.Location = new System.Drawing.Point(360, 258);
+            btnAnimZoomOut.Name = "btnAnimZoomOut";
+            btnAnimZoomOut.Size = new System.Drawing.Size(30, 23);
+            btnAnimZoomOut.TabIndex = 11;
+            btnAnimZoomOut.Text = "-";
+            toolTip1.SetToolTip(btnAnimZoomOut, "Zoom out");
+            btnAnimZoomOut.Click += btnAnimZoomOut_Click;
+            // 
+            // btnDuplicateFrame
+            // 
+            btnDuplicateFrame.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnDuplicateFrame.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnDuplicateFrame.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnDuplicateFrame.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnDuplicateFrame.Enabled = false;
+            btnDuplicateFrame.Image = null;
+            btnDuplicateFrame.Location = new System.Drawing.Point(140, 7);
+            btnDuplicateFrame.Name = "btnDuplicateFrame";
+            btnDuplicateFrame.Size = new System.Drawing.Size(80, 23);
+            btnDuplicateFrame.TabIndex = 2;
+            btnDuplicateFrame.Text = "Duplicate";
+            btnDuplicateFrame.Click += btnDuplicateFrame_Click;
+            // 
+            // btnAnimZoomIn
+            // 
+            btnAnimZoomIn.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnAnimZoomIn.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnAnimZoomIn.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnAnimZoomIn.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnAnimZoomIn.Image = null;
+            btnAnimZoomIn.Location = new System.Drawing.Point(395, 258);
+            btnAnimZoomIn.Name = "btnAnimZoomIn";
+            btnAnimZoomIn.Size = new System.Drawing.Size(30, 23);
+            btnAnimZoomIn.TabIndex = 12;
+            btnAnimZoomIn.Text = "+";
+            toolTip1.SetToolTip(btnAnimZoomIn, "Zoom in");
+            btnAnimZoomIn.Click += btnAnimZoomIn_Click;
+            // 
+            // btnRemoveFrame
+            // 
+            btnRemoveFrame.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnRemoveFrame.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnRemoveFrame.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnRemoveFrame.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnRemoveFrame.Enabled = false;
+            btnRemoveFrame.Image = null;
+            btnRemoveFrame.Location = new System.Drawing.Point(77, 7);
+            btnRemoveFrame.Name = "btnRemoveFrame";
+            btnRemoveFrame.Size = new System.Drawing.Size(60, 23);
+            btnRemoveFrame.TabIndex = 1;
+            btnRemoveFrame.Text = "Remove";
+            btnRemoveFrame.Click += btnRemoveFrame_Click;
+            // 
+            // labelAnimZoom
+            // 
+            labelAnimZoom.AutoSize = true;
+            labelAnimZoom.Location = new System.Drawing.Point(435, 263);
+            labelAnimZoom.Name = "labelAnimZoom";
+            labelAnimZoom.Size = new System.Drawing.Size(51, 13);
+            labelAnimZoom.TabIndex = 13;
+            labelAnimZoom.Text = "Zoom: 1x";
+            // 
+            // btnAddFrame
+            // 
+            btnAddFrame.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnAddFrame.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnAddFrame.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnAddFrame.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnAddFrame.Image = null;
+            btnAddFrame.Location = new System.Drawing.Point(14, 7);
+            btnAddFrame.Name = "btnAddFrame";
+            btnAddFrame.Size = new System.Drawing.Size(60, 23);
+            btnAddFrame.TabIndex = 0;
+            btnAddFrame.Text = "Add";
+            btnAddFrame.Click += btnAddFrame_Click;
+            // 
+            // btnTestStop
+            // 
+            btnTestStop.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnTestStop.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnTestStop.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnTestStop.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnTestStop.Image = null;
+            btnTestStop.Location = new System.Drawing.Point(574, 476);
+            btnTestStop.Name = "btnTestStop";
+            btnTestStop.Size = new System.Drawing.Size(80, 24);
+            btnTestStop.TabIndex = 20;
+            btnTestStop.Text = "Stop";
+            btnTestStop.Click += btnTestStop_Click;
+            // 
+            // labelTestMagResult
+            // 
+            labelTestMagResult.AutoSize = true;
+            labelTestMagResult.Location = new System.Drawing.Point(574, 551);
+            labelTestMagResult.Name = "labelTestMagResult";
+            labelTestMagResult.Size = new System.Drawing.Size(103, 13);
+            labelTestMagResult.TabIndex = 25;
+            labelTestMagResult.Text = "= 1.0x wide, 1.0x tall";
+            // 
+            // editTestTargetH
+            // 
+            editTestTargetH.Location = new System.Drawing.Point(708, 527);
+            editTestTargetH.Name = "editTestTargetH";
+            editTestTargetH.Size = new System.Drawing.Size(44, 20);
+            editTestTargetH.TabIndex = 24;
+            toolTip1.SetToolTip(editTestTargetH, "C64 screen height in pixels you are targeting (e.g. 200; raise to include borders / for PAL).");
+            editTestTargetH.TextChanged += editTestTargetH_TextChanged;
+            // 
+            // labelTestTargetX
+            // 
+            labelTestTargetX.AutoSize = true;
+            labelTestTargetX.Location = new System.Drawing.Point(692, 530);
+            labelTestTargetX.Name = "labelTestTargetX";
+            labelTestTargetX.Size = new System.Drawing.Size(12, 13);
+            labelTestTargetX.TabIndex = 24;
+            labelTestTargetX.Text = "x";
+            // 
+            // editTestTargetW
+            // 
+            editTestTargetW.Location = new System.Drawing.Point(644, 527);
+            editTestTargetW.Name = "editTestTargetW";
+            editTestTargetW.Size = new System.Drawing.Size(44, 20);
+            editTestTargetW.TabIndex = 23;
+            toolTip1.SetToolTip(editTestTargetW, "C64 screen width in pixels you are targeting (e.g. 320; raise to include borders / for PAL).");
+            editTestTargetW.TextChanged += editTestTargetW_TextChanged;
+            // 
+            // labelTestTarget
+            // 
+            labelTestTarget.AutoSize = true;
+            labelTestTarget.Location = new System.Drawing.Point(574, 530);
+            labelTestTarget.Name = "labelTestTarget";
+            labelTestTarget.Size = new System.Drawing.Size(64, 13);
+            labelTestTarget.TabIndex = 22;
+            labelTestTarget.Text = "C64 screen:";
+            // 
+            // checkTestC64Mag
+            // 
+            checkTestC64Mag.AutoSize = true;
+            checkTestC64Mag.Location = new System.Drawing.Point(574, 505);
+            checkTestC64Mag.Name = "checkTestC64Mag";
+            checkTestC64Mag.Size = new System.Drawing.Size(132, 17);
+            checkTestC64Mag.TabIndex = 21;
+            checkTestC64Mag.Text = "Use C64 magnification";
+            toolTip1.SetToolTip(checkTestC64Mag, "Magnify the playfield so sprites appear at the size they would on your monitor when the C64 screen (below) fills it.");
+            checkTestC64Mag.UseVisualStyleBackColor = true;
+            checkTestC64Mag.CheckedChanged += checkTestC64Mag_CheckedChanged;
+            // 
+            // checkTestLoop
+            // 
+            checkTestLoop.AutoSize = true;
+            checkTestLoop.Location = new System.Drawing.Point(574, 450);
+            checkTestLoop.Name = "checkTestLoop";
+            checkTestLoop.Size = new System.Drawing.Size(50, 17);
+            checkTestLoop.TabIndex = 19;
+            checkTestLoop.Text = "Loop";
+            checkTestLoop.UseVisualStyleBackColor = true;
+            checkTestLoop.CheckedChanged += checkTestLoop_CheckedChanged;
+            // 
+            // checkTestExpandY
+            // 
+            checkTestExpandY.AutoSize = true;
+            checkTestExpandY.Location = new System.Drawing.Point(574, 427);
+            checkTestExpandY.Name = "checkTestExpandY";
+            checkTestExpandY.Size = new System.Drawing.Size(72, 17);
+            checkTestExpandY.TabIndex = 18;
+            checkTestExpandY.Text = "Expand Y";
+            checkTestExpandY.UseVisualStyleBackColor = true;
+            checkTestExpandY.CheckedChanged += checkTestExpandY_CheckedChanged;
+            // 
+            // checkTestExpandX
+            // 
+            checkTestExpandX.AutoSize = true;
+            checkTestExpandX.Location = new System.Drawing.Point(574, 404);
+            checkTestExpandX.Name = "checkTestExpandX";
+            checkTestExpandX.Size = new System.Drawing.Size(72, 17);
+            checkTestExpandX.TabIndex = 17;
+            checkTestExpandX.Text = "Expand X";
+            checkTestExpandX.UseVisualStyleBackColor = true;
+            checkTestExpandX.CheckedChanged += checkTestExpandX_CheckedChanged;
+            // 
+            // comboTestBackColor
+            // 
+            comboTestBackColor.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            comboTestBackColor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            comboTestBackColor.FormattingEnabled = true;
+            comboTestBackColor.Location = new System.Drawing.Point(574, 374);
+            comboTestBackColor.Name = "comboTestBackColor";
+            comboTestBackColor.Size = new System.Drawing.Size(160, 21);
+            comboTestBackColor.TabIndex = 16;
+            comboTestBackColor.DrawItem += comboTestBackColor_DrawItem;
+            comboTestBackColor.SelectedIndexChanged += comboTestBackColor_SelectedIndexChanged;
+            // 
+            // labelTestBack
+            // 
+            labelTestBack.AutoSize = true;
+            labelTestBack.Location = new System.Drawing.Point(574, 358);
+            labelTestBack.Name = "labelTestBack";
+            labelTestBack.Size = new System.Drawing.Size(68, 13);
+            labelTestBack.TabIndex = 15;
+            labelTestBack.Text = "Background:";
+            // 
+            // panelSpriteTest
+            // 
+            panelSpriteTest.Controls.Add(picSpriteTest);
+            panelSpriteTest.Location = new System.Drawing.Point(150, 358);
+            panelSpriteTest.Name = "panelSpriteTest";
+            panelSpriteTest.Size = new System.Drawing.Size(418, 145);
+            panelSpriteTest.TabIndex = 14;
+            // 
+            // picSpriteTest
+            // 
+            picSpriteTest.AutoResize = false;
+            picSpriteTest.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            picSpriteTest.DisplayPage = fastImage1;
+            picSpriteTest.Dock = System.Windows.Forms.DockStyle.Fill;
+            picSpriteTest.Image = null;
+            picSpriteTest.Location = new System.Drawing.Point(0, 0);
+            picSpriteTest.Name = "picSpriteTest";
+            picSpriteTest.Size = new System.Drawing.Size(418, 145);
+            picSpriteTest.TabIndex = 0;
+            picSpriteTest.TabStop = false;
+            picSpriteTest.MouseDown += picSpriteTest_MouseDown;
+            // 
+            // tabSpriteDetails
+            // 
+            tabSpriteDetails.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
+            tabSpriteDetails.Controls.Add(tabPageOverlay);
+            tabSpriteDetails.Location = new System.Drawing.Point(480, 2);
+            tabSpriteDetails.Name = "tabSpriteDetails";
+            tabSpriteDetails.SelectedIndex = 0;
+            tabSpriteDetails.Size = new System.Drawing.Size(1566, 660);
+            tabSpriteDetails.TabIndex = 18;
+            // 
             // SpriteEditor
             // 
             AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
-            ClientSize = new System.Drawing.Size(2054, 785);
+            ClientSize = new System.Drawing.Size(2054, 786);
             Controls.Add(tabSpriteEditor);
             Controls.Add(menuStrip1);
             Icon = (System.Drawing.Icon)resources.GetObject("$this.Icon");
@@ -1713,17 +1720,6 @@ namespace RetroDevStudio.Documents
             tabSpriteEditor.ResumeLayout(false);
             tabEditor.ResumeLayout(false);
             tabEditor.PerformLayout();
-            tabSpriteDetails.ResumeLayout(false);
-            tabPageOverlay.ResumeLayout(false);
-            tabPageOverlay.PerformLayout();
-            panel1.ResumeLayout(false);
-            panel1.PerformLayout();
-            panelSpriteTest.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)picSpriteTest).EndInit();
-            ((System.ComponentModel.ISupportInitialize)picAnimPreview).EndInit();
-            ((System.ComponentModel.ISupportInitialize)editFrameDelay).EndInit();
-            ((System.ComponentModel.ISupportInitialize)editAnimationID).EndInit();
-            ((System.ComponentModel.ISupportInitialize)picOverlayPreview).EndInit();
             ((System.ComponentModel.ISupportInitialize)trackGridOpacity).EndInit();
             ((System.ComponentModel.ISupportInitialize)pictureEditor).EndInit();
             tabExport.ResumeLayout(false);
@@ -1733,6 +1729,17 @@ namespace RetroDevStudio.Documents
             menuStrip1.ResumeLayout(false);
             menuStrip1.PerformLayout();
             contextMenuChangeMode.ResumeLayout(false);
+            tabPageOverlay.ResumeLayout(false);
+            tabPageOverlay.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)picOverlayPreview).EndInit();
+            panel1.ResumeLayout(false);
+            panel1.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)editAnimationID).EndInit();
+            ((System.ComponentModel.ISupportInitialize)editFrameDelay).EndInit();
+            ((System.ComponentModel.ISupportInitialize)picAnimPreview).EndInit();
+            panelSpriteTest.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)picSpriteTest).EndInit();
+            tabSpriteDetails.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
 
@@ -1743,7 +1750,6 @@ namespace RetroDevStudio.Documents
         private System.Windows.Forms.TabControl tabSpriteEditor;
     private System.Windows.Forms.TabPage tabEditor;
     private GR.Forms.FastPictureBox pictureEditor;
-    private GR.Forms.ImageListbox panelSprites;
     private System.Windows.Forms.Label labelCharNo;
     private System.Windows.Forms.MenuStrip menuStrip1;
     private System.Windows.Forms.ToolStripMenuItem fileToolStripMenuItem;
@@ -1765,7 +1771,6 @@ namespace RetroDevStudio.Documents
     private DecentForms.Button btnRotateLeft;
     private DecentForms.Button btnRotateRight;
     private DecentForms.Button btnDeleteSprite;
-    private System.Windows.Forms.TabControl tabSpriteDetails;
     private System.Windows.Forms.ColumnHeader columnHeader4;
     private System.Windows.Forms.ColumnHeader columnHeader5;
     private System.Windows.Forms.ColumnHeader columnHeader6;
@@ -1842,34 +1847,8 @@ namespace RetroDevStudio.Documents
     private DecentForms.Button btnMoveSelectionToTarget;
     private DecentForms.Button btnBankCopy;
     private DecentForms.Button btnBankPaste;
-    private System.Windows.Forms.TabPage tabPageOverlay;
-    private DecentForms.Button btnAddOverlay;
-    private DecentForms.Button btnRemoveOverlay;
-    private System.Windows.Forms.ListBox listOverlays;
-    private System.Windows.Forms.Label labelOverlayName;
-    private System.Windows.Forms.TextBox editOverlayName;
-    private System.Windows.Forms.Panel panelOverlaySlots;
-    private GR.Forms.FastPictureBox picOverlayPreview;
-    private DecentForms.Button btnOverlayZoomOut;
-    private DecentForms.Button btnOverlayZoomIn;
-    private System.Windows.Forms.Label labelOverlayZoom;
-    private System.Windows.Forms.TabPage tabPageAnimation;
-    private DecentForms.Button btnAddFrame;
-    private DecentForms.Button btnRemoveFrame;
-    private DecentForms.Button btnDuplicateFrame;
-    private DecentForms.Button btnPlayAnim;
-    private DecentForms.Button btnPauseAnim;
-    private System.Windows.Forms.ListBox listAnimFrames;
-    private System.Windows.Forms.Label labelFrameDelay;
-    private System.Windows.Forms.NumericUpDown editFrameDelay;
-    private System.Windows.Forms.CheckBox checkLoop;
-    private System.Windows.Forms.Label labelAnimationID;
-    private System.Windows.Forms.NumericUpDown editAnimationID;
-    private System.Windows.Forms.Panel panelFrameSlots;
-    private GR.Forms.FastPictureBox picAnimPreview;
-    private DecentForms.Button btnAnimZoomOut;
-    private DecentForms.Button btnAnimZoomIn;
-    private System.Windows.Forms.Label labelAnimZoom;
+        private System.Windows.Forms.TabControl tabSpriteDetails;
+        private System.Windows.Forms.TabPage tabPageOverlay;
         private System.Windows.Forms.Panel panel1;
         private System.Windows.Forms.Panel panelSpriteTest;
         private GR.Forms.FastPictureBox picSpriteTest;
@@ -1885,5 +1864,33 @@ namespace RetroDevStudio.Documents
         private System.Windows.Forms.TextBox editTestTargetH;
         private System.Windows.Forms.Label labelTestMagResult;
         private DecentForms.Button btnTestStop;
+        private DecentForms.Button btnAddFrame;
+        private System.Windows.Forms.Label labelAnimZoom;
+        private DecentForms.Button btnRemoveFrame;
+        private DecentForms.Button btnAnimZoomIn;
+        private DecentForms.Button btnDuplicateFrame;
+        private DecentForms.Button btnAnimZoomOut;
+        private DecentForms.Button btnPlayAnim;
+        private GR.Forms.FastPictureBox picAnimPreview;
+        private DecentForms.Button btnPauseAnim;
+        private System.Windows.Forms.Panel panelFrameSlots;
+        private System.Windows.Forms.ListBox listAnimFrames;
+        private System.Windows.Forms.Label labelFrameDelay;
+        private System.Windows.Forms.NumericUpDown editFrameDelay;
+        private System.Windows.Forms.CheckBox checkLoop;
+        private System.Windows.Forms.Label labelAnimationID;
+        private System.Windows.Forms.NumericUpDown editAnimationID;
+        private DecentForms.Button btnAddOverlay;
+        private DecentForms.Button btnRemoveOverlay;
+        private DecentForms.Button btnCloneOverlay;
+        private System.Windows.Forms.ListBox listOverlays;
+        private System.Windows.Forms.Label labelOverlayName;
+        private System.Windows.Forms.TextBox editOverlayName;
+        private GR.Forms.ImageListbox panelSprites;
+        private System.Windows.Forms.Panel panelOverlaySlots;
+        private GR.Forms.FastPictureBox picOverlayPreview;
+        private DecentForms.Button btnOverlayZoomOut;
+        private DecentForms.Button btnOverlayZoomIn;
+        private System.Windows.Forms.Label labelOverlayZoom;
     }
 }

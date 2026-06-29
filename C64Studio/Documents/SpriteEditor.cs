@@ -3415,6 +3415,7 @@ namespace RetroDevStudio.Documents
             }
             PopulateOverlayFieldsFromSelection();
             btnRemoveOverlay.Enabled = (listOverlays.SelectedIndex >= 0);
+            btnCloneOverlay.Enabled = (listOverlays.SelectedIndex >= 0);
         }
 
 
@@ -3426,6 +3427,7 @@ namespace RetroDevStudio.Documents
             // frames/slots — clear them so they don't bleed across overlays.
             StopSpriteTest();
             btnRemoveOverlay.Enabled = (listOverlays.SelectedIndex >= 0);
+            btnCloneOverlay.Enabled = (listOverlays.SelectedIndex >= 0);
         }
 
 
@@ -3570,6 +3572,48 @@ namespace RetroDevStudio.Documents
             m_SpriteProject.Overlays.RemoveAt(idx);
             Modified = true;
             RefreshOverlaysList();
+        }
+
+
+
+        private void btnCloneOverlay_Click(DecentForms.ControlBase Sender)
+        {
+            int idx = listOverlays.SelectedIndex;
+            if (idx < 0 || idx >= m_SpriteProject.Overlays.Count) return;
+            DocumentInfo.UndoManager.AddUndoTask(new Undo.UndoSpritesetOverlaysChange(this, m_SpriteProject));
+
+            var clone = m_SpriteProject.Overlays[idx].Clone();
+            clone.Name = UniqueOverlayName(m_SpriteProject.Overlays[idx].Name + " copy");
+            // Insert right after the source so the copy appears next to it.
+            m_SpriteProject.Overlays.Insert(idx + 1, clone);
+            Modified = true;
+
+            RefreshOverlaysList();
+            listOverlays.SelectedIndex = idx + 1;
+        }
+
+
+
+        /// <summary>
+        /// Returns Candidate, or Candidate with a " 2"/" 3"/... suffix, whichever
+        /// is the first not already used by an existing overlay - so a clone never
+        /// shows an identical name in the list.
+        /// </summary>
+        private string UniqueOverlayName(string Candidate)
+        {
+            string name = Candidate;
+            int suffix = 2;
+            bool clash = true;
+            while (clash)
+            {
+                clash = false;
+                foreach (var o in m_SpriteProject.Overlays)
+                {
+                    if (o.Name == name) { clash = true; break; }
+                }
+                if (clash) { name = Candidate + " " + suffix; ++suffix; }
+            }
+            return name;
         }
 
 
@@ -4193,12 +4237,31 @@ namespace RetroDevStudio.Documents
         {
             if (picSpriteTest == null) return;
 
-            int zoom = (m_AnimPreviewZoom < 1) ? 1 : m_AnimPreviewZoom;
+            // Magnification is per-axis and fractional: each C64 pixel becomes a
+            // scaleX-by-scaleY rectangle. We render the scene 1:1 into a page sized
+            // clientW/scaleX x clientH/scaleY; the FastPictureBox StretchBlt's it up
+            // to the client independently per axis, giving exactly that scale. The
+            // non-magnified mode is the uniform anim zoom (scaleX == scaleY == zoom).
+            double scaleX, scaleY;
             if (m_SpriteProject.TestUseC64Magnification)
             {
-                zoom = ComputeC64Magnification();
+                ComputeC64Scale(out scaleX, out scaleY);
             }
-            EnsurePreviewPageSized(picSpriteTest, zoom);
+            else
+            {
+                int zoom = (m_AnimPreviewZoom < 1) ? 1 : m_AnimPreviewZoom;
+                scaleX = zoom;
+                scaleY = zoom;
+            }
+
+            int clientW = System.Math.Max(1, picSpriteTest.ClientRectangle.Width);
+            int clientH = System.Math.Max(1, picSpriteTest.ClientRectangle.Height);
+            // Round (not truncate) so the actual per-axis ratio stays as close as
+            // possible to scaleX:scaleY despite the integer page - the aspect ratio
+            // is the whole point here.
+            int pageW = System.Math.Max(1, (int)(clientW / scaleX + 0.5));
+            int pageH = System.Math.Max(1, (int)(clientH / scaleY + 0.5));
+            EnsurePreviewPageSized(picSpriteTest, pageW, pageH);
             var page = picSpriteTest.DisplayPage;
 
             page.Box(0, 0, page.Width, page.Height, ResolveTestBackgroundRGB());
@@ -4215,10 +4278,11 @@ namespace RetroDevStudio.Documents
                     if ((fp < 0) || (fp >= frameCount)) fp = 0;
                     var frame = m_CurrentOverlay.Frames[fp];
 
-                    // Screen click -> page coords (page is clientSize/zoom). Place the
-                    // overlay's top-left (its visible bounding-box corner) at the click.
-                    int originX = (inst.ScreenX / zoom) - bb.X;
-                    int originY = (inst.ScreenY / zoom) - bb.Y;
+                    // Screen click -> page coords (the page maps to the client
+                    // per-axis). Place the overlay's top-left (its visible
+                    // bounding-box corner) at the click.
+                    int originX = (int)(inst.ScreenX / scaleX) - bb.X;
+                    int originY = (int)(inst.ScreenY / scaleY) - bb.Y;
 
                     for (int s = 0; s < 8; ++s)
                     {
@@ -4460,25 +4524,27 @@ namespace RetroDevStudio.Documents
 
 
         /// <summary>
-        /// Integer playfield magnification for "Use C64 magnification": maps the
+        /// Per-axis playfield magnification for "Use C64 magnification": maps the
         /// auto-detected monitor resolution onto the C64 SCREEN size the user is
-        /// targeting (editTestTargetW/H, default 320x200). The factor is how many
-        /// monitor pixels one C64 pixel occupies when that C64 screen fills the
-        /// monitor (preserving aspect), rounded to a whole page-zoom. The C64
+        /// targeting (editTestTargetW/H, default 320x200). Each C64 pixel becomes a
+        /// ScaleX-by-ScaleY rectangle on screen, where ScaleX = monitorW / c64W and
+        /// ScaleY = monitorH / c64H. The two factors differ whenever the C64 screen
+        /// and the monitor have different aspect ratios (e.g. 320:200 vs 16:9), which
+        /// is exactly the aspect-ratio difference being reproduced. Fractional and
+        /// independent per axis on purpose — NOT a single rounded zoom. The C64
         /// screen is configurable so PAL/NTSC and border sizes can be accounted for.
         /// </summary>
-        private int ComputeC64Magnification()
+        private void ComputeC64Scale(out double ScaleX, out double ScaleY)
         {
             int c64W = m_SpriteProject.TestTargetWidth;
             int c64H = m_SpriteProject.TestTargetHeight;
             if (c64W <= 0) c64W = 320;
             if (c64H <= 0) c64H = 200;
             var screen = System.Windows.Forms.Screen.PrimaryScreen.Bounds;
-            double mag = System.Math.Min(screen.Width / (double)c64W, screen.Height / (double)c64H);
-            int z = (int)System.Math.Round(mag);
-            if (z < 1) z = 1;
-            if (z > 64) z = 64;
-            return z;
+            ScaleX = screen.Width  / (double)c64W;
+            ScaleY = screen.Height / (double)c64H;
+            if (ScaleX < 0.01) ScaleX = 0.01;
+            if (ScaleY < 0.01) ScaleY = 0.01;
         }
 
 
@@ -4486,8 +4552,9 @@ namespace RetroDevStudio.Documents
         private void UpdateMagResultLabel()
         {
             if (labelTestMagResult == null) return;
-            int z = ComputeC64Magnification();
-            labelTestMagResult.Text = "= " + z + "x";
+            double sx, sy;
+            ComputeC64Scale(out sx, out sy);
+            labelTestMagResult.Text = "= " + sx.ToString("0.0") + "x wide, " + sy.ToString("0.0") + "x tall";
 
             int c64W = m_SpriteProject.TestTargetWidth;
             int c64H = m_SpriteProject.TestTargetHeight;
@@ -4499,7 +4566,8 @@ namespace RetroDevStudio.Documents
                 toolTip1.SetToolTip(labelTestMagResult,
                     "Your screen " + screen.Width + "x" + screen.Height
                     + " mapped onto a C64 screen of " + c64W + "x" + c64H
-                    + " = " + z + "x magnification.");
+                    + " -> each C64 pixel is " + sx.ToString("0.00") + " wide x "
+                    + sy.ToString("0.00") + " tall monitor pixels.");
             }
         }
 
@@ -4551,13 +4619,26 @@ namespace RetroDevStudio.Documents
         private static void EnsurePreviewPageSized(GR.Forms.FastPictureBox Box, int Zoom)
         {
             if (Zoom < 1) Zoom = 1;
-            int targetW = System.Math.Max(1, Box.ClientRectangle.Width / Zoom);
-            int targetH = System.Math.Max(1, Box.ClientRectangle.Height / Zoom);
+            EnsurePreviewPageSized(Box, Box.ClientRectangle.Width / Zoom, Box.ClientRectangle.Height / Zoom);
+        }
+
+
+
+        /// <summary>
+        /// Size the preview's DisplayPage to an explicit (PageW, PageH). The page is
+        /// rendered 1:1 and the FastPictureBox StretchBlt's it up to the client - so a
+        /// non-square page yields a non-square (per-axis) magnification on screen.
+        /// Recreated only when the size actually changes, to avoid render-time thrash.
+        /// </summary>
+        private static void EnsurePreviewPageSized(GR.Forms.FastPictureBox Box, int PageW, int PageH)
+        {
+            PageW = System.Math.Max(1, PageW);
+            PageH = System.Math.Max(1, PageH);
 
             var page = Box.DisplayPage;
-            if ((page == null) || (page.Width != targetW) || (page.Height != targetH))
+            if ((page == null) || (page.Width != PageW) || (page.Height != PageH))
             {
-                Box.DisplayPage.Create(targetW, targetH, GR.Drawing.PixelFormat.Format32bppRgb);
+                Box.DisplayPage.Create(PageW, PageH, GR.Drawing.PixelFormat.Format32bppRgb);
             }
         }
 
