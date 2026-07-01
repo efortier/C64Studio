@@ -12267,31 +12267,61 @@ namespace RetroDevStudio.Documents
     private void RefreshMarkerTypes()
     {
       if ( listMarkerTypes == null ) return;
-      
+
+      int savedSel = listMarkerTypes.SelectedIndex;
+
+      if ( m_MarkerTypeIcons == null )
+      {
+        m_MarkerTypeIcons = new System.Windows.Forms.ImageList();
+        m_MarkerTypeIcons.ImageSize  = new System.Drawing.Size( 34, 22 );
+        m_MarkerTypeIcons.ColorDepth = System.Windows.Forms.ColorDepth.Depth32Bit;
+        listMarkerTypes.SmallImageList = m_MarkerTypeIcons;
+      }
+
+      listMarkerTypes.BeginUpdate();
       listMarkerTypes.Items.Clear();
+      m_MarkerTypeIcons.Images.Clear();
       comboMarkerTypes.Items.Clear();
       comboMarkerTypes.Items.Add( "None" );
+
+      var palette = ( ( m_MapProject.Charset != null ) && ( m_MapProject.Charset.Colors != null ) )
+                  ? m_MapProject.Charset.Colors.Palette : null;
       foreach ( var type in m_MapProject.MarkerTypes )
       {
-         listMarkerTypes.Items.Add( type.Name );
-         comboMarkerTypes.Items.Add( type.Name );
+        System.Drawing.Color bg = System.Drawing.Color.Gray;
+        if ( ( palette != null ) && ( palette.ColorValues != null ) )
+        {
+          int colIdx = type.Color;
+          if ( ( colIdx < 0 ) || ( colIdx >= palette.NumColors ) ) colIdx = 0;
+          bg = GR.Color.Helper.FromARGB( palette.ColorValues[colIdx] );
+        }
+        m_MarkerTypeIcons.Images.Add( MakeTypeTagIcon( type.TagID, bg ) );
+
+        var item = new System.Windows.Forms.ListViewItem();
+        item.ImageIndex = m_MarkerTypeIcons.Images.Count - 1;
+        item.SubItems.Add( type.Name ?? "" );                             // col 1: Name
+        item.SubItems.Add( "$" + ( type.TagID & 0xFF ).ToString( "X2" ) ); // col 2: Tag (hex)
+        item.SubItems.Add( type.ExportSymbol ?? "" );                     // col 3: Export symbol
+        item.Tag = type;
+        listMarkerTypes.Items.Add( item );
+
+        comboMarkerTypes.Items.Add( type.Name );
       }
+      listMarkerTypes.EndUpdate();
+
+      if ( ( savedSel >= 0 ) && ( savedSel < listMarkerTypes.Items.Count ) )
+      {
+        listMarkerTypes.SelectedIndex = savedSel;
+      }
+
       if ( m_CurrentMap != null )
       {
-         // Find corresponding index for selected type
-         int index = m_MapProject.MarkerTypes.FindIndex( t => t.ID == m_CurrentMap.SelectedMarkerType );
-         if ( index != -1 )
-         {
-           comboMarkerTypes.SelectedIndex = index + 1;
-         }
-         else
-         {
-           comboMarkerTypes.SelectedIndex = 0;
-         }
+        int index = m_MapProject.MarkerTypes.FindIndex( t => t.ID == m_CurrentMap.SelectedMarkerType );
+        comboMarkerTypes.SelectedIndex = ( index != -1 ) ? index + 1 : 0;
       }
       else
       {
-         comboMarkerTypes.SelectedIndex = 0;
+        comboMarkerTypes.SelectedIndex = 0;
       }
     }
 
@@ -12371,45 +12401,44 @@ namespace RetroDevStudio.Documents
 
     private void btnDeleteMarkerType_Click( DecentForms.ControlBase Sender )
     {
-       if ( listMarkerTypes.SelectedIndex == -1 ) return;
-       if ( ( listMarkerTypes.SelectedIndex < 0 )
-       ||   ( listMarkerTypes.SelectedIndex >= m_MapProject.MarkerTypes.Count ) )
+       // Snapshot the selected types up front (list indices shift as we remove).
+       var types = new List<MapProject.MarkerType>();
+       foreach ( int idx in listMarkerTypes.SelectedIndices )
        {
-         return;
+         if ( ( idx >= 0 ) && ( idx < m_MapProject.MarkerTypes.Count ) )
+         {
+           types.Add( m_MapProject.MarkerTypes[idx] );
+         }
        }
+       if ( types.Count == 0 ) return;
 
-       var type = m_MapProject.MarkerTypes[listMarkerTypes.SelectedIndex];
-
-       // H3: confirm + cascade-delete any markers of this type across all maps.
+       // Confirm + cascade-delete any markers of these types across all maps.
        int instanceCount = 0;
-       int mapsTouched = 0;
-       foreach ( var m in m_MapProject.Maps )
+       var mapsTouched = new HashSet<int>();
+       for ( int mi = 0; mi < m_MapProject.Maps.Count; ++mi )
        {
-         int inThisMap = m.Markers.Count( mk => mk.Type == type.ID );
+         int inThisMap = m_MapProject.Maps[mi].Markers.Count( mk => types.Any( t => t.ID == mk.Type ) );
          if ( inThisMap > 0 )
          {
            instanceCount += inThisMap;
-           ++mapsTouched;
+           mapsTouched.Add( mi );
          }
        }
 
-       string message;
-       if ( instanceCount == 0 )
+       string subject = ( types.Count == 1 ) ? "marker type '" + types[0].Name + "'"
+                                             : types.Count + " marker types";
+       string message = "Are you sure you want to delete " + subject + "?";
+       if ( instanceCount > 0 )
        {
-         message = "Are you sure you want to delete marker type '" + type.Name + "'?";
-       }
-       else
-       {
-         message = "Are you sure you want to delete marker type '" + type.Name + "'?\r\n\r\n"
-                 + "This will also delete " + instanceCount + " marker"
-                 + ( instanceCount == 1 ? "" : "s" )
-                 + " of this type across " + mapsTouched + " map"
-                 + ( mapsTouched == 1 ? "" : "s" ) + ".";
+         message += "\r\n\r\nThis will also delete " + instanceCount + " marker"
+                  + ( instanceCount == 1 ? "" : "s" )
+                  + " across " + mapsTouched.Count + " map"
+                  + ( mapsTouched.Count == 1 ? "" : "s" ) + ".";
        }
 
        var confirm = System.Windows.Forms.MessageBox.Show(
          message,
-         "Delete marker type",
+         "Delete marker type" + ( types.Count == 1 ? "" : "s" ),
          System.Windows.Forms.MessageBoxButtons.YesNo,
          System.Windows.Forms.MessageBoxIcon.Warning );
        if ( confirm != System.Windows.Forms.DialogResult.Yes )
@@ -12417,16 +12446,18 @@ namespace RetroDevStudio.Documents
          return;
        }
 
-       // Cascade-delete instances first, then the type itself.
-       foreach ( var m in m_MapProject.Maps )
+       foreach ( var type in types )
        {
-         m.Markers.RemoveAll( mk => mk.Type == type.ID );
-         if ( m.SelectedMarkerType == type.ID )
+         foreach ( var m in m_MapProject.Maps )
          {
-           m.SelectedMarkerType = -1;
+           m.Markers.RemoveAll( mk => mk.Type == type.ID );
+           if ( m.SelectedMarkerType == type.ID )
+           {
+             m.SelectedMarkerType = -1;
+           }
          }
+         m_MapProject.MarkerTypes.Remove( type );
        }
-       m_MapProject.MarkerTypes.Remove( type );
        RefreshMarkerTypes();
        pictureEditor.Invalidate();
        RedrawMap();
@@ -12436,15 +12467,13 @@ namespace RetroDevStudio.Documents
 
     private void listMarkerTypes_SelectedIndexChanged( object sender, EventArgs e )
     {
-       if ( ( listMarkerTypes.SelectedIndex < 0 )
-       ||   ( listMarkerTypes.SelectedIndex >= m_MapProject.MarkerTypes.Count ) )
-       {
-         btnUpdateMarkerType.Enabled = false;
-         btnDeleteMarkerType.Enabled = false;
-         return;
-       }
-       btnUpdateMarkerType.Enabled = true;
-       btnDeleteMarkerType.Enabled = true;
+       int selCount = listMarkerTypes.SelectedIndices.Count;
+       // Delete works on one OR many rows; the single-type editor (and Update) only
+       // make sense for exactly one selected type, so grey them out otherwise.
+       btnDeleteMarkerType.Enabled = ( selCount >= 1 );
+       btnUpdateMarkerType.Enabled = ( selCount == 1 );
+       SetMarkerTypeEditorEnabled( selCount == 1 );
+       if ( selCount != 1 ) return;
 
        var type = m_MapProject.MarkerTypes[listMarkerTypes.SelectedIndex];
        editMarkerName.Text = type.Name;
@@ -12460,87 +12489,239 @@ namespace RetroDevStudio.Documents
        editMarkerTagID.Value = displayTagID;
     }
 
-
-    // --- Marker-type list drag & drop reordering ------------------------------
-    // Reordering is purely positional: a placed marker references its type by
-    // MarkerType.ID (never by list position), and the game-binary export orders
-    // types by TagID - so moving a row changes display/persistence order only and
-    // alters no marker's settings. The two fields below hold an in-progress drag:
-    // which row was grabbed and from where, so a plain click only turns into a drag
-    // once it clears the system drag threshold.
-    private int                  m_MarkerTypeDragSourceIndex = -1;
-    private System.Drawing.Point m_MarkerTypeDragDownPoint;
-
-    private void listMarkerTypes_MouseDown( object sender, MouseEventArgs e )
+    // Enable/disable the single-marker-type editor controls - greyed out when 0 or
+    // multiple types are selected (nothing single to edit).
+    private void SetMarkerTypeEditorEnabled( bool Enabled )
     {
-      m_MarkerTypeDragSourceIndex = -1;
-      if ( e.Button != MouseButtons.Left ) return;
-      int idx = listMarkerTypes.IndexFromPoint( e.Location );
-      if ( ( idx >= 0 ) && ( idx < m_MapProject.MarkerTypes.Count ) )
+       editMarkerName.Enabled            = Enabled;
+       comboMarkerColor.Enabled          = Enabled;
+       editMarkerExportSymbol.Enabled    = Enabled;
+       editMarkerTagID.Enabled           = Enabled;
+       btnFindFreeMarkerTagID.Enabled    = Enabled;
+       editMarkerDescription.Enabled     = Enabled;
+       checkMarkerDefaultEnabled.Enabled = Enabled;
+       checkMarkerDefaultTriggered.Enabled = Enabled;
+    }
+
+
+    // --- Marker-type / entity-type list drag & drop reordering --------------
+    // Both type lists are CSListViews (Details view) that reorder by drag, showing
+    // the ListView's built-in InsertionMark bar - the same mechanism the Tiles list
+    // uses. Reordering is purely positional: a placed marker/entity references its
+    // type by ID (never by list position) and the export orders by TagID, so moving
+    // a row changes display/persistence order only. Each row's icon is a generated
+    // "$TT"-on-colour bitmap held in these per-list image lists.
+    private System.Windows.Forms.ImageList m_MarkerTypeIcons;
+    private System.Windows.Forms.ImageList m_EntityTypeIcons;
+
+    /// <summary>
+    /// Small row icon: the tag id as "$TT" centred on BgColor, glyph black/white for
+    /// contrast. A normal bitmap the CSListView renders from its SmallImageList - no
+    /// owner-draw here.
+    /// </summary>
+    private static System.Drawing.Bitmap MakeTypeTagIcon( int TagID, System.Drawing.Color BgColor )
+    {
+      var bmp = new System.Drawing.Bitmap( 34, 22 );
+      using ( var g = System.Drawing.Graphics.FromImage( bmp ) )
       {
-        m_MarkerTypeDragSourceIndex = idx;
-        m_MarkerTypeDragDownPoint   = e.Location;
+        g.Clear( BgColor );
+        double lum = ( BgColor.R * 0.299 ) + ( BgColor.G * 0.587 ) + ( BgColor.B * 0.114 );
+        var glyph = ( lum > 140.0 ) ? System.Drawing.Color.Black : System.Drawing.Color.White;
+        string text = "$" + ( TagID & 0xFF ).ToString( "X2" );
+        using ( var font = new System.Drawing.Font( "Consolas", 8.0f, System.Drawing.FontStyle.Bold ) )
+        using ( var brush = new System.Drawing.SolidBrush( glyph ) )
+        {
+          var sz = g.MeasureString( text, font );
+          g.DrawString( text, font, brush, ( bmp.Width - sz.Width ) / 2.0f, ( bmp.Height - sz.Height ) / 2.0f );
+        }
+      }
+      return bmp;
+    }
+
+    // Show the built-in InsertionMark at the drop position (before/after the nearest
+    // row per which half of it the cursor is over).
+    private static void UpdateTypeInsertionMark( System.Windows.Forms.ListView List, DragEventArgs e )
+    {
+      if ( !e.Data.GetDataPresent( typeof( ListViewItem ) ) )
+      {
+        e.Effect = DragDropEffects.None;
+        List.InsertionMark.Index = -1;
+        return;
+      }
+      e.Effect = DragDropEffects.Move;
+      var pt = List.PointToClient( new System.Drawing.Point( e.X, e.Y ) );
+      int target = List.InsertionMark.NearestIndex( pt );
+      if ( target > -1 )
+      {
+        var rc = List.GetItemRect( target );
+        List.InsertionMark.AppearsAfterItem = ( pt.Y > rc.Top + ( rc.Height / 2 ) );
+      }
+      List.InsertionMark.Index = target;
+    }
+
+    // The insertion slot (0..Count) for the current drop point, or -1 if undecidable.
+    private static int TypeDropInsertSlot( System.Windows.Forms.ListView List, DragEventArgs e )
+    {
+      var pt = List.PointToClient( new System.Drawing.Point( e.X, e.Y ) );
+      int target = List.InsertionMark.NearestIndex( pt );
+      if ( target > -1 )
+      {
+        return List.InsertionMark.AppearsAfterItem ? target + 1 : target;
+      }
+      if ( List.Items.Count == 0 ) return 0;
+      var lastRc = List.GetItemRect( List.Items.Count - 1 );
+      if ( pt.Y > lastRc.Bottom ) return List.Items.Count;
+      var hit = List.HitTest( pt );
+      if ( hit.Item != null )
+      {
+        var rc = List.GetItemRect( hit.Item.Index );
+        return ( pt.Y > rc.Top + ( rc.Height / 2 ) ) ? hit.Item.Index + 1 : hit.Item.Index;
+      }
+      return -1;
+    }
+
+
+    // Move the items currently at Sources (any order) so they sit contiguously, in
+    // their original relative order, starting at insertion slot Target. Returns the
+    // new index of the first moved item.
+    private static int MoveListItems( System.Collections.IList List, List<int> Sources, int Target )
+    {
+      var sorted = new List<int>( Sources );
+      sorted.Sort();
+      var moved = new List<object>();
+      foreach ( int i in sorted ) moved.Add( List[i] );
+      int target = Target;
+      for ( int i = sorted.Count - 1; i >= 0; --i )
+      {
+        List.RemoveAt( sorted[i] );
+        if ( sorted[i] < target ) --target;
+      }
+      if ( target < 0 ) target = 0;
+      if ( target > List.Count ) target = List.Count;
+      for ( int k = 0; k < moved.Count; ++k )
+      {
+        List.Insert( target + k, moved[k] );
+      }
+      return target;
+    }
+
+    // Select a contiguous run of rows [Start, Start+Count), scroll the first into
+    // view, replacing any current selection.
+    private static void SelectListViewRange( System.Windows.Forms.ListView List, int Start, int Count )
+    {
+      List.SelectedIndices.Clear();
+      for ( int i = 0; i < Count; ++i )
+      {
+        int idx = Start + i;
+        if ( ( idx >= 0 ) && ( idx < List.Items.Count ) )
+        {
+          List.Items[idx].Selected = true;
+          if ( i == 0 ) List.Items[idx].EnsureVisible();
+        }
       }
     }
 
-    private void listMarkerTypes_MouseMove( object sender, MouseEventArgs e )
+
+    private void listMarkerTypes_ItemDrag( object sender, ItemDragEventArgs e )
     {
-      if ( ( e.Button & MouseButtons.Left ) == 0 ) return;
-      if ( m_MarkerTypeDragSourceIndex < 0 ) return;
-      // Only start dragging once the pointer clears the system drag threshold, so a
-      // plain click still just selects the row.
-      if ( ( System.Math.Abs( e.X - m_MarkerTypeDragDownPoint.X ) < SystemInformation.DragSize.Width / 2 )
-      &&   ( System.Math.Abs( e.Y - m_MarkerTypeDragDownPoint.Y ) < SystemInformation.DragSize.Height / 2 ) )
-      {
-        return;
-      }
-      int source = m_MarkerTypeDragSourceIndex;
-      m_MarkerTypeDragSourceIndex = -1;
-      if ( source >= m_MapProject.MarkerTypes.Count ) return;
-      listMarkerTypes.DoDragDrop( source, DragDropEffects.Move );
+      listMarkerTypes.DoDragDrop( e.Item, DragDropEffects.Move );
+    }
+
+    private void listMarkerTypes_DragEnter( object sender, DragEventArgs e )
+    {
+      UpdateTypeInsertionMark( listMarkerTypes, e );
     }
 
     private void listMarkerTypes_DragOver( object sender, DragEventArgs e )
     {
-      e.Effect = e.Data.GetDataPresent( typeof( int ) ) ? DragDropEffects.Move : DragDropEffects.None;
+      UpdateTypeInsertionMark( listMarkerTypes, e );
+    }
+
+    private void listMarkerTypes_DragLeave( object sender, EventArgs e )
+    {
+      listMarkerTypes.InsertionMark.Index = -1;
     }
 
     private void listMarkerTypes_DragDrop( object sender, DragEventArgs e )
     {
-      if ( !e.Data.GetDataPresent( typeof( int ) ) ) return;
-      int source = (int)e.Data.GetData( typeof( int ) );
-      int count  = m_MapProject.MarkerTypes.Count;
-      if ( ( source < 0 ) || ( source >= count ) ) return;
+      listMarkerTypes.InsertionMark.Index = -1;
+      if ( !e.Data.GetDataPresent( typeof( ListViewItem ) ) ) return;
+      var dragged = (ListViewItem)e.Data.GetData( typeof( ListViewItem ) );
+      if ( dragged == null ) return;
 
-      // Resolve the drop to an insertion slot: the row under the pointer, before or
-      // after it depending on which half of the row the cursor sits over. A drop in
-      // the empty area past the last row moves the item to the end.
-      System.Drawing.Point pt = listMarkerTypes.PointToClient( new System.Drawing.Point( e.X, e.Y ) );
-      int target = listMarkerTypes.IndexFromPoint( pt );
-      int insertBefore;
-      if ( target < 0 )
+      // Multi-select aware: move every selected row (the grabbed one is among them)
+      // to the drop slot, keeping their relative order.
+      var sources = new List<int>();
+      foreach ( int idx in listMarkerTypes.SelectedIndices ) sources.Add( idx );
+      if ( sources.Count == 0 ) sources.Add( dragged.Index );
+
+      int insertBefore = TypeDropInsertSlot( listMarkerTypes, e );
+      if ( insertBefore < 0 ) return;
+
+      var before = new object[m_MapProject.MarkerTypes.Count];
+      for ( int i = 0; i < before.Length; ++i ) before[i] = m_MapProject.MarkerTypes[i];
+      int newFirst = MoveListItems( m_MapProject.MarkerTypes, sources, insertBefore );
+
+      bool changed = false;
+      for ( int i = 0; i < before.Length; ++i )
       {
-        insertBefore = count;
+        if ( !ReferenceEquals( before[i], m_MapProject.MarkerTypes[i] ) ) { changed = true; break; }
       }
-      else
-      {
-        System.Drawing.Rectangle rc = listMarkerTypes.GetItemRectangle( target );
-        insertBefore = ( pt.Y > rc.Top + ( rc.Height / 2 ) ) ? target + 1 : target;
-      }
-
-      // Index the moved row occupies once it's pulled out of the list (removing the
-      // source first shifts everything after it down by one).
-      int finalIndex = ( source < insertBefore ) ? insertBefore - 1 : insertBefore;
-      if ( finalIndex < 0 ) finalIndex = 0;
-      if ( finalIndex > count - 1 ) finalIndex = count - 1;
-      if ( finalIndex == source ) return;   // dropped back onto itself - nothing to do
-
-      var moved = m_MapProject.MarkerTypes[source];
-      m_MapProject.MarkerTypes.RemoveAt( source );
-      m_MapProject.MarkerTypes.Insert( finalIndex, moved );
+      if ( !changed ) return;   // dropped in place
 
       RefreshMarkerTypes();
-      listMarkerTypes.SelectedIndex = finalIndex;
+      SelectListViewRange( listMarkerTypes, newFirst, sources.Count );
+      SetModified();
+    }
+
+
+    private void listEntityTypes_ItemDrag( object sender, ItemDragEventArgs e )
+    {
+      listEntityTypes.DoDragDrop( e.Item, DragDropEffects.Move );
+    }
+
+    private void listEntityTypes_DragEnter( object sender, DragEventArgs e )
+    {
+      UpdateTypeInsertionMark( listEntityTypes, e );
+    }
+
+    private void listEntityTypes_DragOver( object sender, DragEventArgs e )
+    {
+      UpdateTypeInsertionMark( listEntityTypes, e );
+    }
+
+    private void listEntityTypes_DragLeave( object sender, EventArgs e )
+    {
+      listEntityTypes.InsertionMark.Index = -1;
+    }
+
+    private void listEntityTypes_DragDrop( object sender, DragEventArgs e )
+    {
+      listEntityTypes.InsertionMark.Index = -1;
+      if ( !e.Data.GetDataPresent( typeof( ListViewItem ) ) ) return;
+      var dragged = (ListViewItem)e.Data.GetData( typeof( ListViewItem ) );
+      if ( dragged == null ) return;
+
+      var sources = new List<int>();
+      foreach ( int idx in listEntityTypes.SelectedIndices ) sources.Add( idx );
+      if ( sources.Count == 0 ) sources.Add( dragged.Index );
+
+      int insertBefore = TypeDropInsertSlot( listEntityTypes, e );
+      if ( insertBefore < 0 ) return;
+
+      var before = new object[m_MapProject.EntityTypes.Count];
+      for ( int i = 0; i < before.Length; ++i ) before[i] = m_MapProject.EntityTypes[i];
+      int newFirst = MoveListItems( m_MapProject.EntityTypes, sources, insertBefore );
+
+      bool changed = false;
+      for ( int i = 0; i < before.Length; ++i )
+      {
+        if ( !ReferenceEquals( before[i], m_MapProject.EntityTypes[i] ) ) { changed = true; break; }
+      }
+      if ( !changed ) return;
+
+      RefreshEntityTypes();
+      SelectListViewRange( listEntityTypes, newFirst, sources.Count );
       SetModified();
     }
 
@@ -14180,14 +14361,37 @@ namespace RetroDevStudio.Documents
       int savedListIndex = listEntityTypes.SelectedIndex;
       int savedComboIndex = comboEntityTypes.SelectedIndex;
 
+      if ( m_EntityTypeIcons == null )
+      {
+        m_EntityTypeIcons = new System.Windows.Forms.ImageList();
+        m_EntityTypeIcons.ImageSize  = new System.Drawing.Size( 34, 22 );
+        m_EntityTypeIcons.ColorDepth = System.Windows.Forms.ColorDepth.Depth32Bit;
+        listEntityTypes.SmallImageList = m_EntityTypeIcons;
+      }
+
+      listEntityTypes.BeginUpdate();
       listEntityTypes.Items.Clear();
+      m_EntityTypeIcons.Images.Clear();
       comboEntityTypes.Items.Clear();
       comboEntityTypes.Items.Add( "None" );
+
+      // Entity types have no colour of their own -> neutral icon background.
+      var entityIconBg = System.Drawing.Color.FromArgb( 80, 80, 80 );
       foreach ( var type in m_MapProject.EntityTypes )
       {
-        listEntityTypes.Items.Add( type.Name );
+        m_EntityTypeIcons.Images.Add( MakeTypeTagIcon( type.TagID, entityIconBg ) );
+
+        var item = new System.Windows.Forms.ListViewItem();
+        item.ImageIndex = m_EntityTypeIcons.Images.Count - 1;
+        item.SubItems.Add( type.Name ?? "" );                             // col 1: Name
+        item.SubItems.Add( "$" + ( type.TagID & 0xFF ).ToString( "X2" ) ); // col 2: Tag (hex)
+        item.SubItems.Add( type.ExportSymbol ?? "" );                     // col 3: Export symbol
+        item.Tag = type;
+        listEntityTypes.Items.Add( item );
+
         comboEntityTypes.Items.Add( type.Name );
       }
+      listEntityTypes.EndUpdate();
 
       if ( ( savedListIndex >= 0 ) && ( savedListIndex < listEntityTypes.Items.Count ) )
       {
@@ -14288,44 +14492,44 @@ namespace RetroDevStudio.Documents
 
     private void btnDeleteEntityType_Click( DecentForms.ControlBase Sender )
     {
-      if ( ( listEntityTypes.SelectedIndex < 0 )
-      ||   ( listEntityTypes.SelectedIndex >= m_MapProject.EntityTypes.Count ) )
+      // Snapshot the selected types up front (list indices shift as we remove).
+      var types = new List<MapProject.EntityType>();
+      foreach ( int idx in listEntityTypes.SelectedIndices )
       {
-        return;
+        if ( ( idx >= 0 ) && ( idx < m_MapProject.EntityTypes.Count ) )
+        {
+          types.Add( m_MapProject.EntityTypes[idx] );
+        }
       }
+      if ( types.Count == 0 ) return;
 
-      var type = m_MapProject.EntityTypes[listEntityTypes.SelectedIndex];
-
-      // Count instances across all maps.
+      // Count instances across all maps for all selected types.
       int instanceCount = 0;
-      int mapsTouched = 0;
-      foreach ( var m in m_MapProject.Maps )
+      var mapsTouched = new HashSet<int>();
+      for ( int mi = 0; mi < m_MapProject.Maps.Count; ++mi )
       {
-        int inThisMap = m.Entities.Count( en => en.Type == type.ID );
+        int inThisMap = m_MapProject.Maps[mi].Entities.Count( en => types.Any( t => t.ID == en.Type ) );
         if ( inThisMap > 0 )
         {
           instanceCount += inThisMap;
-          ++mapsTouched;
+          mapsTouched.Add( mi );
         }
       }
 
-      string message;
-      if ( instanceCount == 0 )
+      string subject = ( types.Count == 1 ) ? "entity type '" + types[0].Name + "'"
+                                            : types.Count + " entity types";
+      string message = "Are you sure you want to delete " + subject + "?";
+      if ( instanceCount > 0 )
       {
-        message = "Are you sure you want to delete entity type '" + type.Name + "'?";
-      }
-      else
-      {
-        message = "Are you sure you want to delete entity type '" + type.Name + "'?\r\n\r\n"
-                + "This will also delete " + instanceCount + " entit"
-                + ( instanceCount == 1 ? "y" : "ies" )
-                + " of this type across " + mapsTouched + " map"
-                + ( mapsTouched == 1 ? "" : "s" ) + ".";
+        message += "\r\n\r\nThis will also delete " + instanceCount + " entit"
+                 + ( instanceCount == 1 ? "y" : "ies" )
+                 + " across " + mapsTouched.Count + " map"
+                 + ( mapsTouched.Count == 1 ? "" : "s" ) + ".";
       }
 
       var confirm = System.Windows.Forms.MessageBox.Show(
         message,
-        "Delete entity type",
+        "Delete entity type" + ( types.Count == 1 ? "" : "s" ),
         System.Windows.Forms.MessageBoxButtons.YesNo,
         System.Windows.Forms.MessageBoxIcon.Warning );
       if ( confirm != System.Windows.Forms.DialogResult.Yes )
@@ -14333,16 +14537,18 @@ namespace RetroDevStudio.Documents
         return;
       }
 
-      // Cascade-delete instances first.
-      foreach ( var m in m_MapProject.Maps )
+      foreach ( var type in types )
       {
-        m.Entities.RemoveAll( en => en.Type == type.ID );
-        if ( m.SelectedEntityType == type.ID )
+        foreach ( var m in m_MapProject.Maps )
         {
-          m.SelectedEntityType = -1;
+          m.Entities.RemoveAll( en => en.Type == type.ID );
+          if ( m.SelectedEntityType == type.ID )
+          {
+            m.SelectedEntityType = -1;
+          }
         }
+        m_MapProject.EntityTypes.Remove( type );
       }
-      m_MapProject.EntityTypes.Remove( type );
       RefreshEntityTypes();
       pictureEditor.Invalidate();
       RedrawMap();
@@ -14352,15 +14558,11 @@ namespace RetroDevStudio.Documents
 
     private void listEntityTypes_SelectedIndexChanged( object sender, EventArgs e )
     {
-      if ( ( listEntityTypes.SelectedIndex < 0 )
-      ||   ( listEntityTypes.SelectedIndex >= m_MapProject.EntityTypes.Count ) )
-      {
-        btnUpdateEntityType.Enabled = false;
-        btnDeleteEntityType.Enabled = false;
-        return;
-      }
-      btnUpdateEntityType.Enabled = true;
-      btnDeleteEntityType.Enabled = true;
+      int selCount = listEntityTypes.SelectedIndices.Count;
+      btnDeleteEntityType.Enabled = ( selCount >= 1 );
+      btnUpdateEntityType.Enabled = ( selCount == 1 );
+      SetEntityTypeEditorEnabled( selCount == 1 );
+      if ( selCount != 1 ) return;
 
       var type = m_MapProject.EntityTypes[listEntityTypes.SelectedIndex];
       editEntityName.Text = type.Name;
@@ -14368,6 +14570,16 @@ namespace RetroDevStudio.Documents
       editEntityTileIndex.Value = Math.Max( editEntityTileIndex.Minimum,
                                              Math.Min( editEntityTileIndex.Maximum, type.TileIndex ) );
       editEntityTagID.Value = type.TagID;
+    }
+
+    // Enable/disable the single-entity-type editor controls - greyed out when 0 or
+    // multiple types are selected.
+    private void SetEntityTypeEditorEnabled( bool Enabled )
+    {
+      editEntityName.Enabled         = Enabled;
+      editEntityExportSymbol.Enabled = Enabled;
+      editEntityTileIndex.Enabled    = Enabled;
+      editEntityTagID.Enabled        = Enabled;
     }
 
     private void editEntityExportSymbol_KeyPress( object sender, KeyPressEventArgs e )

@@ -54,7 +54,11 @@
             labelMarkerColor = new System.Windows.Forms.Label();
             editMarkerName = new System.Windows.Forms.TextBox();
             labelMarkerName = new System.Windows.Forms.Label();
-            listMarkerTypes = new System.Windows.Forms.ListBox();
+            listMarkerTypes = new RetroDevStudio.Controls.CSListView();
+            columnHeaderMarkerIcon = new System.Windows.Forms.ColumnHeader();
+            columnHeaderMarkerName = new System.Windows.Forms.ColumnHeader();
+            columnHeaderMarkerTag = new System.Windows.Forms.ColumnHeader();
+            columnHeaderMarkerSymbol = new System.Windows.Forms.ColumnHeader();
             checkMarkerAutoDisableGroup = new System.Windows.Forms.CheckBox();
             tabMapStrings = new Krypton.Navigator.KryptonPage();
             listMapStrings = new System.Windows.Forms.ListBox();
@@ -120,7 +124,11 @@
             labelEntityTileIndex = new System.Windows.Forms.Label();
             editEntityName = new System.Windows.Forms.TextBox();
             labelEntityName = new System.Windows.Forms.Label();
-            listEntityTypes = new System.Windows.Forms.ListBox();
+            listEntityTypes = new RetroDevStudio.Controls.CSListView();
+            columnHeaderEntityIcon = new System.Windows.Forms.ColumnHeader();
+            columnHeaderEntityName = new System.Windows.Forms.ColumnHeader();
+            columnHeaderEntityTag = new System.Windows.Forms.ColumnHeader();
+            columnHeaderEntitySymbol = new System.Windows.Forms.ColumnHeader();
             menuStrip1 = new System.Windows.Forms.MenuStrip();
             fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             exportMapToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -482,7 +490,7 @@
             btnDeleteMarkerType.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnDeleteMarkerType.Enabled = false;
             btnDeleteMarkerType.Image = null;
-            btnDeleteMarkerType.Location = new System.Drawing.Point(346, 126);
+            btnDeleteMarkerType.Location = new System.Drawing.Point(558, 126);
             btnDeleteMarkerType.Name = "btnDeleteMarkerType";
             btnDeleteMarkerType.Size = new System.Drawing.Size(80, 23);
             btnDeleteMarkerType.TabIndex = 9;
@@ -497,7 +505,7 @@
             btnUpdateMarkerType.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnUpdateMarkerType.Enabled = false;
             btnUpdateMarkerType.Image = null;
-            btnUpdateMarkerType.Location = new System.Drawing.Point(260, 126);
+            btnUpdateMarkerType.Location = new System.Drawing.Point(472, 126);
             btnUpdateMarkerType.Name = "btnUpdateMarkerType";
             btnUpdateMarkerType.Size = new System.Drawing.Size(75, 23);
             btnUpdateMarkerType.TabIndex = 8;
@@ -511,7 +519,7 @@
             btnAddMarkerType.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             btnAddMarkerType.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnAddMarkerType.Image = null;
-            btnAddMarkerType.Location = new System.Drawing.Point(174, 126);
+            btnAddMarkerType.Location = new System.Drawing.Point(386, 126);
             btnAddMarkerType.Name = "btnAddMarkerType";
             btnAddMarkerType.Size = new System.Drawing.Size(75, 23);
             btnAddMarkerType.TabIndex = 7;
@@ -520,7 +528,7 @@
             // 
             // editMarkerExportSymbol
             // 
-            editMarkerExportSymbol.Location = new System.Drawing.Point(260, 68);
+            editMarkerExportSymbol.Location = new System.Drawing.Point(472, 68);
             editMarkerExportSymbol.Name = "editMarkerExportSymbol";
             editMarkerExportSymbol.Size = new System.Drawing.Size(120, 20);
             editMarkerExportSymbol.TabIndex = 6;
@@ -529,7 +537,7 @@
             // labelMarkerDescription
             // 
             labelMarkerDescription.AutoSize = true;
-            labelMarkerDescription.Location = new System.Drawing.Point(171, 209);
+            labelMarkerDescription.Location = new System.Drawing.Point(383, 209);
             labelMarkerDescription.Name = "labelMarkerDescription";
             labelMarkerDescription.Size = new System.Drawing.Size(63, 13);
             labelMarkerDescription.TabIndex = 13;
@@ -539,7 +547,7 @@
             // 
             editMarkerDescription.AcceptsReturn = true;
             editMarkerDescription.Font = new System.Drawing.Font("Cascadia Mono", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
-            editMarkerDescription.Location = new System.Drawing.Point(174, 229);
+            editMarkerDescription.Location = new System.Drawing.Point(386, 229);
             editMarkerDescription.Multiline = true;
             editMarkerDescription.Name = "editMarkerDescription";
             editMarkerDescription.ScrollBars = System.Windows.Forms.ScrollBars.Both;
@@ -553,7 +561,7 @@
             // labelMarkerExportSymbol
             // 
             labelMarkerExportSymbol.AutoSize = true;
-            labelMarkerExportSymbol.Location = new System.Drawing.Point(174, 70);
+            labelMarkerExportSymbol.Location = new System.Drawing.Point(386, 70);
             labelMarkerExportSymbol.Name = "labelMarkerExportSymbol";
             labelMarkerExportSymbol.Size = new System.Drawing.Size(77, 13);
             labelMarkerExportSymbol.TabIndex = 5;
@@ -561,7 +569,7 @@
             // 
             // editMarkerTagID
             // 
-            editMarkerTagID.Location = new System.Drawing.Point(260, 96);
+            editMarkerTagID.Location = new System.Drawing.Point(472, 96);
             editMarkerTagID.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
             editMarkerTagID.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             editMarkerTagID.Name = "editMarkerTagID";
@@ -572,7 +580,7 @@
             // labelMarkerTagID
             // 
             labelMarkerTagID.AutoSize = true;
-            labelMarkerTagID.Location = new System.Drawing.Point(174, 98);
+            labelMarkerTagID.Location = new System.Drawing.Point(386, 98);
             labelMarkerTagID.Name = "labelMarkerTagID";
             labelMarkerTagID.Size = new System.Drawing.Size(43, 13);
             labelMarkerTagID.TabIndex = 11;
@@ -580,7 +588,7 @@
             // 
             // btnFindFreeMarkerTagID
             // 
-            btnFindFreeMarkerTagID.Location = new System.Drawing.Point(384, 95);
+            btnFindFreeMarkerTagID.Location = new System.Drawing.Point(596, 95);
             btnFindFreeMarkerTagID.Name = "btnFindFreeMarkerTagID";
             btnFindFreeMarkerTagID.Size = new System.Drawing.Size(50, 22);
             btnFindFreeMarkerTagID.TabIndex = 12;
@@ -594,7 +602,7 @@
             checkMarkerDefaultEnabled.AutoSize = true;
             checkMarkerDefaultEnabled.Checked = true;
             checkMarkerDefaultEnabled.CheckState = System.Windows.Forms.CheckState.Checked;
-            checkMarkerDefaultEnabled.Location = new System.Drawing.Point(174, 158);
+            checkMarkerDefaultEnabled.Location = new System.Drawing.Point(386, 158);
             checkMarkerDefaultEnabled.Name = "checkMarkerDefaultEnabled";
             checkMarkerDefaultEnabled.Size = new System.Drawing.Size(106, 17);
             checkMarkerDefaultEnabled.TabIndex = 12;
@@ -605,7 +613,7 @@
             // checkMarkerDefaultTriggered
             // 
             checkMarkerDefaultTriggered.AutoSize = true;
-            checkMarkerDefaultTriggered.Location = new System.Drawing.Point(174, 182);
+            checkMarkerDefaultTriggered.Location = new System.Drawing.Point(386, 182);
             checkMarkerDefaultTriggered.Name = "checkMarkerDefaultTriggered";
             checkMarkerDefaultTriggered.Size = new System.Drawing.Size(112, 17);
             checkMarkerDefaultTriggered.TabIndex = 13;
@@ -618,7 +626,7 @@
             comboMarkerColor.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
             comboMarkerColor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             comboMarkerColor.FormattingEnabled = true;
-            comboMarkerColor.Location = new System.Drawing.Point(220, 38);
+            comboMarkerColor.Location = new System.Drawing.Point(432, 38);
             comboMarkerColor.Name = "comboMarkerColor";
             comboMarkerColor.Size = new System.Drawing.Size(160, 21);
             comboMarkerColor.TabIndex = 4;
@@ -627,7 +635,7 @@
             // labelMarkerColor
             // 
             labelMarkerColor.AutoSize = true;
-            labelMarkerColor.Location = new System.Drawing.Point(174, 40);
+            labelMarkerColor.Location = new System.Drawing.Point(386, 40);
             labelMarkerColor.Name = "labelMarkerColor";
             labelMarkerColor.Size = new System.Drawing.Size(34, 13);
             labelMarkerColor.TabIndex = 3;
@@ -635,7 +643,7 @@
             // 
             // editMarkerName
             // 
-            editMarkerName.Location = new System.Drawing.Point(220, 8);
+            editMarkerName.Location = new System.Drawing.Point(432, 8);
             editMarkerName.Name = "editMarkerName";
             editMarkerName.Size = new System.Drawing.Size(160, 20);
             editMarkerName.TabIndex = 2;
@@ -643,7 +651,7 @@
             // labelMarkerName
             // 
             labelMarkerName.AutoSize = true;
-            labelMarkerName.Location = new System.Drawing.Point(174, 10);
+            labelMarkerName.Location = new System.Drawing.Point(386, 10);
             labelMarkerName.Name = "labelMarkerName";
             labelMarkerName.Size = new System.Drawing.Size(38, 13);
             labelMarkerName.TabIndex = 1;
@@ -652,17 +660,45 @@
             // listMarkerTypes
             // 
             listMarkerTypes.AllowDrop = true;
-            listMarkerTypes.FormattingEnabled = true;
-            listMarkerTypes.ItemHeight = 13;
+            listMarkerTypes.Dock = System.Windows.Forms.DockStyle.Left;
+            listMarkerTypes.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] { columnHeaderMarkerIcon, columnHeaderMarkerName, columnHeaderMarkerTag, columnHeaderMarkerSymbol });
+            listMarkerTypes.FullRowSelect = true;
+            listMarkerTypes.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
+            listMarkerTypes.HideSelection = false;
+            listMarkerTypes.ImageColumnIndex = 0;
             listMarkerTypes.Location = new System.Drawing.Point(8, 8);
+            listMarkerTypes.MultiSelect = true;
             listMarkerTypes.Name = "listMarkerTypes";
-            listMarkerTypes.Size = new System.Drawing.Size(160, 394);
+            listMarkerTypes.Size = new System.Drawing.Size(370, 867);
             listMarkerTypes.TabIndex = 0;
+            listMarkerTypes.UseCompatibleStateImageBehavior = false;
+            listMarkerTypes.View = System.Windows.Forms.View.Details;
             listMarkerTypes.SelectedIndexChanged += listMarkerTypes_SelectedIndexChanged;
-            listMarkerTypes.MouseDown += listMarkerTypes_MouseDown;
-            listMarkerTypes.MouseMove += listMarkerTypes_MouseMove;
-            listMarkerTypes.DragOver += listMarkerTypes_DragOver;
+            listMarkerTypes.ItemDrag += listMarkerTypes_ItemDrag;
             listMarkerTypes.DragDrop += listMarkerTypes_DragDrop;
+            listMarkerTypes.DragEnter += listMarkerTypes_DragEnter;
+            listMarkerTypes.DragOver += listMarkerTypes_DragOver;
+            listMarkerTypes.DragLeave += listMarkerTypes_DragLeave;
+            //
+            // columnHeaderMarkerIcon
+            //
+            columnHeaderMarkerIcon.Text = "";
+            columnHeaderMarkerIcon.Width = 42;
+            //
+            // columnHeaderMarkerName
+            //
+            columnHeaderMarkerName.Text = "Name";
+            columnHeaderMarkerName.Width = 138;
+            //
+            // columnHeaderMarkerTag
+            //
+            columnHeaderMarkerTag.Text = "Tag";
+            columnHeaderMarkerTag.Width = 40;
+            //
+            // columnHeaderMarkerSymbol
+            //
+            columnHeaderMarkerSymbol.Text = "Symbol";
+            columnHeaderMarkerSymbol.Width = 142;
             // 
             // checkMarkerAutoDisableGroup
             // 
@@ -1301,7 +1337,7 @@
             btnDeleteEntityType.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnDeleteEntityType.Enabled = false;
             btnDeleteEntityType.Image = null;
-            btnDeleteEntityType.Location = new System.Drawing.Point(346, 126);
+            btnDeleteEntityType.Location = new System.Drawing.Point(558, 126);
             btnDeleteEntityType.Name = "btnDeleteEntityType";
             btnDeleteEntityType.Size = new System.Drawing.Size(80, 23);
             btnDeleteEntityType.TabIndex = 9;
@@ -1316,7 +1352,7 @@
             btnUpdateEntityType.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnUpdateEntityType.Enabled = false;
             btnUpdateEntityType.Image = null;
-            btnUpdateEntityType.Location = new System.Drawing.Point(260, 126);
+            btnUpdateEntityType.Location = new System.Drawing.Point(472, 126);
             btnUpdateEntityType.Name = "btnUpdateEntityType";
             btnUpdateEntityType.Size = new System.Drawing.Size(75, 23);
             btnUpdateEntityType.TabIndex = 8;
@@ -1330,7 +1366,7 @@
             btnAddEntityType.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             btnAddEntityType.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnAddEntityType.Image = null;
-            btnAddEntityType.Location = new System.Drawing.Point(174, 126);
+            btnAddEntityType.Location = new System.Drawing.Point(386, 126);
             btnAddEntityType.Name = "btnAddEntityType";
             btnAddEntityType.Size = new System.Drawing.Size(75, 23);
             btnAddEntityType.TabIndex = 7;
@@ -1339,7 +1375,7 @@
             // 
             // editEntityExportSymbol
             // 
-            editEntityExportSymbol.Location = new System.Drawing.Point(260, 68);
+            editEntityExportSymbol.Location = new System.Drawing.Point(472, 68);
             editEntityExportSymbol.Name = "editEntityExportSymbol";
             editEntityExportSymbol.Size = new System.Drawing.Size(120, 20);
             editEntityExportSymbol.TabIndex = 6;
@@ -1348,7 +1384,7 @@
             // labelEntityExportSymbol
             // 
             labelEntityExportSymbol.AutoSize = true;
-            labelEntityExportSymbol.Location = new System.Drawing.Point(174, 70);
+            labelEntityExportSymbol.Location = new System.Drawing.Point(386, 70);
             labelEntityExportSymbol.Name = "labelEntityExportSymbol";
             labelEntityExportSymbol.Size = new System.Drawing.Size(77, 13);
             labelEntityExportSymbol.TabIndex = 5;
@@ -1356,7 +1392,7 @@
             // 
             // editEntityTagID
             // 
-            editEntityTagID.Location = new System.Drawing.Point(260, 96);
+            editEntityTagID.Location = new System.Drawing.Point(472, 96);
             editEntityTagID.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
             editEntityTagID.Name = "editEntityTagID";
             editEntityTagID.Size = new System.Drawing.Size(120, 20);
@@ -1365,7 +1401,7 @@
             // labelEntityTagID
             // 
             labelEntityTagID.AutoSize = true;
-            labelEntityTagID.Location = new System.Drawing.Point(174, 98);
+            labelEntityTagID.Location = new System.Drawing.Point(386, 98);
             labelEntityTagID.Name = "labelEntityTagID";
             labelEntityTagID.Size = new System.Drawing.Size(43, 13);
             labelEntityTagID.TabIndex = 11;
@@ -1373,7 +1409,7 @@
             // 
             // editEntityTileIndex
             // 
-            editEntityTileIndex.Location = new System.Drawing.Point(260, 38);
+            editEntityTileIndex.Location = new System.Drawing.Point(472, 38);
             editEntityTileIndex.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
             editEntityTileIndex.Name = "editEntityTileIndex";
             editEntityTileIndex.Size = new System.Drawing.Size(120, 20);
@@ -1382,7 +1418,7 @@
             // labelEntityTileIndex
             // 
             labelEntityTileIndex.AutoSize = true;
-            labelEntityTileIndex.Location = new System.Drawing.Point(174, 40);
+            labelEntityTileIndex.Location = new System.Drawing.Point(386, 40);
             labelEntityTileIndex.Name = "labelEntityTileIndex";
             labelEntityTileIndex.Size = new System.Drawing.Size(56, 13);
             labelEntityTileIndex.TabIndex = 3;
@@ -1390,7 +1426,7 @@
             // 
             // editEntityName
             // 
-            editEntityName.Location = new System.Drawing.Point(220, 8);
+            editEntityName.Location = new System.Drawing.Point(432, 8);
             editEntityName.Name = "editEntityName";
             editEntityName.Size = new System.Drawing.Size(160, 20);
             editEntityName.TabIndex = 2;
@@ -1398,7 +1434,7 @@
             // labelEntityName
             // 
             labelEntityName.AutoSize = true;
-            labelEntityName.Location = new System.Drawing.Point(174, 10);
+            labelEntityName.Location = new System.Drawing.Point(386, 10);
             labelEntityName.Name = "labelEntityName";
             labelEntityName.Size = new System.Drawing.Size(38, 13);
             labelEntityName.TabIndex = 1;
@@ -1406,13 +1442,46 @@
             // 
             // listEntityTypes
             // 
-            listEntityTypes.FormattingEnabled = true;
-            listEntityTypes.ItemHeight = 13;
+            listEntityTypes.AllowDrop = true;
+            listEntityTypes.Dock = System.Windows.Forms.DockStyle.Left;
+            listEntityTypes.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] { columnHeaderEntityIcon, columnHeaderEntityName, columnHeaderEntityTag, columnHeaderEntitySymbol });
+            listEntityTypes.FullRowSelect = true;
+            listEntityTypes.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
+            listEntityTypes.HideSelection = false;
+            listEntityTypes.ImageColumnIndex = 0;
             listEntityTypes.Location = new System.Drawing.Point(8, 8);
+            listEntityTypes.MultiSelect = true;
             listEntityTypes.Name = "listEntityTypes";
-            listEntityTypes.Size = new System.Drawing.Size(160, 394);
+            listEntityTypes.Size = new System.Drawing.Size(370, 867);
             listEntityTypes.TabIndex = 0;
+            listEntityTypes.UseCompatibleStateImageBehavior = false;
+            listEntityTypes.View = System.Windows.Forms.View.Details;
             listEntityTypes.SelectedIndexChanged += listEntityTypes_SelectedIndexChanged;
+            listEntityTypes.ItemDrag += listEntityTypes_ItemDrag;
+            listEntityTypes.DragDrop += listEntityTypes_DragDrop;
+            listEntityTypes.DragEnter += listEntityTypes_DragEnter;
+            listEntityTypes.DragOver += listEntityTypes_DragOver;
+            listEntityTypes.DragLeave += listEntityTypes_DragLeave;
+            //
+            // columnHeaderEntityIcon
+            //
+            columnHeaderEntityIcon.Text = "";
+            columnHeaderEntityIcon.Width = 42;
+            //
+            // columnHeaderEntityName
+            //
+            columnHeaderEntityName.Text = "Name";
+            columnHeaderEntityName.Width = 138;
+            //
+            // columnHeaderEntityTag
+            //
+            columnHeaderEntityTag.Text = "Tag";
+            columnHeaderEntityTag.Width = 40;
+            //
+            // columnHeaderEntitySymbol
+            //
+            columnHeaderEntitySymbol.Text = "Symbol";
+            columnHeaderEntitySymbol.Width = 142;
             // 
             // menuStrip1
             // 
@@ -4499,8 +4568,16 @@
         private System.Windows.Forms.TextBox editEntityName;
         private System.Windows.Forms.Label labelEntityName;
         private System.Windows.Forms.Label labelEntityTagID;
-        private System.Windows.Forms.ListBox listEntityTypes;
-        private System.Windows.Forms.ListBox listMarkerTypes;
+        private RetroDevStudio.Controls.CSListView listEntityTypes;
+        private System.Windows.Forms.ColumnHeader columnHeaderEntityIcon;
+        private System.Windows.Forms.ColumnHeader columnHeaderEntityName;
+        private System.Windows.Forms.ColumnHeader columnHeaderEntityTag;
+        private System.Windows.Forms.ColumnHeader columnHeaderEntitySymbol;
+        private RetroDevStudio.Controls.CSListView listMarkerTypes;
+        private System.Windows.Forms.ColumnHeader columnHeaderMarkerIcon;
+        private System.Windows.Forms.ColumnHeader columnHeaderMarkerName;
+        private System.Windows.Forms.ColumnHeader columnHeaderMarkerTag;
+        private System.Windows.Forms.ColumnHeader columnHeaderMarkerSymbol;
         private System.Windows.Forms.Label labelMarkerName;
         private System.Windows.Forms.TextBox editMarkerName;
         private System.Windows.Forms.Label labelMarkerColor;

@@ -26,6 +26,31 @@ namespace RetroDevStudio.Controls
     /// </summary>
     public int ImageColumnIndex { get; set; } = 0;
 
+    /// <summary>
+    /// ListBox-style convenience: the first selected row index, or -1 if none.
+    /// Setting it selects + focuses that single row (clearing any other
+    /// selection), or clears the selection for -1 / out of range. Lets call
+    /// sites written against a ListBox keep using <c>.SelectedIndex</c> after the
+    /// control is swapped to a CSListView.
+    /// </summary>
+    public int SelectedIndex
+    {
+      get
+      {
+        return ( SelectedIndices.Count > 0 ) ? SelectedIndices[0] : -1;
+      }
+      set
+      {
+        SelectedIndices.Clear();
+        if ( ( value >= 0 ) && ( value < Items.Count ) )
+        {
+          Items[value].Selected = true;
+          Items[value].Focused  = true;
+          Items[value].EnsureVisible();
+        }
+      }
+    }
+
     public delegate void DrawItemImageHandler( Graphics G, int X, int Y, ListViewItem Item, ListViewItem.ListViewSubItem SubItem );
 
 
