@@ -198,7 +198,12 @@ namespace RetroDevStudio.Formats
       public int        BackgroundColor = 0;
       public int        MultiColor1 = 0;
       public int        MultiColor2 = 0;
-      public int        CustomColor = 1;
+      // Per-slot colour OVERRIDE: -1 = "None" (each bank sprite is drawn and
+      // exported in its own Tile.CustomColor — the default), 0..15 = force
+      // this colour for every sprite/frame shown through this slot (preview,
+      // test playfield and the game-binary export all honour it). Old project
+      // files predate the override and load as -1.
+      public int        CustomColor = -1;
       public bool       ExpandX = false;
       public bool       ExpandY = false;
     }
@@ -529,6 +534,14 @@ namespace RetroDevStudio.Formats
           chunkSlot.AppendI32( slot.BackgroundColor );
           chunkSlot.AppendI32( slot.MultiColor1 );
           chunkSlot.AppendI32( slot.MultiColor2 );
+          // Legacy colour field: old readers expect 0..15 here (their UI
+          // clamps anything else), so "None" (-1) is written as the old
+          // default white. The REAL override value follows, appended.
+          chunkSlot.AppendI32( ( slot.CustomColor < 0 ) ? 1 : slot.CustomColor );
+          // Appended (position-guarded on read): the colour override,
+          // -1 = None. Old files lack it and read as None — their stored
+          // legacy colour was never used for drawing or export, so treating
+          // it as an override would silently change existing projects.
           chunkSlot.AppendI32( slot.CustomColor );
           chunkOverlay.Append( chunkSlot.ToBuffer() );
         }
@@ -792,7 +805,22 @@ namespace RetroDevStudio.Formats
                           slot.BackgroundColor = subChunkReaderO.ReadInt32();
                           slot.MultiColor1     = subChunkReaderO.ReadInt32();
                           slot.MultiColor2     = subChunkReaderO.ReadInt32();
-                          slot.CustomColor     = subChunkReaderO.ReadInt32();
+                          // Legacy colour field — superseded by the appended
+                          // override below; kept only for stream position.
+                          int legacyCustomColor = subChunkReaderO.ReadInt32();
+                          // Position-guarded: the colour override (-1 = None).
+                          // Old files stop before it and default to None; their
+                          // legacy colour was never used, so it is ignored.
+                          slot.CustomColor = -1;
+                          if ( subChunkReaderO.Size - subChunkReaderO.Position >= 4 )
+                          {
+                            slot.CustomColor = subChunkReaderO.ReadInt32();
+                            if ( ( slot.CustomColor < -1 )
+                            ||   ( slot.CustomColor > 15 ) )
+                            {
+                              slot.CustomColor = -1;
+                            }
+                          }
                         }
                         else if ( subChunkO.Type == FileChunkConstants.SPRITESET_OVERLAY_FRAME )
                         {
@@ -1037,10 +1065,14 @@ namespace RetroDevStudio.Formats
         byte frameCount   = (byte)overlay.Frames.Count;
         byte loop         = (byte)( overlay.Loop ? 1 : 0 );
         byte startRandom  = (byte)( overlay.StartAtRandomFrame ? 1 : 0 );
-        // Fallback colour, only used for a frame whose bank reference is out of
-        // range (its sprite pointer also falls back to block 0). Valid frames take
-        // their colour from the referenced bank sprite below.
-        byte fallbackColor = (byte)( overlay.Slots[0].CustomColor & 0x0F );
+        // Slot 0's colour override: -1 = "None" (each frame exports its bank
+        // sprite's own colour, matching the animation preview), 0..15 = force
+        // this colour into EVERY frame of this animation.
+        int colorOverride = overlay.Slots[0].CustomColor;
+        // Fallback colour, only used with override None for a frame whose bank
+        // reference is out of range (its sprite pointer also falls back to
+        // block 0): white, the historic default.
+        byte fallbackColor = 1;
 
         var defStream = new GR.Memory.ByteBuffer();
         defStream.AppendU8( animId );       // +$00 id
@@ -1051,17 +1083,26 @@ namespace RetroDevStudio.Formats
         defStream.AppendU8( frameCount );   // +$05 frame count
         defStream.AppendU8( loop );         // +$06 loop
         defStream.AppendU8( startRandom );  // +$07 start at a random frame
-        // +$08.. frames: { sprite pointer (compact block), color }. The colour is
-        // the referenced bank sprite's own CustomColor (the C64 per-sprite colour
-        // register), so each frame exports its sprite's true colour - matching the
-        // animation preview - rather than a single overlay colour for all frames.
+        // +$08.. frames: { sprite pointer (compact block), color }. With the
+        // slot-0 override on "None" the colour is the referenced bank sprite's
+        // own CustomColor (the C64 per-sprite colour register), so each frame
+        // exports its sprite's true colour - matching the animation preview.
+        // With an override set, that one colour is written into every frame.
         foreach ( var frame in overlay.Frames )
         {
           int orig = frame.BankIndex[0];
           byte ptr = (byte)( compactOf.ContainsKey( orig ) ? compactOf[orig] : 0 );
-          byte color = ( ( orig >= 0 ) && ( orig < Sprites.Count ) )
-                     ? (byte)( Sprites[orig].Tile.CustomColor & 0x0F )
-                     : fallbackColor;
+          byte color;
+          if ( colorOverride >= 0 )
+          {
+            color = (byte)( colorOverride & 0x0F );
+          }
+          else
+          {
+            color = ( ( orig >= 0 ) && ( orig < Sprites.Count ) )
+                  ? (byte)( Sprites[orig].Tile.CustomColor & 0x0F )
+                  : fallbackColor;
+          }
           defStream.AppendU8( ptr );
           defStream.AppendU8( color );
         }
