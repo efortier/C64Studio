@@ -88,13 +88,17 @@
     public const ushort    SPRITESET_LAYER_ENTRY_DEPRECATED = 0x1401;
     public const ushort    SPRITESET_LAYER_INFO_DEPRECATED = 0x1402;
     // Overlay model: per-project list of Overlay { Slots[8], Frames[] }.
-    // SPRITESET_OVERLAY is a container; INFO carries name+slot count;
-    // SLOT carries one of 8 fixed slots (enabled, X, Y, expand, colors);
-    // FRAME carries the 8 bank-index references + DelayMS for one frame.
+    // SPRITESET_OVERLAY is a container; INFO carries name+slot count and the
+    // single per-animation frame delay (1/50th sec); SLOT carries one of 8 fixed
+    // slots (enabled, X, Y, expand, colors); FRAME carries the 8 bank-index
+    // references (plus a legacy per-frame delay int kept for back/forward compat).
     public const ushort    SPRITESET_OVERLAY              = 0x1410;
     public const ushort    SPRITESET_OVERLAY_INFO         = 0x1411;
     public const ushort    SPRITESET_OVERLAY_SLOT         = 0x1412;
     public const ushort    SPRITESET_OVERLAY_FRAME        = 0x1413;
+    // Settings for the "as game binary" sprite export (per-file dir/filename/
+    // prefix/compress/override/max + .asm sidecar). Version-prefixed, append-only.
+    public const ushort    SPRITESET_GAME_BINARY_SETTINGS = 0x1414;
 
     public const ushort    MULTICOLOR_DATA                = 0x1500;
     public const ushort    CHARSET_DATA                   = 0x1501;   // multicolor-data und binary data

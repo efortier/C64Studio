@@ -94,6 +94,9 @@ namespace SparkleGen
       ok &= GenerateButterflySet( outDir, FRAMES, "butterfly",  "Butterflies" );        // 8-frame
       ok &= GenerateButterflySet( outDir, 4,      "butterfly4", "Butterflies 4f" );      // 4-frame copy: same butterflies, re-timed loop
 
+      // ===== Small sparkle variant: starts at 1 pixel, grows to a smaller peak =====
+      ok &= GenerateSmallSparkleSet( outDir );
+
       Console.WriteLine();
       Console.WriteLine( ok ? "VERIFY: all checks passed." : "VERIFY: FAILED — see messages above." );
       Console.WriteLine( "Output folder: " + outDir );
@@ -536,6 +539,66 @@ namespace SparkleGen
     }
 
 
+    // ---- Small sparkle variant (hi-res): 1px -> small peak -> 1px -----------
+
+    static bool GenerateSmallSparkleSet( string outDir )
+    {
+      byte[][] frames = BuildSmallSparkleFrames();
+
+      string sprPath  = System.IO.Path.Combine( outDir, "sparkle_hires_2.spr" );
+      string projPath = System.IO.Path.Combine( outDir, "sparkle_hires_2.spriteproject" );
+
+      WriteSpr( sprPath, frames );
+      BuildAndSaveProject( false, frames, "Sparkle Small", projPath, "Sparkle" );
+      WriteHiresFramePreview( System.IO.Path.Combine( outDir, "sparkle_hires_2_preview.png" ), frames );
+
+      bool ok = Verify( projPath, frames, GraphicTileMode.COMMODORE_HIRES );
+      ok &= ( new System.IO.FileInfo( sprPath ).Length == frames.Length * FRAME_BYTES );
+      return ok;
+    }
+
+    /// <summary>
+    /// FOUR small star twinkles in one sprite, each at a DIFFERENT phase so that on every
+    /// frame all four are at a different step of the cycle. With this balanced 8-step size
+    /// sequence and phases spaced by 2, they are also four different SIZES every frame
+    /// (always one dot, one +, one bigger +, and one peak, rotating). Each sparkle is a
+    /// single-pixel centre that grows to a compact 8-point reaching only 2 cells, then
+    /// shrinks; the sequence loops (frame 8 == frame 0).
+    /// </summary>
+    static byte[][] BuildSmallSparkleFrames()
+    {
+      // Scattered placement (centres need a 2px margin for the reach-2 arms). Edit freely.
+      var centers = new (int x, int y)[] { (6, 5), (16, 6), (9, 14), (18, 15) };
+      int[] phase = { 0, 2, 4, 6 };   // distinct & spaced by 2 -> no two share a step on any frame
+
+      // Size per step: 0 dot, 1 plus, 2 bigger plus, 3 peak. Balanced + symmetric so
+      // { S[f], S[f+2], S[f+4], S[f+6] } == { 0,1,2,3 } for every f.
+      int[] sizeSeq = { 0, 1, 2, 3, 3, 2, 1, 0 };
+      int   count   = sizeSeq.Length;   // 8 frames
+
+      byte[][] frames = new byte[count][];
+      for ( int f = 0; f < count; ++f )
+      {
+        byte[] data = new byte[FRAME_BYTES];
+        for ( int s = 0; s < centers.Length; ++s )
+        {
+          PlotSparkle( data, centers[s].x, centers[s].y, sizeSeq[( f + phase[s] ) % count] );
+        }
+        frames[f] = data;
+      }
+      return frames;
+    }
+
+    /// <summary>Plot one small star of a given size (0 dot, 1 plus, 2 bigger plus, 3 peak) at a sprite pixel.</summary>
+    static void PlotSparkle( byte[] data, int cx, int cy, int size )
+    {
+      Plot( data, cx, cy );                                                            // dot
+      if ( size >= 1 ) { Plot( data, cx, cy - 1 ); Plot( data, cx, cy + 1 ); Plot( data, cx - 1, cy ); Plot( data, cx + 1, cy ); }
+      if ( size >= 2 ) { Plot( data, cx, cy - 2 ); Plot( data, cx, cy + 2 ); Plot( data, cx - 2, cy ); Plot( data, cx + 2, cy ); }
+      if ( size >= 3 ) { Plot( data, cx - 1, cy - 1 ); Plot( data, cx + 1, cy - 1 ); Plot( data, cx - 1, cy + 1 ); Plot( data, cx + 1, cy + 1 ); }
+    }
+
+
     // ---- Butterfly twinkle sprite (hi-res, non-multicolour) ----------------
 
     static bool GenerateButterflySet( string outDir, int frameCount, string baseName, string overlayName )
@@ -547,7 +610,7 @@ namespace SparkleGen
 
       WriteSpr( sprPath, frames );
       BuildAndSaveProject( false, frames, overlayName, projPath, overlayName );
-      WriteButterflyPreview( System.IO.Path.Combine( outDir, baseName + "_preview.png" ), frames );
+      WriteHiresFramePreview( System.IO.Path.Combine( outDir, baseName + "_preview.png" ), frames );
 
       bool ok = Verify( projPath, frames, GraphicTileMode.COMMODORE_HIRES );
       ok &= ( new System.IO.FileInfo( sprPath ).Length == frames.Length * FRAME_BYTES );
@@ -659,7 +722,7 @@ namespace SparkleGen
       data[y * 3 + x / 8] |= (byte)( 0x80 >> ( x % 8 ) );
     }
 
-    static void WriteButterflyPreview( string path, byte[][] frames )
+    static void WriteHiresFramePreview( string path, byte[][] frames )
     {
       Palette pal = ConstantData.DefaultPaletteC64();
       const int SC  = 8;
@@ -715,6 +778,7 @@ namespace SparkleGen
 
       SpriteProject.Overlay ov = new SpriteProject.Overlay();
       ov.Name                  = overlayName;
+      ov.FrameDelay            = 5;   // 1/50th-second units (5 = 100 ms)
       ov.Slots[0].Enabled         = true;
       ov.Slots[0].X               = 0;
       ov.Slots[0].Y               = 0;
@@ -725,7 +789,6 @@ namespace SparkleGen
       for ( int f = 0; f < frameBytes.Length; ++f )
       {
         SpriteProject.OverlayFrame fr = new SpriteProject.OverlayFrame();
-        fr.DelayMS      = 100;
         fr.BankIndex[0] = f;       // slot 0 shows bank f at frame f
         ov.Frames.Add( fr );
       }

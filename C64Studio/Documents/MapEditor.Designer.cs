@@ -651,6 +651,7 @@
             // 
             // listMarkerTypes
             // 
+            listMarkerTypes.AllowDrop = true;
             listMarkerTypes.FormattingEnabled = true;
             listMarkerTypes.ItemHeight = 13;
             listMarkerTypes.Location = new System.Drawing.Point(8, 8);
@@ -658,6 +659,10 @@
             listMarkerTypes.Size = new System.Drawing.Size(160, 394);
             listMarkerTypes.TabIndex = 0;
             listMarkerTypes.SelectedIndexChanged += listMarkerTypes_SelectedIndexChanged;
+            listMarkerTypes.MouseDown += listMarkerTypes_MouseDown;
+            listMarkerTypes.MouseMove += listMarkerTypes_MouseMove;
+            listMarkerTypes.DragOver += listMarkerTypes_DragOver;
+            listMarkerTypes.DragDrop += listMarkerTypes_DragDrop;
             // 
             // checkMarkerAutoDisableGroup
             // 

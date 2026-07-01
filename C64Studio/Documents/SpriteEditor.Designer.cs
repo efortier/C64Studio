@@ -155,6 +155,7 @@ namespace RetroDevStudio.Documents
             editAnimationID = new System.Windows.Forms.NumericUpDown();
             labelAnimationID = new System.Windows.Forms.Label();
             checkLoop = new System.Windows.Forms.CheckBox();
+            checkStartRandomFrame = new System.Windows.Forms.CheckBox();
             editFrameDelay = new System.Windows.Forms.NumericUpDown();
             labelFrameDelay = new System.Windows.Forms.Label();
             listAnimFrames = new System.Windows.Forms.ListBox();
@@ -1351,6 +1352,7 @@ namespace RetroDevStudio.Documents
             panel1.Controls.Add(labelFrameDelay);
             panel1.Controls.Add(editFrameDelay);
             panel1.Controls.Add(checkLoop);
+            panel1.Controls.Add(checkStartRandomFrame);
             panel1.Controls.Add(labelAnimationID);
             panel1.Controls.Add(editAnimationID);
             panel1.Location = new System.Drawing.Point(624, 5);
@@ -1387,7 +1389,18 @@ namespace RetroDevStudio.Documents
             checkLoop.Text = "Loop";
             checkLoop.UseVisualStyleBackColor = true;
             checkLoop.CheckedChanged += checkLoop_CheckedChanged;
-            // 
+            //
+            // checkStartRandomFrame
+            //
+            checkStartRandomFrame.AutoSize = true;
+            checkStartRandomFrame.Location = new System.Drawing.Point(149, 62);
+            checkStartRandomFrame.Name = "checkStartRandomFrame";
+            checkStartRandomFrame.Size = new System.Drawing.Size(127, 17);
+            checkStartRandomFrame.TabIndex = 9;
+            checkStartRandomFrame.Text = "Start at random frame";
+            checkStartRandomFrame.UseVisualStyleBackColor = true;
+            checkStartRandomFrame.CheckedChanged += checkStartRandomFrame_CheckedChanged;
+            //
             // editFrameDelay
             // 
             editFrameDelay.Location = new System.Drawing.Point(235, 37);
@@ -1878,6 +1891,7 @@ namespace RetroDevStudio.Documents
         private System.Windows.Forms.Label labelFrameDelay;
         private System.Windows.Forms.NumericUpDown editFrameDelay;
         private System.Windows.Forms.CheckBox checkLoop;
+        private System.Windows.Forms.CheckBox checkStartRandomFrame;
         private System.Windows.Forms.Label labelAnimationID;
         private System.Windows.Forms.NumericUpDown editAnimationID;
         private DecentForms.Button btnAddOverlay;

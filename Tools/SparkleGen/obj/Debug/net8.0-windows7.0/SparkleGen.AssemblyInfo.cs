@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SparkleGen")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f9b2d43b84ead5566c18334ad8019ce0a6acf697")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6100920858d2eae09bc4012a8cc0b939b499e30c")]
 [assembly: System.Reflection.AssemblyProductAttribute("SparkleGen")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SparkleGen")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

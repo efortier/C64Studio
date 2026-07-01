@@ -12460,6 +12460,91 @@ namespace RetroDevStudio.Documents
        editMarkerTagID.Value = displayTagID;
     }
 
+
+    // --- Marker-type list drag & drop reordering ------------------------------
+    // Reordering is purely positional: a placed marker references its type by
+    // MarkerType.ID (never by list position), and the game-binary export orders
+    // types by TagID - so moving a row changes display/persistence order only and
+    // alters no marker's settings. The two fields below hold an in-progress drag:
+    // which row was grabbed and from where, so a plain click only turns into a drag
+    // once it clears the system drag threshold.
+    private int                  m_MarkerTypeDragSourceIndex = -1;
+    private System.Drawing.Point m_MarkerTypeDragDownPoint;
+
+    private void listMarkerTypes_MouseDown( object sender, MouseEventArgs e )
+    {
+      m_MarkerTypeDragSourceIndex = -1;
+      if ( e.Button != MouseButtons.Left ) return;
+      int idx = listMarkerTypes.IndexFromPoint( e.Location );
+      if ( ( idx >= 0 ) && ( idx < m_MapProject.MarkerTypes.Count ) )
+      {
+        m_MarkerTypeDragSourceIndex = idx;
+        m_MarkerTypeDragDownPoint   = e.Location;
+      }
+    }
+
+    private void listMarkerTypes_MouseMove( object sender, MouseEventArgs e )
+    {
+      if ( ( e.Button & MouseButtons.Left ) == 0 ) return;
+      if ( m_MarkerTypeDragSourceIndex < 0 ) return;
+      // Only start dragging once the pointer clears the system drag threshold, so a
+      // plain click still just selects the row.
+      if ( ( System.Math.Abs( e.X - m_MarkerTypeDragDownPoint.X ) < SystemInformation.DragSize.Width / 2 )
+      &&   ( System.Math.Abs( e.Y - m_MarkerTypeDragDownPoint.Y ) < SystemInformation.DragSize.Height / 2 ) )
+      {
+        return;
+      }
+      int source = m_MarkerTypeDragSourceIndex;
+      m_MarkerTypeDragSourceIndex = -1;
+      if ( source >= m_MapProject.MarkerTypes.Count ) return;
+      listMarkerTypes.DoDragDrop( source, DragDropEffects.Move );
+    }
+
+    private void listMarkerTypes_DragOver( object sender, DragEventArgs e )
+    {
+      e.Effect = e.Data.GetDataPresent( typeof( int ) ) ? DragDropEffects.Move : DragDropEffects.None;
+    }
+
+    private void listMarkerTypes_DragDrop( object sender, DragEventArgs e )
+    {
+      if ( !e.Data.GetDataPresent( typeof( int ) ) ) return;
+      int source = (int)e.Data.GetData( typeof( int ) );
+      int count  = m_MapProject.MarkerTypes.Count;
+      if ( ( source < 0 ) || ( source >= count ) ) return;
+
+      // Resolve the drop to an insertion slot: the row under the pointer, before or
+      // after it depending on which half of the row the cursor sits over. A drop in
+      // the empty area past the last row moves the item to the end.
+      System.Drawing.Point pt = listMarkerTypes.PointToClient( new System.Drawing.Point( e.X, e.Y ) );
+      int target = listMarkerTypes.IndexFromPoint( pt );
+      int insertBefore;
+      if ( target < 0 )
+      {
+        insertBefore = count;
+      }
+      else
+      {
+        System.Drawing.Rectangle rc = listMarkerTypes.GetItemRectangle( target );
+        insertBefore = ( pt.Y > rc.Top + ( rc.Height / 2 ) ) ? target + 1 : target;
+      }
+
+      // Index the moved row occupies once it's pulled out of the list (removing the
+      // source first shifts everything after it down by one).
+      int finalIndex = ( source < insertBefore ) ? insertBefore - 1 : insertBefore;
+      if ( finalIndex < 0 ) finalIndex = 0;
+      if ( finalIndex > count - 1 ) finalIndex = count - 1;
+      if ( finalIndex == source ) return;   // dropped back onto itself - nothing to do
+
+      var moved = m_MapProject.MarkerTypes[source];
+      m_MapProject.MarkerTypes.RemoveAt( source );
+      m_MapProject.MarkerTypes.Insert( finalIndex, moved );
+
+      RefreshMarkerTypes();
+      listMarkerTypes.SelectedIndex = finalIndex;
+      SetModified();
+    }
+
+
     private void editMarkerExportSymbol_KeyPress( object sender, KeyPressEventArgs e )
     {
        // Restrict ExportSymbol to assembler-safe characters only.

@@ -25,6 +25,15 @@ namespace RetroDevStudio.Formats
       public string     Name = "";
       public byte       Value1 = 0;
       public byte       Value2 = 0;
+      // Third per-marker value (editor toolbar "3:" field). Defaults to 0 for
+      // new markers and for old files that predate this field. Exported as the
+      // LAST byte of the marker record (offset $09) so the existing record
+      // offsets (tag..link_id) stay unchanged for backward compatibility.
+      public byte       Value3 = 0;
+      // Fourth per-marker value (editor toolbar "4:" field). Same contract as
+      // Value3: defaults to 0, exported appended after Value3 (offset $0A) so the
+      // earlier record offsets stay unchanged for backward compatibility.
+      public byte       Value4 = 0;
       public bool       Enabled = true;
       public bool       Triggered = false;
       // When set, the game runtime disables every marker that shares this
@@ -2426,6 +2435,8 @@ namespace RetroDevStudio.Formats
               Name      = marker.Name,
               Value1    = marker.Value1,
               Value2    = marker.Value2,
+              Value3    = marker.Value3,
+              Value4    = marker.Value4,
               Enabled   = marker.Enabled,
               Triggered = marker.Triggered,
               AutoDisableGroupAfterTrigger = marker.AutoDisableGroupAfterTrigger,
@@ -2527,7 +2538,7 @@ namespace RetroDevStudio.Formats
       // parameter that baked a load address into every pointer; it was removed.)
 
       // ========== HEADER (60 bytes, 0x3C) ==========
-      buf.AppendU8( 9 );    // +$00 marker_stride (bytes per marker record: tag, x, y, value1, value2, flags, group_id, link_to_id, link_id) — flags is a bitfield: bit0 = Enabled, bit1 = Triggered, bit2 = AutoDisableGroupAfterTrigger
+      buf.AppendU8( 11 );   // +$00 marker_stride (bytes per marker record: tag, x, y, value1, value2, flags, group_id, link_to_id, link_id, value3, value4) — flags is a bitfield: bit0 = Enabled, bit1 = Triggered, bit2 = AutoDisableGroupAfterTrigger; value3/value4 are appended last (offsets $09, $0A)
       buf.AppendU8( (byte)Tiles.Count );  // +$01
       buf.AppendU8( (byte)Maps.Count );   // +$02
       // Starting-map index — points runtime code at the map the level
@@ -2974,9 +2985,13 @@ namespace RetroDevStudio.Formats
             if ( marker.AutoDisableGroupAfterTrigger ) flags |= 0x04;
             buf.AppendU8( flags );
             buf.AppendU8( marker.GroupId );
-            // Trigger-chain link fields — last two bytes of the record.
+            // Trigger-chain link fields.
             buf.AppendU8( marker.LinkToID );
             buf.AppendU8( marker.LinkID );
+            // Value3/Value4 appended last (offsets $09, $0A) so the existing
+            // record offsets (tag..link_id) stay put for backward compatibility.
+            buf.AppendU8( marker.Value3 );
+            buf.AppendU8( marker.Value4 );
           }
         }
 
@@ -3192,7 +3207,7 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_STRING_ID           = $3A" );
       sb.AppendLine( ".const MAP_HEADER_SIZE                           = $3C  // total header length" );
       sb.AppendLine();
-      sb.AppendLine( "// ====== Marker record layout (9 bytes per marker) ======" );
+      sb.AppendLine( "// ====== Marker record layout (11 bytes per marker) ======" );
       sb.AppendLine( "// Byte offsets within a single marker record." );
       sb.AppendLine( "// Use MAP_MARKER_SIZE to advance between records." );
       sb.AppendLine( ".const MAP_MARKER_TAG                            = $00" );
@@ -3204,7 +3219,9 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( ".const MAP_MARKER_GROUP_ID                       = $06" );
       sb.AppendLine( ".const MAP_MARKER_LINK_TO_ID                     = $07  // trigger-chain: next marker to fire" );
       sb.AppendLine( ".const MAP_MARKER_LINK_ID                        = $08  // trigger-chain: this marker's link id" );
-      sb.AppendLine( ".const MAP_MARKER_SIZE                           = $09  // bytes per marker" );
+      sb.AppendLine( ".const MAP_MARKER_VALUE3                         = $09  // third per-marker value (appended; default 0)" );
+      sb.AppendLine( ".const MAP_MARKER_VALUE4                         = $0A  // fourth per-marker value (appended; default 0)" );
+      sb.AppendLine( ".const MAP_MARKER_SIZE                           = $0B  // bytes per marker" );
       sb.AppendLine();
       sb.AppendLine( "// MAP_MARKER_FLAGS bit masks. Test with AND, set with ORA." );
       sb.AppendLine( ".const MAP_MARKER_FLAGS_MASK_ENABLED             = %0000_0001" );
@@ -3468,6 +3485,36 @@ namespace RetroDevStudio.Formats
         else if ( !seen.Add( label ) )
         {
           warnings.Add( "index " + i + ": '" + label + "' — duplicate of earlier label" );
+        }
+      }
+      return warnings;
+    }
+
+
+
+    /// <summary>
+    /// Markers whose "Link to ID" points at their own ID (LinkToID == LinkID,
+    /// both non-zero) — a self-referential trigger link, which is always a
+    /// mistake (at runtime the marker would re-queue itself forever). Each entry
+    /// locates the offending marker (map, name, position, id) for the export
+    /// validation message. Empty list = none. A marker with no link (LinkToID 0)
+    /// or no id (LinkID 0) is never flagged.
+    /// </summary>
+    public List<string> GetMarkerSelfLinkWarnings()
+    {
+      var warnings = new List<string>();
+      for ( int m = 0; m < Maps.Count; ++m )
+      {
+        var map = Maps[m];
+        foreach ( var marker in map.Markers )
+        {
+          if ( ( marker.LinkToID != 0 )
+          &&   ( marker.LinkToID == marker.LinkID ) )
+          {
+            warnings.Add( "map " + ( m + 1 ) + " (" + ( map.Name ?? "" ) + "), marker '"
+              + ( marker.Name ?? "" ) + "' at (" + marker.X + "," + marker.Y
+              + ") — Link to ID " + marker.LinkToID + " equals its own ID" );
+          }
         }
       }
       return warnings;
@@ -4663,6 +4710,9 @@ namespace RetroDevStudio.Formats
         // Appended auto-disable-group flag — same forward-compat pattern,
         // default 0 (firing this marker leaves its group enabled).
         chunkMarker.AppendU8( (byte)( marker.AutoDisableGroupAfterTrigger ? 1 : 0 ) );
+        // Appended Value3/Value4 — same forward-compat pattern, default 0 on old files.
+        chunkMarker.AppendU8( marker.Value3 );
+        chunkMarker.AppendU8( marker.Value4 );
         chunkMap.Append( chunkMarker.ToBuffer() );
       }
 
@@ -5082,6 +5132,24 @@ namespace RetroDevStudio.Formats
               else
               {
                 marker.AutoDisableGroupAfterTrigger = false;
+              }
+              // Appended Value3. Old files stop before this byte — default 0.
+              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+              {
+                marker.Value3 = mapChunkReader.ReadUInt8();
+              }
+              else
+              {
+                marker.Value3 = 0;
+              }
+              // Appended Value4. Old files stop before this byte — default 0.
+              if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+              {
+                marker.Value4 = mapChunkReader.ReadUInt8();
+              }
+              else
+              {
+                marker.Value4 = 0;
               }
               map.Markers.Add( marker );
             }

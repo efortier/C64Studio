@@ -182,7 +182,7 @@ namespace TestProject
     {
       var proj = CreateTestProject( 2, 4, 3 );
       var buf = proj.ExportAsGameBinary( true, true, true );
-      Assert.AreEqual( (byte)9, buf.ByteAt( HDR_MARKER_STRIDE ) );
+      Assert.AreEqual( (byte)11, buf.ByteAt( HDR_MARKER_STRIDE ) );
     }
 
     [TestMethod]
@@ -436,7 +436,7 @@ namespace TestProject
       var proj = CreateTestProject( 2, 4, 4 );
       proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 0, Name = "START", TagID = 10 } );
       proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 1, Name = "EXIT", TagID = 20 } );
-      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 2, Y = 3, Type = 0, Value1 = 0x42, Enabled = true, Triggered = false } );
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 2, Y = 3, Type = 0, Value1 = 0x42, Value3 = 0x55, Value4 = 0x66, Enabled = true, Triggered = false } );
       proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 1, Type = 1, Value1 = 0x99, Enabled = false, Triggered = true } );
 
       var buf = proj.ExportAsGameBinary( true, false, false );
@@ -445,7 +445,7 @@ namespace TestProject
 
       int markersPos = LookupAbsOffset( buf, HDR_MAP_MARKERS_LO, HDR_MAP_MARKERS_HI, 0 );
       // Marker 0: tag=10, x=2, y=3, value1=$42, value2=0, flags=$01 (enabled),
-      // group=0, linkTo=0, linkId=0 (stride 9)
+      // group=0, linkTo=0, linkId=0, value3=$55, value4=$66 (stride 11)
       Assert.AreEqual( (byte)10, buf.ByteAt( markersPos + 0 ) );
       Assert.AreEqual( (byte)2, buf.ByteAt( markersPos + 1 ) );
       Assert.AreEqual( (byte)3, buf.ByteAt( markersPos + 2 ) );
@@ -455,17 +455,21 @@ namespace TestProject
       Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 6 ) );    // group id
       Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 7 ) );    // link to id
       Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 8 ) );    // link id
+      Assert.AreEqual( (byte)0x55, buf.ByteAt( markersPos + 9 ) ); // value3
+      Assert.AreEqual( (byte)0x66, buf.ByteAt( markersPos + 10 ) ); // value4
       // Marker 1: tag=20, x=1, y=1, value1=$99, value2=0, flags=$02 (triggered),
-      // group=0, linkTo=0, linkId=0
-      Assert.AreEqual( (byte)20, buf.ByteAt( markersPos + 9 ) );
-      Assert.AreEqual( (byte)1, buf.ByteAt( markersPos + 10 ) );
-      Assert.AreEqual( (byte)1, buf.ByteAt( markersPos + 11 ) );
-      Assert.AreEqual( (byte)0x99, buf.ByteAt( markersPos + 12 ) );
-      Assert.AreEqual( (byte)0x00, buf.ByteAt( markersPos + 13 ) );
-      Assert.AreEqual( (byte)0x02, buf.ByteAt( markersPos + 14 ) ); // flags: triggered
-      Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 15 ) );    // group id
-      Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 16 ) );    // link to id
-      Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 17 ) );    // link id
+      // group=0, linkTo=0, linkId=0, value3=0, value4=0
+      Assert.AreEqual( (byte)20, buf.ByteAt( markersPos + 11 ) );
+      Assert.AreEqual( (byte)1, buf.ByteAt( markersPos + 12 ) );
+      Assert.AreEqual( (byte)1, buf.ByteAt( markersPos + 13 ) );
+      Assert.AreEqual( (byte)0x99, buf.ByteAt( markersPos + 14 ) );
+      Assert.AreEqual( (byte)0x00, buf.ByteAt( markersPos + 15 ) );
+      Assert.AreEqual( (byte)0x02, buf.ByteAt( markersPos + 16 ) ); // flags: triggered
+      Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 17 ) );    // group id
+      Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 18 ) );    // link to id
+      Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 19 ) );    // link id
+      Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 20 ) );    // value3 defaults to 0
+      Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 21 ) );    // value4 defaults to 0
     }
 
     [TestMethod]
@@ -473,7 +477,7 @@ namespace TestProject
     {
       // AutoDisableGroupAfterTrigger is exported as bit 2 (0x04) of the FLAGS byte,
       // alongside Enabled (bit 0) and Triggered (bit 1). Adding the bit must NOT
-      // change the 9-byte marker stride. One marker keeps export order moot.
+      // change the marker stride. One marker keeps export order moot.
       var proj = CreateTestProject( 2, 4, 4 );
       proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 0, Name = "TRAP", TagID = 7 } );
       proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 1, Type = 0, Enabled = true, AutoDisableGroupAfterTrigger = true } );
@@ -544,8 +548,8 @@ namespace TestProject
       proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 1, Type = 0 } );
       var bufWith = proj.ExportAsGameBinary( true, false, false );
       var bufWithout = proj.ExportAsGameBinary( false, false, false );
-      // Stride is 9 (tag, x, y, value1, value2, flags, group_id, link_to_id, link_id), 1 marker
-      Assert.AreEqual( (uint)9, bufWith.Length - bufWithout.Length );
+      // Stride is 11 (tag, x, y, value1, value2, flags, group_id, link_to_id, link_id, value3, value4), 1 marker
+      Assert.AreEqual( (uint)11, bufWith.Length - bufWithout.Length );
     }
 
     // ================================================================
@@ -610,17 +614,17 @@ namespace TestProject
       var buf = proj.ExportAsGameBinary( true, false, false );
       Assert.AreEqual( (byte)3, buf.ByteAt( HdrOff( buf, HDR_MAP_MARKER_COUNT ) ) );
       int markersPos = LookupAbsOffset( buf, HDR_MAP_MARKERS_LO, HDR_MAP_MARKERS_HI, 0 );
-      // Records are sorted by tag ascending, stride 9 bytes. Two markers share
+      // Records are sorted by tag ascending, stride 11 bytes. Two markers share
       // tag 100 and one has tag 200, so the tag column must read 100, 100, 200.
       Assert.AreEqual( (byte)100, buf.ByteAt( markersPos + 0 ) );
-      Assert.AreEqual( (byte)100, buf.ByteAt( markersPos + 9 ) );
-      Assert.AreEqual( (byte)200, buf.ByteAt( markersPos + 18 ) );
+      Assert.AreEqual( (byte)100, buf.ByteAt( markersPos + 11 ) );
+      Assert.AreEqual( (byte)200, buf.ByteAt( markersPos + 22 ) );
       // The tag-200 record is unambiguously marker B (value1 = $22).
-      Assert.AreEqual( (byte)0x22, buf.ByteAt( markersPos + 18 + 3 ) );
+      Assert.AreEqual( (byte)0x22, buf.ByteAt( markersPos + 22 + 3 ) );
       // The two tag-100 records carry value1 $11 and $33 in some order.
       CollectionAssert.AreEquivalent(
         new byte[] { 0x11, 0x33 },
-        new byte[] { buf.ByteAt( markersPos + 3 ), buf.ByteAt( markersPos + 9 + 3 ) } );
+        new byte[] { buf.ByteAt( markersPos + 3 ), buf.ByteAt( markersPos + 11 + 3 ) } );
     }
 
     // ================================================================
@@ -726,9 +730,11 @@ namespace TestProject
       Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 6 ) );    // group id default
       Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 7 ) );    // link to id default
       Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 8 ) );    // link id default
+      Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 9 ) );    // value3 default
+      Assert.AreEqual( (byte)0, buf.ByteAt( markersPos + 10 ) );   // value4 default
 
-      // Markers should be the last thing in the file (stride = 9)
-      Assert.AreEqual( (uint)( markersPos + 9 ), buf.Length );
+      // Markers should be the last thing in the file (stride = 11)
+      Assert.AreEqual( (uint)( markersPos + 11 ), buf.Length );
     }
 
     // ================================================================
@@ -889,7 +895,7 @@ namespace TestProject
       var buf = proj.ExportAsGameBinary( true, false, false );
 
       // Marker stride is 9 now (tag, x, y, value1, value2, flags, group_id, link_to_id, link_id)
-      Assert.AreEqual( (byte)9, buf.ByteAt( HDR_MARKER_STRIDE ) );
+      Assert.AreEqual( (byte)11, buf.ByteAt( HDR_MARKER_STRIDE ) );
 
       int markersPos = LookupAbsOffset( buf, HDR_MAP_MARKERS_LO, HDR_MAP_MARKERS_HI, 0 );
       Assert.AreEqual( (byte)7, buf.ByteAt( markersPos + 0 ) );    // tag
@@ -1012,12 +1018,65 @@ namespace TestProject
 
       var buf = proj.ExportAsGameBinary( true, false, false );
 
-      // Link fields are the last two bytes of the 9-byte marker record.
-      Assert.AreEqual( (byte)9, buf.ByteAt( HDR_MARKER_STRIDE ) );
+      // Marker record is now 10 bytes; link fields stay at offsets 7/8 (value3
+      // is appended after them at offset 9).
+      Assert.AreEqual( (byte)11, buf.ByteAt( HDR_MARKER_STRIDE ) );
 
       int markersPos = LookupAbsOffset( buf, HDR_MAP_MARKERS_LO, HDR_MAP_MARKERS_HI, 0 );
       Assert.AreEqual( (byte)0x2A, buf.ByteAt( markersPos + 7 ) ); // link to id
       Assert.AreEqual( (byte)0x5C, buf.ByteAt( markersPos + 8 ) ); // link id
+    }
+
+    [TestMethod]
+    public void TestMarkerValue3And4RoundTripAndDefault()
+    {
+      var proj = CreateTestProject( 1, 4, 4 );
+      proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 0, Name = "M", TagID = 5 } );
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 1, Type = 0, Value3 = 0x5A, Value4 = 0x6B } );
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 2, Y = 2, Type = 0 } ); // Value3/Value4 unset -> 0
+
+      // Chunk round-trip (project file save/load).
+      var savedBuffer = proj.SaveToBuffer();
+      var proj2 = new MapProject();
+      proj2.ReadFromBuffer( savedBuffer );
+      Assert.AreEqual( (byte)0x5A, proj2.Maps[0].Markers[0].Value3 );
+      Assert.AreEqual( (byte)0x6B, proj2.Maps[0].Markers[0].Value4 );
+      Assert.AreEqual( (byte)0,    proj2.Maps[0].Markers[1].Value3 );
+      Assert.AreEqual( (byte)0,    proj2.Maps[0].Markers[1].Value4 );
+
+      // Game-binary export: value3/value4 are the last two bytes of each 11-byte record.
+      var buf = proj.ExportAsGameBinary( true, false, false );
+      Assert.AreEqual( (byte)11, buf.ByteAt( HDR_MARKER_STRIDE ) );
+      int markersPos = LookupAbsOffset( buf, HDR_MAP_MARKERS_LO, HDR_MAP_MARKERS_HI, 0 );
+      Assert.AreEqual( (byte)0x5A, buf.ByteAt( markersPos + 9 ) );       // marker 0 value3
+      Assert.AreEqual( (byte)0x6B, buf.ByteAt( markersPos + 10 ) );      // marker 0 value4
+      Assert.AreEqual( (byte)0,    buf.ByteAt( markersPos + 11 + 9 ) );  // marker 1 value3 default 0
+      Assert.AreEqual( (byte)0,    buf.ByteAt( markersPos + 11 + 10 ) ); // marker 1 value4 default 0
+    }
+
+    [TestMethod]
+    public void TestMarkerSelfLinkDetection()
+    {
+      var proj = CreateTestProject( 1, 4, 4 );
+      proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 0, Name = "T", TagID = 1 } );
+      // Self-link: Link to ID == own ID (both non-zero) -> flagged.
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 0, Y = 0, Type = 0, LinkID = 5, LinkToID = 5 } );
+      // Links to a DIFFERENT id -> not flagged.
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 1, Type = 0, LinkID = 6, LinkToID = 7 } );
+      // No link / no id (both 0) -> not flagged.
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 2, Y = 2, Type = 0, LinkID = 0, LinkToID = 0 } );
+      // Has an id but no link -> not flagged.
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 3, Y = 3, Type = 0, LinkID = 8, LinkToID = 0 } );
+
+      var warnings = proj.GetMarkerSelfLinkWarnings();
+      Assert.AreEqual( 1, warnings.Count );
+      StringAssert.Contains( warnings[0], "own ID" );
+
+      // A project with no self-links reports nothing.
+      var clean = CreateTestProject( 1, 4, 4 );
+      clean.MarkerTypes.Add( new MapProject.MarkerType { ID = 0, Name = "T", TagID = 1 } );
+      clean.Maps[0].Markers.Add( new MapProject.Marker { X = 0, Y = 0, Type = 0, LinkID = 1, LinkToID = 2 } );
+      Assert.AreEqual( 0, clean.GetMarkerSelfLinkWarnings().Count );
     }
   }
 }

@@ -3453,6 +3453,7 @@ namespace RetroDevStudio.Documents
                     editOverlayName.Text = "";
                     editFrameDelay.Value = 5;
                     checkLoop.Checked = true;
+                    checkStartRandomFrame.Checked = false;
                     editAnimationID.Value = 0;
                     for (int i = 0; i < 8; ++i)
                     {
@@ -3468,6 +3469,7 @@ namespace RetroDevStudio.Documents
                     editOverlayName.Text = m_CurrentOverlay.Name ?? "";
                     editFrameDelay.Value = ClampNudInt(m_CurrentOverlay.FrameDelay, 1, 255);
                     checkLoop.Checked = m_CurrentOverlay.Loop;
+                    checkStartRandomFrame.Checked = m_CurrentOverlay.StartAtRandomFrame;
                     editAnimationID.Value = ClampNudInt(m_CurrentOverlay.AnimationID, 0, 255);
                     for (int i = 0; i < 8; ++i)
                     {
@@ -3515,6 +3517,7 @@ namespace RetroDevStudio.Documents
             editOverlayName.TextChanged += editOverlayName_TextChanged;
             editFrameDelay.ValueChanged += editFrameDelay_ValueChanged;
             checkLoop.CheckedChanged += checkLoop_CheckedChanged;
+            checkStartRandomFrame.CheckedChanged += checkStartRandomFrame_CheckedChanged;
             editAnimationID.ValueChanged += editAnimationID_ValueChanged;
             for (int i = 0; i < 8; ++i)
             {
@@ -3533,6 +3536,7 @@ namespace RetroDevStudio.Documents
             editOverlayName.TextChanged -= editOverlayName_TextChanged;
             editFrameDelay.ValueChanged -= editFrameDelay_ValueChanged;
             checkLoop.CheckedChanged -= checkLoop_CheckedChanged;
+            checkStartRandomFrame.CheckedChanged -= checkStartRandomFrame_CheckedChanged;
             editAnimationID.ValueChanged -= editAnimationID_ValueChanged;
             for (int i = 0; i < 8; ++i)
             {
@@ -3992,6 +3996,16 @@ namespace RetroDevStudio.Documents
             if (m_CurrentOverlay == null) return;
             DocumentInfo.UndoManager.AddUndoTask(new Undo.UndoSpritesetOverlaysChange(this, m_SpriteProject));
             m_CurrentOverlay.Loop = checkLoop.Checked;
+            Modified = true;
+        }
+
+
+
+        private void checkStartRandomFrame_CheckedChanged(object sender, EventArgs e)
+        {
+            if (m_CurrentOverlay == null) return;
+            DocumentInfo.UndoManager.AddUndoTask(new Undo.UndoSpritesetOverlaysChange(this, m_SpriteProject));
+            m_CurrentOverlay.StartAtRandomFrame = checkStartRandomFrame.Checked;
             Modified = true;
         }
 
