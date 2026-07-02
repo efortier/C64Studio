@@ -419,6 +419,30 @@ namespace RetroDevStudio.Documents
 
 
 
+        /// <summary>
+        /// Draw handler for the per-slot colour-override combos: item 0 is the
+        /// "None" entry (plain themed text, no colour swatch), items 1..16 map
+        /// to palette colours 0..15 via the theming helper's palette offset.
+        /// </summary>
+        private void slotColorOverride_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            ComboBox combo = (ComboBox)sender;
+
+            if (e.Index <= 0)
+            {
+                Core.Theming.DrawThemedBackground(e, combo);
+                if (e.Index == 0)
+                {
+                    e.Graphics.DrawString("None", combo.Font,
+                        new System.Drawing.SolidBrush(combo.ForeColor), 3.0f, e.Bounds.Top + 1.0f);
+                }
+                return;
+            }
+            Core.Theming.DrawSingleColorComboBox(combo, e, ConstantData.Palette, -1);
+        }
+
+
+
         private void comboMulticolor_DrawItem(object sender, DrawItemEventArgs e)
         {
             ComboBox combo = (ComboBox)sender;
@@ -3370,11 +3394,15 @@ namespace RetroDevStudio.Documents
                 cmbColor.Location = new System.Drawing.Point(208, y + 1);
                 cmbColor.Size = new System.Drawing.Size(65, 21);
                 cmbColor.Tag = i;
+                // Index 0 = "None" (each sprite keeps its own colour); indices
+                // 1..16 = colour override 0..15 forced onto every sprite/frame
+                // drawn through this slot.
+                cmbColor.Items.Add("None");
                 for (int c = 0; c < 16; ++c) cmbColor.Items.Add(c.ToString("d2"));
-                cmbColor.SelectedIndex = 1;
-                cmbColor.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.comboColor_DrawItem);
+                cmbColor.SelectedIndex = 0;
+                cmbColor.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.slotColorOverride_DrawItem);
                 cmbColor.SelectedIndexChanged += slotCustomColor_SelectedIndexChanged;
-                toolTip1.SetToolTip(cmbColor, "Slot custom color (per-slot foreground)");
+                toolTip1.SetToolTip(cmbColor, "Slot color override (None = each sprite's own color)");
                 panelOverlaySlots.Controls.Add(cmbColor);
                 m_SlotCustomColor[i] = cmbColor;
             }
@@ -3461,7 +3489,7 @@ namespace RetroDevStudio.Documents
                         m_SlotX[i].Value = 0;
                         m_SlotY[i].Value = 0;
                         m_SlotBank[i].Value = 0;
-                        m_SlotCustomColor[i].SelectedIndex = 1;
+                        m_SlotCustomColor[i].SelectedIndex = 0;   // "None"
                     }
                 }
                 else
@@ -3487,9 +3515,9 @@ namespace RetroDevStudio.Documents
                         }
                         m_SlotBank[i].Value = ClampNudInt(bankIdx, 0, 255);
 
+                        // Combo index 0 = "None" (override -1), 1..16 = colours 0..15.
                         int cc = slot.CustomColor;
-                        if (cc < 0 || cc > 15) cc = 1;
-                        m_SlotCustomColor[i].SelectedIndex = cc;
+                        m_SlotCustomColor[i].SelectedIndex = ((cc >= 0) && (cc <= 15)) ? cc + 1 : 0;
                     }
                 }
             }
@@ -3706,9 +3734,13 @@ namespace RetroDevStudio.Documents
             int slotIdx = (int)ctrl.Tag;
             DocumentInfo.UndoManager.AddUndoTask(new Undo.UndoSpritesetOverlaysChange(this, m_SpriteProject));
 
-            m_CurrentOverlay.Slots[slotIdx].CustomColor = ctrl.SelectedIndex;
+            // Combo index 0 = "None" (-1), 1..16 = colour override 0..15.
+            m_CurrentOverlay.Slots[slotIdx].CustomColor = ctrl.SelectedIndex - 1;
             Modified = true;
+            // The override recolours every view of this animation.
             RebuildOverlayPreview();
+            RebuildAnimPreview();
+            RebuildSpriteTest();
         }
 
 
@@ -3748,7 +3780,9 @@ namespace RetroDevStudio.Documents
                                      bs.Tile.Data,
                                      bs.Tile.Colors.Palette,
                                      bs.Tile.Width, bs.Tile.Height,
-                                     slot.CustomColor,
+                                     // Slot colour override; "None" (-1) falls
+                                     // back to the bank sprite's own colour.
+                                     (slot.CustomColor >= 0) ? slot.CustomColor : bs.Tile.CustomColor,
                                      bs.Mode,
                                      m_SpriteProject.Colors.BackgroundColor,
                                      m_SpriteProject.Colors.MultiColor1,
@@ -4131,14 +4165,13 @@ namespace RetroDevStudio.Documents
                                      bs.Tile.Data,
                                      bs.Tile.Colors.Palette,
                                      bs.Tile.Width, bs.Tile.Height,
-                                     // Animation frames show each bank sprite in ITS OWN
-                                     // foreground colour — NOT the overlay slot's colour.
-                                     // (The overlay-authoring preview deliberately uses
-                                     // slot.CustomColor for per-layer recolouring; the
-                                     // animation must not.) Drives both static preview and
-                                     // playback. Fixes "first colour comes from the overlay"
-                                     // for hires and multicolour alike.
-                                     bs.Tile.CustomColor,
+                                     // Slot colour override: "None" (-1) shows each bank
+                                     // sprite in ITS OWN foreground colour (the default);
+                                     // 0..15 forces that colour onto every frame of the
+                                     // animation — matching the test playfield and the
+                                     // game-binary export. Drives both static preview and
+                                     // playback.
+                                     (slot.CustomColor >= 0) ? slot.CustomColor : bs.Tile.CustomColor,
                                      bs.Mode,
                                      m_SpriteProject.Colors.BackgroundColor,
                                      m_SpriteProject.Colors.MultiColor1,
@@ -4316,7 +4349,9 @@ namespace RetroDevStudio.Documents
                                          bs.Tile.Data,
                                          bs.Tile.Colors.Palette,
                                          bs.Tile.Width, bs.Tile.Height,
-                                         bs.Tile.CustomColor,    // each sprite in its own colour
+                                         // Slot colour override; "None" (-1) =
+                                         // each sprite in its own colour.
+                                         (slot.CustomColor >= 0) ? slot.CustomColor : bs.Tile.CustomColor,
                                          bs.Mode,
                                          m_SpriteProject.Colors.BackgroundColor,
                                          m_SpriteProject.Colors.MultiColor1,

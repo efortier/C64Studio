@@ -1049,7 +1049,10 @@ namespace C64Studio
           }
           else
           {
-            SetDocumentFilename( GR.Path.RelativePathTo( saveDlg.FileName, false, System.IO.Path.GetFullPath( DocumentInfo.Project.Settings.BasePath ), true ) );
+            // (fromDir, true, toFile, false) — walks base dir -> file, same as
+            // BaseDocument's Save-As. The previously swapped order collapsed
+            // subdirectories into "..\<name>" paths.
+            SetDocumentFilename( GR.Path.RelativePathTo( System.IO.Path.GetFullPath( DocumentInfo.Project.Settings.BasePath ), true, saveDlg.FileName, false ) );
             DocumentInfo.Element.Name = System.IO.Path.GetFileName( DocumentInfo.DocumentFilename );
             DocumentInfo.Element.Filename = DocumentInfo.DocumentFilename;
             if ( DocumentInfo.Element.Settings.Count == 0 )

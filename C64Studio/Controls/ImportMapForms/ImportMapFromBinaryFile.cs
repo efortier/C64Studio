@@ -38,7 +38,10 @@ namespace RetroDevStudio.Controls
         }
         else
         {
-          Map.ExternalCharset = GR.Path.RelativePathTo( filename, false, System.IO.Path.GetFullPath( Editor.DocumentInfo.Project.Settings.BasePath ), true );
+          // (fromDir, true, toFile, false) — walks base dir -> file. The
+          // previously swapped order collapsed subdirectories into
+          // "..\<name>" paths that resolved to the wrong location.
+          Map.ExternalCharset = GR.Path.RelativePathTo( System.IO.Path.GetFullPath( Editor.DocumentInfo.Project.Settings.BasePath ), true, filename, false );
         }
         Editor.SetModified();
         return true;

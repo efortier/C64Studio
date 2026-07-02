@@ -1691,8 +1691,15 @@ namespace RetroDevStudio.Documents
           }
           else
           {
-            m_CharsetScreen.ExternalCharset = GR.Path.RelativePathTo( filename, false, System.IO.Path.GetFullPath( DocumentInfo.Project.Settings.BasePath ), true );
+            // (fromDir, true, toFile, false) — walks base dir -> file. The
+            // previously swapped order collapsed subdirectories into
+            // "..\<name>" paths that resolved to the wrong location.
+            m_CharsetScreen.ExternalCharset = GR.Path.RelativePathTo( System.IO.Path.GetFullPath( DocumentInfo.Project.Settings.BasePath ), true, filename, false );
           }
+          // NOTE: pre-existing — this clears the value computed just above,
+          // so the external-charset LINK is never persisted from this path
+          // (the imported charset is baked into the document instead). Left
+          // as-is deliberately; removing it would change import semantics.
           m_CharsetScreen.ExternalCharset = "";
           Modified = true;
           return true;

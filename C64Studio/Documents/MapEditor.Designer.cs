@@ -247,6 +247,27 @@
             btnFOWClear = new Krypton.Toolkit.KryptonButton();
             labelFOWRadius = new System.Windows.Forms.Label();
             trackFOWRadius = new Krypton.Toolkit.KryptonTrackBar();
+            collapsiblePanelSprites = new RetroDevStudio.Controls.CollapsiblePanel();
+            labelSpriteFile = new System.Windows.Forms.Label();
+            editSpriteProjectFile = new Krypton.Toolkit.KryptonTextBox();
+            btnBrowseSpriteProject = new Krypton.Toolkit.KryptonButton();
+            labelSpriteAnim = new System.Windows.Forms.Label();
+            comboSpriteAnimations = new Krypton.Toolkit.KryptonComboBox();
+            btnSpritePlace = new Krypton.Toolkit.KryptonButton();
+            btnSpriteSelectMove = new Krypton.Toolkit.KryptonCheckButton();
+            checkShowMapSprites = new Krypton.Toolkit.KryptonCheckBox();
+            btnSpriteNudgeUp = new Krypton.Toolkit.KryptonButton();
+            btnSpriteNudgeDown = new Krypton.Toolkit.KryptonButton();
+            btnSpriteNudgeLeft = new Krypton.Toolkit.KryptonButton();
+            btnSpriteNudgeRight = new Krypton.Toolkit.KryptonButton();
+            btnSpriteDeleteSelected = new Krypton.Toolkit.KryptonButton();
+            btnSpriteClearAll = new Krypton.Toolkit.KryptonButton();
+            btnSpriteCreateMarker = new Krypton.Toolkit.KryptonButton();
+            labelSpriteColorOverride = new System.Windows.Forms.Label();
+            comboSpriteColorOverride = new Krypton.Toolkit.KryptonComboBox();
+            btnSpriteInstantiateForMarker = new Krypton.Toolkit.KryptonButton();
+            btnSpriteInstantiateAll = new Krypton.Toolkit.KryptonButton();
+            labelSpriteInfo = new System.Windows.Forms.Label();
             flowLayoutPanel2 = new System.Windows.Forms.FlowLayoutPanel();
             btnToolEntity = new Krypton.Toolkit.KryptonCheckButton();
             kryptonLabel2 = new Krypton.Toolkit.KryptonLabel();
@@ -406,6 +427,9 @@
             collapsiblePanel2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)comboRightClickBehavior).BeginInit();
             collapsiblePanelFogOfWar.SuspendLayout();
+            collapsiblePanelSprites.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)comboSpriteAnimations).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)comboSpriteColorOverride).BeginInit();
             flowLayoutPanel2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)comboEntityTypes).BeginInit();
             flowLayoutPanel1.SuspendLayout();
@@ -1973,6 +1997,7 @@
             flowLayoutPanel3.Controls.Add(collapsiblePanelMapTab);
             flowLayoutPanel3.Controls.Add(collapsiblePanel2);
             flowLayoutPanel3.Controls.Add(collapsiblePanelFogOfWar);
+            flowLayoutPanel3.Controls.Add(collapsiblePanelSprites);
             flowLayoutPanel3.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
             flowLayoutPanel3.Location = new System.Drawing.Point(1581, 10);
             flowLayoutPanel3.Name = "flowLayoutPanel3";
@@ -2790,9 +2815,250 @@
             toolTip1.SetToolTip(trackFOWRadius, "Radius (in map cells) of the circle revealed around a right-click.");
             trackFOWRadius.Value = 4;
             trackFOWRadius.ValueChanged += trackFOWRadius_ValueChanged;
-            // 
+            //
+            // collapsiblePanelSprites
+            //
+            collapsiblePanelSprites.Collapsed = true;
+            collapsiblePanelSprites.Controls.Add(labelSpriteFile);
+            collapsiblePanelSprites.Controls.Add(editSpriteProjectFile);
+            collapsiblePanelSprites.Controls.Add(btnBrowseSpriteProject);
+            collapsiblePanelSprites.Controls.Add(labelSpriteAnim);
+            collapsiblePanelSprites.Controls.Add(comboSpriteAnimations);
+            collapsiblePanelSprites.Controls.Add(btnSpritePlace);
+            collapsiblePanelSprites.Controls.Add(btnSpriteSelectMove);
+            collapsiblePanelSprites.Controls.Add(checkShowMapSprites);
+            collapsiblePanelSprites.Controls.Add(btnSpriteNudgeUp);
+            collapsiblePanelSprites.Controls.Add(btnSpriteNudgeLeft);
+            collapsiblePanelSprites.Controls.Add(btnSpriteNudgeRight);
+            collapsiblePanelSprites.Controls.Add(btnSpriteNudgeDown);
+            collapsiblePanelSprites.Controls.Add(btnSpriteDeleteSelected);
+            collapsiblePanelSprites.Controls.Add(btnSpriteClearAll);
+            collapsiblePanelSprites.Controls.Add(btnSpriteCreateMarker);
+            collapsiblePanelSprites.Controls.Add(labelSpriteColorOverride);
+            collapsiblePanelSprites.Controls.Add(comboSpriteColorOverride);
+            collapsiblePanelSprites.Controls.Add(btnSpriteInstantiateForMarker);
+            collapsiblePanelSprites.Controls.Add(btnSpriteInstantiateAll);
+            collapsiblePanelSprites.Controls.Add(labelSpriteInfo);
+            collapsiblePanelSprites.ExpandedHeight = 216;
+            collapsiblePanelSprites.Location = new System.Drawing.Point(3, 273);
+            collapsiblePanelSprites.MinimumSize = new System.Drawing.Size(40, 22);
+            collapsiblePanelSprites.Name = "collapsiblePanelSprites";
+            collapsiblePanelSprites.Padding = new System.Windows.Forms.Padding(0, 22, 0, 0);
+            collapsiblePanelSprites.Size = new System.Drawing.Size(350, 22);
+            collapsiblePanelSprites.TabIndex = 44;
+            collapsiblePanelSprites.Title = "Sprites";
+            //
+            // labelSpriteFile
+            //
+            labelSpriteFile.AutoSize = true;
+            labelSpriteFile.Location = new System.Drawing.Point(8, 32);
+            labelSpriteFile.Name = "labelSpriteFile";
+            labelSpriteFile.Size = new System.Drawing.Size(26, 13);
+            labelSpriteFile.TabIndex = 0;
+            labelSpriteFile.Text = "File:";
+            //
+            // editSpriteProjectFile
+            //
+            editSpriteProjectFile.Location = new System.Drawing.Point(44, 28);
+            editSpriteProjectFile.Name = "editSpriteProjectFile";
+            editSpriteProjectFile.ReadOnly = true;
+            editSpriteProjectFile.Size = new System.Drawing.Size(208, 23);
+            editSpriteProjectFile.TabIndex = 1;
+            toolTip1.SetToolTip(editSpriteProjectFile, "Sprite project (*.spriteproject) whose animations can be placed on the map.");
+            //
+            // btnBrowseSpriteProject
+            //
+            btnBrowseSpriteProject.Location = new System.Drawing.Point(258, 28);
+            btnBrowseSpriteProject.Name = "btnBrowseSpriteProject";
+            btnBrowseSpriteProject.Size = new System.Drawing.Size(84, 23);
+            btnBrowseSpriteProject.TabIndex = 2;
+            btnBrowseSpriteProject.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnBrowseSpriteProject.Values.Text = "Browse...";
+            btnBrowseSpriteProject.Click += btnBrowseSpriteProject_Click;
+            //
+            // labelSpriteAnim
+            //
+            labelSpriteAnim.AutoSize = true;
+            labelSpriteAnim.Location = new System.Drawing.Point(8, 60);
+            labelSpriteAnim.Name = "labelSpriteAnim";
+            labelSpriteAnim.Size = new System.Drawing.Size(33, 13);
+            labelSpriteAnim.TabIndex = 3;
+            labelSpriteAnim.Text = "Anim:";
+            //
+            // comboSpriteAnimations
+            //
+            comboSpriteAnimations.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            comboSpriteAnimations.DropDownWidth = 208;
+            comboSpriteAnimations.Location = new System.Drawing.Point(44, 56);
+            comboSpriteAnimations.Name = "comboSpriteAnimations";
+            comboSpriteAnimations.Size = new System.Drawing.Size(208, 21);
+            comboSpriteAnimations.TabIndex = 4;
+            toolTip1.SetToolTip(comboSpriteAnimations, "Animation to place; the selection is saved with the map project.");
+            comboSpriteAnimations.SelectedIndexChanged += comboSpriteAnimations_SelectedIndexChanged;
+            //
+            // btnSpritePlace
+            //
+            btnSpritePlace.Location = new System.Drawing.Point(258, 56);
+            btnSpritePlace.Name = "btnSpritePlace";
+            btnSpritePlace.Size = new System.Drawing.Size(84, 23);
+            btnSpritePlace.TabIndex = 5;
+            toolTip1.SetToolTip(btnSpritePlace, "Click the map once to place a sprite (top-left on the clicked character cell) - Esc cancels.");
+            btnSpritePlace.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnSpritePlace.Values.Text = "Place";
+            btnSpritePlace.Click += btnSpritePlace_Click;
+            //
+            // btnSpriteSelectMove
+            //
+            btnSpriteSelectMove.Location = new System.Drawing.Point(8, 84);
+            btnSpriteSelectMove.Name = "btnSpriteSelectMove";
+            btnSpriteSelectMove.Size = new System.Drawing.Size(100, 23);
+            btnSpriteSelectMove.TabIndex = 6;
+            toolTip1.SetToolTip(btnSpriteSelectMove, "Tool mode: click sprites to select (Ctrl+click multi-select), drag to move pixel-precise.");
+            btnSpriteSelectMove.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnSpriteSelectMove.Values.Text = "Select/Move";
+            btnSpriteSelectMove.CheckedChanged += btnSpriteSelectMove_CheckedChanged;
+            //
+            // checkShowMapSprites
+            //
+            checkShowMapSprites.Checked = true;
+            checkShowMapSprites.CheckState = System.Windows.Forms.CheckState.Checked;
+            checkShowMapSprites.Location = new System.Drawing.Point(116, 86);
+            checkShowMapSprites.Name = "checkShowMapSprites";
+            checkShowMapSprites.Size = new System.Drawing.Size(56, 22);
+            checkShowMapSprites.TabIndex = 7;
+            toolTip1.SetToolTip(checkShowMapSprites, "Editor-only preview; sprite instances are never saved or exported.");
+            checkShowMapSprites.Values.Text = "Show";
+            checkShowMapSprites.CheckedChanged += checkShowMapSprites_CheckedChanged;
+            //
+            // btnSpriteNudgeUp
+            //
+            btnSpriteNudgeUp.Location = new System.Drawing.Point(300, 80);
+            btnSpriteNudgeUp.Name = "btnSpriteNudgeUp";
+            btnSpriteNudgeUp.Size = new System.Drawing.Size(30, 24);
+            btnSpriteNudgeUp.TabIndex = 8;
+            toolTip1.SetToolTip(btnSpriteNudgeUp, "Move selected sprite(s) up 1 pixel");
+            btnSpriteNudgeUp.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnSpriteNudgeUp.Values.Text = "▲";
+            btnSpriteNudgeUp.Click += btnSpriteNudgeUp_Click;
+            //
+            // btnSpriteNudgeLeft
+            //
+            btnSpriteNudgeLeft.Location = new System.Drawing.Point(268, 104);
+            btnSpriteNudgeLeft.Name = "btnSpriteNudgeLeft";
+            btnSpriteNudgeLeft.Size = new System.Drawing.Size(30, 24);
+            btnSpriteNudgeLeft.TabIndex = 9;
+            toolTip1.SetToolTip(btnSpriteNudgeLeft, "Move selected sprite(s) left 1 pixel");
+            btnSpriteNudgeLeft.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnSpriteNudgeLeft.Values.Text = "◄";
+            btnSpriteNudgeLeft.Click += btnSpriteNudgeLeft_Click;
+            //
+            // btnSpriteNudgeRight
+            //
+            btnSpriteNudgeRight.Location = new System.Drawing.Point(316, 104);
+            btnSpriteNudgeRight.Name = "btnSpriteNudgeRight";
+            btnSpriteNudgeRight.Size = new System.Drawing.Size(30, 24);
+            btnSpriteNudgeRight.TabIndex = 10;
+            toolTip1.SetToolTip(btnSpriteNudgeRight, "Move selected sprite(s) right 1 pixel");
+            btnSpriteNudgeRight.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnSpriteNudgeRight.Values.Text = "►";
+            btnSpriteNudgeRight.Click += btnSpriteNudgeRight_Click;
+            //
+            // btnSpriteNudgeDown
+            //
+            btnSpriteNudgeDown.Location = new System.Drawing.Point(300, 128);
+            btnSpriteNudgeDown.Name = "btnSpriteNudgeDown";
+            btnSpriteNudgeDown.Size = new System.Drawing.Size(30, 24);
+            btnSpriteNudgeDown.TabIndex = 11;
+            toolTip1.SetToolTip(btnSpriteNudgeDown, "Move selected sprite(s) down 1 pixel");
+            btnSpriteNudgeDown.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnSpriteNudgeDown.Values.Text = "▼";
+            btnSpriteNudgeDown.Click += btnSpriteNudgeDown_Click;
+            //
+            // btnSpriteDeleteSelected
+            //
+            btnSpriteDeleteSelected.Location = new System.Drawing.Point(8, 112);
+            btnSpriteDeleteSelected.Name = "btnSpriteDeleteSelected";
+            btnSpriteDeleteSelected.Size = new System.Drawing.Size(110, 23);
+            btnSpriteDeleteSelected.TabIndex = 12;
+            toolTip1.SetToolTip(btnSpriteDeleteSelected, "Remove the selected sprite instance(s) - markers are not touched.");
+            btnSpriteDeleteSelected.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnSpriteDeleteSelected.Values.Text = "Delete selected";
+            btnSpriteDeleteSelected.Click += btnSpriteDeleteSelected_Click;
+            //
+            // btnSpriteClearAll
+            //
+            btnSpriteClearAll.Location = new System.Drawing.Point(124, 112);
+            btnSpriteClearAll.Name = "btnSpriteClearAll";
+            btnSpriteClearAll.Size = new System.Drawing.Size(76, 23);
+            btnSpriteClearAll.TabIndex = 13;
+            toolTip1.SetToolTip(btnSpriteClearAll, "Remove every sprite instance on this map.");
+            btnSpriteClearAll.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnSpriteClearAll.Values.Text = "Clear all";
+            btnSpriteClearAll.Click += btnSpriteClearAll_Click;
+            //
+            // btnSpriteCreateMarker
+            //
+            btnSpriteCreateMarker.Location = new System.Drawing.Point(8, 140);
+            btnSpriteCreateMarker.Name = "btnSpriteCreateMarker";
+            btnSpriteCreateMarker.Size = new System.Drawing.Size(110, 23);
+            btnSpriteCreateMarker.TabIndex = 14;
+            toolTip1.SetToolTip(btnSpriteCreateMarker, "Create a TRIGGER_SPRITE_ANIM marker for each selected sprite (values encode animation + position).");
+            btnSpriteCreateMarker.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnSpriteCreateMarker.Values.Text = "Create marker";
+            btnSpriteCreateMarker.Click += btnSpriteCreateMarker_Click;
+            //
+            // labelSpriteColorOverride
+            //
+            labelSpriteColorOverride.AutoSize = true;
+            labelSpriteColorOverride.Location = new System.Drawing.Point(124, 144);
+            labelSpriteColorOverride.Name = "labelSpriteColorOverride";
+            labelSpriteColorOverride.Size = new System.Drawing.Size(36, 13);
+            labelSpriteColorOverride.TabIndex = 18;
+            labelSpriteColorOverride.Text = "Color:";
+            //
+            // comboSpriteColorOverride
+            //
+            comboSpriteColorOverride.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            comboSpriteColorOverride.DropDownWidth = 96;
+            comboSpriteColorOverride.Location = new System.Drawing.Point(168, 140);
+            comboSpriteColorOverride.Name = "comboSpriteColorOverride";
+            comboSpriteColorOverride.Size = new System.Drawing.Size(96, 21);
+            comboSpriteColorOverride.TabIndex = 19;
+            toolTip1.SetToolTip(comboSpriteColorOverride, "Test-only color override for ALL map sprites - takes precedence over slot and sprite colors. Not saved.");
+            comboSpriteColorOverride.SelectedIndexChanged += comboSpriteColorOverride_SelectedIndexChanged;
+            //
+            // btnSpriteInstantiateForMarker
+            //
+            btnSpriteInstantiateForMarker.Location = new System.Drawing.Point(8, 168);
+            btnSpriteInstantiateForMarker.Name = "btnSpriteInstantiateForMarker";
+            btnSpriteInstantiateForMarker.Size = new System.Drawing.Size(150, 23);
+            btnSpriteInstantiateForMarker.TabIndex = 15;
+            toolTip1.SetToolTip(btnSpriteInstantiateForMarker, "Create sprites for the SELECTED TRIGGER_SPRITE_ANIM markers (existing matches are skipped).");
+            btnSpriteInstantiateForMarker.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnSpriteInstantiateForMarker.Values.Text = "Instantiate for marker(s)";
+            btnSpriteInstantiateForMarker.Click += btnSpriteInstantiateForMarker_Click;
+            //
+            // btnSpriteInstantiateAll
+            //
+            btnSpriteInstantiateAll.Location = new System.Drawing.Point(164, 168);
+            btnSpriteInstantiateAll.Name = "btnSpriteInstantiateAll";
+            btnSpriteInstantiateAll.Size = new System.Drawing.Size(100, 23);
+            btnSpriteInstantiateAll.TabIndex = 16;
+            toolTip1.SetToolTip(btnSpriteInstantiateAll, "Create sprites for ALL TRIGGER_SPRITE_ANIM markers on this map (existing matches are skipped).");
+            btnSpriteInstantiateAll.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnSpriteInstantiateAll.Values.Text = "Instantiate all";
+            btnSpriteInstantiateAll.Click += btnSpriteInstantiateAll_Click;
+            //
+            // labelSpriteInfo
+            //
+            labelSpriteInfo.AutoSize = true;
+            labelSpriteInfo.Location = new System.Drawing.Point(8, 196);
+            labelSpriteInfo.Name = "labelSpriteInfo";
+            labelSpriteInfo.Size = new System.Drawing.Size(0, 13);
+            labelSpriteInfo.TabIndex = 17;
+            //
             // flowLayoutPanel2
-            // 
+            //
             flowLayoutPanel2.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
             flowLayoutPanel2.Controls.Add(btnToolEntity);
             flowLayoutPanel2.Controls.Add(kryptonLabel2);
@@ -4257,6 +4523,10 @@
             ((System.ComponentModel.ISupportInitialize)comboRightClickBehavior).EndInit();
             collapsiblePanelFogOfWar.ResumeLayout(false);
             collapsiblePanelFogOfWar.PerformLayout();
+            collapsiblePanelSprites.ResumeLayout(false);
+            collapsiblePanelSprites.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)comboSpriteAnimations).EndInit();
+            ((System.ComponentModel.ISupportInitialize)comboSpriteColorOverride).EndInit();
             flowLayoutPanel2.ResumeLayout(false);
             flowLayoutPanel2.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)comboEntityTypes).EndInit();
@@ -4617,5 +4887,26 @@
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel4;
         private Krypton.Toolkit.KryptonLabel kryptonLabel1;
         private Krypton.Toolkit.KryptonLabel kryptonLabel2;
+        private Controls.CollapsiblePanel collapsiblePanelSprites;
+        private System.Windows.Forms.Label labelSpriteFile;
+        private Krypton.Toolkit.KryptonTextBox editSpriteProjectFile;
+        private Krypton.Toolkit.KryptonButton btnBrowseSpriteProject;
+        private System.Windows.Forms.Label labelSpriteAnim;
+        private Krypton.Toolkit.KryptonComboBox comboSpriteAnimations;
+        private Krypton.Toolkit.KryptonButton btnSpritePlace;
+        private Krypton.Toolkit.KryptonCheckButton btnSpriteSelectMove;
+        private Krypton.Toolkit.KryptonCheckBox checkShowMapSprites;
+        private Krypton.Toolkit.KryptonButton btnSpriteNudgeUp;
+        private Krypton.Toolkit.KryptonButton btnSpriteNudgeDown;
+        private Krypton.Toolkit.KryptonButton btnSpriteNudgeLeft;
+        private Krypton.Toolkit.KryptonButton btnSpriteNudgeRight;
+        private Krypton.Toolkit.KryptonButton btnSpriteDeleteSelected;
+        private Krypton.Toolkit.KryptonButton btnSpriteClearAll;
+        private Krypton.Toolkit.KryptonButton btnSpriteCreateMarker;
+        private System.Windows.Forms.Label labelSpriteColorOverride;
+        private Krypton.Toolkit.KryptonComboBox comboSpriteColorOverride;
+        private Krypton.Toolkit.KryptonButton btnSpriteInstantiateForMarker;
+        private Krypton.Toolkit.KryptonButton btnSpriteInstantiateAll;
+        private System.Windows.Forms.Label labelSpriteInfo;
     }
 }

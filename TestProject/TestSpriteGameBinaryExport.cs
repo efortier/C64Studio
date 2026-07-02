@@ -62,7 +62,7 @@ namespace TestProject
       ov.AnimationID = 7;
       ov.FrameDelay  = 4;
       ov.Loop        = true;
-      ov.Slots[0].CustomColor = 13;          // overlay colour: must NOT be used anymore
+      ov.Slots[0].CustomColor = -1;          // "None": each frame exports its sprite's own colour
       ov.Slots[0].ExpandX = true;
       ov.Slots[0].ExpandY = false;
       proj.Sprites[5].Tile.CustomColor = 7;  // per-sprite bank colours - the export must
@@ -206,7 +206,7 @@ namespace TestProject
       ov.AnimationID = 7;
       ov.FrameDelay  = 4;
       ov.Loop        = true;
-      ov.Slots[0].CustomColor = 13;          // overlay colour: must NOT be used
+      ov.Slots[0].CustomColor = -1;          // "None": per-sprite colours in the dump
       ov.Slots[0].ExpandX = true;
       proj.Sprites[5].Tile.CustomColor = 7;  // per-sprite bank colours the export uses
       proj.Sprites[2].Tile.CustomColor = 11;
@@ -473,6 +473,51 @@ namespace TestProject
 
       // Fresh overlay defaults to false.
       Assert.AreEqual( false, new SpriteProject.Overlay().StartAtRandomFrame );
+    }
+
+    // ================================================================
+    // 13. Slot-0 colour override: "None" (-1, the default) exports each
+    //     frame in its bank sprite's own colour; 0..15 forces that one
+    //     colour into EVERY frame. Also round-trips through save/load.
+    // ================================================================
+    [TestMethod]
+    public void TestSlotColorOverrideExportAndRoundTrip()
+    {
+      // Default is "None".
+      Assert.AreEqual( -1, new SpriteProject.OverlaySlot().CustomColor );
+
+      var proj = MakeProject( 8 );
+      var ov = AddOverlay( proj, 5, 2 );
+      proj.Sprites[5].Tile.CustomColor = 7;
+      proj.Sprites[2].Tile.CustomColor = 11;
+      ov.Slots[0].CustomColor = 13;          // override: all frames become colour 13
+
+      ByteBuffer anim, sprdata;
+      int animCount, sprCount;
+      proj.ExportAsGameBinarySprites( out anim, out sprdata, out animCount, out sprCount );
+
+      int loTable = anim.UInt16At( HDR_OFFSET_ANIM_DEF_LO );
+      int hiTable = anim.UInt16At( HDR_OFFSET_ANIM_DEF_HI );
+      int defOff  = anim.ByteAt( loTable ) | ( anim.ByteAt( hiTable ) << 8 );
+      Assert.AreEqual( (byte)13, anim.ByteAt( defOff + 9 ) );   // frame0 colour = override
+      Assert.AreEqual( (byte)13, anim.ByteAt( defOff + 11 ) );  // frame1 colour = override
+
+      // Override (13) and "None" (-1) both survive a project save/reload.
+      ov.Slots[1].CustomColor = -1;
+      var saved = proj.SaveToBuffer();
+      var proj2 = new SpriteProject();
+      proj2.ReadFromBuffer( saved );
+      Assert.AreEqual( 13, proj2.Overlays[0].Slots[0].CustomColor );
+      Assert.AreEqual( -1, proj2.Overlays[0].Slots[1].CustomColor );
+
+      // Back to "None" -> per-sprite colours again.
+      proj.Overlays[0].Slots[0].CustomColor = -1;
+      proj.ExportAsGameBinarySprites( out anim, out sprdata, out animCount, out sprCount );
+      loTable = anim.UInt16At( HDR_OFFSET_ANIM_DEF_LO );
+      hiTable = anim.UInt16At( HDR_OFFSET_ANIM_DEF_HI );
+      defOff  = anim.ByteAt( loTable ) | ( anim.ByteAt( hiTable ) << 8 );
+      Assert.AreEqual( (byte)7,  anim.ByteAt( defOff + 9 ) );   // frame0 = sprite 5's colour
+      Assert.AreEqual( (byte)11, anim.ByteAt( defOff + 11 ) );  // frame1 = sprite 2's colour
     }
   }
 }

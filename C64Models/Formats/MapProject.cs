@@ -585,6 +585,22 @@ namespace RetroDevStudio.Formats
     public bool                         LockTilePlacementColor = false;
 
     /// <summary>
+    /// Optional path to a .spriteproject file whose animations the map
+    /// editor's Sprites panel places as animated preview instances. Stored
+    /// relative to the project base path when the document belongs to a
+    /// project (same convention as ExternalCharset). Empty = none. The
+    /// sprite INSTANCES themselves are session-only and never persisted —
+    /// only this path and the selected animation id are.
+    /// </summary>
+    public string                       SpriteProjectFilename = "";
+    /// <summary>
+    /// The authored Overlay.AnimationID selected in the Sprites panel's
+    /// animation dropdown. -1 = none. Kept even when the sprite file is
+    /// missing/reloaded so a later fix restores the selection.
+    /// </summary>
+    public int                          SelectedSpriteAnimID = -1;
+
+    /// <summary>
     /// Optional path to a binary font file used when rendering the Map
     /// Strings tab's preview canvas. The expected format matches what the
     /// game-binary export emits: a 2-byte little-endian load-address header
@@ -695,6 +711,8 @@ namespace RetroDevStudio.Formats
       RightClickAction = "";
       CharactersPerRow = 16;
       CharacterEditorMode = 1;
+      SpriteProjectFilename = "";
+      SelectedSpriteAnimID = -1;
       Settings = new ExportSettings();
     }
 
@@ -753,6 +771,10 @@ namespace RetroDevStudio.Formats
       // Map Strings scratch text. Append-only string; old files without it
       // fall through to the default empty string on load.
       chunkProjectInfo.AppendString( MapStringsScratchText ?? "" );
+      // Sprites panel: sprite project path + selected animation id. Append-only;
+      // old files without these fall through to the defaults ("" / -1) on load.
+      chunkProjectInfo.AppendString( SpriteProjectFilename ?? "" );
+      chunkProjectInfo.AppendI32( SelectedSpriteAnimID );
       projectFile.Append( chunkProjectInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkCharset = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET );
@@ -1116,6 +1138,16 @@ namespace RetroDevStudio.Formats
               if ( chunkReader.Size - chunkReader.Position >= 1 )
               {
                 MapStringsScratchText = chunkReader.ReadString();
+              }
+              // Sprites panel: sprite project path + selected animation id
+              // (append-only; defaults "" / -1 for old files).
+              if ( chunkReader.Size - chunkReader.Position >= 1 )
+              {
+                SpriteProjectFilename = chunkReader.ReadString();
+              }
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                SelectedSpriteAnimID = chunkReader.ReadInt32();
               }
             }
             break;

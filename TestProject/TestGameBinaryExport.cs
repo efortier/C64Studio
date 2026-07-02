@@ -953,6 +953,27 @@ namespace TestProject
     }
 
     [TestMethod]
+    public void TestSpritePanelSettingsRoundtripThroughProjectFile()
+    {
+      // Sprites-panel settings: sprite project path + selected animation id
+      // survive save/reload; old files (and fresh projects) default to "" / -1.
+      var proj = CreateTestProject( 2, 4, 3 );
+      proj.SpriteProjectFilename = @"sprites\sparkle.spriteproject";
+      proj.SelectedSpriteAnimID  = 7;
+
+      var savedBuffer = proj.SaveToBuffer();
+      var proj2 = new MapProject();
+      proj2.ReadFromBuffer( savedBuffer );
+
+      Assert.AreEqual( @"sprites\sparkle.spriteproject", proj2.SpriteProjectFilename );
+      Assert.AreEqual( 7, proj2.SelectedSpriteAnimID );
+
+      var fresh = new MapProject();
+      Assert.AreEqual( "", fresh.SpriteProjectFilename );
+      Assert.AreEqual( -1, fresh.SelectedSpriteAnimID );
+    }
+
+    [TestMethod]
     public void TestMarkerEnabledTriggeredExportedInBinary()
     {
       var proj = CreateTestProject( 2, 4, 3 );
