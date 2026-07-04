@@ -960,6 +960,8 @@ namespace TestProject
       var proj = CreateTestProject( 2, 4, 3 );
       proj.SpriteProjectFilename = @"sprites\sparkle.spriteproject";
       proj.SelectedSpriteAnimID  = 7;
+      proj.FullscreenReservedTopLines = 5;
+      proj.ShowMapSprites = false;
 
       var savedBuffer = proj.SaveToBuffer();
       var proj2 = new MapProject();
@@ -967,10 +969,46 @@ namespace TestProject
 
       Assert.AreEqual( @"sprites\sparkle.spriteproject", proj2.SpriteProjectFilename );
       Assert.AreEqual( 7, proj2.SelectedSpriteAnimID );
+      Assert.AreEqual( 5, proj2.FullscreenReservedTopLines );
+      Assert.IsFalse( proj2.ShowMapSprites );
 
       var fresh = new MapProject();
       Assert.AreEqual( "", fresh.SpriteProjectFilename );
       Assert.AreEqual( -1, fresh.SelectedSpriteAnimID );
+      Assert.AreEqual( 0, fresh.FullscreenReservedTopLines );
+      Assert.IsTrue( fresh.ShowMapSprites );
+    }
+
+    [TestMethod]
+    public void TestDisplayFilterChunkRoundtripThroughProjectFile()
+    {
+      // Per-project CRT filter state: the model stores the pipeline as an
+      // OPAQUE blob (only the editor parses it) plus the enabled flag.
+      // Round-trip must preserve both byte-exactly.
+      var proj = CreateTestProject( 2, 4, 3 );
+      proj.DisplayFiltersEnabled = true;
+      var blob = new GR.Memory.ByteBuffer();
+      blob.AppendU16( 1 );
+      blob.AppendI32( 2 );
+      blob.AppendString( "SomeFilterTypeName" );
+      blob.AppendU8( 0x5A );
+      proj.DisplayFilterData = blob;
+
+      var proj2 = new MapProject();
+      proj2.ReadFromBuffer( proj.SaveToBuffer() );
+
+      Assert.IsTrue( proj2.DisplayFiltersEnabled );
+      Assert.IsNotNull( proj2.DisplayFilterData );
+      Assert.AreEqual( blob.ToString(), proj2.DisplayFilterData.ToString() );
+
+      // A project that never had the chunk written (DisplayFilterData null)
+      // must load back with null — the editor uses that to seed from the
+      // global settings template.
+      var projNoChunk = CreateTestProject( 2, 4, 3 );
+      var proj3 = new MapProject();
+      proj3.ReadFromBuffer( projNoChunk.SaveToBuffer() );
+      Assert.IsNull( proj3.DisplayFilterData );
+      Assert.IsFalse( proj3.DisplayFiltersEnabled );
     }
 
     [TestMethod]

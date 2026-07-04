@@ -219,6 +219,9 @@
             labelBlankColor = new System.Windows.Forms.Label();
             collapsiblePanel2 = new RetroDevStudio.Controls.CollapsiblePanel();
             labelGridOpacity = new System.Windows.Forms.Label();
+            labelReservedTopLines = new System.Windows.Forms.Label();
+            editReservedTopLines = new Krypton.Toolkit.KryptonNumericUpDown();
+            btnViewFullscreen = new Krypton.Toolkit.KryptonButton();
             gridOpacitySlider = new Krypton.Toolkit.KryptonTrackBar();
             dimSlider = new Krypton.Toolkit.KryptonTrackBar();
             labelTileListRowSpacing = new System.Windows.Forms.Label();
@@ -2476,6 +2479,9 @@
             // 
             collapsiblePanel2.Collapsed = true;
             collapsiblePanel2.Controls.Add(labelGridOpacity);
+            collapsiblePanel2.Controls.Add(labelReservedTopLines);
+            collapsiblePanel2.Controls.Add(editReservedTopLines);
+            collapsiblePanel2.Controls.Add(btnViewFullscreen);
             collapsiblePanel2.Controls.Add(gridOpacitySlider);
             collapsiblePanel2.Controls.Add(dimSlider);
             collapsiblePanel2.Controls.Add(labelTileListRowSpacing);
@@ -2590,9 +2596,40 @@
             editTileListRowSpacing.TabIndex = 39;
             editTileListRowSpacing.Value = new decimal(new int[] { 4, 0, 0, 0 });
             editTileListRowSpacing.ValueChanged += editTileListRowSpacing_ValueChanged;
-            // 
+            //
+            // labelReservedTopLines
+            //
+            labelReservedTopLines.Location = new System.Drawing.Point(180, 117);
+            labelReservedTopLines.Name = "labelReservedTopLines";
+            labelReservedTopLines.Size = new System.Drawing.Size(110, 13);
+            labelReservedTopLines.TabIndex = 50;
+            labelReservedTopLines.Text = "Reserved top lines";
+            //
+            // editReservedTopLines
+            //
+            editReservedTopLines.Increment = new decimal(new int[] { 1, 0, 0, 0 });
+            editReservedTopLines.Location = new System.Drawing.Point(180, 133);
+            editReservedTopLines.Maximum = new decimal(new int[] { 24, 0, 0, 0 });
+            editReservedTopLines.Minimum = new decimal(new int[] { 0, 0, 0, 0 });
+            editReservedTopLines.Name = "editReservedTopLines";
+            editReservedTopLines.Size = new System.Drawing.Size(60, 22);
+            editReservedTopLines.TabIndex = 51;
+            toolTip1.SetToolTip(editReservedTopLines, "C64 character rows reserved at the top of the game screen for UI. The fullscreen view offsets and fits the map as if these rows sat above it.");
+            editReservedTopLines.Value = new decimal(new int[] { 0, 0, 0, 0 });
+            editReservedTopLines.ValueChanged += editReservedTopLines_ValueChanged;
+            //
+            // btnViewFullscreen
+            //
+            btnViewFullscreen.Location = new System.Drawing.Point(204, 297);
+            btnViewFullscreen.Name = "btnViewFullscreen";
+            btnViewFullscreen.Size = new System.Drawing.Size(114, 24);
+            btnViewFullscreen.TabIndex = 52;
+            toolTip1.SetToolTip(btnViewFullscreen, "Show the current map fullscreen, view-only — no grid, markers or UI. Sprites animate; Escape closes.");
+            btnViewFullscreen.Values.Text = "View fullscreen";
+            btnViewFullscreen.Click += btnViewFullscreen_Click;
+            //
             // btnShiftLeft
-            // 
+            //
             btnShiftLeft.Location = new System.Drawing.Point(10, 25);
             btnShiftLeft.Name = "btnShiftLeft";
             btnShiftLeft.Size = new System.Drawing.Size(24, 24);
@@ -2678,7 +2715,7 @@
             checkFilterEnabled.Name = "checkFilterEnabled";
             checkFilterEnabled.Size = new System.Drawing.Size(98, 22);
             checkFilterEnabled.TabIndex = 18;
-            toolTip1.SetToolTip(checkFilterEnabled, "Session-only toggle — bypasses the entire filter pipeline without changing any per-filter settings.");
+            toolTip1.SetToolTip(checkFilterEnabled, "Master switch — bypasses the entire filter pipeline without changing any per-filter settings. Saved with the map project.");
             checkFilterEnabled.Values.Text = "Filter enabled";
             checkFilterEnabled.CheckedChanged += checkFilterEnabled_CheckedChanged;
             // 
@@ -4738,6 +4775,9 @@
         private Krypton.Toolkit.KryptonTrackBar dimSlider;
         private Krypton.Toolkit.KryptonTrackBar gridOpacitySlider;
         private System.Windows.Forms.Label labelGridOpacity;
+        private System.Windows.Forms.Label labelReservedTopLines;
+        private Krypton.Toolkit.KryptonNumericUpDown editReservedTopLines;
+        private Krypton.Toolkit.KryptonButton btnViewFullscreen;
         private System.Windows.Forms.Label labelTileListRowSpacing;
         private Krypton.Toolkit.KryptonNumericUpDown editTileListRowSpacing;
         private System.Windows.Forms.Label labelTileListRowSeparatorColor;

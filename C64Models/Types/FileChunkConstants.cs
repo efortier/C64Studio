@@ -68,6 +68,12 @@
     // when an upper layer has content. Absent chunk = re-synthesize the default
     // empty layers on load (fully back-compat; pre-layer files unchanged).
     public const ushort    MAP_LAYERS                     = 0x1335;
+    // Per-project CRT display-filter state: [u8 enabled][pipeline blob]
+    // (blob = FilterPipeline.SaveToBuffer, self-describing/versioned; the
+    // model stores it opaquely — only the editor parses it). New chunk —
+    // absent = project predates per-project filters; the editor seeds from
+    // the global settings pipeline on load (fully back-compat).
+    public const ushort    MAP_DISPLAY_FILTERS            = 0x1336;
 
     public const ushort    CHARSET_PROJECT                = 0x1340;
     public const ushort    CHARSET_INFO                   = 0x1341;

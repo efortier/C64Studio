@@ -53,5 +53,25 @@ namespace RetroDevStudio.CustomRenderer.DisplayFilters
     /// </summary>
     public int        SourceWidth;
     public int        SourceHeight;
+
+    /// <summary>
+    /// Identity of the host view (the map editor document) this pass
+    /// renders for. The pipeline and its filter instances are GLOBAL —
+    /// shared by every open editor — so any per-view temporal state
+    /// (phosphor history) must be keyed by this instead of living directly
+    /// on the filter instance. Null is allowed; filters fall back to a
+    /// private key (single-view behavior).
+    /// </summary>
+    public object     StateKey;
+
+    /// <summary>
+    /// OUTPUT: set true by temporal filters (phosphor persistence) during
+    /// Apply when their result for THIS view is still evolving and the
+    /// host should keep repainting. The pipeline clears it at the start of
+    /// each run; the host reads it after Apply. Lives on the context, not
+    /// the filter, because the same filter instance serves several views
+    /// whose trails settle independently.
+    /// </summary>
+    public bool       NeedsContinuousRepaint;
   }
 }

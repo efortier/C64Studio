@@ -274,6 +274,13 @@ namespace RetroDevStudio
     // that contrasts against the dark theme without dominating.
     public uint                                 MapTileListRowSeparatorColorARGB = 0xff404040;
 
+    // Legacy/global seed for the Map editor's "Filter enabled" master
+    // switch. The live flag moved into the map project file
+    // (MapProject.DisplayFiltersEnabled); this value only seeds projects
+    // that predate per-project filters, preserving what the user had
+    // configured globally. Kept in the SETTINGS_MAP_EDITOR chunk.
+    public bool                                 MapEditorDisplayFiltersActive = false;
+
     public List<DebugMemoryViewSettings>        DebugMemoryViews = new List<DebugMemoryViewSettings>();
 
     public bool                                 CheckForUpdates = true;
@@ -287,8 +294,11 @@ namespace RetroDevStudio
 
     /// <summary>
     /// Ordered pipeline of display-time filters (scanlines, phosphor mask,
-    /// etc.). Applied after the map is fully composited; starts empty so
-    /// existing users see no visual change until they configure one.
+    /// etc.). Since filters moved into the map project file
+    /// (MAP_DISPLAY_FILTERS chunk) this global pipeline serves as the SEED
+    /// TEMPLATE: new documents and projects saved before per-project
+    /// filters existed clone their initial pipeline from here. Editing a
+    /// project's filters never writes back to this template.
     /// </summary>
     public RetroDevStudio.CustomRenderer.DisplayFilters.FilterPipeline  DisplayFilters =
         new RetroDevStudio.CustomRenderer.DisplayFilters.FilterPipeline();
@@ -974,6 +984,9 @@ namespace RetroDevStudio
       // position-check before reading these.
       chunkMapEditor.AppendI32( MapTileListRowSeparatorHeight );
       chunkMapEditor.AppendU32( MapTileListRowSeparatorColorARGB );
+      // Appended later: CRT filter master switch. Same append-only
+      // contract as above.
+      chunkMapEditor.AppendU8( (byte)( MapEditorDisplayFiltersActive ? 1 : 0 ) );
       SettingsData.Append( chunkMapEditor.ToBuffer() );
 
       GR.IO.FileChunk chunkThemeMode = new GR.IO.FileChunk( FileChunkConstants.SETTINGS_THEME_MODE );
@@ -1579,6 +1592,10 @@ namespace RetroDevStudio
               if ( binIn.Size - binIn.Position >= 4 )
               {
                 MapTileListRowSeparatorColorARGB = binIn.ReadUInt32();
+              }
+              if ( binIn.Size - binIn.Position >= 1 )
+              {
+                MapEditorDisplayFiltersActive = ( binIn.ReadUInt8() != 0 );
               }
             }
             break;

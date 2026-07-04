@@ -92,6 +92,10 @@ namespace RetroDevStudio.CustomRenderer.DisplayFilters
 
       EnsureScratchMatches( target );
 
+      // Output flag: temporal filters set it during their pass; the caller
+      // reads it after Apply to know whether to keep repainting this view.
+      baseCtx.NeedsContinuousRepaint = false;
+
       FastImage reader;
       FastImage writer;
       if ( ( enabledCount & 1 ) == 1 )
@@ -226,9 +230,13 @@ namespace RetroDevStudio.CustomRenderer.DisplayFilters
       }
       var reader = buf.MemoryReader();
       // Version byte lets us evolve the outer envelope; individual filters
-      // handle their own backward compat via their param-blob length.
+      // handle their own backward compat via their param-blob length. A
+      // version HIGHER than ours means the envelope layout itself may have
+      // changed — parsing it as v1 would misread, so bail to an empty
+      // pipeline instead (same net effect as "settings from the future").
       ushort version = reader.ReadUInt16();
-      if ( version == 0 )
+      if ( ( version == 0 )
+      ||   ( version > SAVE_VERSION ) )
       {
         return;
       }

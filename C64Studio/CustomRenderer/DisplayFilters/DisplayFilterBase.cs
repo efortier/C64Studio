@@ -20,6 +20,27 @@ namespace RetroDevStudio.CustomRenderer.DisplayFilters
 
 
 
+    /// <summary>
+    /// Verbatim source → target copy of the whole buffer. Every skip/no-op
+    /// path in a filter MUST route through this (or write all pixels some
+    /// other way) — the pipeline swaps buffers after each enabled filter,
+    /// so returning without writing hands stale scratch data downstream.
+    /// </summary>
+    protected static void CopyThrough( FilterContext ctx )
+    {
+      unsafe
+      {
+        byte* pSrc = (byte*)ctx.SourceBuffer.PinData();
+        byte* pDst = (byte*)ctx.TargetBuffer.PinData();
+        long  bytes = (long)ctx.SourceBuffer.BytesPerLine * ctx.SourceBuffer.Height;
+        System.Buffer.MemoryCopy( pSrc, pDst, bytes, bytes );
+        ctx.SourceBuffer.UnpinData();
+        ctx.TargetBuffer.UnpinData();
+      }
+    }
+
+
+
     public virtual ByteBuffer SaveParameters()
     {
       return new ByteBuffer();

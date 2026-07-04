@@ -835,6 +835,10 @@ namespace RetroDevStudio.Documents
       {
         SetMapZoomPercent( Core.Settings.MapEditorZoomPercent );
       }
+      // Establish the per-project CRT filter pipeline. For a NEW document
+      // (fresh m_MapProject, no chunk) this seeds from the global settings
+      // template; OpenProject re-runs it with the loaded project's data.
+      LoadProjectDisplayFilters();
 
       // Batch the populate loop in BeginUpdate/EndUpdate. Both ComboBox
       // and KryptonComboBox re-layout/invalidate on every Items.Add by
@@ -1111,6 +1115,25 @@ namespace RetroDevStudio.Documents
 
 
 
+    /// <summary>
+    /// Integer FLOOR division. C#'s '/' truncates toward zero, which folds
+    /// -1..-(Divisor-1) onto cell 0 — wrong for mouse→cell mapping when a
+    /// scrolled, centered map exposes cells LEFT/ABOVE the scroll position
+    /// in the centering gap (negative view-relative coordinates).
+    /// </summary>
+    private static int FloorDiv( int Value, int Divisor )
+    {
+      int q = Value / Divisor;
+      if ( ( Value % Divisor != 0 )
+      &&   ( ( Value ^ Divisor ) < 0 ) )
+      {
+        --q;
+      }
+      return q;
+    }
+
+
+
     public override bool ApplyFunction( Function Function )
     {
       if ( characterEditor.EditorFocused )
@@ -1277,6 +1300,9 @@ namespace RetroDevStudio.Documents
       ||   ( TargetBuffer.Width == 0 )
       ||   ( TargetBuffer.Height == 0 ) )
       {
+        // Early exit skips the pipeline — make sure a decay-driven repaint
+        // timer doesn't keep invalidating with nobody consuming the trail.
+        UpdateFilterAnimationTimerState( false );
         return;
       }
       int   sourceWidth = pictureEditor.DisplayPage.Width;
@@ -1288,81 +1314,18 @@ namespace RetroDevStudio.Documents
 
       GetMapRenderOffsets( out int renderOffsetX, out int renderOffsetY );
 
+      // NOTE: the tile grid is drawn at the very END of PostPaint — after
+      // the CRT filter pipeline — so it stays a crisp editing overlay
+      // instead of being blurred/warped along with the picture. Only the
+      // legacy null-map early-exit remains here.
       if ( ( m_MapProject.ShowGrid )
-      &&   ( m_MapProject.GridOpacity > 0 ) )
+      &&   ( m_MapProject.GridOpacity > 0 )
+      &&   ( m_CurrentMap == null ) )
       {
-        if ( m_CurrentMap == null )
-        {
-          pictureEditor.Invalidate();
-          return;
-        }
-
-        int offsetX = m_CurEditorOffsetX;
-        int offsetY = m_CurEditorOffsetY;
-        int viewCharWidth = ViewCharWidth;
-        int viewCharHeight = ViewCharHeight;
-        // Start back far enough to include the columns/rows the centering gap
-        // exposes left/above the scroll position (same reasoning as the tile
-        // loop in RedrawMap), clamped to 0. Otherwise the grid is missing on
-        // the exposed edge of a scrolled, centered map.
-        int gridCellWX = m_CurrentMap.TileSpacingX * 8;
-        int gridCellWY = m_CurrentMap.TileSpacingY * 8;
-        int x1 = Math.Max( 0, offsetX - ( renderOffsetX / gridCellWX ) - 1 );
-        int y1 = Math.Max( 0, offsetY - ( renderOffsetY / gridCellWY ) - 1 );
-        int x2 = Math.Min( offsetX + (int)Math.Ceiling( viewCharWidth / (float)m_CurrentMap.TileSpacingX ), offsetX + m_CurrentMap.Tiles.Width );
-        int y2 = Math.Min( offsetY + (int)Math.Ceiling( viewCharHeight / (float)m_CurrentMap.TileSpacingY ), offsetY + m_CurrentMap.Tiles.Height );
-
-        // restrict grid to actual map size
-        long    mapPixelWidth = (long)( m_CurrentMap.Tiles.Width - offsetX ) * m_CurrentMap.TileSpacingX * 8;
-        long    mapPixelHeight = (long)( m_CurrentMap.Tiles.Height - offsetY ) * m_CurrentMap.TileSpacingY * 8;
-
-        int     targetMapWidth = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( renderOffsetX + (int)mapPixelWidth, sourceWidth, targetWidth ) ) );
-        int     targetMapHeight = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( renderOffsetY + (int)mapPixelHeight, sourceHeight, targetHeight ) ) );
-
-        // Grid alpha 0..255 derived from GridOpacity 1..100. (0 was
-        // short-circuited out above.) FastImage primitives don't blend,
-        // so each grid pixel does its own read-blend-write below; using
-        // Line() with an opaque color would just paint solid white.
-        // The left/top edge follows the leftmost/topmost visible map cell,
-        // which the centering gap can push left/above renderOffset on a
-        // scrolled map; clamp to the buffer so it never goes negative.
-        int gridSrcLeft = Math.Max( 0, renderOffsetX + ( x1 - offsetX ) * gridCellWX );
-        int gridSrcTop  = Math.Max( 0, renderOffsetY + ( y1 - offsetY ) * gridCellWY );
-        int gridTopY    = ScaleCoordCeil( gridSrcTop,  sourceHeight, targetHeight );
-        int gridBottomY = targetMapHeight;
-        int gridLeftX   = ScaleCoordCeil( gridSrcLeft, sourceWidth, targetWidth );
-        int gridRightX  = targetMapWidth;
-        int gridAlpha   = ( m_MapProject.GridOpacity * 255 ) / 100;
-        if ( gridAlpha > 255 ) gridAlpha = 255;
-
-        for ( int x = x1; x <= x2; ++x )
-        {
-          int sourceX = renderOffsetX + ( x - offsetX ) * m_CurrentMap.TileSpacingX * 8;
-          int targetX = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX, sourceWidth, targetWidth ) ) );
-
-          if ( targetX <= targetMapWidth )
-          {
-            BlendGridSpanVertical( TargetBuffer, targetX, gridTopY, gridBottomY, gridAlpha );
-          }
-        }
-        for ( int y = y1; y <= y2; ++y )
-        {
-          int sourceY = renderOffsetY + ( y - offsetY ) * m_CurrentMap.TileSpacingY * 8;
-          int targetY = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( sourceY, sourceHeight, targetHeight ) ) );
-
-          if ( targetY <= targetMapHeight )
-          {
-            BlendGridSpanHorizontal( TargetBuffer, gridLeftX, gridRightX, targetY, gridAlpha );
-          }
-        }
-        /*
-        for ( int y = y1; y <= y2; ++y )
-        {
-          for ( int x = x1; x <= x2; ++x )
-          {
-            TargetBuffer.Rectangle( ( x - offsetX ) * m_CurrentMap.TileSpacingX * 16, ( y - offsetY ) * m_CurrentMap.TileSpacingY * 16, m_CurrentMap.TileSpacingX * 16, m_CurrentMap.TileSpacingY * 16, 0xffffffff );
-          }
-        }*/
+        // Same early-exit rule as above: no pipeline run on this path.
+        UpdateFilterAnimationTimerState( false );
+        pictureEditor.Invalidate();
+        return;
       }
 
       // Dim the whole map when in MARKER placement mode so the marker
@@ -1925,30 +1888,47 @@ namespace RetroDevStudio.Documents
       // region into target pixels and hand the filter chain a context that
       // lets each filter pin its effect to the scaled map rather than the
       // whole TargetBuffer (otherwise scanlines would paint over chrome).
-      var pipeline = ( Core != null ) && ( Core.Settings != null )
-                     ? Core.Settings.DisplayFilters : null;
-      // Session-only bypass: the "Filter enabled" checkbox on the Map tab is
-      // a quick kill-switch. When unchecked, we skip the pipeline entirely
+      var pipeline = m_DisplayFilters;
+      // Master bypass: the "Filter enabled" checkbox on the Map tab is a
+      // quick kill-switch. When unchecked, we skip the pipeline entirely
       // even if individual filters are configured and marked Enabled in the
-      // settings dialog. Not persisted across app restarts.
+      // settings dialog. Persisted per map project.
       bool filtersAllowed = ( checkFilterEnabled != null )
                             && checkFilterEnabled.Checked;
+      // Whether the pipeline actually ran below — when it didn't (bypass
+      // checkbox off, no filters, no map) any decay-driven repaint timer
+      // must stop, otherwise it would invalidate forever with nobody
+      // consuming the trail.
+      bool filtersRanThisPaint = false;
       if ( ( filtersAllowed )
       &&   ( pipeline != null )
       &&   ( pipeline.HasAnyEnabled )
       &&   ( m_CurrentMap != null ) )
       {
-        int filterOffsetX = m_CurEditorOffsetX;
-        int filterOffsetY = m_CurEditorOffsetY;
-        long sourceMapPixelWidth  = (long)( m_CurrentMap.Tiles.Width  - filterOffsetX ) * m_CurrentMap.TileSpacingX * 8;
-        long sourceMapPixelHeight = (long)( m_CurrentMap.Tiles.Height - filterOffsetY ) * m_CurrentMap.TileSpacingY * 8;
-        int  sourceMapEndX = renderOffsetX + (int)sourceMapPixelWidth;
-        int  sourceMapEndY = renderOffsetY + (int)sourceMapPixelHeight;
+        // The map's TRUE top-left in source-page coordinates. renderOffset
+        // is where the SCROLL cell lands, but a scrolled, centered map
+        // draws cells left of / above that into the centering gap (same
+        // reasoning as the grid loop above) — anchoring the filter rect at
+        // renderOffset would leave those visible map pixels unfiltered,
+        // with a hard seam at the scroll cell boundary.
+        long mapLeftSrc  = renderOffsetX - (long)m_CurEditorOffsetX * m_CurrentMap.TileSpacingX * 8;
+        long mapTopSrc   = renderOffsetY - (long)m_CurEditorOffsetY * m_CurrentMap.TileSpacingY * 8;
+        long mapRightSrc = mapLeftSrc + (long)m_CurrentMap.Tiles.Width  * m_CurrentMap.TileSpacingX * 8;
+        long mapBotSrc   = mapTopSrc  + (long)m_CurrentMap.Tiles.Height * m_CurrentMap.TileSpacingY * 8;
 
-        int  targetMapX    = Math.Max( 0, Math.Min( targetWidth,  ScaleCoordCeil( renderOffsetX, sourceWidth,  targetWidth  ) ) );
-        int  targetMapY    = Math.Max( 0, Math.Min( targetHeight, ScaleCoordCeil( renderOffsetY, sourceHeight, targetHeight ) ) );
-        int  targetMapEndX = Math.Max( 0, Math.Min( targetWidth,  ScaleCoordCeil( sourceMapEndX, sourceWidth,  targetWidth  ) ) );
-        int  targetMapEndY = Math.Max( 0, Math.Min( targetHeight, ScaleCoordCeil( sourceMapEndY, sourceHeight, targetHeight ) ) );
+        // Visible slice of the map in source pixels — intersection with the
+        // DisplayPage. Filters derive scanline alignment and zoom from the
+        // Source/MapPixel ratio, so BOTH rects must describe the exact same
+        // region.
+        int  visibleSrcX    = (int)Math.Max( 0, Math.Min( sourceWidth,  mapLeftSrc ) );
+        int  visibleSrcY    = (int)Math.Max( 0, Math.Min( sourceHeight, mapTopSrc ) );
+        int  visibleSrcEndX = (int)Math.Max( 0, Math.Min( sourceWidth,  mapRightSrc ) );
+        int  visibleSrcEndY = (int)Math.Max( 0, Math.Min( sourceHeight, mapBotSrc ) );
+
+        int  targetMapX    = Math.Max( 0, Math.Min( targetWidth,  ScaleCoordCeil( visibleSrcX,    sourceWidth,  targetWidth  ) ) );
+        int  targetMapY    = Math.Max( 0, Math.Min( targetHeight, ScaleCoordCeil( visibleSrcY,    sourceHeight, targetHeight ) ) );
+        int  targetMapEndX = Math.Max( 0, Math.Min( targetWidth,  ScaleCoordCeil( visibleSrcEndX, sourceWidth,  targetWidth  ) ) );
+        int  targetMapEndY = Math.Max( 0, Math.Min( targetHeight, ScaleCoordCeil( visibleSrcEndY, sourceHeight, targetHeight ) ) );
 
         var ctx = new CustomRenderer.DisplayFilters.FilterContext
         {
@@ -1959,10 +1939,105 @@ namespace RetroDevStudio.Documents
           // The "source" for filter purposes is the unscaled map, not the
           // DisplayPage — that's what drives scanline alignment and column
           // phase at any zoom level.
-          SourceWidth  = (int)sourceMapPixelWidth,
-          SourceHeight = (int)sourceMapPixelHeight,
+          SourceWidth  = Math.Max( 0, visibleSrcEndX - visibleSrcX ),
+          SourceHeight = Math.Max( 0, visibleSrcEndY - visibleSrcY ),
+          // Temporal filters (phosphor persistence) key their history by
+          // the host view — the pipeline instance is global across all
+          // open map editors.
+          StateKey = this,
         };
         pipeline.Apply( TargetBuffer, ctx );
+        filtersRanThisPaint = true;
+        UpdateFilterAnimationTimerState( ctx.NeedsContinuousRepaint );
+      }
+      if ( !filtersRanThisPaint )
+      {
+        UpdateFilterAnimationTimerState( false );
+      }
+
+      // Tile grid LAST — deliberately AFTER the CRT pipeline so it stays a
+      // crisp, full-opacity editing overlay instead of being blurred and
+      // dimmed with the picture. Side effects of the overlay position:
+      // with Barrel Distortion the map curves under a straight grid (lines
+      // drift off tile boundaries toward the screen edges), and the
+      // MARKER-mode dim no longer darkens the grid — both inherent to an
+      // on-top overlay.
+      if ( ( m_MapProject.ShowGrid )
+      &&   ( m_MapProject.GridOpacity > 0 )
+      &&   ( m_CurrentMap != null ) )
+      {
+        DrawGridOverlay( TargetBuffer, renderOffsetX, renderOffsetY,
+                         sourceWidth, sourceHeight, targetWidth, targetHeight,
+                         targetMaxX, targetMaxY );
+      }
+    }
+
+
+
+    /// <summary>
+    /// Draws the tile grid into the target buffer (alpha-blended per pixel
+    /// — FastImage primitives don't blend). Extracted from PostPaint so it
+    /// can run after the CRT filter pipeline; the coordinate math matches
+    /// RedrawMap's cell placement, including the columns/rows the centering
+    /// gap exposes left/above the scroll position on a scrolled map.
+    /// </summary>
+    private void DrawGridOverlay( GR.Image.FastImage TargetBuffer,
+                                  int renderOffsetX, int renderOffsetY,
+                                  int sourceWidth, int sourceHeight,
+                                  int targetWidth, int targetHeight,
+                                  int targetMaxX, int targetMaxY )
+    {
+      int offsetX = m_CurEditorOffsetX;
+      int offsetY = m_CurEditorOffsetY;
+      int viewCharWidth = ViewCharWidth;
+      int viewCharHeight = ViewCharHeight;
+      int gridCellWX = m_CurrentMap.TileSpacingX * 8;
+      int gridCellWY = m_CurrentMap.TileSpacingY * 8;
+      int x1 = Math.Max( 0, offsetX - ( renderOffsetX / gridCellWX ) - 1 );
+      int y1 = Math.Max( 0, offsetY - ( renderOffsetY / gridCellWY ) - 1 );
+      int x2 = Math.Min( offsetX + (int)Math.Ceiling( viewCharWidth / (float)m_CurrentMap.TileSpacingX ), offsetX + m_CurrentMap.Tiles.Width );
+      int y2 = Math.Min( offsetY + (int)Math.Ceiling( viewCharHeight / (float)m_CurrentMap.TileSpacingY ), offsetY + m_CurrentMap.Tiles.Height );
+
+      // restrict grid to actual map size
+      long    mapPixelWidth = (long)( m_CurrentMap.Tiles.Width - offsetX ) * m_CurrentMap.TileSpacingX * 8;
+      long    mapPixelHeight = (long)( m_CurrentMap.Tiles.Height - offsetY ) * m_CurrentMap.TileSpacingY * 8;
+
+      int     targetMapWidth = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( renderOffsetX + (int)mapPixelWidth, sourceWidth, targetWidth ) ) );
+      int     targetMapHeight = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( renderOffsetY + (int)mapPixelHeight, sourceHeight, targetHeight ) ) );
+
+      // Grid alpha 0..255 derived from GridOpacity 1..100 (0 is
+      // short-circuited by the caller). The left/top edge follows the
+      // leftmost/topmost visible map cell, which the centering gap can
+      // push left/above renderOffset on a scrolled map; clamp to the
+      // buffer so it never goes negative.
+      int gridSrcLeft = Math.Max( 0, renderOffsetX + ( x1 - offsetX ) * gridCellWX );
+      int gridSrcTop  = Math.Max( 0, renderOffsetY + ( y1 - offsetY ) * gridCellWY );
+      int gridTopY    = ScaleCoordCeil( gridSrcTop,  sourceHeight, targetHeight );
+      int gridBottomY = targetMapHeight;
+      int gridLeftX   = ScaleCoordCeil( gridSrcLeft, sourceWidth, targetWidth );
+      int gridRightX  = targetMapWidth;
+      int gridAlpha   = ( m_MapProject.GridOpacity * 255 ) / 100;
+      if ( gridAlpha > 255 ) gridAlpha = 255;
+
+      for ( int x = x1; x <= x2; ++x )
+      {
+        int sourceX = renderOffsetX + ( x - offsetX ) * m_CurrentMap.TileSpacingX * 8;
+        int targetX = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX, sourceWidth, targetWidth ) ) );
+
+        if ( targetX <= targetMapWidth )
+        {
+          BlendGridSpanVertical( TargetBuffer, targetX, gridTopY, gridBottomY, gridAlpha );
+        }
+      }
+      for ( int y = y1; y <= y2; ++y )
+      {
+        int sourceY = renderOffsetY + ( y - offsetY ) * m_CurrentMap.TileSpacingY * 8;
+        int targetY = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( sourceY, sourceHeight, targetHeight ) ) );
+
+        if ( targetY <= targetMapHeight )
+        {
+          BlendGridSpanHorizontal( TargetBuffer, gridLeftX, gridRightX, targetY, gridAlpha );
+        }
       }
     }
 
@@ -2066,6 +2141,20 @@ namespace RetroDevStudio.Documents
         m_SpriteAnimTimer.Stop();
         m_SpriteAnimTimer.Dispose();
         m_SpriteAnimTimer = null;
+      }
+      if ( m_FilterAnimationTimer != null )
+      {
+        m_FilterAnimationTimer.Stop();
+        m_FilterAnimationTimer.Dispose();
+        m_FilterAnimationTimer = null;
+      }
+      // The filter dialog edits THIS document's pipeline — close it with
+      // the document so it can't keep mutating (and invalidating) a
+      // disposed editor.
+      if ( ( m_DisplayFiltersDialog != null )
+      &&   ( !m_DisplayFiltersDialog.IsDisposed ) )
+      {
+        m_DisplayFiltersDialog.Close();
       }
       m_MapSpriteInstances.Clear();
       m_SelectedSprites.Clear();
@@ -3226,14 +3315,17 @@ namespace RetroDevStudio.Documents
       sourceX -= renderOffsetX;
       sourceY -= renderOffsetY;
 
-      //sourceX = Math.Max( 0, Math.Min( pictureEditor.DisplayPage.Width - 1, sourceX ) );
-      //sourceY = Math.Max( 0, Math.Min( pictureEditor.DisplayPage.Height - 1, sourceY ) );
+      // sourceX/Y can be legitimately NEGATIVE: a scrolled, centered map
+      // draws the cells left/above the scroll position into the centering
+      // gap (see RedrawMap's cell loop). All divisions below must FLOOR —
+      // plain '/' truncates toward zero, which folds the first exposed
+      // cell onto the scroll cell and made clicks in the gap select the
+      // wrong marker/sprite/tile ("clicking 0,0 hits somewhere else").
+      int     charX = FloorDiv( sourceX, 8 );
+      int     charY = FloorDiv( sourceY, 8 );
 
-      int     charX = sourceX / 8;
-      int     charY = sourceY / 8;
-
-      m_MousePos.X = charX / m_CurrentMap.TileSpacingX;
-      m_MousePos.Y = charY / m_CurrentMap.TileSpacingY;
+      m_MousePos.X = FloorDiv( charX, m_CurrentMap.TileSpacingX );
+      m_MousePos.Y = FloorDiv( charY, m_CurrentMap.TileSpacingY );
       if ( m_FloatingSelection != null )
       {
         if ( m_MousePos != m_FloatingSelectionPos )
@@ -3258,24 +3350,26 @@ namespace RetroDevStudio.Documents
       int offsetX = m_CurEditorOffsetX;
       int offsetY = m_CurEditorOffsetY;
 
-      if ( ( charX < 0 )
-      ||   ( charX >= viewCharWidth )
-      ||   ( charY < 0 )
+      // Negative view coords are VALID here (cells exposed in the centering
+      // gap of a scrolled map) — only clicks past the right/bottom viewport
+      // edge are out; the gap side is bounded by the absolute-coordinate
+      // check below instead.
+      if ( ( charX >= viewCharWidth )
       ||   ( charY >= viewCharHeight ) )
       {
         return;
       }
 
-      int trueX = charX / m_CurrentMap.TileSpacingX;
-      int trueY = charY / m_CurrentMap.TileSpacingY;
+      int trueX = FloorDiv( charX, m_CurrentMap.TileSpacingX );
+      int trueY = FloorDiv( charY, m_CurrentMap.TileSpacingY );
 
       // Absolute map position in PIXELS / CHARACTER cells — the sprite panel's
       // coordinate space (8 px char cells, independent of tile spacing; the
       // scroll offset is in TILES, hence the spacing factor).
       int absPxX = sourceX + offsetX * m_CurrentMap.TileSpacingX * 8;
       int absPxY = sourceY + offsetY * m_CurrentMap.TileSpacingY * 8;
-      int absCharX = absPxX / 8;
-      int absCharY = absPxY / 8;
+      int absCharX = FloorDiv( absPxX, 8 );
+      int absCharY = FloorDiv( absPxY, 8 );
 
       if ( ( trueX + offsetX < 0 )
       ||   ( trueX + offsetX >= m_CurrentMap.Tiles.Width )
@@ -3294,14 +3388,26 @@ namespace RetroDevStudio.Documents
         }
       }
 
-      if ( sourceX < 0 )
+      // Two rejections, both required:
+      // 1. Left/above the map ORIGIN (absolute cell < 0) — that part of the
+      //    centering gap holds no content for any tool (markers and sprites
+      //    are 0..255, tiles are 0..map size). Clicks on EXPOSED map cells
+      //    inside the gap (negative view coords, absolute cell >= 0) flow
+      //    through — the old view-relative rejection here made every
+      //    marker/sprite/tile drawn in the gap unclickable on a scrolled map.
+      // 2. Left/above the CONTROL itself (pre-centering pixel < 0): with the
+      //    button held, mouse capture delivers negative client coords when
+      //    the cursor leaves the control — on a scrolled map larger than the
+      //    viewport those would resolve to valid absolute cells that are OFF
+      //    SCREEN, silently editing cells the user can't see. sourceX already
+      //    has renderOffset subtracted, so "< -renderOffset" is exactly
+      //    "client pixel < 0"; for a centered map this still admits the
+      //    entire gap.
+      if ( ( trueX + offsetX < 0 )
+      ||   ( trueY + offsetY < 0 )
+      ||   ( sourceX < -renderOffsetX )
+      ||   ( sourceY < -renderOffsetY ) )
       {
-        // outside!
-        return;
-      }
-      if ( sourceY < 0 )
-      {
-        // outside!
         return;
       }
 
@@ -4025,10 +4131,18 @@ namespace RetroDevStudio.Documents
 
                 CalcRect( m_DragStartPos, m_LastDragEndPos, out o1, out o2 );
 
+                // Restore must target the SAME pixels the preview drew to:
+                // renderOffset + (cell - scroll) * cellSize — the same
+                // formula DrawTile uses. Without the renderOffset term the
+                // restore wiped a region shifted left/up on a centered map,
+                // leaving ghost preview tiles when the drag shrank.
                 m_Image.DrawTo( pictureEditor.DisplayPage,
-                                ( o1.X - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX, ( o1.Y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
-                                ( o1.X - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX, ( o1.Y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
-                                ( o2.X - o1.X + 1 ) * 8 * m_CurrentMap.TileSpacingX, ( o2.Y - o1.Y + 1 ) * 8 * m_CurrentMap.TileSpacingY );
+                                renderOffsetX + ( o1.X - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
+                                renderOffsetY + ( o1.Y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
+                                renderOffsetX + ( o1.X - m_CurEditorOffsetX ) * 8 * m_CurrentMap.TileSpacingX,
+                                renderOffsetY + ( o1.Y - m_CurEditorOffsetY ) * 8 * m_CurrentMap.TileSpacingY,
+                                ( o2.X - o1.X + 1 ) * 8 * m_CurrentMap.TileSpacingX,
+                                ( o2.Y - o1.Y + 1 ) * 8 * m_CurrentMap.TileSpacingY );
 
                 pictureEditor.Invalidate( new System.Drawing.Rectangle( o1.X * 8 * m_CurrentMap.TileSpacingX, o1.Y * 8 * m_CurrentMap.TileSpacingY, ( o2.X - o1.X + 1 ) * 8 * m_CurrentMap.TileSpacingX, ( o2.Y - o1.Y + 1 ) * 8 * m_CurrentMap.TileSpacingY ) );
               }
@@ -4460,7 +4574,13 @@ namespace RetroDevStudio.Documents
           Redraw();
           return;
         }
-        if ( m_ToolMode == ToolMode.ENTITY )
+        if ( m_PendingSpritePlacementAnimID.HasValue )
+        {
+          // An armed sprite placement owns the mouse — a right-click must
+          // not eyedrop or paint the tile underneath the placement cursor.
+          // Deliberately empty (Escape cancels the placement).
+        }
+        else if ( m_ToolMode == ToolMode.ENTITY )
         {
            int clickX = trueX + offsetX;
            int clickY = trueY + offsetY;
@@ -4492,6 +4612,12 @@ namespace RetroDevStudio.Documents
            // Right-click does nothing in MARKER mode — marker selection is
            // left-click only. The branch is kept (empty) so a right-click
            // here doesn't fall through to the tile-eyedrop action below.
+        }
+        else if ( m_ToolMode == ToolMode.SPRITE )
+        {
+           // Same fall-through stop for SPRITE mode — sprite selection is
+           // left-click only; without this an innocent right-click would
+           // eyedrop or even PAINT the tile under the cursor.
         }
         else if ( string.IsNullOrEmpty( m_MapProject.RightClickAction ) )
         {
@@ -5392,6 +5518,14 @@ namespace RetroDevStudio.Documents
       comboRightClickBehavior.SelectedIndexChanged += comboRightClickBehavior_SelectedIndexChanged;
       comboRightClickBehavior.EndUpdate();
 
+      // Fullscreen preview's reserved HUD rows + Sprites panel visibility —
+      // populate from the project. Both handlers compare against the stored
+      // project value before writing/marking modified, so the populate
+      // (which writes the stored value itself) is a guaranteed no-op and
+      // needs no handler detach.
+      editReservedTopLines.Value = Math.Max( 0, Math.Min( 24, m_MapProject.FullscreenReservedTopLines ) );
+      checkShowMapSprites.Checked = m_MapProject.ShowMapSprites;
+
       // Mirror the same Default-first-then-tiles pattern for the
       // shift-click blank tile combo. "Default" means "use tile 0" so
       // shift-click always has SOME defined action even when the user
@@ -5447,6 +5581,9 @@ namespace RetroDevStudio.Documents
       // Silent on missing files; the populate path detaches its combo handler,
       // so this can never dirty the freshly opened document.
       LoadMapSpriteProject();
+      // Per-project CRT filters (seeds from the global settings pipeline
+      // for projects that predate the chunk).
+      LoadProjectDisplayFilters();
     }
 
     /// <summary>
@@ -5696,6 +5833,10 @@ namespace RetroDevStudio.Documents
       m_MapProject.CharactersPerRow = characterEditor.CharactersPerRow;
       m_MapProject.CharacterEditorMode = characterEditor.EditorMode;
       m_MapProject.ColorSwatchSize = characterEditor.SwatchSize;
+      // Per-project CRT filters: serialize the live pipeline into the model
+      // so the saved chunk always reflects the latest dialog edits.
+      m_MapProject.DisplayFilterData = m_DisplayFilters.SaveToBuffer();
+      m_MapProject.DisplayFiltersEnabled = checkFilterEnabled.Checked;
       UpdateMarkerOutOfBoundsLabel();
       return m_MapProject.SaveToBuffer();
     }
@@ -11309,17 +11450,102 @@ namespace RetroDevStudio.Documents
 
 
 
-    // Modeless dialog reference — kept so a second click on the toolbar
-    // button re-focuses the existing dialog instead of opening a new one.
+    // Per-document CRT filter pipeline — persisted in the map project file
+    // (MAP_DISPLAY_FILTERS chunk). Seeded from the global settings pipeline
+    // for projects that predate per-project filters. Never null.
+    private CustomRenderer.DisplayFilters.FilterPipeline  m_DisplayFilters =
+        new CustomRenderer.DisplayFilters.FilterPipeline();
+
+    // Modeless dialog reference — per document, since each document owns
+    // its pipeline now. Kept so a second click re-focuses the existing
+    // dialog instead of opening a new one; closed with the document.
     private Dialogs.DlgDisplayFilters  m_DisplayFiltersDialog;
+
+    // Drives repaints while a temporal filter (phosphor persistence) still
+    // has a decaying trail on screen. Created lazily on first need; running
+    // state == "a trail is currently decaying". PostPaint updates the state
+    // after every pipeline run, so the timer self-stops one paint after the
+    // trail settles.
+    private Timer                      m_FilterAnimationTimer;
+
+
+
+    private void UpdateFilterAnimationTimerState( bool needsRepaints )
+    {
+      if ( !needsRepaints )
+      {
+        if ( ( m_FilterAnimationTimer != null )
+        &&   ( m_FilterAnimationTimer.Enabled ) )
+        {
+          m_FilterAnimationTimer.Stop();
+        }
+        return;
+      }
+      if ( m_FilterAnimationTimer == null )
+      {
+        m_FilterAnimationTimer = new Timer
+        {
+          Interval = 30
+        };
+        m_FilterAnimationTimer.Tick += ( s, e ) => pictureEditor.Invalidate();
+      }
+      if ( !m_FilterAnimationTimer.Enabled )
+      {
+        m_FilterAnimationTimer.Start();
+      }
+    }
+
+
+
+    /// <summary>
+    /// Establishes the document's per-project filter pipeline from the
+    /// loaded project. Projects saved before per-project filters existed
+    /// have no chunk — those seed from the GLOBAL settings pipeline (the
+    /// user's pre-migration configuration), written into the model so it
+    /// rides along with the next real save. Never marks modified itself;
+    /// the checkbox handler's value-equality guard keeps the populate
+    /// clean.
+    /// </summary>
+    private void LoadProjectDisplayFilters()
+    {
+      if ( m_MapProject.DisplayFilterData == null )
+      {
+        m_DisplayFilters.Filters.Clear();
+        var seed = ( Core != null ) && ( Core.Settings != null )
+                   ? Core.Settings.DisplayFilters : null;
+        if ( seed != null )
+        {
+          foreach ( var f in seed.Filters )
+          {
+            m_DisplayFilters.Filters.Add( f.Clone() );
+          }
+          m_MapProject.DisplayFiltersEnabled = Core.Settings.MapEditorDisplayFiltersActive;
+        }
+        m_MapProject.DisplayFilterData = m_DisplayFilters.SaveToBuffer();
+      }
+      else
+      {
+        m_DisplayFilters.LoadFromBuffer( m_MapProject.DisplayFilterData );
+      }
+      // Set the project field first (done above / by the loader), THEN the
+      // checkbox — its handler compares against the project value, so this
+      // populate can never mark the document modified.
+      checkFilterEnabled.Checked = m_MapProject.DisplayFiltersEnabled;
+    }
 
 
 
     private void checkFilterEnabled_CheckedChanged( object sender, EventArgs e )
     {
-      // Session-only bypass toggle: does NOT persist, does NOT mutate the
-      // per-filter Enabled flags. Just repaints so the PostPaint gate picks
-      // up the new checkbox state.
+      // Per-project master bypass: does NOT mutate the per-filter Enabled
+      // flags. A REAL toggle marks the document modified; the value-
+      // equality check keeps the load-time populate clean.
+      if ( ( m_MapProject != null )
+      &&   ( m_MapProject.DisplayFiltersEnabled != checkFilterEnabled.Checked ) )
+      {
+        m_MapProject.DisplayFiltersEnabled = checkFilterEnabled.Checked;
+        SetModified();
+      }
       pictureEditor.Invalidate();
     }
 
@@ -11327,9 +11553,9 @@ namespace RetroDevStudio.Documents
 
     private void btnDisplayFilters_Click( object sender, EventArgs e )
     {
-      // Re-focus if already open. Checking IsDisposed first because the form
-      // nulls its handles on close, and WinForms raises an exception if you
-      // call Focus() on a disposed form.
+      // Re-focus if already open. Checking IsDisposed first because the
+      // form nulls its handles on close, and WinForms raises an exception
+      // if you call Focus() on a disposed form.
       if ( ( m_DisplayFiltersDialog != null )
       &&   ( !m_DisplayFiltersDialog.IsDisposed ) )
       {
@@ -11337,21 +11563,15 @@ namespace RetroDevStudio.Documents
         return;
       }
 
-      var pipeline = ( Core != null ) && ( Core.Settings != null )
-                     ? Core.Settings.DisplayFilters : null;
-      if ( pipeline == null )
-      {
-        return;
-      }
-
       m_DisplayFiltersDialog = new Dialogs.DlgDisplayFilters(
-          pipeline,
+          m_DisplayFilters,
           () =>
           {
-            // Callback fires on any pipeline edit in the dialog. Filters
-            // run in PostPaint so all we need to trigger is a repaint; no
-            // RedrawMap needed since the underlying DisplayPage hasn't
-            // changed.
+            // Callback fires on any pipeline edit in the dialog. The
+            // pipeline is PROJECT data now, so every edit marks the
+            // document modified. Filters run in PostPaint, so a repaint is
+            // all that's needed — the underlying DisplayPage is unchanged.
+            SetModified();
             pictureEditor.Invalidate();
           },
           Core );
@@ -11372,6 +11592,144 @@ namespace RetroDevStudio.Documents
       var fullImage = new GR.Image.MemoryImage( m_CurrentMap.TileSpacingX * m_CurrentMap.Tiles.Width * 8,
                                                 m_CurrentMap.TileSpacingY * m_CurrentMap.Tiles.Height * 8,
                                                 GR.Drawing.PixelFormat.Format32bppRgb );
+      RenderFullMapToImage( fullImage );
+
+      Clipboard.SetImage( fullImage.GetAsBitmap() );
+    }
+
+
+
+    private void editReservedTopLines_ValueChanged( object sender, EventArgs e )
+    {
+      // Game-screen layout parameter for the fullscreen preview — persisted
+      // in the project file, so a REAL change marks the document modified.
+      // The value-equality check keeps the load-time populate clean: it
+      // writes the control from the project, so the handler sees equal
+      // values and does nothing.
+      if ( m_MapProject == null )
+      {
+        return;
+      }
+      int newValue = (int)editReservedTopLines.Value;
+      if ( m_MapProject.FullscreenReservedTopLines == newValue )
+      {
+        return;
+      }
+      m_MapProject.FullscreenReservedTopLines = newValue;
+      SetModified();
+    }
+
+
+
+    private void btnViewFullscreen_Click( object sender, EventArgs e )
+    {
+      if ( m_CurrentMap == null )
+      {
+        return;
+      }
+      int mapPixelW = m_CurrentMap.TileSpacingX * m_CurrentMap.Tiles.Width * 8;
+      int mapPixelH = m_CurrentMap.TileSpacingY * m_CurrentMap.Tiles.Height * 8;
+      if ( ( mapPixelW <= 0 )
+      ||   ( mapPixelH <= 0 ) )
+      {
+        return;
+      }
+
+      using ( var mapImage = new GR.Image.FastImage( mapPixelW, mapPixelH, GR.Drawing.PixelFormat.Format32bppRgb ) )
+      {
+        RenderFullMapToImage( mapImage );
+
+        uint bgColorIndex = (uint)m_MapProject.BackgroundColor;
+        if ( m_CurrentMap.AlternativeBackgroundColor != -1 )
+        {
+          bgColorIndex = (uint)m_CurrentMap.AlternativeBackgroundColor;
+        }
+        uint bgARGB = (uint)m_MapProject.Charset.Colors.Palette.ColorValues[bgColorIndex];
+
+        // Sprites follow the editor's Show checkbox and render/animate with
+        // the exact same code paths (shared instance state).
+        bool haveSprites = ( m_MapSpriteProject != null )
+                        && ( checkShowMapSprites.Checked )
+                        && ( CurrentMapSpriteInstances( false )?.Count > 0 );
+        Action<GR.Image.IImage> composeSprites = null;
+        Func<int, bool>         advanceFrames = null;
+        int padLeft = 0, padTop = 0, padRight = 0, padBottom = 0;
+        if ( haveSprites )
+        {
+          // Sprites near the map edges overhang it (into the border on real
+          // hardware) — pad the fullscreen compose buffer by the actual
+          // overhang so they aren't clipped at the map rect.
+          foreach ( var inst in CurrentMapSpriteInstances( false ) )
+          {
+            if ( !m_SpriteAnimLookup.TryGetValue( inst.AnimationID, out var overlay ) )
+            {
+              continue;
+            }
+            var bb = OverlayBoundingBox( overlay );
+            if ( bb.IsEmpty )
+            {
+              continue;
+            }
+            int left = inst.CharX * 8 + inst.OffsetX;
+            int top  = inst.CharY * 8 + inst.OffsetY;
+            padLeft   = Math.Max( padLeft,   -left );
+            padTop    = Math.Max( padTop,    -top );
+            padRight  = Math.Max( padRight,  left + bb.Width  - mapPixelW );
+            padBottom = Math.Max( padBottom, top + bb.Height - mapPixelH );
+          }
+          int composeBaseX = padLeft;
+          int composeBaseY = padTop;
+          composeSprites = img => DrawSpriteInstancesToImage( img, composeBaseX, composeBaseY );
+          advanceFrames  = ms => AdvanceSpriteFrames( ms, out _ );
+        }
+
+        // CRT filters follow the Map tab's master switch (per-project).
+        var pipeline = checkFilterEnabled.Checked ? m_DisplayFilters : null;
+
+        // The fullscreen view advances the SHARED sprite frame state on its
+        // own timer — pause the editor's timers for the modal duration so
+        // frames don't double-step (all timers share this UI thread).
+        if ( m_SpriteAnimTimer != null )
+        {
+          m_SpriteAnimTimer.Stop();
+        }
+        UpdateFilterAnimationTimerState( false );
+        try
+        {
+          using ( var view = new Dialogs.FormFullscreenMapView( this, mapImage, bgARGB,
+                      m_MapProject.FullscreenReservedTopLines,
+                      composeSprites, advanceFrames, pipeline,
+                      padLeft, padTop, padRight, padBottom ) )
+          {
+            view.ShowDialog( this.FindForm() );
+          }
+        }
+        finally
+        {
+          UpdateSpriteAnimTimerState();
+          RedrawMap();
+          Redraw();
+          pictureEditor.Invalidate();
+        }
+      }
+    }
+
+
+
+    /// <summary>
+    /// Renders the COMPLETE current map (background + tiles with per-char
+    /// color overrides, multi-cell tile coverage) into the given image at
+    /// 1:1 source pixels. No grid, markers, entities or other editor
+    /// chrome. Shared by "copy map as image" and the fullscreen preview.
+    /// The image must already be sized to
+    /// TileSpacing * Tiles.Width/Height * 8 and be 32bpp.
+    /// </summary>
+    private void RenderFullMapToImage( GR.Image.IImage fullImage )
+    {
+      if ( m_CurrentMap == null )
+      {
+        return;
+      }
 
       uint    bgColor = (uint)m_MapProject.BackgroundColor;
       if ( ( m_CurrentMap != null )
@@ -11475,8 +11833,6 @@ namespace RetroDevStudio.Documents
           }
         }
       }
-
-      Clipboard.SetImage( fullImage.GetAsBitmap() );
     }
 
 
@@ -12876,7 +13232,29 @@ namespace RetroDevStudio.Documents
       GetMapRenderOffsets( out int renderOffsetX, out int renderOffsetY );
       int scrollPxX = m_CurEditorOffsetX * m_CurrentMap.TileSpacingX * 8;
       int scrollPxY = m_CurEditorOffsetY * m_CurrentMap.TileSpacingY * 8;
-      var page = pictureEditor.DisplayPage;
+      DrawSpriteInstancesToImage( pictureEditor.DisplayPage,
+                                  renderOffsetX - scrollPxX,
+                                  renderOffsetY - scrollPxY );
+    }
+
+
+
+    /// <summary>
+    /// Draws the current map's sprite instances (at their current animation
+    /// frames) into the given image. BasePx is the pixel position of map
+    /// coordinate (0,0) inside the image — the editor passes
+    /// renderOffset − scrollPx; the fullscreen preview passes (0,0) since
+    /// its compose buffer IS the full map at 1:1.
+    /// </summary>
+    private void DrawSpriteInstancesToImage( GR.Image.IImage page, int BasePxX, int BasePxY )
+    {
+      var instances = CurrentMapSpriteInstances( false );
+      if ( ( instances == null )
+      ||   ( instances.Count == 0 )
+      ||   ( m_MapSpriteProject == null ) )
+      {
+        return;
+      }
       // The panel's test-only colour override outranks everything (combo
       // index 0 = "None" = -1 = inactive).
       int panelColorOverride = comboSpriteColorOverride.SelectedIndex - 1;
@@ -12902,8 +13280,8 @@ namespace RetroDevStudio.Documents
         }
         // Anchor the overlay's visible bounding-box top-left on the instance's
         // char cell + pixel offset.
-        int originX = renderOffsetX + inst.CharX * 8 + inst.OffsetX - scrollPxX - bb.X;
-        int originY = renderOffsetY + inst.CharY * 8 + inst.OffsetY - scrollPxY - bb.Y;
+        int originX = BasePxX + inst.CharX * 8 + inst.OffsetX - bb.X;
+        int originY = BasePxY + inst.CharY * 8 + inst.OffsetY - bb.Y;
         if ( ( originX + bb.X + bb.Width <= 0 )
         ||   ( originY + bb.Y + bb.Height <= 0 )
         ||   ( originX + bb.X >= page.Width )
@@ -13024,9 +13402,41 @@ namespace RetroDevStudio.Documents
         return;
       }
 
-      int dt = m_SpriteAnimTimer.Interval;
+      bool anyAdvanced = AdvanceSpriteFrames( m_SpriteAnimTimer.Interval, out bool anyLive );
+
+      if ( anyAdvanced )
+      {
+        // Redraw() restores the DisplayPage from the clean m_Image cache and
+        // ends by re-drawing the sprites at their new frames; Invalidate then
+        // recomposites. No tile re-render happens on the animation path.
+        Redraw();
+        pictureEditor.Invalidate();
+      }
+      if ( !anyLive )
+      {
+        m_SpriteAnimTimer.Stop();
+      }
+    }
+
+
+
+    /// <summary>
+    /// Advances every animating sprite instance of the current map by
+    /// ElapsedMs. Returns true when at least one frame index changed;
+    /// AnyLive reports whether anything can still animate (drives timer
+    /// self-stop). Shared by the editor's animation timer and the
+    /// fullscreen preview (which pauses the editor timer while open, so
+    /// the shared FramePos state advances exactly once per tick).
+    /// </summary>
+    private bool AdvanceSpriteFrames( int ElapsedMs, out bool AnyLive )
+    {
+      AnyLive = false;
       bool anyAdvanced = false;
-      bool anyLive = false;
+      var instances = CurrentMapSpriteInstances( false );
+      if ( instances == null )
+      {
+        return false;
+      }
       foreach ( var inst in instances )
       {
         if ( !m_SpriteAnimLookup.TryGetValue( inst.AnimationID, out var overlay ) )
@@ -13043,10 +13453,10 @@ namespace RetroDevStudio.Documents
         {
           continue;   // finished non-looping animation holds its last frame
         }
-        anyLive = true;
+        AnyLive = true;
 
         int frameDelayMs = Math.Max( 20, overlay.FrameDelay * 20 );
-        inst.FrameTicks += dt;
+        inst.FrameTicks += ElapsedMs;
         while ( inst.FrameTicks >= frameDelayMs )
         {
           inst.FrameTicks -= frameDelayMs;
@@ -13067,19 +13477,7 @@ namespace RetroDevStudio.Documents
           }
         }
       }
-
-      if ( anyAdvanced )
-      {
-        // Redraw() restores the DisplayPage from the clean m_Image cache and
-        // ends by re-drawing the sprites at their new frames; Invalidate then
-        // recomposites. No tile re-render happens on the animation path.
-        Redraw();
-        pictureEditor.Invalidate();
-      }
-      if ( !anyLive )
-      {
-        m_SpriteAnimTimer.Stop();
-      }
+      return anyAdvanced;
     }
 
 
@@ -13418,10 +13816,19 @@ namespace RetroDevStudio.Documents
 
     private void checkShowMapSprites_CheckedChanged( object sender, EventArgs e )
     {
-      // Pure view state: never dirties the document. Hiding also parks the
-      // animation timer so an idle editor burns no CPU, and drops the
-      // selection — hidden sprites must not be nudged/dragged/marker-created
-      // invisibly (linked-marker edits with zero visual feedback).
+      // Persisted per map project — a REAL toggle marks the document
+      // modified. The value-equality check keeps the load-time populate
+      // clean (it writes the control from the project, so the handler sees
+      // equal values). Hiding also parks the animation timer so an idle
+      // editor burns no CPU, and drops the selection — hidden sprites must
+      // not be nudged/dragged/marker-created invisibly (linked-marker edits
+      // with zero visual feedback).
+      if ( ( m_MapProject != null )
+      &&   ( m_MapProject.ShowMapSprites != checkShowMapSprites.Checked ) )
+      {
+        m_MapProject.ShowMapSprites = checkShowMapSprites.Checked;
+        SetModified();
+      }
       if ( !checkShowMapSprites.Checked )
       {
         ClearSpriteSelection();
@@ -15257,7 +15664,15 @@ namespace RetroDevStudio.Documents
            m_CurrentMap.SelectedMarkerType = newSelectedMarkerType;
            comboMarkerColorOverride.SelectedIndex = type.Color;
            comboMarkerColorOverride.Enabled = btnToolMarker.Checked;
-           SetModified();
+           // SelectedMarkerType is persisted view state (the placement
+           // combo's choice). When the combo change is driven by SELECTING
+           // a marker (SelectMarker populates it), merely clicking a marker
+           // must not dirty the document — the new value rides along with
+           // the next real save. A direct user pick still marks modified.
+           if ( !m_PopulatingFromSelection )
+           {
+             SetModified();
+           }
 
            // User switched marker type with NO marker selected: reset the
            // placement-default fields (values, group, ID, link-to-ID) so leftovers
@@ -15297,7 +15712,11 @@ namespace RetroDevStudio.Documents
          {
            m_CurrentMap.SelectedMarkerType = -1;
            comboMarkerColorOverride.Enabled = false;
-           SetModified();
+           // Same populate exemption as the branch above.
+           if ( !m_PopulatingFromSelection )
+           {
+             SetModified();
+           }
          }
       }
     }
@@ -17281,7 +17700,14 @@ namespace RetroDevStudio.Documents
       if ( m_CurrentMap.SelectedEntityType != newSelectedEntityType )
       {
         m_CurrentMap.SelectedEntityType = newSelectedEntityType;
-        SetModified();
+        // Same rule as comboMarkerTypes: when SelectEntity populates the
+        // combo, clicking an entity must not dirty the document — the
+        // persisted placement-type choice rides the next real save. A
+        // direct user pick still marks modified.
+        if ( !m_PopulatingFromSelection )
+        {
+          SetModified();
+        }
       }
 
       // When a specific entity is selected, change the combo = retype that

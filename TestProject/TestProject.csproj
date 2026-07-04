@@ -72,6 +72,17 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Tiny64Emu\Tiny64Emu.csproj" />
+    <!-- The display-filter classes live in the main WinForms project;
+         referencing the exe is fine under the SDK-style build and lets the
+         filter parameter round-trip tests run against the real types.
+         Aliased because C64Studio and Tiny64Emu both compile the shared
+         C64Models/Common sources — an unaliased reference makes every
+         shared type ambiguous (CS0433). Only TestDisplayFilters.cs opts
+         into the alias; all other test files keep resolving shared types
+         from Tiny64Emu as before. -->
+    <ProjectReference Include="..\C64Studio\C64Studio.csproj">
+      <Aliases>studio</Aliases>
+    </ProjectReference>
   </ItemGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '10.0' And '$(IsCodedUITest)' == 'True'">

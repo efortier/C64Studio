@@ -601,6 +601,34 @@ namespace RetroDevStudio.Formats
     public int                          SelectedSpriteAnimID = -1;
 
     /// <summary>
+    /// Number of C64 character rows (8 px each) reserved at the TOP of the
+    /// game screen for UI/HUD. Used by the map editor's fullscreen preview:
+    /// the map is fitted and centered as if those rows sat above it. 0 =
+    /// whole screen is map.
+    /// </summary>
+    public int                          FullscreenReservedTopLines = 0;
+
+    /// <summary>
+    /// Whether the Sprites panel's preview instances are drawn on the map.
+    /// Default true (matches pre-persistence behavior).
+    /// </summary>
+    public bool                         ShowMapSprites = true;
+
+    /// <summary>
+    /// Per-project CRT display-filter master switch (the "Filter enabled"
+    /// checkbox on the Map tab).
+    /// </summary>
+    public bool                         DisplayFiltersEnabled = false;
+
+    /// <summary>
+    /// Serialized per-project CRT filter pipeline (opaque here — the format
+    /// is FilterPipeline.SaveToBuffer, parsed only by the editor). null =
+    /// the file predates per-project filters; the editor seeds it from the
+    /// global settings pipeline on load.
+    /// </summary>
+    public GR.Memory.ByteBuffer         DisplayFilterData = null;
+
+    /// <summary>
     /// Optional path to a binary font file used when rendering the Map
     /// Strings tab's preview canvas. The expected format matches what the
     /// game-binary export emits: a 2-byte little-endian load-address header
@@ -713,6 +741,10 @@ namespace RetroDevStudio.Formats
       CharacterEditorMode = 1;
       SpriteProjectFilename = "";
       SelectedSpriteAnimID = -1;
+      FullscreenReservedTopLines = 0;
+      ShowMapSprites = true;
+      DisplayFiltersEnabled = false;
+      DisplayFilterData = null;
       Settings = new ExportSettings();
     }
 
@@ -775,7 +807,25 @@ namespace RetroDevStudio.Formats
       // old files without these fall through to the defaults ("" / -1) on load.
       chunkProjectInfo.AppendString( SpriteProjectFilename ?? "" );
       chunkProjectInfo.AppendI32( SelectedSpriteAnimID );
+      // Fullscreen preview: reserved top UI rows. Append-only; old files
+      // without it fall through to the default 0 on load.
+      chunkProjectInfo.AppendI32( FullscreenReservedTopLines );
+      // Sprites panel "Show sprites" toggle. Append-only; old files
+      // default to true (shown).
+      chunkProjectInfo.AppendU8( ShowMapSprites ? (byte)1 : (byte)0 );
       projectFile.Append( chunkProjectInfo.ToBuffer() );
+
+      // Per-project CRT display filters. Written only once the editor has
+      // established the pipeline (null = never seeded — keep the file
+      // unchanged so older data stays byte-identical). Unknown chunk to
+      // older builds — they skip it.
+      if ( DisplayFilterData != null )
+      {
+        GR.IO.FileChunk chunkDisplayFilters = new GR.IO.FileChunk( FileChunkConstants.MAP_DISPLAY_FILTERS );
+        chunkDisplayFilters.AppendU8( DisplayFiltersEnabled ? (byte)1 : (byte)0 );
+        chunkDisplayFilters.Append( DisplayFilterData );
+        projectFile.Append( chunkDisplayFilters.ToBuffer() );
+      }
 
       GR.IO.FileChunk chunkCharset = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET );
       chunkCharset.Append( Charset.SaveToBuffer() );
@@ -1149,6 +1199,30 @@ namespace RetroDevStudio.Formats
               {
                 SelectedSpriteAnimID = chunkReader.ReadInt32();
               }
+              // Fullscreen preview reserved top rows (append-only; default
+              // 0 for old files). Clamped — corrupt values must not push
+              // the map off screen.
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                FullscreenReservedTopLines = Math.Max( 0, Math.Min( 24, chunkReader.ReadInt32() ) );
+              }
+              // Sprites panel "Show sprites" toggle (append-only; default
+              // true for old files).
+              if ( chunkReader.Size - chunkReader.Position >= 1 )
+              {
+                ShowMapSprites = ( chunkReader.ReadUInt8() != 0 );
+              }
+            }
+            break;
+          case FileChunkConstants.MAP_DISPLAY_FILTERS:
+            {
+              DisplayFiltersEnabled = ( chunkReader.ReadUInt8() != 0 );
+              var filterData = new GR.Memory.ByteBuffer();
+              if ( chunkReader.Size - chunkReader.Position > 0 )
+              {
+                chunkReader.ReadBlock( filterData, (uint)( chunkReader.Size - chunkReader.Position ) );
+              }
+              DisplayFilterData = filterData;
             }
             break;
           case FileChunkConstants.MAP_CHARSET:

@@ -11,7 +11,7 @@ namespace RetroDevStudio.CustomRenderer.DisplayFilters
   /// <see cref="FilterContext.TargetBuffer"/>; the pipeline ping-pongs those
   /// two buffers between passes so adding a filter costs one raster, not two.
   ///
-  /// Implementations should live in <c>C64Models/CustomRenderer/DisplayFilters/</c>
+  /// Implementations live in <c>C64Studio/CustomRenderer/DisplayFilters/</c>
   /// and register themselves with <see cref="DisplayFilterRegistry"/> via a
   /// static constructor so the settings UI and the settings-loader can
   /// discover them by type name.
@@ -34,7 +34,10 @@ namespace RetroDevStudio.CustomRenderer.DisplayFilters
     /// Apply the filter. The implementation MUST read from
     /// <see cref="FilterContext.SourceBuffer"/> and write to
     /// <see cref="FilterContext.TargetBuffer"/>, never in-place, so the
-    /// pipeline's ping-pong invariant holds.
+    /// pipeline's ping-pong invariant holds. That includes skip/no-op
+    /// paths: a filter that decides it has nothing to do must still copy
+    /// source to target (see <c>DisplayFilterBase.CopyThrough</c>),
+    /// otherwise the pipeline's buffer swap hands stale data downstream.
     /// </summary>
     void Apply( FilterContext ctx );
 
