@@ -42,7 +42,14 @@ namespace RetroDevStudio.Types
       MARK_ALL_ASSEMBLIES_AS_DIRTY,   // raised e.g. when hack preferences are modified
       SEARCH_HISTORY_UPDATED,
       REPLACE_SEARCH_HISTORY_UPDATED,
-      REPLACE_WITH_HISTORY_UPDATED
+      REPLACE_WITH_HISTORY_UPDATED,
+      // The application as a whole lost/gained foreground activation
+      // (WM_ACTIVATEAPP on the main form — NOT fired when focus moves
+      // between C64Studio's own windows). Documents pause their animation
+      // timers on DEACTIVATED and re-derive/resume them on ACTIVATED so an
+      // unfocused C64Studio consumes no CPU.
+      APPLICATION_DEACTIVATED,
+      APPLICATION_ACTIVATED
     }
 
     public Type             EventType = Type.NONE;

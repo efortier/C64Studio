@@ -61,7 +61,10 @@
             columnHeaderMarkerSymbol = new System.Windows.Forms.ColumnHeader();
             checkMarkerAutoDisableGroup = new System.Windows.Forms.CheckBox();
             tabMapStrings = new Krypton.Navigator.KryptonPage();
-            listMapStrings = new System.Windows.Forms.ListBox();
+            listMapStrings = new RetroDevStudio.Controls.CSListView();
+            columnHeaderMapStringID = new System.Windows.Forms.ColumnHeader();
+            columnHeaderMapStringName = new System.Windows.Forms.ColumnHeader();
+            columnHeaderMapStringUsed = new System.Windows.Forms.ColumnHeader();
             labelMapStringLabel = new System.Windows.Forms.Label();
             editMapStringLabel = new System.Windows.Forms.TextBox();
             labelMapStringID = new System.Windows.Forms.Label();
@@ -805,19 +808,39 @@
             tabMapStrings.UniqueName = "b3f1a25e7c8d4f12a8b5c4d6e9f01234";
             // 
             // listMapStrings
-            // 
-            listMapStrings.IntegralHeight = false;
-            listMapStrings.ItemHeight = 13;
+            //
+            listMapStrings.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] { columnHeaderMapStringID, columnHeaderMapStringName, columnHeaderMapStringUsed });
+            listMapStrings.FullRowSelect = true;
+            listMapStrings.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
+            listMapStrings.HideSelection = false;
             listMapStrings.Location = new System.Drawing.Point(8, 8);
+            listMapStrings.MultiSelect = false;
             listMapStrings.Name = "listMapStrings";
-            listMapStrings.Size = new System.Drawing.Size(160, 600);
+            listMapStrings.Size = new System.Drawing.Size(312, 600);
             listMapStrings.TabIndex = 0;
+            listMapStrings.UseCompatibleStateImageBehavior = false;
+            listMapStrings.View = System.Windows.Forms.View.Details;
             listMapStrings.SelectedIndexChanged += listMapStrings_SelectedIndexChanged;
+            //
+            // columnHeaderMapStringID
+            //
+            columnHeaderMapStringID.Text = "ID";
+            columnHeaderMapStringID.Width = 44;
+            //
+            // columnHeaderMapStringName
+            //
+            columnHeaderMapStringName.Text = "Name";
+            columnHeaderMapStringName.Width = 190;
+            //
+            // columnHeaderMapStringUsed
+            //
+            columnHeaderMapStringUsed.Text = "Used";
+            columnHeaderMapStringUsed.Width = 50;
             // 
             // labelMapStringLabel
             // 
             labelMapStringLabel.AutoSize = true;
-            labelMapStringLabel.Location = new System.Drawing.Point(180, 11);
+            labelMapStringLabel.Location = new System.Drawing.Point(332, 11);
             labelMapStringLabel.Name = "labelMapStringLabel";
             labelMapStringLabel.Size = new System.Drawing.Size(36, 13);
             labelMapStringLabel.TabIndex = 1;
@@ -825,7 +848,7 @@
             // 
             // editMapStringLabel
             // 
-            editMapStringLabel.Location = new System.Drawing.Point(244, 8);
+            editMapStringLabel.Location = new System.Drawing.Point(396, 8);
             editMapStringLabel.Name = "editMapStringLabel";
             editMapStringLabel.Size = new System.Drawing.Size(240, 20);
             editMapStringLabel.TabIndex = 2;
@@ -834,7 +857,7 @@
             // labelMapStringID
             // 
             labelMapStringID.AutoSize = true;
-            labelMapStringID.Location = new System.Drawing.Point(500, 11);
+            labelMapStringID.Location = new System.Drawing.Point(652, 11);
             labelMapStringID.Name = "labelMapStringID";
             labelMapStringID.Size = new System.Drawing.Size(51, 13);
             labelMapStringID.TabIndex = 53;
@@ -842,7 +865,7 @@
             // 
             // editMapStringID
             // 
-            editMapStringID.Location = new System.Drawing.Point(566, 8);
+            editMapStringID.Location = new System.Drawing.Point(718, 8);
             editMapStringID.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
             editMapStringID.Name = "editMapStringID";
             editMapStringID.Size = new System.Drawing.Size(60, 20);
@@ -852,7 +875,7 @@
             // labelMapStringLine0
             // 
             labelMapStringLine0.AutoSize = true;
-            labelMapStringLine0.Location = new System.Drawing.Point(180, 41);
+            labelMapStringLine0.Location = new System.Drawing.Point(332, 41);
             labelMapStringLine0.Name = "labelMapStringLine0";
             labelMapStringLine0.Size = new System.Drawing.Size(39, 13);
             labelMapStringLine0.TabIndex = 3;
@@ -863,7 +886,7 @@
             comboMapStringLineControl0.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
             comboMapStringLineControl0.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             comboMapStringLineControl0.FormattingEnabled = true;
-            comboMapStringLineControl0.Location = new System.Drawing.Point(244, 38);
+            comboMapStringLineControl0.Location = new System.Drawing.Point(396, 38);
             comboMapStringLineControl0.Name = "comboMapStringLineControl0";
             comboMapStringLineControl0.Size = new System.Drawing.Size(60, 21);
             comboMapStringLineControl0.TabIndex = 4;
@@ -873,7 +896,7 @@
             // editMapStringLine0
             // 
             editMapStringLine0.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
-            editMapStringLine0.Location = new System.Drawing.Point(308, 38);
+            editMapStringLine0.Location = new System.Drawing.Point(460, 38);
             editMapStringLine0.Name = "editMapStringLine0";
             editMapStringLine0.Size = new System.Drawing.Size(256, 20);
             editMapStringLine0.TabIndex = 5;
@@ -884,7 +907,7 @@
             comboMapStringTerminator0.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             comboMapStringTerminator0.FormattingEnabled = true;
             comboMapStringTerminator0.Items.AddRange(new object[] { "None", "END_OF_LINE", "PRESS_FIRE", "SHOW_NEXT_PAGE" });
-            comboMapStringTerminator0.Location = new System.Drawing.Point(572, 38);
+            comboMapStringTerminator0.Location = new System.Drawing.Point(724, 38);
             comboMapStringTerminator0.Name = "comboMapStringTerminator0";
             comboMapStringTerminator0.Size = new System.Drawing.Size(110, 21);
             comboMapStringTerminator0.TabIndex = 5;
@@ -894,7 +917,7 @@
             comboMapStringJustify0.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             comboMapStringJustify0.FormattingEnabled = true;
             comboMapStringJustify0.Items.AddRange(new object[] { "Left", "Center", "Right" });
-            comboMapStringJustify0.Location = new System.Drawing.Point(686, 38);
+            comboMapStringJustify0.Location = new System.Drawing.Point(838, 38);
             comboMapStringJustify0.Name = "comboMapStringJustify0";
             comboMapStringJustify0.Size = new System.Drawing.Size(85, 21);
             comboMapStringJustify0.TabIndex = 47;
@@ -904,7 +927,7 @@
             // labelMapStringLine1
             // 
             labelMapStringLine1.AutoSize = true;
-            labelMapStringLine1.Location = new System.Drawing.Point(180, 69);
+            labelMapStringLine1.Location = new System.Drawing.Point(332, 69);
             labelMapStringLine1.Name = "labelMapStringLine1";
             labelMapStringLine1.Size = new System.Drawing.Size(39, 13);
             labelMapStringLine1.TabIndex = 6;
@@ -915,7 +938,7 @@
             comboMapStringLineControl1.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
             comboMapStringLineControl1.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             comboMapStringLineControl1.FormattingEnabled = true;
-            comboMapStringLineControl1.Location = new System.Drawing.Point(244, 66);
+            comboMapStringLineControl1.Location = new System.Drawing.Point(396, 66);
             comboMapStringLineControl1.Name = "comboMapStringLineControl1";
             comboMapStringLineControl1.Size = new System.Drawing.Size(60, 21);
             comboMapStringLineControl1.TabIndex = 7;
@@ -924,7 +947,7 @@
             // editMapStringLine1
             // 
             editMapStringLine1.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
-            editMapStringLine1.Location = new System.Drawing.Point(308, 66);
+            editMapStringLine1.Location = new System.Drawing.Point(460, 66);
             editMapStringLine1.Name = "editMapStringLine1";
             editMapStringLine1.Size = new System.Drawing.Size(256, 20);
             editMapStringLine1.TabIndex = 8;
@@ -934,7 +957,7 @@
             comboMapStringTerminator1.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             comboMapStringTerminator1.FormattingEnabled = true;
             comboMapStringTerminator1.Items.AddRange(new object[] { "None", "END_OF_LINE", "PRESS_FIRE", "SHOW_NEXT_PAGE" });
-            comboMapStringTerminator1.Location = new System.Drawing.Point(572, 66);
+            comboMapStringTerminator1.Location = new System.Drawing.Point(724, 66);
             comboMapStringTerminator1.Name = "comboMapStringTerminator1";
             comboMapStringTerminator1.Size = new System.Drawing.Size(110, 21);
             comboMapStringTerminator1.TabIndex = 8;
@@ -944,7 +967,7 @@
             comboMapStringJustify1.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             comboMapStringJustify1.FormattingEnabled = true;
             comboMapStringJustify1.Items.AddRange(new object[] { "Left", "Center", "Right" });
-            comboMapStringJustify1.Location = new System.Drawing.Point(686, 66);
+            comboMapStringJustify1.Location = new System.Drawing.Point(838, 66);
             comboMapStringJustify1.Name = "comboMapStringJustify1";
             comboMapStringJustify1.Size = new System.Drawing.Size(85, 21);
             comboMapStringJustify1.TabIndex = 48;
@@ -953,7 +976,7 @@
             // labelMapStringLine2
             // 
             labelMapStringLine2.AutoSize = true;
-            labelMapStringLine2.Location = new System.Drawing.Point(180, 97);
+            labelMapStringLine2.Location = new System.Drawing.Point(332, 97);
             labelMapStringLine2.Name = "labelMapStringLine2";
             labelMapStringLine2.Size = new System.Drawing.Size(39, 13);
             labelMapStringLine2.TabIndex = 9;
@@ -964,7 +987,7 @@
             comboMapStringLineControl2.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
             comboMapStringLineControl2.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             comboMapStringLineControl2.FormattingEnabled = true;
-            comboMapStringLineControl2.Location = new System.Drawing.Point(244, 94);
+            comboMapStringLineControl2.Location = new System.Drawing.Point(396, 94);
             comboMapStringLineControl2.Name = "comboMapStringLineControl2";
             comboMapStringLineControl2.Size = new System.Drawing.Size(60, 21);
             comboMapStringLineControl2.TabIndex = 10;
@@ -973,7 +996,7 @@
             // editMapStringLine2
             // 
             editMapStringLine2.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
-            editMapStringLine2.Location = new System.Drawing.Point(308, 94);
+            editMapStringLine2.Location = new System.Drawing.Point(460, 94);
             editMapStringLine2.Name = "editMapStringLine2";
             editMapStringLine2.Size = new System.Drawing.Size(256, 20);
             editMapStringLine2.TabIndex = 11;
@@ -983,7 +1006,7 @@
             comboMapStringTerminator2.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             comboMapStringTerminator2.FormattingEnabled = true;
             comboMapStringTerminator2.Items.AddRange(new object[] { "None", "END_OF_LINE", "PRESS_FIRE", "SHOW_NEXT_PAGE" });
-            comboMapStringTerminator2.Location = new System.Drawing.Point(572, 94);
+            comboMapStringTerminator2.Location = new System.Drawing.Point(724, 94);
             comboMapStringTerminator2.Name = "comboMapStringTerminator2";
             comboMapStringTerminator2.Size = new System.Drawing.Size(110, 21);
             comboMapStringTerminator2.TabIndex = 11;
@@ -993,7 +1016,7 @@
             comboMapStringJustify2.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             comboMapStringJustify2.FormattingEnabled = true;
             comboMapStringJustify2.Items.AddRange(new object[] { "Left", "Center", "Right" });
-            comboMapStringJustify2.Location = new System.Drawing.Point(686, 94);
+            comboMapStringJustify2.Location = new System.Drawing.Point(838, 94);
             comboMapStringJustify2.Name = "comboMapStringJustify2";
             comboMapStringJustify2.Size = new System.Drawing.Size(85, 21);
             comboMapStringJustify2.TabIndex = 49;
@@ -1002,7 +1025,7 @@
             // labelMapStringLine3
             // 
             labelMapStringLine3.AutoSize = true;
-            labelMapStringLine3.Location = new System.Drawing.Point(180, 125);
+            labelMapStringLine3.Location = new System.Drawing.Point(332, 125);
             labelMapStringLine3.Name = "labelMapStringLine3";
             labelMapStringLine3.Size = new System.Drawing.Size(39, 13);
             labelMapStringLine3.TabIndex = 12;
@@ -1013,7 +1036,7 @@
             comboMapStringLineControl3.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
             comboMapStringLineControl3.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             comboMapStringLineControl3.FormattingEnabled = true;
-            comboMapStringLineControl3.Location = new System.Drawing.Point(244, 122);
+            comboMapStringLineControl3.Location = new System.Drawing.Point(396, 122);
             comboMapStringLineControl3.Name = "comboMapStringLineControl3";
             comboMapStringLineControl3.Size = new System.Drawing.Size(60, 21);
             comboMapStringLineControl3.TabIndex = 13;
@@ -1022,7 +1045,7 @@
             // editMapStringLine3
             // 
             editMapStringLine3.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
-            editMapStringLine3.Location = new System.Drawing.Point(308, 122);
+            editMapStringLine3.Location = new System.Drawing.Point(460, 122);
             editMapStringLine3.Name = "editMapStringLine3";
             editMapStringLine3.Size = new System.Drawing.Size(256, 20);
             editMapStringLine3.TabIndex = 14;
@@ -1032,7 +1055,7 @@
             comboMapStringTerminator3.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             comboMapStringTerminator3.FormattingEnabled = true;
             comboMapStringTerminator3.Items.AddRange(new object[] { "None", "END_OF_LINE", "PRESS_FIRE", "SHOW_NEXT_PAGE" });
-            comboMapStringTerminator3.Location = new System.Drawing.Point(572, 122);
+            comboMapStringTerminator3.Location = new System.Drawing.Point(724, 122);
             comboMapStringTerminator3.Name = "comboMapStringTerminator3";
             comboMapStringTerminator3.Size = new System.Drawing.Size(110, 21);
             comboMapStringTerminator3.TabIndex = 14;
@@ -1042,7 +1065,7 @@
             comboMapStringJustify3.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             comboMapStringJustify3.FormattingEnabled = true;
             comboMapStringJustify3.Items.AddRange(new object[] { "Left", "Center", "Right" });
-            comboMapStringJustify3.Location = new System.Drawing.Point(686, 122);
+            comboMapStringJustify3.Location = new System.Drawing.Point(838, 122);
             comboMapStringJustify3.Name = "comboMapStringJustify3";
             comboMapStringJustify3.Size = new System.Drawing.Size(85, 21);
             comboMapStringJustify3.TabIndex = 50;
@@ -1051,7 +1074,7 @@
             // labelMapStringLine4
             // 
             labelMapStringLine4.AutoSize = true;
-            labelMapStringLine4.Location = new System.Drawing.Point(180, 153);
+            labelMapStringLine4.Location = new System.Drawing.Point(332, 153);
             labelMapStringLine4.Name = "labelMapStringLine4";
             labelMapStringLine4.Size = new System.Drawing.Size(39, 13);
             labelMapStringLine4.TabIndex = 15;
@@ -1062,7 +1085,7 @@
             comboMapStringLineControl4.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
             comboMapStringLineControl4.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             comboMapStringLineControl4.FormattingEnabled = true;
-            comboMapStringLineControl4.Location = new System.Drawing.Point(244, 150);
+            comboMapStringLineControl4.Location = new System.Drawing.Point(396, 150);
             comboMapStringLineControl4.Name = "comboMapStringLineControl4";
             comboMapStringLineControl4.Size = new System.Drawing.Size(60, 21);
             comboMapStringLineControl4.TabIndex = 16;
@@ -1071,7 +1094,7 @@
             // editMapStringLine4
             // 
             editMapStringLine4.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
-            editMapStringLine4.Location = new System.Drawing.Point(308, 150);
+            editMapStringLine4.Location = new System.Drawing.Point(460, 150);
             editMapStringLine4.Name = "editMapStringLine4";
             editMapStringLine4.Size = new System.Drawing.Size(256, 20);
             editMapStringLine4.TabIndex = 17;
@@ -1081,7 +1104,7 @@
             comboMapStringTerminator4.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             comboMapStringTerminator4.FormattingEnabled = true;
             comboMapStringTerminator4.Items.AddRange(new object[] { "None", "END_OF_LINE", "PRESS_FIRE", "SHOW_NEXT_PAGE" });
-            comboMapStringTerminator4.Location = new System.Drawing.Point(572, 150);
+            comboMapStringTerminator4.Location = new System.Drawing.Point(724, 150);
             comboMapStringTerminator4.Name = "comboMapStringTerminator4";
             comboMapStringTerminator4.Size = new System.Drawing.Size(110, 21);
             comboMapStringTerminator4.TabIndex = 17;
@@ -1091,7 +1114,7 @@
             comboMapStringJustify4.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             comboMapStringJustify4.FormattingEnabled = true;
             comboMapStringJustify4.Items.AddRange(new object[] { "Left", "Center", "Right" });
-            comboMapStringJustify4.Location = new System.Drawing.Point(686, 150);
+            comboMapStringJustify4.Location = new System.Drawing.Point(838, 150);
             comboMapStringJustify4.Name = "comboMapStringJustify4";
             comboMapStringJustify4.Size = new System.Drawing.Size(85, 21);
             comboMapStringJustify4.TabIndex = 51;
@@ -1100,7 +1123,7 @@
             // checkMapStringClearAtEnd
             // 
             checkMapStringClearAtEnd.AutoSize = true;
-            checkMapStringClearAtEnd.Location = new System.Drawing.Point(244, 180);
+            checkMapStringClearAtEnd.Location = new System.Drawing.Point(396, 180);
             checkMapStringClearAtEnd.Name = "checkMapStringClearAtEnd";
             checkMapStringClearAtEnd.Size = new System.Drawing.Size(283, 17);
             checkMapStringClearAtEnd.TabIndex = 15;
@@ -1110,7 +1133,7 @@
             // labelMapStringTextAreaWidth
             // 
             labelMapStringTextAreaWidth.AutoSize = true;
-            labelMapStringTextAreaWidth.Location = new System.Drawing.Point(1211, 211);
+            labelMapStringTextAreaWidth.Location = new System.Drawing.Point(1363, 211);
             labelMapStringTextAreaWidth.Name = "labelMapStringTextAreaWidth";
             labelMapStringTextAreaWidth.Size = new System.Drawing.Size(38, 13);
             labelMapStringTextAreaWidth.TabIndex = 51;
@@ -1119,7 +1142,7 @@
             // 
             // editMapStringTextAreaWidth
             // 
-            editMapStringTextAreaWidth.Location = new System.Drawing.Point(1256, 208);
+            editMapStringTextAreaWidth.Location = new System.Drawing.Point(1408, 208);
             editMapStringTextAreaWidth.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
             editMapStringTextAreaWidth.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             editMapStringTextAreaWidth.Name = "editMapStringTextAreaWidth";
@@ -1135,7 +1158,7 @@
             btnAddMapString.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             btnAddMapString.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnAddMapString.Image = null;
-            btnAddMapString.Location = new System.Drawing.Point(177, 205);
+            btnAddMapString.Location = new System.Drawing.Point(329, 205);
             btnAddMapString.Name = "btnAddMapString";
             btnAddMapString.Size = new System.Drawing.Size(75, 23);
             btnAddMapString.TabIndex = 19;
@@ -1150,7 +1173,7 @@
             btnDeleteMapString.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnDeleteMapString.Enabled = false;
             btnDeleteMapString.Image = null;
-            btnDeleteMapString.Location = new System.Drawing.Point(258, 205);
+            btnDeleteMapString.Location = new System.Drawing.Point(410, 205);
             btnDeleteMapString.Name = "btnDeleteMapString";
             btnDeleteMapString.Size = new System.Drawing.Size(75, 23);
             btnDeleteMapString.TabIndex = 21;
@@ -1165,7 +1188,7 @@
             btnMoveMapStringUp.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnMoveMapStringUp.Enabled = false;
             btnMoveMapStringUp.Image = null;
-            btnMoveMapStringUp.Location = new System.Drawing.Point(339, 205);
+            btnMoveMapStringUp.Location = new System.Drawing.Point(491, 205);
             btnMoveMapStringUp.Name = "btnMoveMapStringUp";
             btnMoveMapStringUp.Size = new System.Drawing.Size(75, 23);
             btnMoveMapStringUp.TabIndex = 22;
@@ -1180,7 +1203,7 @@
             btnMoveMapStringDown.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnMoveMapStringDown.Enabled = false;
             btnMoveMapStringDown.Image = null;
-            btnMoveMapStringDown.Location = new System.Drawing.Point(420, 205);
+            btnMoveMapStringDown.Location = new System.Drawing.Point(572, 205);
             btnMoveMapStringDown.Name = "btnMoveMapStringDown";
             btnMoveMapStringDown.Size = new System.Drawing.Size(85, 23);
             btnMoveMapStringDown.TabIndex = 23;
@@ -1195,7 +1218,7 @@
             btnDuplicateMapString.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnDuplicateMapString.Enabled = false;
             btnDuplicateMapString.Image = null;
-            btnDuplicateMapString.Location = new System.Drawing.Point(511, 205);
+            btnDuplicateMapString.Location = new System.Drawing.Point(663, 205);
             btnDuplicateMapString.Name = "btnDuplicateMapString";
             btnDuplicateMapString.Size = new System.Drawing.Size(85, 23);
             btnDuplicateMapString.TabIndex = 24;
@@ -1205,7 +1228,7 @@
             // labelMapStringScratch
             // 
             labelMapStringScratch.AutoSize = true;
-            labelMapStringScratch.Location = new System.Drawing.Point(177, 237);
+            labelMapStringScratch.Location = new System.Drawing.Point(329, 237);
             labelMapStringScratch.Name = "labelMapStringScratch";
             labelMapStringScratch.Size = new System.Drawing.Size(249, 13);
             labelMapStringScratch.TabIndex = 60;
@@ -1214,7 +1237,7 @@
             // editMapStringScratch
             // 
             editMapStringScratch.AcceptsReturn = true;
-            editMapStringScratch.Location = new System.Drawing.Point(177, 253);
+            editMapStringScratch.Location = new System.Drawing.Point(329, 253);
             editMapStringScratch.Multiline = true;
             editMapStringScratch.Name = "editMapStringScratch";
             editMapStringScratch.ScrollBars = System.Windows.Forms.ScrollBars.Both;
@@ -1226,7 +1249,7 @@
             // labelMapStringFont
             // 
             labelMapStringFont.AutoSize = true;
-            labelMapStringFont.Location = new System.Drawing.Point(796, 184);
+            labelMapStringFont.Location = new System.Drawing.Point(948, 184);
             labelMapStringFont.Name = "labelMapStringFont";
             labelMapStringFont.Size = new System.Drawing.Size(69, 13);
             labelMapStringFont.TabIndex = 25;
@@ -1234,7 +1257,7 @@
             // 
             // editMapStringFont
             // 
-            editMapStringFont.Location = new System.Drawing.Point(880, 181);
+            editMapStringFont.Location = new System.Drawing.Point(1032, 181);
             editMapStringFont.Name = "editMapStringFont";
             editMapStringFont.ReadOnly = true;
             editMapStringFont.Size = new System.Drawing.Size(475, 20);
@@ -1243,7 +1266,7 @@
             // 
             // btnBrowseMapStringFont
             // 
-            btnBrowseMapStringFont.Location = new System.Drawing.Point(1361, 180);
+            btnBrowseMapStringFont.Location = new System.Drawing.Point(1513, 180);
             btnBrowseMapStringFont.Name = "btnBrowseMapStringFont";
             btnBrowseMapStringFont.Size = new System.Drawing.Size(75, 22);
             btnBrowseMapStringFont.TabIndex = 27;
@@ -1254,7 +1277,7 @@
             // labelMapStringLowercase
             // 
             labelMapStringLowercase.AutoSize = true;
-            labelMapStringLowercase.Location = new System.Drawing.Point(796, 211);
+            labelMapStringLowercase.Location = new System.Drawing.Point(948, 211);
             labelMapStringLowercase.Name = "labelMapStringLowercase";
             labelMapStringLowercase.Size = new System.Drawing.Size(62, 13);
             labelMapStringLowercase.TabIndex = 28;
@@ -1263,7 +1286,7 @@
             // 
             // editMapStringLowercase
             // 
-            editMapStringLowercase.Location = new System.Drawing.Point(866, 208);
+            editMapStringLowercase.Location = new System.Drawing.Point(1018, 208);
             editMapStringLowercase.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
             editMapStringLowercase.Name = "editMapStringLowercase";
             editMapStringLowercase.Size = new System.Drawing.Size(60, 20);
@@ -1274,7 +1297,7 @@
             // labelMapStringUppercase
             // 
             labelMapStringUppercase.AutoSize = true;
-            labelMapStringUppercase.Location = new System.Drawing.Point(936, 211);
+            labelMapStringUppercase.Location = new System.Drawing.Point(1088, 211);
             labelMapStringUppercase.Name = "labelMapStringUppercase";
             labelMapStringUppercase.Size = new System.Drawing.Size(62, 13);
             labelMapStringUppercase.TabIndex = 30;
@@ -1283,7 +1306,7 @@
             // 
             // editMapStringUppercase
             // 
-            editMapStringUppercase.Location = new System.Drawing.Point(1006, 208);
+            editMapStringUppercase.Location = new System.Drawing.Point(1158, 208);
             editMapStringUppercase.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
             editMapStringUppercase.Name = "editMapStringUppercase";
             editMapStringUppercase.Size = new System.Drawing.Size(60, 20);
@@ -1294,7 +1317,7 @@
             // labelMapStringNumbers
             // 
             labelMapStringNumbers.AutoSize = true;
-            labelMapStringNumbers.Location = new System.Drawing.Point(1076, 211);
+            labelMapStringNumbers.Location = new System.Drawing.Point(1228, 211);
             labelMapStringNumbers.Name = "labelMapStringNumbers";
             labelMapStringNumbers.Size = new System.Drawing.Size(52, 13);
             labelMapStringNumbers.TabIndex = 32;
@@ -1303,7 +1326,7 @@
             // 
             // editMapStringNumbers
             // 
-            editMapStringNumbers.Location = new System.Drawing.Point(1141, 208);
+            editMapStringNumbers.Location = new System.Drawing.Point(1293, 208);
             editMapStringNumbers.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
             editMapStringNumbers.Name = "editMapStringNumbers";
             editMapStringNumbers.Size = new System.Drawing.Size(60, 20);
@@ -1314,7 +1337,7 @@
             // labelMapStringPreview
             // 
             labelMapStringPreview.AutoSize = true;
-            labelMapStringPreview.Location = new System.Drawing.Point(796, 20);
+            labelMapStringPreview.Location = new System.Drawing.Point(948, 20);
             labelMapStringPreview.Name = "labelMapStringPreview";
             labelMapStringPreview.Size = new System.Drawing.Size(115, 13);
             labelMapStringPreview.TabIndex = 34;
@@ -1324,7 +1347,7 @@
             // 
             picMapStringPreview.BackColor = System.Drawing.Color.Black;
             picMapStringPreview.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            picMapStringPreview.Location = new System.Drawing.Point(796, 38);
+            picMapStringPreview.Location = new System.Drawing.Point(948, 38);
             picMapStringPreview.Name = "picMapStringPreview";
             picMapStringPreview.Size = new System.Drawing.Size(672, 135);
             picMapStringPreview.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage;
@@ -4816,7 +4839,10 @@
         private Krypton.Navigator.KryptonPage tabMarkers;
         private Krypton.Navigator.KryptonPage tabEntities;
         private Krypton.Navigator.KryptonPage tabMapStrings;
-        private System.Windows.Forms.ListBox listMapStrings;
+        private RetroDevStudio.Controls.CSListView listMapStrings;
+        private System.Windows.Forms.ColumnHeader columnHeaderMapStringID;
+        private System.Windows.Forms.ColumnHeader columnHeaderMapStringName;
+        private System.Windows.Forms.ColumnHeader columnHeaderMapStringUsed;
         private System.Windows.Forms.Label labelMapStringLabel;
         private System.Windows.Forms.TextBox editMapStringLabel;
         private System.Windows.Forms.Label labelMapStringID;

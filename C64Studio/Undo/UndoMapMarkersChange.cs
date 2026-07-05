@@ -93,6 +93,11 @@ namespace RetroDevStudio.Undo
         } );
       }
       MapEditor.UpdateArea( 0, 0, AffectedMap.Tiles.Width, AffectedMap.Tiles.Height );
+      // Marker changes can flip map strings between used/unused (the Used
+      // column counts SHOW_MAP_MESSAGE markers) — keep the strings list in
+      // sync even when the Map Strings tab is the active one. Cheap and
+      // unconditional: the method rewrites cell text in place, no churn.
+      MapEditor.RefreshMapStringUsage();
     }
   }
 }

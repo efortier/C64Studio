@@ -865,6 +865,156 @@ namespace TestProject
     }
 
     // ================================================================
+    // 14b. Map string usage filtering — unused strings skipped from the
+    // binary (and the .const sidecar stays aligned with the binary).
+    // ================================================================
+
+    [TestMethod]
+    public void TestUnusedMapStringsSkippedFromExportWhenUsageKnown()
+    {
+      var proj = CreateTestProject( 1, 2, 2 );
+      proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 3, Name = MapProject.MARKER_TYPE_SHOW_MAP_MESSAGE, TagID = 2 } );
+
+      var unused = new MapProject.MapString { Label = "UNUSED", StringID = 9 };
+      unused.Lines[0].Text = "BYE";
+      var used = new MapProject.MapString { Label = "USED", StringID = 7 };
+      used.Lines[0].Text = "HI";
+      // Unused FIRST — the export must drop it and promote USED to index 0.
+      proj.MapStrings.Add( unused );
+      proj.MapStrings.Add( used );
+
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 1, Type = 3, Value1 = 7 } );
+
+      var buf = proj.ExportAsGameBinary( false, false, false );
+
+      Assert.AreEqual( (byte)1, buf.ByteAt( 0x35 ), "only the used string exports" );
+      int idTable = buf.UInt16At( 0x3A );
+      Assert.AreEqual( (byte)7, buf.ByteAt( idTable ), "the surviving string keeps its StringID" );
+
+      // Sidecar walks the SAME filtered list: USED lands at index 0, the
+      // unused string gets a skip comment and no .const line.
+      string asm = proj.GenerateMapStringsAsm();
+      Assert.IsTrue( asm.Contains( ".const USED" ), "used string gets a .const" );
+      Assert.IsTrue( asm.Contains( "= 0" ), "filtered index 0 in the sidecar" );
+      Assert.IsTrue( asm.Contains( "skipped (unused" ), "unused string is called out" );
+      Assert.IsFalse( asm.Contains( ".const UNUSED" ), "unused string must not get a .const" );
+    }
+
+    [TestMethod]
+    public void TestAllMapStringsExportWhenShowMapMessageTypeMissing()
+    {
+      // Without a SHOW_MAP_MESSAGE marker type, usage is unknowable — the
+      // export must include EVERYTHING rather than silently dropping all
+      // strings as "unused".
+      var proj = CreateTestProject( 1, 2, 2 );
+      var a = new MapProject.MapString { Label = "A", StringID = 1 };
+      a.Lines[0].Text = "X";
+      var b = new MapProject.MapString { Label = "B", StringID = 2 };
+      b.Lines[0].Text = "Y";
+      proj.MapStrings.Add( a );
+      proj.MapStrings.Add( b );
+
+      Assert.IsNull( proj.ComputeMapStringUsage() );
+      var buf = proj.ExportAsGameBinary( false, false, false );
+      Assert.AreEqual( (byte)2, buf.ByteAt( 0x35 ) );
+    }
+
+    [TestMethod]
+    public void TestMapStringUsageCountsAcrossAllMaps()
+    {
+      var proj = CreateTestProject( 1, 2, 2 );
+      proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 5, Name = MapProject.MARKER_TYPE_SHOW_MAP_MESSAGE, TagID = 2 } );
+      proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 6, Name = "OTHER", TagID = 3 } );
+
+      var secondMap = new MapProject.Map();
+      secondMap.Name = "TestMap2";
+      secondMap.Tiles.Resize( 2, 2 );
+      proj.Maps.Add( secondMap );
+
+      // ID 4: referenced once per map; ID 8: only by the OTHER type (must
+      // not count); ID 12: never referenced.
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 0, Y = 0, Type = 5, Value1 = 4 } );
+      proj.Maps[1].Markers.Add( new MapProject.Marker { X = 1, Y = 1, Type = 5, Value1 = 4 } );
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 0, Type = 6, Value1 = 8 } );
+
+      var usage = proj.ComputeMapStringUsage();
+      Assert.IsNotNull( usage );
+      Assert.AreEqual( 2, usage[4] );
+      Assert.IsFalse( usage.ContainsKey( 8 ), "markers of other types must not count" );
+      Assert.IsFalse( usage.ContainsKey( 12 ) );
+    }
+
+    [TestMethod]
+    public void TestBumpableMarkerVariant1CountsValue2AsStringReference()
+    {
+      // BUMPABLE_MARKER with Value1 == 1 displays the map string whose
+      // StringID is in VALUE2. Any other Value1 variant repurposes Value2
+      // for something else and must NOT count as a string reference.
+      var proj = CreateTestProject( 1, 2, 2 );
+      proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 4, Name = MapProject.MARKER_TYPE_BUMPABLE_MARKER, TagID = 3 } );
+
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 0, Y = 0, Type = 4, Value1 = 1, Value2 = 11 } );
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 0, Type = 4, Value1 = 2, Value2 = 22 } );
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 1, Type = 4, Value1 = 0, Value2 = 33 } );
+
+      // Only BUMPABLE_MARKER exists — usage must still be knowable.
+      var usage = proj.ComputeMapStringUsage();
+      Assert.IsNotNull( usage, "BUMPABLE_MARKER alone makes usage knowable" );
+      Assert.AreEqual( 1, usage[11], "variant 1 references its Value2 string" );
+      Assert.IsFalse( usage.ContainsKey( 22 ), "variant 2's Value2 is not a string reference" );
+      Assert.IsFalse( usage.ContainsKey( 33 ), "variant 0's Value2 is not a string reference" );
+
+      // And the export honors it: string 11 stays, string 22 drops.
+      var used = new MapProject.MapString { Label = "BUMP_TEXT", StringID = 11 };
+      used.Lines[0].Text = "OUCH";
+      var unused = new MapProject.MapString { Label = "NEVER", StringID = 22 };
+      unused.Lines[0].Text = "NOPE";
+      proj.MapStrings.Add( used );
+      proj.MapStrings.Add( unused );
+
+      var buf = proj.ExportAsGameBinary( false, false, false );
+      Assert.AreEqual( (byte)1, buf.ByteAt( 0x35 ) );
+      int idTable = buf.UInt16At( 0x3A );
+      Assert.AreEqual( (byte)11, buf.ByteAt( idTable ) );
+    }
+
+    [TestMethod]
+    public void TestMapStringUsageSumsBothMessageMarkerShapes()
+    {
+      // A string referenced by BOTH marker shapes accumulates both counts.
+      var proj = CreateTestProject( 1, 2, 2 );
+      proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 3, Name = MapProject.MARKER_TYPE_SHOW_MAP_MESSAGE, TagID = 2 } );
+      proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 4, Name = MapProject.MARKER_TYPE_BUMPABLE_MARKER, TagID = 3 } );
+
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 0, Y = 0, Type = 3, Value1 = 5 } );
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 1, Type = 4, Value1 = 1, Value2 = 5 } );
+
+      var usage = proj.ComputeMapStringUsage();
+      Assert.IsNotNull( usage );
+      Assert.AreEqual( 2, usage[5] );
+    }
+
+    [TestMethod]
+    public void TestMapStringUsageAggregatesDuplicateShowMapMessageTypes()
+    {
+      // The editor doesn't enforce unique marker-type names — usage must
+      // aggregate across ALL types named SHOW_MAP_MESSAGE, or markers of
+      // an accidental duplicate type silently drop their strings from the
+      // binary.
+      var proj = CreateTestProject( 1, 2, 2 );
+      proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 3, Name = MapProject.MARKER_TYPE_SHOW_MAP_MESSAGE, TagID = 2 } );
+      proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 9, Name = MapProject.MARKER_TYPE_SHOW_MAP_MESSAGE, TagID = 4 } );
+
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 0, Y = 0, Type = 3, Value1 = 5 } );
+      proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 1, Type = 9, Value1 = 6 } );
+
+      var usage = proj.ComputeMapStringUsage();
+      Assert.IsNotNull( usage );
+      Assert.AreEqual( 1, usage[5] );
+      Assert.AreEqual( 1, usage[6], "markers of the SECOND same-named type must count too" );
+    }
+
+    // ================================================================
     // 15. Marker Value field — serialization roundtrip + defaults
     // ================================================================
 

@@ -3165,11 +3165,13 @@ namespace RetroDevStudio.Formats
       // the LO and HI tables; +$34 holds N. When the project has no
       // emittable strings the count is 0 and the LO/HI pointers stay
       // zero (the per-map empty-data convention).
-      // Binary tables include every MapString in source order — labels
-      // are editor metadata, not part of the binary. The .asm sidecar
-      // separately filters for valid label names when emitting .const
-      // lines, but the index-N entries in MAP_STRING_LO/_HI here always
-      // line up with MapStrings[N].
+      // Binary tables cover GetMapStringsForExport() in source order —
+      // UNUSED strings (no SHOW_MAP_MESSAGE marker references their
+      // StringID in any map) are omitted, which is safe because the
+      // runtime resolves strings via the MAP_STRING_ID table, not by raw
+      // position. Labels are editor metadata, not part of the binary; the
+      // .asm sidecar walks the SAME export list so its .const indices
+      // always line up with the tables here.
       var emittableStrings = GetMapStringsForExport();
       if ( emittableStrings.Count > 0 )
       {
@@ -3516,17 +3518,35 @@ namespace RetroDevStudio.Formats
         return sb.ToString();
       }
 
-      // Walk the FULL list. Indices in this sidecar align with the binary's
-      // MAP_STRING_LO / _HI tables (which include every MapString, in order).
-      // Labels that aren't valid asm identifiers — or that collide with an
-      // earlier label — get a SKIPPED comment instead of a .const line, but
-      // the underlying message is still in the binary at the same index.
+      // Walk the EXPORT list — the same filtered set the binary writes —
+      // so indices in this sidecar align with the binary's MAP_STRING_LO /
+      // _HI / _ID tables. Strings skipped as unused (no SHOW_MAP_MESSAGE
+      // marker references their StringID) are listed as comments so their
+      // absence is visible and greppable. Labels that aren't valid asm
+      // identifiers — or that collide with an earlier label — get a
+      // SKIPPED comment instead of a .const line, but the underlying
+      // message is still in the binary at the same index.
+      var exportStrings = GetMapStringsForExport();
+      if ( exportStrings.Count < MapStrings.Count )
+      {
+        foreach ( var ms in MapStrings )
+        {
+          if ( !exportStrings.Contains( ms ) )
+          {
+            sb.AppendLine( "// skipped (unused, no message marker references ID "
+                         + ms.StringID + "): '"
+                         + ( string.IsNullOrEmpty( ms.Label ) ? "(no label)" : ms.Label ) + "'" );
+          }
+        }
+        sb.AppendLine();
+      }
+
       var labelRegex = new System.Text.RegularExpressions.Regex( "^[A-Za-z_][A-Za-z0-9_]*$" );
       var seenLabels = new HashSet<string>( StringComparer.Ordinal );
 
-      for ( int i = 0; i < MapStrings.Count; ++i )
+      for ( int i = 0; i < exportStrings.Count; ++i )
       {
-        var ms = MapStrings[i];
+        var ms = exportStrings[i];
         string label = ms.Label ?? "";
         if ( string.IsNullOrEmpty( label ) )
         {
@@ -3554,15 +3574,114 @@ namespace RetroDevStudio.Formats
 
 
     /// <summary>
-    /// Strings included in the binary export, in source order. Every
-    /// MapString goes in regardless of label — the binary tables are
-    /// indexed by position, not by label, so labels are editor metadata
-    /// only. Labels that fail the asm-identifier regex still get a slot
-    /// in the binary; they just don't get a .const line in the sidecar.
+    /// The marker type NAME that ties markers to map strings: a marker of
+    /// this type shows the map string whose StringID equals the marker's
+    /// Value1 (mirroring TRIGGER_SPRITE_ANIM's Value1 = animation-id
+    /// convention). The type itself is project data — defined by the user
+    /// in the Markers tab, resolved here by name.
+    /// </summary>
+    public const string MARKER_TYPE_SHOW_MAP_MESSAGE = "SHOW_MAP_MESSAGE";
+
+    /// <summary>
+    /// The second message-displaying marker type: a BUMPABLE_MARKER whose
+    /// Value1 == 1 shows the map string whose StringID equals the marker's
+    /// VALUE2 (Value1 selects the bumpable behavior; other Value1 variants
+    /// don't reference strings, so their Value2 means something else and
+    /// must not count as a string reference).
+    /// </summary>
+    public const string MARKER_TYPE_BUMPABLE_MARKER = "BUMPABLE_MARKER";
+
+    /// <summary>The BUMPABLE_MARKER Value1 variant that displays a map string (from Value2).</summary>
+    public const byte BUMPABLE_VARIANT_SHOW_MESSAGE = 1;
+
+
+
+    /// <summary>
+    /// How many message-displaying markers across ALL maps reference each
+    /// StringID (key = StringID, value = reference count; ids nobody
+    /// references have no entry). Two marker shapes count:
+    ///   SHOW_MAP_MESSAGE                  → StringID in Value1
+    ///   BUMPABLE_MARKER with Value1 == 1  → StringID in Value2
+    /// Returns NULL when the project defines NEITHER type — that means
+    /// "usage unknown", and callers must NOT treat it as "everything is
+    /// unused" (the export would silently drop every string).
+    /// </summary>
+    public Dictionary<int, int> ComputeMapStringUsage()
+    {
+      // Aggregate across ALL types carrying the magic names — the editor
+      // doesn't enforce unique marker-type names, and binding to only the
+      // first match would silently drop strings referenced through an
+      // accidental duplicate type from the binary.
+      var messageTypeIDs  = new HashSet<int>();
+      var bumpableTypeIDs = new HashSet<int>();
+      foreach ( var type in MarkerTypes )
+      {
+        if ( type.Name == MARKER_TYPE_SHOW_MAP_MESSAGE )
+        {
+          messageTypeIDs.Add( type.ID );
+        }
+        else if ( type.Name == MARKER_TYPE_BUMPABLE_MARKER )
+        {
+          bumpableTypeIDs.Add( type.ID );
+        }
+      }
+      if ( ( messageTypeIDs.Count == 0 )
+      &&   ( bumpableTypeIDs.Count == 0 ) )
+      {
+        return null;
+      }
+
+      var usage = new Dictionary<int, int>();
+      foreach ( var map in Maps )
+      {
+        foreach ( var marker in map.Markers )
+        {
+          if ( messageTypeIDs.Contains( marker.Type ) )
+          {
+            usage.TryGetValue( marker.Value1, out int count );
+            usage[marker.Value1] = count + 1;
+          }
+          else if ( ( bumpableTypeIDs.Contains( marker.Type ) )
+          &&        ( marker.Value1 == BUMPABLE_VARIANT_SHOW_MESSAGE ) )
+          {
+            usage.TryGetValue( marker.Value2, out int count );
+            usage[marker.Value2] = count + 1;
+          }
+        }
+      }
+      return usage;
+    }
+
+
+
+    /// <summary>
+    /// Strings included in the binary export, in source order. UNUSED
+    /// strings — StringIDs no message-displaying marker (SHOW_MAP_MESSAGE,
+    /// or BUMPABLE_MARKER with Value1 == 1) references in any map — are
+    /// omitted; the runtime resolves strings through the MAP_STRING_ID
+    /// table, so surviving strings keep working even though their table
+    /// indices shift. When the project has neither message marker type,
+    /// usage is unknowable and EVERY string exports (the pre-filter
+    /// behavior). Labels stay editor metadata: invalid ones still get a
+    /// binary slot, they just don't get a .const line in the sidecar.
     /// </summary>
     public List<MapString> GetMapStringsForExport()
     {
-      return new List<MapString>( MapStrings );
+      var usage = ComputeMapStringUsage();
+      if ( usage == null )
+      {
+        return new List<MapString>( MapStrings );
+      }
+      var result = new List<MapString>();
+      foreach ( var ms in MapStrings )
+      {
+        if ( ( usage.TryGetValue( ms.StringID, out int count ) )
+        &&   ( count > 0 ) )
+        {
+          result.Add( ms );
+        }
+      }
+      return result;
     }
 
 
@@ -3573,16 +3692,20 @@ namespace RetroDevStudio.Formats
     /// identifiers, and duplicate labels. Empty labels are NOT flagged
     /// — they're intentional (a string the user references by raw
     /// index). Used by the export form to surface a single Yes/No
-    /// prompt before the binary write.
+    /// prompt before the binary write. Walks the EXPORT list (the same
+    /// filtered set the binary and sidecar use) so the reported indices
+    /// match the sidecar's, an unused string's bad label doesn't block
+    /// the export, and duplicate detection agrees with the sidecar's.
     /// </summary>
     public List<string> GetMapStringLabelWarnings()
     {
       var warnings  = new List<string>();
       var labelRegex = new System.Text.RegularExpressions.Regex( "^[A-Za-z_][A-Za-z0-9_]*$" );
       var seen      = new HashSet<string>( StringComparer.Ordinal );
-      for ( int i = 0; i < MapStrings.Count; ++i )
+      var exportStrings = GetMapStringsForExport();
+      for ( int i = 0; i < exportStrings.Count; ++i )
       {
-        string label = MapStrings[i].Label ?? "";
+        string label = exportStrings[i].Label ?? "";
         if ( string.IsNullOrEmpty( label ) ) continue;
         if ( !labelRegex.IsMatch( label ) )
         {

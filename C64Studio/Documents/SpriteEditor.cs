@@ -3160,6 +3160,18 @@ namespace RetroDevStudio.Documents
 
 
 
+        // Non-null while the application is deactivated: the preview timers
+        // that were RUNNING when focus left C64Studio (paused so an
+        // unfocused app consumes no CPU) and must resume when focus
+        // returns. This is intrinsic suspended-playback state, not a gate:
+        // the overlay animation's play/pause is user intent that no other
+        // data records, so it has to be captured across the pause. Both
+        // tick handlers self-stop on dead state, so resuming after the
+        // world changed (overlay deleted, test instances cleared) is safe.
+        private List<System.Windows.Forms.Timer> m_TimersSuspendedByAppDeactivate = null;
+
+
+
         public override void OnApplicationEvent(ApplicationEvent Event)
         {
             switch (Event.EventType)
@@ -3184,6 +3196,37 @@ namespace RetroDevStudio.Documents
                         ColorsChanged();
 
                         Modified = prevModified;
+                    }
+                    break;
+                case ApplicationEvent.Type.APPLICATION_DEACTIVATED:
+                    // Zero CPU while another program is in front: park the
+                    // running preview timers, remembering which ones so the
+                    // user's play/pause state survives the round trip. The
+                    // null check makes a duplicate deactivation harmless
+                    // (never captures an already-paused set as "running").
+                    if (m_TimersSuspendedByAppDeactivate == null)
+                    {
+                        m_TimersSuspendedByAppDeactivate = new List<System.Windows.Forms.Timer>();
+                        if (m_OverlayAnimTimer.Enabled)
+                        {
+                            m_TimersSuspendedByAppDeactivate.Add(m_OverlayAnimTimer);
+                            m_OverlayAnimTimer.Stop();
+                        }
+                        if (m_SpriteTestTimer.Enabled)
+                        {
+                            m_TimersSuspendedByAppDeactivate.Add(m_SpriteTestTimer);
+                            m_SpriteTestTimer.Stop();
+                        }
+                    }
+                    break;
+                case ApplicationEvent.Type.APPLICATION_ACTIVATED:
+                    if (m_TimersSuspendedByAppDeactivate != null)
+                    {
+                        foreach (var timer in m_TimersSuspendedByAppDeactivate)
+                        {
+                            timer.Start();
+                        }
+                        m_TimersSuspendedByAppDeactivate = null;
                     }
                     break;
             }

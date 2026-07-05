@@ -840,6 +840,10 @@ namespace RetroDevStudio.Documents
       // template; OpenProject re-runs it with the loaded project's data.
       LoadProjectDisplayFilters();
 
+      // The tool glyphs are black ink in the designer resources — re-ink
+      // them for dark themes so they stay visible on the button faces.
+      ApplyThemedToolIcons();
+
       // Batch the populate loop in BeginUpdate/EndUpdate. Both ComboBox
       // and KryptonComboBox re-layout/invalidate on every Items.Add by
       // default; without batching, 11 combos × 16 strings = 176 layout
@@ -2107,6 +2111,38 @@ namespace RetroDevStudio.Documents
 
     void MainForm_ApplicationEvent( RetroDevStudio.Types.ApplicationEvent Event )
     {
+      // App-wide focus: pause every animation-driving timer while another
+      // application is in the foreground (zero CPU when unfocused), and
+      // re-derive their state on return. Resume is STATELESS —
+      // UpdateSpriteAnimTimerState recomputes from live data, and the
+      // repaint restarts the filter-decay timer via PostPaint if a
+      // phosphor trail is still live — so nothing here has to remember
+      // what was running.
+      if ( Event.EventType == RetroDevStudio.Types.ApplicationEvent.Type.APPLICATION_DEACTIVATED )
+      {
+        if ( ( m_SpriteAnimTimer != null )
+        &&   ( m_SpriteAnimTimer.Enabled ) )
+        {
+          m_SpriteAnimTimer.Stop();
+        }
+        UpdateFilterAnimationTimerState( false );
+        // A tile-list drag cannot survive the focus loss; without this the
+        // autoscroll timer could keep ticking if the mouse-up landed in
+        // another application.
+        if ( ( m_TileListAutoScrollTimer != null )
+        &&   ( m_TileListAutoScrollTimer.Enabled ) )
+        {
+          m_TileListAutoScrollTimer.Stop();
+        }
+        return;
+      }
+      if ( Event.EventType == RetroDevStudio.Types.ApplicationEvent.Type.APPLICATION_ACTIVATED )
+      {
+        UpdateSpriteAnimTimerState();
+        pictureEditor.Invalidate();
+        return;
+      }
+
       // Hot-reload the Sprites panel's sprite project when the user saves it
       // in its own (sprite editor) tab — otherwise the map keeps rendering a
       // stale in-memory copy from project-open/Browse time and edits like
@@ -2127,6 +2163,24 @@ namespace RetroDevStudio.Documents
           LoadMapSpriteProject();
         }
       }
+    }
+
+
+
+    private void ApplyThemedToolIcons()
+    {
+      CustomRenderer.ToolIconTheming.ApplyToolIcons( Core,
+          btnToolEdit, btnToolRect, btnToolQuad, btnToolFill, btnToolSelect );
+    }
+
+
+
+    public override void RefreshDisplayOptions()
+    {
+      base.RefreshDisplayOptions();
+      // Theme may have flipped between light and dark — re-derive the tool
+      // glyph ink (restores the pristine images on light themes).
+      ApplyThemedToolIcons();
     }
 
 
@@ -9358,6 +9412,12 @@ namespace RetroDevStudio.Documents
       {
         RefreshMapTileList();
       }
+      else if ( tabMapEditor.SelectedPage == tabMapStrings )
+      {
+        // The Used counts depend on SHOW_MAP_MESSAGE marker edits made
+        // anywhere in the project — recompute them on every visit.
+        UpdateMapStringUsageColumn();
+      }
       // Remember the user's last-visited tab so reopening the project lands on
       // the same page. We update the in-memory value (so it rides along with
       // the next real Save), but deliberately do NOT SetModified() here:
@@ -11461,6 +11521,14 @@ namespace RetroDevStudio.Documents
     // dialog instead of opening a new one; closed with the document.
     private Dialogs.DlgDisplayFilters  m_DisplayFiltersDialog;
 
+    // Non-null while the modal fullscreen preview is open. The preview
+    // advances the SHARED sprite frame state on its own timer, so the
+    // editor's animation timer must never run concurrently (frames would
+    // double-step) — every path that could (re)start it while the preview
+    // owns the clock (app-reactivation broadcast, sprite-project
+    // hot-reload) is gated on this in UpdateSpriteAnimTimerState.
+    private Dialogs.FormFullscreenMapView  m_FullscreenView;
+
     // Drives repaints while a temporal filter (phosphor persistence) still
     // has a decaying trail on screen. Created lazily on first need; running
     // state == "a trail is currently decaying". PostPaint updates the state
@@ -11472,6 +11540,19 @@ namespace RetroDevStudio.Documents
 
     private void UpdateFilterAnimationTimerState( bool needsRepaints )
     {
+      // A trailing WM_PAINT (queued by the last pre-deactivation tick;
+      // paints have the lowest message priority, so it lands AFTER the
+      // WM_ACTIVATEAPP that stopped the timers) must not re-arm the decay
+      // repaint loop while the app is in the background. Treat the request
+      // as a stop; the reactivation broadcast repaints and re-derives the
+      // true state from the pipeline.
+      if ( ( needsRepaints )
+      &&   ( Core != null )
+      &&   ( Core.MainForm != null )
+      &&   ( !Core.MainForm.ApplicationIsActive ) )
+      {
+        needsRepaints = false;
+      }
       if ( !needsRepaints )
       {
         if ( ( m_FilterAnimationTimer != null )
@@ -11701,11 +11782,13 @@ namespace RetroDevStudio.Documents
                       composeSprites, advanceFrames, pipeline,
                       padLeft, padTop, padRight, padBottom ) )
           {
+            m_FullscreenView = view;
             view.ShowDialog( this.FindForm() );
           }
         }
         finally
         {
+          m_FullscreenView = null;
           UpdateSpriteAnimTimerState();
           RedrawMap();
           Redraw();
@@ -13341,6 +13424,7 @@ namespace RetroDevStudio.Documents
       bool wantTimer = false;
       if ( ( m_CurrentMap != null )
       &&   ( m_MapSpriteProject != null )
+      &&   ( m_FullscreenView == null )
       &&   ( checkShowMapSprites.Checked ) )
       {
         var instances = CurrentMapSpriteInstances( false );
@@ -14300,23 +14384,90 @@ namespace RetroDevStudio.Documents
 
 
     /// <summary>
-    /// Format a MapString listbox entry as "NN: Label" with the index
-    /// zero-padded to two digits. Used by both <see cref="RefreshMapStrings"/>
-    /// (full rebuild) and the Update handler (single-entry edit) so the
-    /// display style stays consistent.
+    /// Rewrites one row of the map strings list from its MapString.
+    /// Columns: ID (the authored StringID that message markers reference —
+    /// SHOW_MAP_MESSAGE via Value1, BUMPABLE_MARKER with Value1 == 1 via
+    /// Value2), Name (label), Used (project-wide reference count across
+    /// all maps; "-" when the project defines neither message marker
+    /// type, i.e. usage is unknowable). An unused string draws its count
+    /// RED — the game-binary export SKIPS those strings. Same red-cell
+    /// pattern as the Tiles tab's Used column.
     /// </summary>
-    private static string FormatMapStringListEntry( int Index, Formats.MapProject.MapString Ms )
+    private void SetMapStringListRow( System.Windows.Forms.ListViewItem Item,
+                                      Formats.MapProject.MapString Ms,
+                                      Dictionary<int, int> Usage )
     {
-      string label = string.IsNullOrEmpty( Ms.Label ) ? "(no label)" : Ms.Label;
-      return Index.ToString( "D2" ) + ": " + label;
+      Item.Text = Ms.StringID.ToString();
+      while ( Item.SubItems.Count < 3 )
+      {
+        Item.SubItems.Add( new RetroDevStudio.Controls.CSListViewSubItem() );
+      }
+      Item.SubItems[1].Text = string.IsNullOrEmpty( Ms.Label ) ? "(no label)" : Ms.Label;
+
+      // Promote the Used cell so it can carry the red override.
+      var sub = Item.SubItems[2];
+      if ( !( sub is RetroDevStudio.Controls.CSListViewSubItem ) )
+      {
+        var promoted = new RetroDevStudio.Controls.CSListViewSubItem();
+        Item.SubItems.RemoveAt( 2 );
+        Item.SubItems.Insert( 2, promoted );
+        sub = promoted;
+      }
+      var csSub = (RetroDevStudio.Controls.CSListViewSubItem)sub;
+      if ( Usage == null )
+      {
+        csSub.Text = "-";
+        csSub.OverrideForeColor = null;
+      }
+      else
+      {
+        Usage.TryGetValue( Ms.StringID, out int count );
+        csSub.Text = count.ToString();
+        csSub.OverrideForeColor = ( count == 0 ) ? System.Drawing.Color.Red : (System.Drawing.Color?)null;
+      }
     }
 
 
 
     /// <summary>
-    /// Refresh the listbox + per-string field pane after any structural
-    /// change (add / delete / reorder / undo / project load). Preserves
-    /// the previously-selected index when possible.
+    /// Recomputes the Used column in place — called when the Map Strings
+    /// tab is entered, so the counts reflect marker edits made on other
+    /// tabs and maps since the last visit. Rewrites cell contents only:
+    /// no item churn, selection and scroll position stay put.
+    /// </summary>
+    /// <summary>
+    /// Public entry for the undo system: marker snapshots being re-applied
+    /// change which strings count as used.
+    /// </summary>
+    public void RefreshMapStringUsage()
+    {
+      UpdateMapStringUsageColumn();
+    }
+
+
+
+    private void UpdateMapStringUsageColumn()
+    {
+      if ( ( listMapStrings == null )
+      ||   ( m_MapProject == null ) )
+      {
+        return;
+      }
+      var usage = m_MapProject.ComputeMapStringUsage();
+      for ( int i = 0; ( i < listMapStrings.Items.Count ) && ( i < m_MapProject.MapStrings.Count ); ++i )
+      {
+        SetMapStringListRow( listMapStrings.Items[i], m_MapProject.MapStrings[i], usage );
+      }
+      listMapStrings.Invalidate();
+    }
+
+
+
+    /// <summary>
+    /// Refresh the strings list (ID / Name / Used columns) + per-string
+    /// field pane after any structural change (add / delete / reorder /
+    /// undo / project load). Preserves the previously-selected index when
+    /// possible.
     /// </summary>
     public void RefreshMapStrings()
     {
@@ -14338,9 +14489,12 @@ namespace RetroDevStudio.Documents
       {
         listMapStrings.BeginUpdate();
         listMapStrings.Items.Clear();
+        var usage = m_MapProject.ComputeMapStringUsage();
         for ( int i = 0; i < m_MapProject.MapStrings.Count; ++i )
         {
-          listMapStrings.Items.Add( FormatMapStringListEntry( i, m_MapProject.MapStrings[i] ) );
+          var item = new System.Windows.Forms.ListViewItem();
+          SetMapStringListRow( item, m_MapProject.MapStrings[i], usage );
+          listMapStrings.Items.Add( item );
         }
         listMapStrings.EndUpdate();
 
@@ -14514,22 +14668,14 @@ namespace RetroDevStudio.Documents
       ms.Label = editMapStringLabel.Text ?? "";
       SetModified();
 
-      // Reflect the (possibly new) Label in the listbox in place. Detach
-      // the listbox handler so rewriting Items[idx] doesn't re-enter
-      // PopulateMapStringFieldsFromSelection mid-typing and reset the
-      // textbox caret.
+      // Reflect the (possibly new) Label in the list's Name cell in
+      // place. A subitem text write changes no selection, so no handler
+      // detach is needed (unlike the old ListBox whole-item replacement).
       int idx = listMapStrings.SelectedIndex;
       if ( idx >= 0 && idx < listMapStrings.Items.Count )
       {
-        listMapStrings.SelectedIndexChanged -= listMapStrings_SelectedIndexChanged;
-        try
-        {
-          listMapStrings.Items[idx] = FormatMapStringListEntry( idx, ms );
-        }
-        finally
-        {
-          listMapStrings.SelectedIndexChanged += listMapStrings_SelectedIndexChanged;
-        }
+        listMapStrings.Items[idx].SubItems[1].Text =
+            string.IsNullOrEmpty( ms.Label ) ? "(no label)" : ms.Label;
       }
     }
 
@@ -14654,8 +14800,11 @@ namespace RetroDevStudio.Documents
       DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
       ms.StringID = (byte)editMapStringID.Value;
       SetModified();
-      // StringID is exported metadata only; no visual impact in the
-      // static preview.
+      // The ID column and every row's Used count key off StringID —
+      // changing an ID can flip OTHER rows between used/unused too
+      // (duplicate ids, an id vacated or newly claimed), so refresh the
+      // whole column, not just this row.
+      UpdateMapStringUsageColumn();
     }
 
 

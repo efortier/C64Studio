@@ -824,6 +824,12 @@ namespace RetroDevStudio
 
       IdleQueue.Add( new IdleRequest() { CloseSplashScreen = splash } );
 
+      // AFTER the last-solution restore so the just-opened documents (whose
+      // load paths start animation timers unconditionally) receive the
+      // pause broadcast when the app was launched without ever gaining
+      // foreground — Windows sends no WM_ACTIVATEAPP in that case.
+      IdleQueue.Add( new IdleRequest() { ReconcileAppActivation = true } );
+
       timerAutoSave.Interval = StudioCore.Settings.AutoSaveSettingsDelayMilliSeconds;
       timerAutoSave.Enabled = StudioCore.Settings.AutoSaveSettings;
       if ( StudioCore.Settings.AutoSaveSettings )
@@ -1357,6 +1363,21 @@ namespace RetroDevStudio
           StudioCore.SetStatus( "Autosaving settings..." );
           SaveSettings();
           StudioCore.SetStatus( "Ready" );
+        }
+        else if ( request.ReconcileAppActivation )
+        {
+          // Startup reconciliation: Form.ActiveForm == null means no
+          // C64Studio window holds activation right now. If we still
+          // believe we're active, the app was launched into the background
+          // (no WM_ACTIVATEAPP ever fired) — flip the state and pause the
+          // animation timers the document restore just started. If the
+          // user activates later, WM_ACTIVATEAPP(1) resumes normally.
+          if ( ( m_ApplicationIsActive )
+          &&   ( Form.ActiveForm == null ) )
+          {
+            m_ApplicationIsActive = false;
+            RaiseApplicationEvent( new Types.ApplicationEvent( Types.ApplicationEvent.Type.APPLICATION_DEACTIVATED ) );
+          }
         }
       }
     }
@@ -7989,6 +8010,27 @@ namespace RetroDevStudio
 
     private static int WM_QUERYENDSESSION = 0x11;
     private static int WM_ENDSESSION = 0x16;
+    private static int WM_ACTIVATEAPP = 0x1C;
+
+    // Mirrors WM_ACTIVATEAPP: whether any C64Studio window currently holds
+    // foreground activation. Dedupes the (de)activation broadcasts that
+    // let documents pause their animation timers while the user works in
+    // another application.
+    private bool m_ApplicationIsActive = true;
+
+    /// <summary>
+    /// Whether any C64Studio window currently holds foreground activation.
+    /// Documents consult this so late-arriving work (e.g. a trailing
+    /// WM_PAINT queued before deactivation) can't restart animation timers
+    /// while the app is in the background.
+    /// </summary>
+    public bool ApplicationIsActive
+    {
+      get
+      {
+        return m_ApplicationIsActive;
+      }
+    }
 
 
 
@@ -8007,9 +8049,25 @@ namespace RetroDevStudio
         }
         s_SystemShutdown = false;
       }
+      else if ( m.Msg == WM_ACTIVATEAPP )
+      {
+        // The APPLICATION (all of its windows together) gained or lost
+        // foreground activation — Windows does not send this when focus
+        // moves between our own forms. Broadcast so documents pause their
+        // animation timers while another program is in front (zero CPU
+        // when unfocused) and resume them on return.
+        bool applicationActive = ( m.WParam != IntPtr.Zero );
+        if ( applicationActive != m_ApplicationIsActive )
+        {
+          m_ApplicationIsActive = applicationActive;
+          RaiseApplicationEvent( new Types.ApplicationEvent( applicationActive
+              ? Types.ApplicationEvent.Type.APPLICATION_ACTIVATED
+              : Types.ApplicationEvent.Type.APPLICATION_DEACTIVATED ) );
+        }
+      }
 
-      // If this is WM_QUERYENDSESSION, the closing event should be  
-      // raised in the base WndProc.  
+      // If this is WM_QUERYENDSESSION, the closing event should be
+      // raised in the base WndProc.
       base.WndProc( ref m );
     }
 

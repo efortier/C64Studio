@@ -160,6 +160,38 @@ namespace RetroDevStudio.Dialogs
 
 
 
+    private const int WM_ACTIVATEAPP = 0x001C;
+
+    protected override void WndProc( ref Message m )
+    {
+      if ( m.Msg == WM_ACTIVATEAPP )
+      {
+        // The user Alt-Tabbed away from (or back to) the fullscreen
+        // preview: park the animation timer so an unfocused C64Studio
+        // consumes no CPU, and resume on return. The timer only exists
+        // when something animates (sprites or a temporal filter), so the
+        // restart needs no further condition. This form is top-level and
+        // receives WM_ACTIVATEAPP itself — no coupling to the main form's
+        // broadcast (whose map-editor handler is fenced off by
+        // m_FullscreenView anyway while this preview owns the frame clock).
+        if ( ( m_AnimTimer != null )
+        &&   ( !IsDisposed ) )
+        {
+          if ( m.WParam == IntPtr.Zero )
+          {
+            m_AnimTimer.Stop();
+          }
+          else
+          {
+            m_AnimTimer.Start();
+          }
+        }
+      }
+      base.WndProc( ref m );
+    }
+
+
+
     protected override void OnKeyDown( KeyEventArgs e )
     {
       if ( e.KeyCode == Keys.Escape )

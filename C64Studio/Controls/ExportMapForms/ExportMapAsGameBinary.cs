@@ -79,9 +79,9 @@ namespace RetroDevStudio.Controls
           sb.AppendLine();
           sb.AppendLine( "Continue anyway?" );
           sb.AppendLine();
-          sb.AppendLine( "Yes  — export every map string into the binary; the listed labels" );
-          sb.AppendLine( "       will not get a .const line in the .asm sidecar (reference" );
-          sb.AppendLine( "       them by their raw index in your game code)." );
+          sb.AppendLine( "Yes  — continue the export (unused strings are skipped as usual);" );
+          sb.AppendLine( "       the listed labels will not get a .const line in the .asm" );
+          sb.AppendLine( "       sidecar (reference them by their raw index in your game code)." );
           sb.AppendLine( "No   — abort the export so you can rename the labels." );
 
           var result = System.Windows.Forms.MessageBox.Show(
@@ -929,14 +929,32 @@ namespace RetroDevStudio.Controls
           sb.AppendLine( "--- MAP STRING DATA ---" );
           // Pull labels from the in-memory project so the log can show
           // which message lives at each binary index. Binary tables are
-          // 1:1 with MapStrings (no label-based filtering), so index N
-          // in the binary is MapStrings[N].
+          // 1:1 with GetMapStringsForExport() — the SAME filtered list the
+          // writer used (unused strings, i.e. StringIDs no
+          // SHOW_MAP_MESSAGE marker references, are omitted) — so index N
+          // in the binary is exportStrings[N], NOT MapStrings[N].
           var emittedLabels = new List<string>();
           if ( project != null )
           {
-            for ( int i = 0; i < project.MapStrings.Count; ++i )
+            var exportStrings = project.GetMapStringsForExport();
+            foreach ( var ms in exportStrings )
             {
-              emittedLabels.Add( project.MapStrings[i].Label ?? "" );
+              emittedLabels.Add( ms.Label ?? "" );
+            }
+            if ( exportStrings.Count < project.MapStrings.Count )
+            {
+              sb.AppendLine( "( " + ( project.MapStrings.Count - exportStrings.Count )
+                           + " unused string(s) skipped — no message marker (SHOW_MAP_MESSAGE,"
+                           + " or BUMPABLE_MARKER with Value1=1) references their StringID: )" );
+              foreach ( var ms in project.MapStrings )
+              {
+                if ( !exportStrings.Contains( ms ) )
+                {
+                  sb.AppendLine( "(   ID " + ms.StringID + ": '"
+                               + ( string.IsNullOrEmpty( ms.Label ) ? "(no label)" : ms.Label ) + "' )" );
+                }
+              }
+              sb.AppendLine();
             }
           }
 
