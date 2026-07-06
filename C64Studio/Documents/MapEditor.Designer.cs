@@ -226,6 +226,8 @@
             editReservedTopLines = new Krypton.Toolkit.KryptonNumericUpDown();
             btnViewFullscreen = new Krypton.Toolkit.KryptonButton();
             gridOpacitySlider = new Krypton.Toolkit.KryptonTrackBar();
+            labelBoundsOpacity = new System.Windows.Forms.Label();
+            boundsOpacitySlider = new Krypton.Toolkit.KryptonTrackBar();
             dimSlider = new Krypton.Toolkit.KryptonTrackBar();
             labelTileListRowSpacing = new System.Windows.Forms.Label();
             labelDesignerBackground = new System.Windows.Forms.Label();
@@ -288,6 +290,56 @@
             checkShowEntities = new Krypton.Toolkit.KryptonCheckBox();
             labelEntityCount = new System.Windows.Forms.Label();
             flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
+            btnToggleOutlineMode = new Krypton.Toolkit.KryptonCheckButton();
+            flowOutlineTools = new System.Windows.Forms.FlowLayoutPanel();
+            btnOutlineZoomOut = new Krypton.Toolkit.KryptonButton();
+            btnOutlineZoomIn = new Krypton.Toolkit.KryptonButton();
+            labelOutlineZoom = new System.Windows.Forms.Label();
+            labelOutlineCanvasSize = new System.Windows.Forms.Label();
+            flowOutlineOptions = new System.Windows.Forms.FlowLayoutPanel();
+            outlineCanvas = new RetroDevStudio.Controls.MapOutlineCanvas();
+            collapsiblePanelOutlineColors = new RetroDevStudio.Controls.CollapsiblePanel();
+            btnOutlineToolBrush = new Krypton.Toolkit.KryptonCheckButton();
+            btnOutlineToolEraser = new Krypton.Toolkit.KryptonCheckButton();
+            btnOutlineToolRectErase = new Krypton.Toolkit.KryptonCheckButton();
+            labelOutlineBrushSize = new System.Windows.Forms.Label();
+            editOutlineBrushSize = new System.Windows.Forms.NumericUpDown();
+            labelOutlineEraserSize = new System.Windows.Forms.Label();
+            editOutlineEraserSize = new System.Windows.Forms.NumericUpDown();
+            btnOutlineToolRect = new Krypton.Toolkit.KryptonCheckButton();
+            btnOutlineToolEllipse = new Krypton.Toolkit.KryptonCheckButton();
+            btnOutlineToolText = new Krypton.Toolkit.KryptonCheckButton();
+            btnOutlineToolStamp = new Krypton.Toolkit.KryptonCheckButton();
+            labelOutlineStampScale = new System.Windows.Forms.Label();
+            comboOutlineStampScale = new System.Windows.Forms.ComboBox();
+            panelOutlineSep1 = new System.Windows.Forms.Panel();
+            btnOutlineZoomReset = new Krypton.Toolkit.KryptonButton();
+            btnOutlineCenterView = new Krypton.Toolkit.KryptonButton();
+            comboOutlineFont = new System.Windows.Forms.ComboBox();
+            editOutlineFontSize = new System.Windows.Forms.NumericUpDown();
+            btnOutlineTextBold = new Krypton.Toolkit.KryptonCheckButton();
+            btnOutlineTextItalic = new Krypton.Toolkit.KryptonCheckButton();
+            labelOutlineBorderSize = new System.Windows.Forms.Label();
+            editOutlineBorderSize = new System.Windows.Forms.NumericUpDown();
+            labelOutlineExtend = new System.Windows.Forms.Label();
+            btnOutlineExtendLeft = new Krypton.Toolkit.KryptonButton();
+            btnOutlineExtendUp = new Krypton.Toolkit.KryptonButton();
+            btnOutlineExtendDown = new Krypton.Toolkit.KryptonButton();
+            btnOutlineExtendRight = new Krypton.Toolkit.KryptonButton();
+            editOutlineExtendStep = new System.Windows.Forms.NumericUpDown();
+            labelOutlineExtendPx = new System.Windows.Forms.Label();
+            btnOutlineCopyImage = new Krypton.Toolkit.KryptonButton();
+            btnOutlinePasteImage = new Krypton.Toolkit.KryptonButton();
+            btnOutlineDeletePicture = new Krypton.Toolkit.KryptonButton();
+            labelOutlineInk = new System.Windows.Forms.Label();
+            panelOutlinePrimaryColor = new System.Windows.Forms.Panel();
+            labelOutlineFill = new System.Windows.Forms.Label();
+            panelOutlineSecondaryColor = new System.Windows.Forms.Panel();
+            btnOutlineSwapColors = new Krypton.Toolkit.KryptonButton();
+            btnOutlineMoreColors = new Krypton.Toolkit.KryptonButton();
+            flowOutlineSwatches = new System.Windows.Forms.FlowLayoutPanel();
+            labelOutlineRecent = new System.Windows.Forms.Label();
+            flowOutlineRecentColors = new System.Windows.Forms.FlowLayoutPanel();
             btnToolEdit = new Krypton.Toolkit.KryptonCheckButton();
             btnToolRect = new Krypton.Toolkit.KryptonCheckButton();
             btnToolQuad = new Krypton.Toolkit.KryptonCheckButton();
@@ -416,6 +468,14 @@
             flowLayoutPanel4.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)comboMarkerTypes).BeginInit();
             flowLayoutPanel3.SuspendLayout();
+            flowOutlineTools.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)editOutlineBrushSize).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)editOutlineEraserSize).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)editOutlineBorderSize).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)editOutlineExtendStep).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)editOutlineFontSize).BeginInit();
+            flowOutlineOptions.SuspendLayout();
+            collapsiblePanelOutlineColors.SuspendLayout();
             groupBox4.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)comboMaps).BeginInit();
             collapsiblePanel1.SuspendLayout();
@@ -922,7 +982,6 @@
             comboMapStringJustify0.Size = new System.Drawing.Size(85, 21);
             comboMapStringJustify0.TabIndex = 47;
             toolTip1.SetToolTip(comboMapStringJustify0, "Padding applied at export only. Center/Right left-pad with spaces so the text lands within the configured Width column count.");
-            comboMapStringJustify0.SelectedIndexChanged += comboMapStringJustify_SelectedIndexChanged;
             // 
             // labelMapStringLine1
             // 
@@ -971,7 +1030,6 @@
             comboMapStringJustify1.Name = "comboMapStringJustify1";
             comboMapStringJustify1.Size = new System.Drawing.Size(85, 21);
             comboMapStringJustify1.TabIndex = 48;
-            comboMapStringJustify1.SelectedIndexChanged += comboMapStringJustify_SelectedIndexChanged;
             // 
             // labelMapStringLine2
             // 
@@ -1020,7 +1078,6 @@
             comboMapStringJustify2.Name = "comboMapStringJustify2";
             comboMapStringJustify2.Size = new System.Drawing.Size(85, 21);
             comboMapStringJustify2.TabIndex = 49;
-            comboMapStringJustify2.SelectedIndexChanged += comboMapStringJustify_SelectedIndexChanged;
             // 
             // labelMapStringLine3
             // 
@@ -1069,7 +1126,6 @@
             comboMapStringJustify3.Name = "comboMapStringJustify3";
             comboMapStringJustify3.Size = new System.Drawing.Size(85, 21);
             comboMapStringJustify3.TabIndex = 50;
-            comboMapStringJustify3.SelectedIndexChanged += comboMapStringJustify_SelectedIndexChanged;
             // 
             // labelMapStringLine4
             // 
@@ -1118,7 +1174,6 @@
             comboMapStringJustify4.Name = "comboMapStringJustify4";
             comboMapStringJustify4.Size = new System.Drawing.Size(85, 21);
             comboMapStringJustify4.TabIndex = 51;
-            comboMapStringJustify4.SelectedIndexChanged += comboMapStringJustify_SelectedIndexChanged;
             // 
             // checkMapStringClearAtEnd
             // 
@@ -1657,6 +1712,10 @@
             tabEditor.Controls.Add(mapHScroll);
             tabEditor.Controls.Add(mapVScroll);
             tabEditor.Controls.Add(panelMapContainer);
+            tabEditor.Controls.Add(btnToggleOutlineMode);
+            tabEditor.Controls.Add(flowOutlineTools);
+            tabEditor.Controls.Add(flowOutlineOptions);
+            tabEditor.Controls.Add(outlineCanvas);
             tabEditor.Flags = 65534;
             tabEditor.LastVisibleSet = true;
             tabEditor.MinimumSize = new System.Drawing.Size(150, 50);
@@ -2024,6 +2083,7 @@
             flowLayoutPanel3.Controls.Add(collapsiblePanel2);
             flowLayoutPanel3.Controls.Add(collapsiblePanelFogOfWar);
             flowLayoutPanel3.Controls.Add(collapsiblePanelSprites);
+            flowLayoutPanel3.Controls.Add(collapsiblePanelOutlineColors);
             flowLayoutPanel3.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
             flowLayoutPanel3.Location = new System.Drawing.Point(1581, 10);
             flowLayoutPanel3.Name = "flowLayoutPanel3";
@@ -2502,6 +2562,8 @@
             // 
             collapsiblePanel2.Collapsed = true;
             collapsiblePanel2.Controls.Add(labelGridOpacity);
+            collapsiblePanel2.Controls.Add(labelBoundsOpacity);
+            collapsiblePanel2.Controls.Add(boundsOpacitySlider);
             collapsiblePanel2.Controls.Add(labelReservedTopLines);
             collapsiblePanel2.Controls.Add(editReservedTopLines);
             collapsiblePanel2.Controls.Add(btnViewFullscreen);
@@ -2527,7 +2589,7 @@
             collapsiblePanel2.Controls.Add(btnMapWidthInc);
             collapsiblePanel2.Controls.Add(btnShiftDown);
             collapsiblePanel2.Controls.Add(btnShiftRight);
-            collapsiblePanel2.ExpandedHeight = 327;
+            collapsiblePanel2.ExpandedHeight = 375;
             collapsiblePanel2.Location = new System.Drawing.Point(3, 183);
             collapsiblePanel2.MinimumSize = new System.Drawing.Size(40, 56);
             collapsiblePanel2.Name = "collapsiblePanel2";
@@ -2555,6 +2617,27 @@
             gridOpacitySlider.TickFrequency = 10;
             gridOpacitySlider.Value = 100;
             gridOpacitySlider.ValueChanged += gridOpacitySlider_ValueChanged;
+            //
+            // labelBoundsOpacity
+            //
+            labelBoundsOpacity.AutoSize = true;
+            labelBoundsOpacity.Location = new System.Drawing.Point(5, 264);
+            labelBoundsOpacity.Name = "labelBoundsOpacity";
+            labelBoundsOpacity.Size = new System.Drawing.Size(107, 13);
+            labelBoundsOpacity.TabIndex = 52;
+            labelBoundsOpacity.Text = "Map bounds opacity:";
+            //
+            // boundsOpacitySlider
+            //
+            boundsOpacitySlider.Location = new System.Drawing.Point(5, 282);
+            boundsOpacitySlider.Maximum = 100;
+            boundsOpacitySlider.Name = "boundsOpacitySlider";
+            boundsOpacitySlider.Size = new System.Drawing.Size(310, 27);
+            boundsOpacitySlider.TabIndex = 53;
+            boundsOpacitySlider.TickFrequency = 10;
+            toolTip1.SetToolTip(boundsOpacitySlider, "Opacity of the map bounding rectangle shown while the grid is off (0 hides it)");
+            boundsOpacitySlider.Value = 55;
+            boundsOpacitySlider.ValueChanged += boundsOpacitySlider_ValueChanged;
             // 
             // dimSlider
             // 
@@ -2571,7 +2654,7 @@
             // labelTileListRowSpacing
             // 
             labelTileListRowSpacing.AutoSize = true;
-            labelTileListRowSpacing.Location = new System.Drawing.Point(5, 268);
+            labelTileListRowSpacing.Location = new System.Drawing.Point(5, 316);
             labelTileListRowSpacing.Name = "labelTileListRowSpacing";
             labelTileListRowSpacing.Size = new System.Drawing.Size(102, 13);
             labelTileListRowSpacing.TabIndex = 38;
@@ -2588,7 +2671,7 @@
             // 
             // btnReflowOOBMarkers
             // 
-            btnReflowOOBMarkers.Location = new System.Drawing.Point(134, 297);
+            btnReflowOOBMarkers.Location = new System.Drawing.Point(134, 345);
             btnReflowOOBMarkers.Margin = new System.Windows.Forms.Padding(3, 3, 3, 0);
             btnReflowOOBMarkers.Name = "btnReflowOOBMarkers";
             btnReflowOOBMarkers.Size = new System.Drawing.Size(60, 24);
@@ -2601,7 +2684,7 @@
             // labelMarkersOutOfBounds
             // 
             labelMarkersOutOfBounds.AutoSize = true;
-            labelMarkersOutOfBounds.Location = new System.Drawing.Point(2, 301);
+            labelMarkersOutOfBounds.Location = new System.Drawing.Point(2, 349);
             labelMarkersOutOfBounds.Margin = new System.Windows.Forms.Padding(6, 7, 0, 0);
             labelMarkersOutOfBounds.Name = "labelMarkersOutOfBounds";
             labelMarkersOutOfBounds.Size = new System.Drawing.Size(125, 13);
@@ -2611,7 +2694,7 @@
             // editTileListRowSpacing
             // 
             editTileListRowSpacing.Increment = new decimal(new int[] { 1, 0, 0, 0 });
-            editTileListRowSpacing.Location = new System.Drawing.Point(110, 265);
+            editTileListRowSpacing.Location = new System.Drawing.Point(110, 313);
             editTileListRowSpacing.Maximum = new decimal(new int[] { 32, 0, 0, 0 });
             editTileListRowSpacing.Minimum = new decimal(new int[] { 0, 0, 0, 0 });
             editTileListRowSpacing.Name = "editTileListRowSpacing";
@@ -2643,7 +2726,7 @@
             //
             // btnViewFullscreen
             //
-            btnViewFullscreen.Location = new System.Drawing.Point(204, 297);
+            btnViewFullscreen.Location = new System.Drawing.Point(204, 345);
             btnViewFullscreen.Name = "btnViewFullscreen";
             btnViewFullscreen.Size = new System.Drawing.Size(114, 24);
             btnViewFullscreen.TabIndex = 52;
@@ -2665,7 +2748,7 @@
             // labelTileListRowSeparatorColor
             // 
             labelTileListRowSeparatorColor.AutoSize = true;
-            labelTileListRowSeparatorColor.Location = new System.Drawing.Point(180, 268);
+            labelTileListRowSeparatorColor.Location = new System.Drawing.Point(180, 316);
             labelTileListRowSeparatorColor.Name = "labelTileListRowSeparatorColor";
             labelTileListRowSeparatorColor.Size = new System.Drawing.Size(34, 13);
             labelTileListRowSeparatorColor.TabIndex = 40;
@@ -2684,7 +2767,7 @@
             // 
             // btnTileListRowSeparatorColor
             // 
-            btnTileListRowSeparatorColor.Location = new System.Drawing.Point(230, 265);
+            btnTileListRowSeparatorColor.Location = new System.Drawing.Point(230, 313);
             btnTileListRowSeparatorColor.Name = "btnTileListRowSeparatorColor";
             btnTileListRowSeparatorColor.Size = new System.Drawing.Size(60, 22);
             btnTileListRowSeparatorColor.TabIndex = 41;
@@ -3300,7 +3383,7 @@
             flowLayoutPanel1.Controls.Add(labelEditInfo);
             flowLayoutPanel1.Location = new System.Drawing.Point(177, 10);
             flowLayoutPanel1.Name = "flowLayoutPanel1";
-            flowLayoutPanel1.Size = new System.Drawing.Size(1399, 30);
+            flowLayoutPanel1.Size = new System.Drawing.Size(1365, 30);
             flowLayoutPanel1.TabIndex = 36;
             // 
             // btnToolEdit
@@ -3611,9 +3694,567 @@
             comboTiles.DrawItem += comboTiles_DrawItem;
             comboTiles.SelectedIndexChanged += comboTiles_SelectedIndexChanged;
             comboTiles.MouseWheel += comboTiles_MouseWheel;
-            // 
+            //
+            // btnToggleOutlineMode
+            //
+            btnToggleOutlineMode.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
+            btnToggleOutlineMode.Location = new System.Drawing.Point(1546, 10);
+            btnToggleOutlineMode.Name = "btnToggleOutlineMode";
+            btnToggleOutlineMode.Size = new System.Drawing.Size(30, 30);
+            btnToggleOutlineMode.TabIndex = 50;
+            toolTip1.SetToolTip(btnToggleOutlineMode, "Swap between map edition and map outline");
+            btnToggleOutlineMode.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnToggleOutlineMode.Values.Text = "✎";
+            btnToggleOutlineMode.CheckedChanged += btnToggleOutlineMode_CheckedChanged;
+            //
+            // flowOutlineTools
+            //
+            flowOutlineTools.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
+            flowOutlineTools.Controls.Add(btnOutlineToolBrush);
+            flowOutlineTools.Controls.Add(btnOutlineToolEraser);
+            flowOutlineTools.Controls.Add(btnOutlineToolRectErase);
+            flowOutlineTools.Controls.Add(btnOutlineToolRect);
+            flowOutlineTools.Controls.Add(btnOutlineToolEllipse);
+            flowOutlineTools.Controls.Add(btnOutlineToolText);
+            flowOutlineTools.Controls.Add(btnOutlineToolStamp);
+            flowOutlineTools.Controls.Add(panelOutlineSep1);
+            flowOutlineTools.Controls.Add(btnOutlineCopyImage);
+            flowOutlineTools.Controls.Add(btnOutlinePasteImage);
+            flowOutlineTools.Controls.Add(btnOutlineDeletePicture);
+            flowOutlineTools.Controls.Add(labelOutlineBrushSize);
+            flowOutlineTools.Controls.Add(editOutlineBrushSize);
+            flowOutlineTools.Controls.Add(labelOutlineEraserSize);
+            flowOutlineTools.Controls.Add(editOutlineEraserSize);
+            flowOutlineTools.Controls.Add(labelOutlineBorderSize);
+            flowOutlineTools.Controls.Add(editOutlineBorderSize);
+            flowOutlineTools.Controls.Add(btnOutlineZoomOut);
+            flowOutlineTools.Controls.Add(btnOutlineZoomIn);
+            flowOutlineTools.Controls.Add(btnOutlineZoomReset);
+            flowOutlineTools.Controls.Add(btnOutlineCenterView);
+            flowOutlineTools.Controls.Add(labelOutlineZoom);
+            flowOutlineTools.Controls.Add(labelOutlineCanvasSize);
+            flowOutlineTools.Controls.Add(labelOutlineStampScale);
+            flowOutlineTools.Controls.Add(comboOutlineStampScale);
+            flowOutlineTools.Location = new System.Drawing.Point(177, 10);
+            flowOutlineTools.Name = "flowOutlineTools";
+            flowOutlineTools.Size = new System.Drawing.Size(1365, 30);
+            flowOutlineTools.TabIndex = 51;
+            flowOutlineTools.Visible = false;
+            //
+            // btnOutlineToolBrush
+            //
+            btnOutlineToolBrush.Location = new System.Drawing.Point(3, 3);
+            btnOutlineToolBrush.Name = "btnOutlineToolBrush";
+            btnOutlineToolBrush.Size = new System.Drawing.Size(24, 24);
+            btnOutlineToolBrush.TabIndex = 10;
+            toolTip1.SetToolTip(btnOutlineToolBrush, "Paintbrush (round, antialiased)");
+            btnOutlineToolBrush.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineToolBrush.Values.Text = "B";
+            btnOutlineToolBrush.CheckedChanged += btnOutlineTool_CheckedChanged;
+            //
+            // btnOutlineToolEraser
+            //
+            btnOutlineToolEraser.Location = new System.Drawing.Point(33, 3);
+            btnOutlineToolEraser.Name = "btnOutlineToolEraser";
+            btnOutlineToolEraser.Size = new System.Drawing.Size(24, 24);
+            btnOutlineToolEraser.TabIndex = 11;
+            toolTip1.SetToolTip(btnOutlineToolEraser, "Eraser");
+            btnOutlineToolEraser.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineToolEraser.Values.Text = "E";
+            btnOutlineToolEraser.CheckedChanged += btnOutlineTool_CheckedChanged;
+            //
+            // btnOutlineToolRectErase
+            //
+            btnOutlineToolRectErase.Location = new System.Drawing.Point(63, 3);
+            btnOutlineToolRectErase.Name = "btnOutlineToolRectErase";
+            btnOutlineToolRectErase.Size = new System.Drawing.Size(32, 24);
+            btnOutlineToolRectErase.TabIndex = 12;
+            toolTip1.SetToolTip(btnOutlineToolRectErase, "Rectangle erase (drag an area to wipe it)");
+            btnOutlineToolRectErase.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineToolRectErase.Values.Text = "RE";
+            btnOutlineToolRectErase.CheckedChanged += btnOutlineTool_CheckedChanged;
+            //
+            // labelOutlineBrushSize
+            //
+            labelOutlineBrushSize.Location = new System.Drawing.Point(101, 0);
+            labelOutlineBrushSize.Name = "labelOutlineBrushSize";
+            labelOutlineBrushSize.Size = new System.Drawing.Size(68, 30);
+            labelOutlineBrushSize.TabIndex = 13;
+            labelOutlineBrushSize.Text = "Brush size:";
+            labelOutlineBrushSize.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            //
+            // editOutlineBrushSize
+            //
+            editOutlineBrushSize.Location = new System.Drawing.Point(143, 4);
+            editOutlineBrushSize.Maximum = new decimal(new int[] { 128, 0, 0, 0 });
+            editOutlineBrushSize.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            editOutlineBrushSize.Name = "editOutlineBrushSize";
+            editOutlineBrushSize.Size = new System.Drawing.Size(48, 20);
+            editOutlineBrushSize.TabIndex = 14;
+            toolTip1.SetToolTip(editOutlineBrushSize, "Brush point size in pixels");
+            editOutlineBrushSize.Value = new decimal(new int[] { 8, 0, 0, 0 });
+            editOutlineBrushSize.ValueChanged += editOutlineBrushSize_ValueChanged;
+            //
+            // labelOutlineEraserSize
+            //
+            labelOutlineEraserSize.Location = new System.Drawing.Point(197, 0);
+            labelOutlineEraserSize.Name = "labelOutlineEraserSize";
+            labelOutlineEraserSize.Size = new System.Drawing.Size(72, 30);
+            labelOutlineEraserSize.TabIndex = 15;
+            labelOutlineEraserSize.Text = "Eraser size:";
+            labelOutlineEraserSize.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            //
+            // editOutlineEraserSize
+            //
+            editOutlineEraserSize.Location = new System.Drawing.Point(251, 4);
+            editOutlineEraserSize.Maximum = new decimal(new int[] { 128, 0, 0, 0 });
+            editOutlineEraserSize.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            editOutlineEraserSize.Name = "editOutlineEraserSize";
+            editOutlineEraserSize.Size = new System.Drawing.Size(48, 20);
+            editOutlineEraserSize.TabIndex = 16;
+            toolTip1.SetToolTip(editOutlineEraserSize, "Eraser size in pixels");
+            editOutlineEraserSize.Value = new decimal(new int[] { 24, 0, 0, 0 });
+            editOutlineEraserSize.ValueChanged += editOutlineEraserSize_ValueChanged;
+            //
+            // panelOutlineSep1
+            //
+            panelOutlineSep1.Location = new System.Drawing.Point(191, 2);
+            panelOutlineSep1.Name = "panelOutlineSep1";
+            panelOutlineSep1.Size = new System.Drawing.Size(8, 26);
+            panelOutlineSep1.TabIndex = 25;
+            panelOutlineSep1.Paint += panelOutlineSep_Paint;
+            //
+            // btnOutlineZoomReset
+            //
+            btnOutlineZoomReset.Location = new System.Drawing.Point(3, 3);
+            btnOutlineZoomReset.Name = "btnOutlineZoomReset";
+            btnOutlineZoomReset.Size = new System.Drawing.Size(24, 24);
+            btnOutlineZoomReset.TabIndex = 26;
+            toolTip1.SetToolTip(btnOutlineZoomReset, "Reset zoom to 100%");
+            btnOutlineZoomReset.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineZoomReset.Values.Text = "";
+            btnOutlineZoomReset.Click += btnOutlineZoomReset_Click;
+            //
+            // btnOutlineCenterView
+            //
+            btnOutlineCenterView.Location = new System.Drawing.Point(33, 3);
+            btnOutlineCenterView.Name = "btnOutlineCenterView";
+            btnOutlineCenterView.Size = new System.Drawing.Size(24, 24);
+            btnOutlineCenterView.TabIndex = 27;
+            toolTip1.SetToolTip(btnOutlineCenterView, "Center the picture in the view");
+            btnOutlineCenterView.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineCenterView.Values.Text = "";
+            btnOutlineCenterView.Click += btnOutlineCenterView_Click;
+            //
+            // btnOutlineZoomOut
+            //
+            btnOutlineZoomOut.Location = new System.Drawing.Point(3, 3);
+            btnOutlineZoomOut.Name = "btnOutlineZoomOut";
+            btnOutlineZoomOut.Size = new System.Drawing.Size(24, 24);
+            btnOutlineZoomOut.TabIndex = 0;
+            toolTip1.SetToolTip(btnOutlineZoomOut, "Zoom out");
+            btnOutlineZoomOut.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineZoomOut.Values.Text = "-";
+            btnOutlineZoomOut.Click += btnOutlineZoomOut_Click;
+            //
+            // btnOutlineZoomIn
+            //
+            btnOutlineZoomIn.Location = new System.Drawing.Point(33, 3);
+            btnOutlineZoomIn.Name = "btnOutlineZoomIn";
+            btnOutlineZoomIn.Size = new System.Drawing.Size(24, 24);
+            btnOutlineZoomIn.TabIndex = 1;
+            toolTip1.SetToolTip(btnOutlineZoomIn, "Zoom in");
+            btnOutlineZoomIn.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineZoomIn.Values.Text = "+";
+            btnOutlineZoomIn.Click += btnOutlineZoomIn_Click;
+            //
+            // labelOutlineZoom
+            //
+            labelOutlineZoom.Location = new System.Drawing.Point(63, 0);
+            labelOutlineZoom.Name = "labelOutlineZoom";
+            labelOutlineZoom.Size = new System.Drawing.Size(45, 30);
+            labelOutlineZoom.TabIndex = 2;
+            labelOutlineZoom.Text = "100%";
+            labelOutlineZoom.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            //
+            // labelOutlineCanvasSize
+            //
+            labelOutlineCanvasSize.Location = new System.Drawing.Point(114, 0);
+            labelOutlineCanvasSize.Name = "labelOutlineCanvasSize";
+            labelOutlineCanvasSize.Size = new System.Drawing.Size(130, 30);
+            labelOutlineCanvasSize.TabIndex = 3;
+            labelOutlineCanvasSize.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // btnOutlineToolRect
+            //
+            btnOutlineToolRect.Location = new System.Drawing.Point(101, 3);
+            btnOutlineToolRect.Name = "btnOutlineToolRect";
+            btnOutlineToolRect.Size = new System.Drawing.Size(24, 24);
+            btnOutlineToolRect.TabIndex = 17;
+            toolTip1.SetToolTip(btnOutlineToolRect, "Rectangle (ink outline + fill color, Shift = square)");
+            btnOutlineToolRect.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineToolRect.Values.Text = "▭";
+            btnOutlineToolRect.CheckedChanged += btnOutlineTool_CheckedChanged;
+            //
+            // btnOutlineToolEllipse
+            //
+            btnOutlineToolEllipse.Location = new System.Drawing.Point(131, 3);
+            btnOutlineToolEllipse.Name = "btnOutlineToolEllipse";
+            btnOutlineToolEllipse.Size = new System.Drawing.Size(24, 24);
+            btnOutlineToolEllipse.TabIndex = 18;
+            toolTip1.SetToolTip(btnOutlineToolEllipse, "Ellipse (ink outline + fill color, Shift = circle)");
+            btnOutlineToolEllipse.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineToolEllipse.Values.Text = "◯";
+            btnOutlineToolEllipse.CheckedChanged += btnOutlineTool_CheckedChanged;
+            //
+            // labelOutlineBorderSize
+            //
+            labelOutlineBorderSize.Location = new System.Drawing.Point(305, 0);
+            labelOutlineBorderSize.Name = "labelOutlineBorderSize";
+            labelOutlineBorderSize.Size = new System.Drawing.Size(48, 30);
+            labelOutlineBorderSize.TabIndex = 19;
+            labelOutlineBorderSize.Text = "Border:";
+            labelOutlineBorderSize.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            //
+            // editOutlineBorderSize
+            //
+            editOutlineBorderSize.Location = new System.Drawing.Point(359, 4);
+            editOutlineBorderSize.Maximum = new decimal(new int[] { 64, 0, 0, 0 });
+            editOutlineBorderSize.Name = "editOutlineBorderSize";
+            editOutlineBorderSize.Size = new System.Drawing.Size(48, 20);
+            editOutlineBorderSize.TabIndex = 20;
+            toolTip1.SetToolTip(editOutlineBorderSize, "Shape border thickness in pixels (0 = no outline)");
+            editOutlineBorderSize.Value = new decimal(new int[] { 3, 0, 0, 0 });
+            editOutlineBorderSize.ValueChanged += editOutlineBorderSize_ValueChanged;
+            //
+            // flowOutlineOptions
+            //
+            flowOutlineOptions.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
+            flowOutlineOptions.Controls.Add(labelOutlineExtend);
+            flowOutlineOptions.Controls.Add(btnOutlineExtendLeft);
+            flowOutlineOptions.Controls.Add(btnOutlineExtendUp);
+            flowOutlineOptions.Controls.Add(btnOutlineExtendDown);
+            flowOutlineOptions.Controls.Add(btnOutlineExtendRight);
+            flowOutlineOptions.Controls.Add(editOutlineExtendStep);
+            flowOutlineOptions.Controls.Add(labelOutlineExtendPx);
+            flowOutlineOptions.Controls.Add(comboOutlineFont);
+            flowOutlineOptions.Controls.Add(editOutlineFontSize);
+            flowOutlineOptions.Controls.Add(btnOutlineTextBold);
+            flowOutlineOptions.Controls.Add(btnOutlineTextItalic);
+            flowOutlineOptions.Location = new System.Drawing.Point(177, 42);
+            flowOutlineOptions.Name = "flowOutlineOptions";
+            flowOutlineOptions.Size = new System.Drawing.Size(1399, 31);
+            flowOutlineOptions.TabIndex = 52;
+            flowOutlineOptions.Visible = false;
+            //
+            // btnOutlineToolText
+            //
+            btnOutlineToolText.Location = new System.Drawing.Point(161, 3);
+            btnOutlineToolText.Name = "btnOutlineToolText";
+            btnOutlineToolText.Size = new System.Drawing.Size(24, 24);
+            btnOutlineToolText.TabIndex = 21;
+            toolTip1.SetToolTip(btnOutlineToolText, "Text (click to place a WYSIWYG text box; click outside or switch tools to commit, Esc discards)");
+            btnOutlineToolText.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineToolText.Values.Text = "T";
+            btnOutlineToolText.CheckedChanged += btnOutlineTool_CheckedChanged;
+            //
+            // btnOutlineToolStamp
+            //
+            btnOutlineToolStamp.Location = new System.Drawing.Point(191, 3);
+            btnOutlineToolStamp.Name = "btnOutlineToolStamp";
+            btnOutlineToolStamp.Size = new System.Drawing.Size(24, 24);
+            btnOutlineToolStamp.TabIndex = 22;
+            toolTip1.SetToolTip(btnOutlineToolStamp, "Tile stamp — pick a tile from the list on the left, click/drag to stamp it at the chosen magnification");
+            btnOutlineToolStamp.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineToolStamp.Values.Text = "▦";
+            btnOutlineToolStamp.CheckedChanged += btnOutlineTool_CheckedChanged;
+            //
+            // labelOutlineStampScale
+            //
+            labelOutlineStampScale.Location = new System.Drawing.Point(221, 0);
+            labelOutlineStampScale.Name = "labelOutlineStampScale";
+            labelOutlineStampScale.Size = new System.Drawing.Size(32, 30);
+            labelOutlineStampScale.TabIndex = 23;
+            labelOutlineStampScale.Text = "Tile:";
+            labelOutlineStampScale.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            //
+            // comboOutlineStampScale
+            //
+            comboOutlineStampScale.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            comboOutlineStampScale.Location = new System.Drawing.Point(259, 4);
+            comboOutlineStampScale.Name = "comboOutlineStampScale";
+            comboOutlineStampScale.Size = new System.Drawing.Size(48, 21);
+            comboOutlineStampScale.TabIndex = 24;
+            toolTip1.SetToolTip(comboOutlineStampScale, "Tile stamp magnification (nearest-neighbor — stays chunky)");
+            comboOutlineStampScale.SelectedIndexChanged += comboOutlineStampScale_SelectedIndexChanged;
+            //
+            // comboOutlineFont
+            //
+            comboOutlineFont.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            comboOutlineFont.Location = new System.Drawing.Point(599, 4);
+            comboOutlineFont.Name = "comboOutlineFont";
+            comboOutlineFont.Size = new System.Drawing.Size(150, 21);
+            comboOutlineFont.TabIndex = 10;
+            toolTip1.SetToolTip(comboOutlineFont, "Text font — restyles an open text box live");
+            comboOutlineFont.SelectedIndexChanged += comboOutlineFont_SelectedIndexChanged;
+            //
+            // editOutlineFontSize
+            //
+            editOutlineFontSize.Location = new System.Drawing.Point(755, 4);
+            editOutlineFontSize.Maximum = new decimal(new int[] { 144, 0, 0, 0 });
+            editOutlineFontSize.Minimum = new decimal(new int[] { 6, 0, 0, 0 });
+            editOutlineFontSize.Name = "editOutlineFontSize";
+            editOutlineFontSize.Size = new System.Drawing.Size(48, 20);
+            editOutlineFontSize.TabIndex = 11;
+            toolTip1.SetToolTip(editOutlineFontSize, "Text size in pixels");
+            editOutlineFontSize.Value = new decimal(new int[] { 16, 0, 0, 0 });
+            editOutlineFontSize.ValueChanged += editOutlineFontSize_ValueChanged;
+            //
+            // btnOutlineTextBold
+            //
+            btnOutlineTextBold.Location = new System.Drawing.Point(809, 3);
+            btnOutlineTextBold.Name = "btnOutlineTextBold";
+            btnOutlineTextBold.Size = new System.Drawing.Size(24, 24);
+            btnOutlineTextBold.TabIndex = 12;
+            toolTip1.SetToolTip(btnOutlineTextBold, "Bold");
+            btnOutlineTextBold.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineTextBold.Values.Text = "B";
+            btnOutlineTextBold.CheckedChanged += btnOutlineTextStyle_CheckedChanged;
+            //
+            // btnOutlineTextItalic
+            //
+            btnOutlineTextItalic.Location = new System.Drawing.Point(839, 3);
+            btnOutlineTextItalic.Name = "btnOutlineTextItalic";
+            btnOutlineTextItalic.Size = new System.Drawing.Size(24, 24);
+            btnOutlineTextItalic.TabIndex = 13;
+            toolTip1.SetToolTip(btnOutlineTextItalic, "Italic");
+            btnOutlineTextItalic.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineTextItalic.Values.Text = "I";
+            btnOutlineTextItalic.CheckedChanged += btnOutlineTextStyle_CheckedChanged;
+            //
+            // labelOutlineExtend
+            //
+            labelOutlineExtend.Location = new System.Drawing.Point(3, 0);
+            labelOutlineExtend.Name = "labelOutlineExtend";
+            labelOutlineExtend.Size = new System.Drawing.Size(90, 30);
+            labelOutlineExtend.TabIndex = 0;
+            labelOutlineExtend.Text = "Extend canvas:";
+            labelOutlineExtend.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            //
+            // btnOutlineExtendLeft
+            //
+            btnOutlineExtendLeft.Location = new System.Drawing.Point(99, 3);
+            btnOutlineExtendLeft.Name = "btnOutlineExtendLeft";
+            btnOutlineExtendLeft.Size = new System.Drawing.Size(24, 24);
+            btnOutlineExtendLeft.TabIndex = 1;
+            toolTip1.SetToolTip(btnOutlineExtendLeft, "Grow the canvas at the LEFT edge — existing content shifts right");
+            btnOutlineExtendLeft.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineExtendLeft.Values.Text = "◄";
+            btnOutlineExtendLeft.Click += btnOutlineExtendLeft_Click;
+            //
+            // btnOutlineExtendUp
+            //
+            btnOutlineExtendUp.Location = new System.Drawing.Point(129, 3);
+            btnOutlineExtendUp.Name = "btnOutlineExtendUp";
+            btnOutlineExtendUp.Size = new System.Drawing.Size(24, 24);
+            btnOutlineExtendUp.TabIndex = 2;
+            toolTip1.SetToolTip(btnOutlineExtendUp, "Grow the canvas at the TOP edge — existing content shifts down");
+            btnOutlineExtendUp.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineExtendUp.Values.Text = "▲";
+            btnOutlineExtendUp.Click += btnOutlineExtendUp_Click;
+            //
+            // btnOutlineExtendDown
+            //
+            btnOutlineExtendDown.Location = new System.Drawing.Point(159, 3);
+            btnOutlineExtendDown.Name = "btnOutlineExtendDown";
+            btnOutlineExtendDown.Size = new System.Drawing.Size(24, 24);
+            btnOutlineExtendDown.TabIndex = 3;
+            toolTip1.SetToolTip(btnOutlineExtendDown, "Grow the canvas at the BOTTOM edge");
+            btnOutlineExtendDown.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineExtendDown.Values.Text = "▼";
+            btnOutlineExtendDown.Click += btnOutlineExtendDown_Click;
+            //
+            // btnOutlineExtendRight
+            //
+            btnOutlineExtendRight.Location = new System.Drawing.Point(189, 3);
+            btnOutlineExtendRight.Name = "btnOutlineExtendRight";
+            btnOutlineExtendRight.Size = new System.Drawing.Size(24, 24);
+            btnOutlineExtendRight.TabIndex = 4;
+            toolTip1.SetToolTip(btnOutlineExtendRight, "Grow the canvas at the RIGHT edge");
+            btnOutlineExtendRight.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineExtendRight.Values.Text = "►";
+            btnOutlineExtendRight.Click += btnOutlineExtendRight_Click;
+            //
+            // editOutlineExtendStep
+            //
+            editOutlineExtendStep.Increment = new decimal(new int[] { 8, 0, 0, 0 });
+            editOutlineExtendStep.Location = new System.Drawing.Point(219, 4);
+            editOutlineExtendStep.Maximum = new decimal(new int[] { 256, 0, 0, 0 });
+            editOutlineExtendStep.Minimum = new decimal(new int[] { 8, 0, 0, 0 });
+            editOutlineExtendStep.Name = "editOutlineExtendStep";
+            editOutlineExtendStep.Size = new System.Drawing.Size(52, 20);
+            editOutlineExtendStep.TabIndex = 5;
+            toolTip1.SetToolTip(editOutlineExtendStep, "How many pixels each extend adds");
+            editOutlineExtendStep.Value = new decimal(new int[] { 32, 0, 0, 0 });
+            editOutlineExtendStep.ValueChanged += editOutlineExtendStep_ValueChanged;
+            //
+            // labelOutlineExtendPx
+            //
+            labelOutlineExtendPx.Location = new System.Drawing.Point(277, 0);
+            labelOutlineExtendPx.Name = "labelOutlineExtendPx";
+            labelOutlineExtendPx.Size = new System.Drawing.Size(22, 30);
+            labelOutlineExtendPx.TabIndex = 6;
+            labelOutlineExtendPx.Text = "px";
+            labelOutlineExtendPx.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // btnOutlineCopyImage
+            //
+            btnOutlineCopyImage.Location = new System.Drawing.Point(305, 3);
+            btnOutlineCopyImage.Name = "btnOutlineCopyImage";
+            btnOutlineCopyImage.Size = new System.Drawing.Size(90, 24);
+            btnOutlineCopyImage.TabIndex = 7;
+            toolTip1.SetToolTip(btnOutlineCopyImage, "Copy the whole outline picture to the clipboard (PNG + bitmap)");
+            btnOutlineCopyImage.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineCopyImage.Values.Text = "Copy image";
+            btnOutlineCopyImage.Click += btnOutlineCopyImage_Click;
+            //
+            // btnOutlinePasteImage
+            //
+            btnOutlinePasteImage.Location = new System.Drawing.Point(401, 3);
+            btnOutlinePasteImage.Name = "btnOutlinePasteImage";
+            btnOutlinePasteImage.Size = new System.Drawing.Size(90, 24);
+            btnOutlinePasteImage.TabIndex = 8;
+            toolTip1.SetToolTip(btnOutlinePasteImage, "Replace the outline with the clipboard image");
+            btnOutlinePasteImage.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlinePasteImage.Values.Text = "Paste image";
+            btnOutlinePasteImage.Click += btnOutlinePasteImage_Click;
+            //
+            // btnOutlineDeletePicture
+            //
+            btnOutlineDeletePicture.Location = new System.Drawing.Point(497, 3);
+            btnOutlineDeletePicture.Name = "btnOutlineDeletePicture";
+            btnOutlineDeletePicture.Size = new System.Drawing.Size(96, 24);
+            btnOutlineDeletePicture.TabIndex = 9;
+            toolTip1.SetToolTip(btnOutlineDeletePicture, "Delete this map's outline picture (fresh blank canvas; blanks are never saved)");
+            btnOutlineDeletePicture.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineDeletePicture.Values.Text = "Delete picture";
+            btnOutlineDeletePicture.Click += btnOutlineDeletePicture_Click;
+            //
+            // outlineCanvas
+            //
+            outlineCanvas.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
+            outlineCanvas.Location = new System.Drawing.Point(177, 111);
+            outlineCanvas.Name = "outlineCanvas";
+            outlineCanvas.Size = new System.Drawing.Size(1399, 763);
+            outlineCanvas.TabIndex = 53;
+            outlineCanvas.Visible = false;
+            outlineCanvas.ZoomChanged += outlineCanvas_ZoomChanged;
+            //
+            // collapsiblePanelOutlineColors
+            //
+            collapsiblePanelOutlineColors.Controls.Add(labelOutlineInk);
+            collapsiblePanelOutlineColors.Controls.Add(panelOutlinePrimaryColor);
+            collapsiblePanelOutlineColors.Controls.Add(labelOutlineFill);
+            collapsiblePanelOutlineColors.Controls.Add(panelOutlineSecondaryColor);
+            collapsiblePanelOutlineColors.Controls.Add(btnOutlineSwapColors);
+            collapsiblePanelOutlineColors.Controls.Add(btnOutlineMoreColors);
+            collapsiblePanelOutlineColors.Controls.Add(flowOutlineSwatches);
+            collapsiblePanelOutlineColors.Controls.Add(labelOutlineRecent);
+            collapsiblePanelOutlineColors.Controls.Add(flowOutlineRecentColors);
+            collapsiblePanelOutlineColors.ExpandedHeight = 260;
+            collapsiblePanelOutlineColors.Location = new System.Drawing.Point(3, 301);
+            collapsiblePanelOutlineColors.MinimumSize = new System.Drawing.Size(40, 22);
+            collapsiblePanelOutlineColors.Name = "collapsiblePanelOutlineColors";
+            collapsiblePanelOutlineColors.Padding = new System.Windows.Forms.Padding(0, 22, 0, 0);
+            collapsiblePanelOutlineColors.Size = new System.Drawing.Size(350, 260);
+            collapsiblePanelOutlineColors.TabIndex = 45;
+            collapsiblePanelOutlineColors.Title = "Outline colors";
+            collapsiblePanelOutlineColors.Visible = false;
+            //
+            // labelOutlineInk
+            //
+            labelOutlineInk.Location = new System.Drawing.Point(8, 32);
+            labelOutlineInk.Name = "labelOutlineInk";
+            labelOutlineInk.Size = new System.Drawing.Size(28, 15);
+            labelOutlineInk.TabIndex = 0;
+            labelOutlineInk.Text = "Ink";
+            //
+            // panelOutlinePrimaryColor
+            //
+            panelOutlinePrimaryColor.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            panelOutlinePrimaryColor.Location = new System.Drawing.Point(40, 28);
+            panelOutlinePrimaryColor.Name = "panelOutlinePrimaryColor";
+            panelOutlinePrimaryColor.Size = new System.Drawing.Size(40, 24);
+            panelOutlinePrimaryColor.TabIndex = 1;
+            toolTip1.SetToolTip(panelOutlinePrimaryColor, "Ink color — click to pick");
+            panelOutlinePrimaryColor.Click += panelOutlinePrimaryColor_Click;
+            panelOutlinePrimaryColor.Paint += panelOutlinePrimaryColor_Paint;
+            //
+            // labelOutlineFill
+            //
+            labelOutlineFill.Location = new System.Drawing.Point(92, 32);
+            labelOutlineFill.Name = "labelOutlineFill";
+            labelOutlineFill.Size = new System.Drawing.Size(26, 15);
+            labelOutlineFill.TabIndex = 2;
+            labelOutlineFill.Text = "Fill";
+            //
+            // panelOutlineSecondaryColor
+            //
+            panelOutlineSecondaryColor.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            panelOutlineSecondaryColor.Location = new System.Drawing.Point(120, 28);
+            panelOutlineSecondaryColor.Name = "panelOutlineSecondaryColor";
+            panelOutlineSecondaryColor.Size = new System.Drawing.Size(40, 24);
+            panelOutlineSecondaryColor.TabIndex = 3;
+            toolTip1.SetToolTip(panelOutlineSecondaryColor, "Shape fill color — click to pick");
+            panelOutlineSecondaryColor.Click += panelOutlineSecondaryColor_Click;
+            panelOutlineSecondaryColor.Paint += panelOutlineSecondaryColor_Paint;
+            //
+            // btnOutlineSwapColors
+            //
+            btnOutlineSwapColors.Location = new System.Drawing.Point(168, 28);
+            btnOutlineSwapColors.Name = "btnOutlineSwapColors";
+            btnOutlineSwapColors.Size = new System.Drawing.Size(28, 24);
+            btnOutlineSwapColors.TabIndex = 4;
+            toolTip1.SetToolTip(btnOutlineSwapColors, "Swap ink and fill colors");
+            btnOutlineSwapColors.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineSwapColors.Values.Text = "⇄";
+            btnOutlineSwapColors.Click += btnOutlineSwapColors_Click;
+            //
+            // btnOutlineMoreColors
+            //
+            btnOutlineMoreColors.Location = new System.Drawing.Point(204, 28);
+            btnOutlineMoreColors.Name = "btnOutlineMoreColors";
+            btnOutlineMoreColors.Size = new System.Drawing.Size(90, 24);
+            btnOutlineMoreColors.TabIndex = 5;
+            toolTip1.SetToolTip(btnOutlineMoreColors, "Open the full color picker for the ink color");
+            btnOutlineMoreColors.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineMoreColors.Values.Text = "More…";
+            btnOutlineMoreColors.Click += btnOutlineMoreColors_Click;
+            //
+            // flowOutlineSwatches
+            //
+            flowOutlineSwatches.Location = new System.Drawing.Point(8, 60);
+            flowOutlineSwatches.Name = "flowOutlineSwatches";
+            flowOutlineSwatches.Size = new System.Drawing.Size(334, 116);
+            flowOutlineSwatches.TabIndex = 6;
+            //
+            // labelOutlineRecent
+            //
+            labelOutlineRecent.Location = new System.Drawing.Point(8, 180);
+            labelOutlineRecent.Name = "labelOutlineRecent";
+            labelOutlineRecent.Size = new System.Drawing.Size(60, 15);
+            labelOutlineRecent.TabIndex = 7;
+            labelOutlineRecent.Text = "Recent";
+            //
+            // flowOutlineRecentColors
+            //
+            flowOutlineRecentColors.Location = new System.Drawing.Point(8, 198);
+            flowOutlineRecentColors.Name = "flowOutlineRecentColors";
+            flowOutlineRecentColors.Size = new System.Drawing.Size(334, 54);
+            flowOutlineRecentColors.TabIndex = 8;
+            //
             // mapHScroll
-            // 
+            //
             mapHScroll.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
             mapHScroll.BorderStyle = DecentForms.BorderStyle.NONE;
             mapHScroll.DisplayType = DecentForms.ScrollBar.SBDisplayType.RAISED;
@@ -4592,6 +5233,14 @@
             ((System.ComponentModel.ISupportInitialize)comboEntityTypes).EndInit();
             flowLayoutPanel1.ResumeLayout(false);
             flowLayoutPanel1.PerformLayout();
+            flowOutlineTools.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)editOutlineBrushSize).EndInit();
+            ((System.ComponentModel.ISupportInitialize)editOutlineEraserSize).EndInit();
+            ((System.ComponentModel.ISupportInitialize)editOutlineBorderSize).EndInit();
+            ((System.ComponentModel.ISupportInitialize)editOutlineExtendStep).EndInit();
+            ((System.ComponentModel.ISupportInitialize)editOutlineFontSize).EndInit();
+            flowOutlineOptions.ResumeLayout(false);
+            collapsiblePanelOutlineColors.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)tabMapEditor).EndInit();
             ((System.ComponentModel.ISupportInitialize)tabTiles).EndInit();
             tabTiles.ResumeLayout(false);
@@ -4793,11 +5442,63 @@
     private System.Windows.Forms.ComboBox comboImportMethod;
     private System.Windows.Forms.Label label2;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel1;
+        private Krypton.Toolkit.KryptonCheckButton btnToggleOutlineMode;
+        private System.Windows.Forms.FlowLayoutPanel flowOutlineTools;
+        private System.Windows.Forms.FlowLayoutPanel flowOutlineOptions;
+        private Krypton.Toolkit.KryptonButton btnOutlineZoomOut;
+        private Krypton.Toolkit.KryptonButton btnOutlineZoomIn;
+        private System.Windows.Forms.Label labelOutlineZoom;
+        private System.Windows.Forms.Label labelOutlineCanvasSize;
+        private RetroDevStudio.Controls.MapOutlineCanvas outlineCanvas;
+        private Controls.CollapsiblePanel collapsiblePanelOutlineColors;
+        private Krypton.Toolkit.KryptonCheckButton btnOutlineToolBrush;
+        private Krypton.Toolkit.KryptonCheckButton btnOutlineToolEraser;
+        private Krypton.Toolkit.KryptonCheckButton btnOutlineToolRectErase;
+        private System.Windows.Forms.Label labelOutlineBrushSize;
+        private System.Windows.Forms.NumericUpDown editOutlineBrushSize;
+        private System.Windows.Forms.Label labelOutlineEraserSize;
+        private System.Windows.Forms.NumericUpDown editOutlineEraserSize;
+        private System.Windows.Forms.Label labelOutlineInk;
+        private System.Windows.Forms.Panel panelOutlinePrimaryColor;
+        private System.Windows.Forms.Label labelOutlineFill;
+        private System.Windows.Forms.Panel panelOutlineSecondaryColor;
+        private Krypton.Toolkit.KryptonButton btnOutlineSwapColors;
+        private Krypton.Toolkit.KryptonButton btnOutlineMoreColors;
+        private System.Windows.Forms.FlowLayoutPanel flowOutlineSwatches;
+        private System.Windows.Forms.Label labelOutlineRecent;
+        private System.Windows.Forms.FlowLayoutPanel flowOutlineRecentColors;
+        private Krypton.Toolkit.KryptonCheckButton btnOutlineToolRect;
+        private Krypton.Toolkit.KryptonCheckButton btnOutlineToolEllipse;
+        private System.Windows.Forms.Label labelOutlineBorderSize;
+        private System.Windows.Forms.NumericUpDown editOutlineBorderSize;
+        private System.Windows.Forms.Label labelOutlineExtend;
+        private Krypton.Toolkit.KryptonButton btnOutlineExtendLeft;
+        private Krypton.Toolkit.KryptonButton btnOutlineExtendUp;
+        private Krypton.Toolkit.KryptonButton btnOutlineExtendDown;
+        private Krypton.Toolkit.KryptonButton btnOutlineExtendRight;
+        private System.Windows.Forms.NumericUpDown editOutlineExtendStep;
+        private System.Windows.Forms.Label labelOutlineExtendPx;
+        private Krypton.Toolkit.KryptonButton btnOutlineCopyImage;
+        private Krypton.Toolkit.KryptonButton btnOutlinePasteImage;
+        private Krypton.Toolkit.KryptonButton btnOutlineDeletePicture;
+        private Krypton.Toolkit.KryptonCheckButton btnOutlineToolText;
+        private Krypton.Toolkit.KryptonCheckButton btnOutlineToolStamp;
+        private System.Windows.Forms.Label labelOutlineStampScale;
+        private System.Windows.Forms.ComboBox comboOutlineStampScale;
+        private System.Windows.Forms.Panel panelOutlineSep1;
+        private Krypton.Toolkit.KryptonButton btnOutlineZoomReset;
+        private Krypton.Toolkit.KryptonButton btnOutlineCenterView;
+        private System.Windows.Forms.ComboBox comboOutlineFont;
+        private System.Windows.Forms.NumericUpDown editOutlineFontSize;
+        private Krypton.Toolkit.KryptonCheckButton btnOutlineTextBold;
+        private Krypton.Toolkit.KryptonCheckButton btnOutlineTextItalic;
         private System.Windows.Forms.Label label19;
         private System.Windows.Forms.Label label25;
         private Krypton.Toolkit.KryptonTrackBar dimSlider;
         private Krypton.Toolkit.KryptonTrackBar gridOpacitySlider;
         private System.Windows.Forms.Label labelGridOpacity;
+        private System.Windows.Forms.Label labelBoundsOpacity;
+        private Krypton.Toolkit.KryptonTrackBar boundsOpacitySlider;
         private System.Windows.Forms.Label labelReservedTopLines;
         private Krypton.Toolkit.KryptonNumericUpDown editReservedTopLines;
         private Krypton.Toolkit.KryptonButton btnViewFullscreen;

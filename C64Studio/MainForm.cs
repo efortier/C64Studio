@@ -5281,6 +5281,7 @@ namespace RetroDevStudio
         case Function.GRAPHIC_ELEMENT_CUSTOM_COLOR:
         case Function.GRAPHIC_ELEMENT_BACKGROUND_COLOR:
         case Function.GRAPHIC_ELEMENT_INVERT:
+        case Function.MAP_EDITOR_TOGGLE_OUTLINE:
           // pass through to document
           {
             var curDoc = ActiveDocumentInfo;

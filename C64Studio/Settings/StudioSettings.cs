@@ -623,6 +623,12 @@ namespace RetroDevStudio
       RegisterFunction( Function.NAVIGATE_BACK, "Navigate Backward", FunctionStudioState.ANY );
       RegisterFunction( Function.NAVIGATE_FORWARD, "Navigate Forward", FunctionStudioState.ANY );
 
+      // NORMAL (not ANY) on purpose: the default key F11 doubles as Debug
+      // Step, which is registered DEBUGGER_BROKEN — the state masks keep
+      // the shared key unambiguous (same pattern as F5 = Build and Debug /
+      // Debug Go).
+      RegisterFunction( Function.MAP_EDITOR_TOGGLE_OUTLINE, "Toggle Map Outline Mode", FunctionStudioState.NORMAL );
+
       // functions for running debugger
       RegisterFunction( Function.DEBUG_BREAK, "Break into Debugger", FunctionStudioState.DEBUGGER_RUNNING );
 
@@ -2086,6 +2092,9 @@ namespace RetroDevStudio
       SetKeyBindingKey( RetroDevStudio.Types.Function.CENTER_ON_CURSOR, Keys.Clear );
       SetKeyBindingKey( RetroDevStudio.Types.Function.DELETE_LINE, Keys.Control | Keys.Y );
       SetKeyBindingKey( RetroDevStudio.Types.Function.DEBUG_STEP, Keys.F11 );
+      // F11 doubles as Debug Step — safe because the two functions live in
+      // disjoint studio states (NORMAL vs DEBUGGER_BROKEN, F5 precedent).
+      SetKeyBindingKey( RetroDevStudio.Types.Function.MAP_EDITOR_TOGGLE_OUTLINE, Keys.F11 );
       SetKeyBindingKey( RetroDevStudio.Types.Function.DEBUG_STEP_OVER, Keys.F10 );
       SetKeyBindingKey( RetroDevStudio.Types.Function.DEBUG_STOP, Keys.Shift | Keys.F5 );
       SetKeyBindingKey( RetroDevStudio.Types.Function.DEBUG_RUN_TO, Keys.Control | Keys.F10 );
@@ -2336,6 +2345,9 @@ namespace RetroDevStudio
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.CENTER_ON_CURSOR, Keys.Clear );
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.DELETE_LINE, Keys.Control | Keys.Y );
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.DEBUG_STEP, Keys.F11 );
+      // Upgrade path: existing users' settings gain the outline toggle
+      // without touching any binding they already customized.
+      ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.MAP_EDITOR_TOGGLE_OUTLINE, Keys.F11 );
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.DEBUG_STEP_OVER, Keys.F10 );
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.DEBUG_STOP, Keys.Shift | Keys.F5 );
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.DEBUG_RUN_TO, Keys.Control | Keys.F10 );

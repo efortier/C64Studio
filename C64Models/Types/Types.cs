@@ -177,7 +177,11 @@ namespace RetroDevStudio.Types
     BUILD_TO_RELOCATION_FILE,
     RENAME_ALL_REFERENCES,
     TOGGLE_SELECTION,
-    FIND_PREVIOUS
+    FIND_PREVIOUS,
+    // APPEND ONLY below this line — AcceleratorKey persists the numeric
+    // enum value (AcceleratorKey.ToChunk), so inserting mid-enum shifts
+    // every user's saved key bindings.
+    MAP_EDITOR_TOGGLE_OUTLINE
   }
 
   public enum StudioState

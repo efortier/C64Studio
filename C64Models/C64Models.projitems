@@ -115,6 +115,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Formats\Media\D81.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Formats\Media\CommodoreDisk.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Formats\GraphicScreenProject.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Formats\MapOutlineContainer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Formats\MapProject.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Formats\Media\MediaFormat.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Formats\Media\PRG.cs" />

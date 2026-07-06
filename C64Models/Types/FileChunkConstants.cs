@@ -74,6 +74,19 @@
     // absent = project predates per-project filters; the editor seeds from
     // the global settings pipeline on load (fully back-compat).
     public const ushort    MAP_DISPLAY_FILTERS            = 0x1336;
+    // Map outline sidecar file (<mapproject>.mapoutlines) — these two chunks
+    // live in that standalone container, NOT inside the .mapproject itself.
+    // MAP_OUTLINE_INFO: [u32 version]. MAP_OUTLINE_IMAGE (one per map):
+    // [string OutlineGuid][i32 width][i32 height][u32 pngLength][png bytes].
+    // Images are keyed by Map.OutlineGuid so they survive map reorder /
+    // rename / delete+undo. See MapOutlineContainer.
+    public const ushort    MAP_OUTLINE_INFO               = 0x1337;
+    public const ushort    MAP_OUTLINE_IMAGE              = 0x1338;
+    // Project-level outline TOOL settings (brush/eraser/border sizes,
+    // stamp scale, text font, ink/fill colors, extend step, recents) —
+    // lives in the .mapproject itself, unlike the two sidecar chunks
+    // above. Absent chunk = defaults (fully back-compat).
+    public const ushort    MAP_OUTLINE_TOOL_SETTINGS      = 0x1339;
 
     public const ushort    CHARSET_PROJECT                = 0x1340;
     public const ushort    CHARSET_INFO                   = 0x1341;

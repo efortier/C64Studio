@@ -17,6 +17,29 @@ namespace RetroDevStudio.Formats
       public byte       Color = 1;
     };
 
+    /// <summary>
+    /// Map outline (paint mode) tool settings — persisted per PROJECT so
+    /// brush/eraser/border sizes, stamp scale, text font, ink/fill colors
+    /// and the extend step survive reopening. Defaults here must match
+    /// the editor's Designer defaults (a missing chunk falls back to
+    /// these). Colors are raw ARGB so full alpha survives.
+    /// </summary>
+    public class MapOutlineToolSettings
+    {
+      public int        BrushSize = 8;
+      public int        EraserSize = 24;
+      public int        ShapeBorderSize = 3;
+      public int        StampScale = 1;
+      public string     TextFontFamily = "Arial";
+      public int        TextFontSize = 16;
+      public bool       TextFontBold = false;
+      public bool       TextFontItalic = false;
+      public uint       InkColorARGB = 0xFFFFFFFF;
+      public uint       FillColorARGB = 0xFF808080;
+      public int        ExtendStep = 32;
+      public List<uint> RecentColorsARGB = new List<uint>();
+    };
+
     public class Marker
     {
       public int        X = 0;
@@ -338,6 +361,17 @@ namespace RetroDevStudio.Formats
       public int                NextMarkerGroupId = 1;
 
       /// <summary>
+      /// Stable identity for per-map auxiliary data stored OUTSIDE the
+      /// project file (the .mapoutlines sidecar keys its images by this).
+      /// Maps have no other durable identity — they are addressed by list
+      /// index, which shifts on add/delete. Empty string = not assigned
+      /// yet; assigned lazily on first use and persisted thereafter.
+      /// Duplicating a map MUST assign a fresh GUID (CloneMap round-trips
+      /// the serializer and would copy it).
+      /// </summary>
+      public string             OutlineGuid = "";
+
+      /// <summary>
       /// overrides Project.Mode when set (e.g. display MC instead of hires)
       /// </summary>
       public TextCharMode       AlternativeMode = TextCharMode.UNKNOWN;
@@ -628,6 +662,9 @@ namespace RetroDevStudio.Formats
     /// </summary>
     public GR.Memory.ByteBuffer         DisplayFilterData = null;
 
+    /// <summary>Outline paint-mode tool settings (see the class comment).</summary>
+    public MapOutlineToolSettings       OutlineToolSettings = new MapOutlineToolSettings();
+
     /// <summary>
     /// Optional path to a binary font file used when rendering the Map
     /// Strings tab's preview canvas. The expected format matches what the
@@ -684,6 +721,12 @@ namespace RetroDevStudio.Formats
     /// so different maps can have visually-distinct grid emphasis.
     /// </summary>
     public int                          GridOpacity = 100;
+    /// <summary>
+    /// Opacity (0..100) of the map-bounds rectangle drawn while the grid
+    /// is HIDDEN (with the grid on, the grid itself shows the bounds).
+    /// 0 disables the bounds overlay. Default ≈ the original fixed value.
+    /// </summary>
+    public int                          MapBoundsOpacity = 55;
     public bool                         ShowCharacterListGrid = false;
     /// <summary>
     /// Index into <see cref="Maps"/> of the map the user had selected when
@@ -745,6 +788,7 @@ namespace RetroDevStudio.Formats
       ShowMapSprites = true;
       DisplayFiltersEnabled = false;
       DisplayFilterData = null;
+      OutlineToolSettings = new MapOutlineToolSettings();
       Settings = new ExportSettings();
     }
 
@@ -813,6 +857,9 @@ namespace RetroDevStudio.Formats
       // Sprites panel "Show sprites" toggle. Append-only; old files
       // default to true (shown).
       chunkProjectInfo.AppendU8( ShowMapSprites ? (byte)1 : (byte)0 );
+      // Map-bounds overlay opacity (0..100, shown while the grid is off).
+      // Append-only; old files fall through to the field default.
+      chunkProjectInfo.AppendI32( MapBoundsOpacity );
       projectFile.Append( chunkProjectInfo.ToBuffer() );
 
       // Per-project CRT display filters. Written only once the editor has
@@ -825,6 +872,29 @@ namespace RetroDevStudio.Formats
         chunkDisplayFilters.AppendU8( DisplayFiltersEnabled ? (byte)1 : (byte)0 );
         chunkDisplayFilters.Append( DisplayFilterData );
         projectFile.Append( chunkDisplayFilters.ToBuffer() );
+      }
+
+      // Outline paint-mode tool settings — optional chunk, older builds
+      // skip it; a missing chunk on load keeps the class defaults.
+      {
+        var chunkOutlineTools = new GR.IO.FileChunk( FileChunkConstants.MAP_OUTLINE_TOOL_SETTINGS );
+        chunkOutlineTools.AppendI32( OutlineToolSettings.BrushSize );
+        chunkOutlineTools.AppendI32( OutlineToolSettings.EraserSize );
+        chunkOutlineTools.AppendI32( OutlineToolSettings.ShapeBorderSize );
+        chunkOutlineTools.AppendI32( OutlineToolSettings.StampScale );
+        chunkOutlineTools.AppendString( OutlineToolSettings.TextFontFamily ?? "" );
+        chunkOutlineTools.AppendI32( OutlineToolSettings.TextFontSize );
+        chunkOutlineTools.AppendU8( (byte)( OutlineToolSettings.TextFontBold ? 1 : 0 ) );
+        chunkOutlineTools.AppendU8( (byte)( OutlineToolSettings.TextFontItalic ? 1 : 0 ) );
+        chunkOutlineTools.AppendU32( OutlineToolSettings.InkColorARGB );
+        chunkOutlineTools.AppendU32( OutlineToolSettings.FillColorARGB );
+        chunkOutlineTools.AppendI32( OutlineToolSettings.ExtendStep );
+        chunkOutlineTools.AppendI32( OutlineToolSettings.RecentColorsARGB.Count );
+        foreach ( var recentColor in OutlineToolSettings.RecentColorsARGB )
+        {
+          chunkOutlineTools.AppendU32( recentColor );
+        }
+        projectFile.Append( chunkOutlineTools.ToBuffer() );
       }
 
       GR.IO.FileChunk chunkCharset = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET );
@@ -1212,6 +1282,12 @@ namespace RetroDevStudio.Formats
               {
                 ShowMapSprites = ( chunkReader.ReadUInt8() != 0 );
               }
+              // Map-bounds overlay opacity (append-only; default for old
+              // files).
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                MapBoundsOpacity = Math.Max( 0, Math.Min( 100, chunkReader.ReadInt32() ) );
+              }
             }
             break;
           case FileChunkConstants.MAP_DISPLAY_FILTERS:
@@ -1223,6 +1299,32 @@ namespace RetroDevStudio.Formats
                 chunkReader.ReadBlock( filterData, (uint)( chunkReader.Size - chunkReader.Position ) );
               }
               DisplayFilterData = filterData;
+            }
+            break;
+          case FileChunkConstants.MAP_OUTLINE_TOOL_SETTINGS:
+            {
+              var tools = new MapOutlineToolSettings();
+              tools.BrushSize       = Math.Max( 1, Math.Min( 128, chunkReader.ReadInt32() ) );
+              tools.EraserSize      = Math.Max( 1, Math.Min( 128, chunkReader.ReadInt32() ) );
+              tools.ShapeBorderSize = Math.Max( 0, Math.Min( 64, chunkReader.ReadInt32() ) );
+              tools.StampScale      = Math.Max( 1, Math.Min( 4, chunkReader.ReadInt32() ) );
+              tools.TextFontFamily  = chunkReader.ReadString();
+              tools.TextFontSize    = Math.Max( 6, Math.Min( 144, chunkReader.ReadInt32() ) );
+              tools.TextFontBold    = ( chunkReader.ReadUInt8() != 0 );
+              tools.TextFontItalic  = ( chunkReader.ReadUInt8() != 0 );
+              tools.InkColorARGB    = chunkReader.ReadUInt32();
+              tools.FillColorARGB   = chunkReader.ReadUInt32();
+              tools.ExtendStep      = Math.Max( 8, Math.Min( 256, chunkReader.ReadInt32() ) );
+              int recentCount = Math.Max( 0, Math.Min( 32, chunkReader.ReadInt32() ) );
+              for ( int i = 0; i < recentCount; ++i )
+              {
+                if ( chunkReader.Size - chunkReader.Position < 4 )
+                {
+                  break;
+                }
+                tools.RecentColorsARGB.Add( chunkReader.ReadUInt32() );
+              }
+              OutlineToolSettings = tools;
             }
             break;
           case FileChunkConstants.MAP_CHARSET:
@@ -1593,6 +1695,26 @@ namespace RetroDevStudio.Formats
       }
       memReader.Close();
 
+
+      // OutlineGuid uniqueness sanitize: two live maps must never share a
+      // GUID (the sidecar outline images are keyed by it). Duplicates can
+      // exist in files saved before btnMapCopy_Click assigned fresh GUIDs,
+      // or after hand-editing. First holder keeps the GUID (and thus the
+      // outline image); later holders are reset to "" = assigned lazily on
+      // first outline use. Empty GUIDs stay empty here on purpose — maps
+      // that never use an outline never need one.
+      var seenOutlineGuids = new HashSet<string>();
+      foreach ( var map in Maps )
+      {
+        if ( string.IsNullOrEmpty( map.OutlineGuid ) )
+        {
+          continue;
+        }
+        if ( !seenOutlineGuids.Add( map.OutlineGuid ) )
+        {
+          map.OutlineGuid = "";
+        }
+      }
 
       Charset.Colors.MultiColor1 = MultiColor1;
       Charset.Colors.MultiColor2 = MultiColor2;
@@ -4715,6 +4837,10 @@ namespace RetroDevStudio.Formats
       // marker toolbar's Find-next button. Forward-compat: older readers
       // simply stop after MarkerDimOpacity and leave the default of 1.
       chunkMapInfo.AppendI32( map.NextMarkerGroupId );
+      // Appended for OutlineGuid — stable identity for sidecar data (map
+      // outline images). Older readers stop before it; readers guard on
+      // the remaining length and fall back to "" (= assign lazily).
+      chunkMapInfo.AppendString( map.OutlineGuid ?? "" );
       chunkMap.Append( chunkMapInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkMapData = new GR.IO.FileChunk( FileChunkConstants.MAP_DATA );
@@ -5032,6 +5158,10 @@ namespace RetroDevStudio.Formats
             {
               map.NextMarkerGroupId = mapChunkReader.ReadInt32();
               if ( map.NextMarkerGroupId < 1 ) map.NextMarkerGroupId = 1;
+            }
+            if ( mapChunkReader.Size - mapChunkReader.Position >= 4 )
+            {
+              map.OutlineGuid = mapChunkReader.ReadString();
             }
             break;
           case FileChunkConstants.MAP_DATA:
