@@ -80,6 +80,9 @@ namespace RetroDevStudio.Controls
     /// <summary>Right-click eyedropper result.</summary>
     public event Action<Color> ColorPicked;
 
+    /// <summary>Raised when the rectangular selection changes (incl. cleared).</summary>
+    public event EventHandler SelectionChanged;
+
 
 
     /// <summary>Ink color for brush/outline/text (carries alpha).</summary>
@@ -155,8 +158,214 @@ namespace RetroDevStudio.Controls
         }
         m_ToolStrokeInFlight = false;
         m_ActiveTool = value;
+        // Selection is operations-only and belongs to the selection tool:
+        // switching to any OTHER tool clears it.
+        if ( !( value is SelectionTool ) )
+        {
+          SetSelectionRect( null );
+        }
         UpdateCursor();
         Invalidate();
+      }
+    }
+
+
+
+    private Rectangle? m_SelectionRect = null;
+
+    /// <summary>
+    /// The committed rectangular selection in image space (clamped to the
+    /// image); null = none. Cleared on tool switch and whenever the
+    /// backing image changes (map switch, crop, paste, extend).
+    /// </summary>
+    public Rectangle? SelectionRect
+    {
+      get
+      {
+        return m_SelectionRect;
+      }
+    }
+
+
+
+    public void SetSelectionRect( Rectangle? Rect )
+    {
+      Rectangle? clamped = null;
+      if ( ( Rect.HasValue )
+      &&   ( m_Image != null ) )
+      {
+        var r = Rectangle.Intersect( Rect.Value, new Rectangle( 0, 0, m_Image.Width, m_Image.Height ) );
+        if ( ( r.Width >= 1 )
+        &&   ( r.Height >= 1 ) )
+        {
+          clamped = r;
+        }
+      }
+      if ( clamped == m_SelectionRect )
+      {
+        return;
+      }
+      m_SelectionRect = clamped;
+      SelectionChanged?.Invoke( this, EventArgs.Empty );
+      Invalidate();
+    }
+
+
+
+    /// <summary>
+    /// Erases the selection to opaque background — the outline "Delete"
+    /// operation. Commits through the same pipeline the tools use, so the
+    /// editor's undo stack and dirty tracking pick it up. False = no
+    /// selection / no image (nothing happened).
+    /// </summary>
+    public bool EraseSelection()
+    {
+      if ( ( m_SelectionRect == null )
+      ||   ( m_Image == null ) )
+      {
+        return false;
+      }
+      var region = m_SelectionRect.Value;
+      var beforeCrop = m_Image.Clone( region, m_Image.PixelFormat );
+      using ( var g = Graphics.FromImage( m_Image ) )
+      using ( var fill = new SolidBrush( Color.FromArgb( 255, EraseColor ) ) )
+      {
+        g.FillRectangle( fill, region );
+      }
+      InvalidateImageRegion( region );
+      RaiseChangeCommitted( region, beforeCrop, "Delete selection" );
+      return true;
+    }
+
+
+
+    /// <summary>Copy of the selection's pixels; null if no selection.</summary>
+    public Bitmap CopySelectionRegion()
+    {
+      if ( ( m_SelectionRect == null )
+      ||   ( m_Image == null ) )
+      {
+        return null;
+      }
+      return m_Image.Clone( m_SelectionRect.Value, System.Drawing.Imaging.PixelFormat.Format32bppArgb );
+    }
+
+
+
+    // Floating paste: the clipboard image rides centered under the cursor
+    // until a left-click stamps it (one undoable commit) or Escape /
+    // right-click / any flush point cancels it. Owned by the canvas.
+    private Bitmap m_FloatingPasteImage = null;
+
+    public bool HasFloatingPaste
+    {
+      get
+      {
+        return m_FloatingPasteImage != null;
+      }
+    }
+
+
+
+    /// <summary>Takes OWNERSHIP of Image; disposes it on stamp or cancel.</summary>
+    public void BeginFloatingPaste( Bitmap Image )
+    {
+      CancelFloatingPaste();
+      if ( ( Image == null )
+      ||   ( m_Image == null ) )
+      {
+        Image?.Dispose();
+        return;
+      }
+      m_FloatingPasteImage = Image;
+      UpdateCursor();
+      Invalidate();
+    }
+
+
+
+    public void CancelFloatingPaste()
+    {
+      if ( m_FloatingPasteImage == null )
+      {
+        return;
+      }
+      m_FloatingPasteImage.Dispose();
+      m_FloatingPasteImage = null;
+      UpdateCursor();
+      Invalidate();
+    }
+
+
+
+    /// <summary>Floating image's rect centered on Pos, whole pixels for crisp placement.</summary>
+    private RectangleF FloatingPasteRect( PointF Pos )
+    {
+      return new RectangleF(
+        (float)Math.Round( Pos.X - m_FloatingPasteImage.Width * 0.5f ),
+        (float)Math.Round( Pos.Y - m_FloatingPasteImage.Height * 0.5f ),
+        m_FloatingPasteImage.Width, m_FloatingPasteImage.Height );
+    }
+
+
+
+    private void StampFloatingPaste( PointF ImagePos )
+    {
+      var dest = FloatingPasteRect( ImagePos );
+      var region = Rectangle.Intersect(
+        Rectangle.FromLTRB( (int)dest.Left, (int)dest.Top, (int)Math.Ceiling( dest.Right ), (int)Math.Ceiling( dest.Bottom ) ),
+        new Rectangle( 0, 0, m_Image.Width, m_Image.Height ) );
+      if ( ( region.Width < 1 )
+      ||   ( region.Height < 1 ) )
+      {
+        // Dropped entirely off the picture — nothing to stamp.
+        CancelFloatingPaste();
+        return;
+      }
+      var beforeCrop = m_Image.Clone( region, m_Image.PixelFormat );
+      using ( var g = Graphics.FromImage( m_Image ) )
+      {
+        g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+        g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+        g.DrawImage( m_FloatingPasteImage, dest.X, dest.Y,
+                     m_FloatingPasteImage.Width, m_FloatingPasteImage.Height );
+      }
+      InvalidateImageRegion( region );
+      RaiseChangeCommitted( region, beforeCrop, "Paste" );
+      CancelFloatingPaste();
+    }
+
+
+
+    private void RaiseChangeCommitted( Rectangle Region, Bitmap BeforeCrop, string Description )
+    {
+      var handler = ChangeCommitted;
+      if ( handler != null )
+      {
+        handler( Region, BeforeCrop, Description );
+      }
+      else
+      {
+        BeforeCrop.Dispose();
+      }
+    }
+
+
+
+    /// <summary>
+    /// Black+white double-dash marquee — visible against any content
+    /// without a marching-ants animation timer.
+    /// </summary>
+    internal static void DrawMarquee( Graphics ViewGraphics, RectangleF Rect )
+    {
+      using ( var blackPen = new Pen( Color.Black ) )
+      using ( var whitePen = new Pen( Color.White ) )
+      {
+        blackPen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+        whitePen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+        whitePen.DashOffset = 2;
+        ViewGraphics.DrawRectangle( blackPen, Rect.X, Rect.Y, Rect.Width, Rect.Height );
+        ViewGraphics.DrawRectangle( whitePen, Rect.X, Rect.Y, Rect.Width, Rect.Height );
       }
     }
 
@@ -192,6 +401,12 @@ namespace RetroDevStudio.Controls
           // A stroke can't survive its image being swapped out under it —
           // abort against the OLD image before the reference changes.
           CancelActiveStroke();
+          // Selection coordinates are meaningless against a different
+          // image (map switch, crop, paste, extend) — clear, don't risk
+          // stale bounds. Cleared BEFORE the swap so the clamp inside
+          // SetSelectionRect runs against a consistent state.
+          m_SelectionRect = null;
+          SelectionChanged?.Invoke( this, EventArgs.Empty );
         }
         m_Image = value;
         Invalidate();
@@ -500,6 +715,8 @@ namespace RetroDevStudio.Controls
       m_ToolContext.TextFontItalic = TextFontItalic;
       m_ToolContext.StampImage = m_StampImage;
       m_ToolContext.StampScale = StampScale;
+      m_ToolContext.SelectionRect = m_SelectionRect;
+      m_ToolContext.SetSelectionRect = SetSelectionRect;
       m_ToolContext.CreateRenderer = () => new GdiPlusOutlineRenderer( m_Image );
       m_ToolContext.InvalidateImageRegion = InvalidateImageRegion;
       m_ToolContext.CommitChange = ( region, beforeCrop, description ) =>
@@ -525,6 +742,9 @@ namespace RetroDevStudio.Controls
     /// </summary>
     public void CancelActiveStroke()
     {
+      // A floating paste is the most "in flight" state of all — Escape
+      // (and every other cancel route) throws it away first.
+      CancelFloatingPaste();
       if ( ( m_ActiveTool != null )
       &&   ( m_Image != null ) )
       {
@@ -558,8 +778,9 @@ namespace RetroDevStudio.Controls
     {
       get
       {
-        return ( m_ActiveTool != null )
-            && ( m_ActiveTool.HasPendingEdit );
+        return ( m_FloatingPasteImage != null )
+            || ( ( m_ActiveTool != null )
+            &&   ( m_ActiveTool.HasPendingEdit ) );
       }
     }
 
@@ -573,6 +794,9 @@ namespace RetroDevStudio.Controls
     /// </summary>
     public void FinalizePendingEdit()
     {
+      // A floating paste has no position until the user clicks — there is
+      // nothing to commit at a flush point, so it discards.
+      CancelFloatingPaste();
       if ( ( m_ActiveTool != null )
       &&   ( m_Image != null )
       &&   ( m_ActiveTool.HasPendingEdit ) )
@@ -644,12 +868,20 @@ namespace RetroDevStudio.Controls
     /// </summary>
     private RectangleF GhostViewRect( PointF ImagePos )
     {
-      if ( ( float.IsNaN( ImagePos.X ) )
-      ||   ( m_ActiveTool == null ) )
+      if ( float.IsNaN( ImagePos.X ) )
       {
         return RectangleF.Empty;
       }
-      float extent = m_ActiveTool.PointerGhostExtent( RefreshToolContext() );
+      float extent = 0;
+      if ( m_FloatingPasteImage != null )
+      {
+        // The floating paste ghost outranks the tool's pointer ghost.
+        extent = Math.Max( m_FloatingPasteImage.Width, m_FloatingPasteImage.Height ) * 0.5f + 2;
+      }
+      else if ( m_ActiveTool != null )
+      {
+        extent = m_ActiveTool.PointerGhostExtent( RefreshToolContext() );
+      }
       if ( extent <= 0 )
       {
         return RectangleF.Empty;
@@ -694,6 +926,21 @@ namespace RetroDevStudio.Controls
         Capture = true;
         UpdateCursor();
         return;
+      }
+      if ( m_FloatingPasteImage != null )
+      {
+        // Floating paste owns the click: left stamps it centered on the
+        // cursor, right throws it away.
+        if ( e.Button == MouseButtons.Left )
+        {
+          StampFloatingPaste( ViewToImage( e.Location ) );
+          return;
+        }
+        if ( e.Button == MouseButtons.Right )
+        {
+          CancelFloatingPaste();
+          return;
+        }
       }
       if ( e.Button == MouseButtons.Right )
       {
@@ -752,7 +999,8 @@ namespace RetroDevStudio.Controls
       {
         m_ActiveTool.OnPointerMove( RefreshToolContext(), m_PointerImagePos );
       }
-      if ( m_ActiveTool != null )
+      if ( ( m_ActiveTool != null )
+      ||   ( m_FloatingPasteImage != null ) )
       {
         InvalidateGhost( oldGhost, m_LastGhostViewRect );
       }
@@ -766,7 +1014,8 @@ namespace RetroDevStudio.Controls
       var oldGhost = m_LastGhostViewRect;
       m_PointerImagePos = new PointF( float.NaN, float.NaN );
       m_LastGhostViewRect = RectangleF.Empty;
-      if ( m_ActiveTool != null )
+      if ( ( m_ActiveTool != null )
+      ||   ( m_FloatingPasteImage != null ) )
       {
         InvalidateGhost( oldGhost, RectangleF.Empty );
       }
@@ -858,6 +1107,44 @@ namespace RetroDevStudio.Controls
       if ( m_ActiveTool != null )
       {
         m_ActiveTool.OnPaintPreview( RefreshToolContext(), g, ImageToView, m_Zoom, m_PointerImagePos );
+      }
+
+      // Committed selection marquee (the in-flight drag is drawn by the
+      // selection tool's preview pass above).
+      if ( m_SelectionRect.HasValue )
+      {
+        var selTopLeft = ImageToView( new PointF( m_SelectionRect.Value.X, m_SelectionRect.Value.Y ) );
+        DrawMarquee( g, new RectangleF( selTopLeft.X, selTopLeft.Y,
+                                        m_SelectionRect.Value.Width * m_Zoom,
+                                        m_SelectionRect.Value.Height * m_Zoom ) );
+      }
+
+      // Floating paste ghost, centered on the cursor: mostly-opaque
+      // preview + marquee frame so it reads as "not stamped yet".
+      if ( ( m_FloatingPasteImage != null )
+      &&   ( !float.IsNaN( m_PointerImagePos.X ) ) )
+      {
+        var destImage = FloatingPasteRect( m_PointerImagePos );
+        var ghostTopLeft = ImageToView( new PointF( destImage.X, destImage.Y ) );
+        var destView = new RectangleF( ghostTopLeft.X, ghostTopLeft.Y,
+                                       destImage.Width * m_Zoom, destImage.Height * m_Zoom );
+        var previousInterpolation = g.InterpolationMode;
+        var previousOffset = g.PixelOffsetMode;
+        g.InterpolationMode = InterpolationMode.NearestNeighbor;
+        g.PixelOffsetMode = PixelOffsetMode.Half;
+        using ( var attributes = new System.Drawing.Imaging.ImageAttributes() )
+        {
+          var ghostAlpha = new System.Drawing.Imaging.ColorMatrix();
+          ghostAlpha.Matrix33 = 0.7f;
+          attributes.SetColorMatrix( ghostAlpha );
+          g.DrawImage( m_FloatingPasteImage,
+            new Rectangle( (int)destView.X, (int)destView.Y, (int)destView.Width, (int)destView.Height ),
+            0, 0, m_FloatingPasteImage.Width, m_FloatingPasteImage.Height,
+            GraphicsUnit.Pixel, attributes );
+        }
+        g.InterpolationMode = previousInterpolation;
+        g.PixelOffsetMode = previousOffset;
+        DrawMarquee( g, destView );
       }
     }
   }

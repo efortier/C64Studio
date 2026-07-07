@@ -205,6 +205,38 @@ namespace RetroDevStudio.Controls
 
 
 
+    public static Bitmap MarqueeSelect()
+    {
+      var icon = NewIcon( out Graphics g );
+      using ( g )
+      using ( var pen = new Pen( INK, 1.4f ) )
+      {
+        pen.DashStyle = DashStyle.Dash;
+        g.DrawRectangle( pen, 2, 3, 12, 10 );
+      }
+      return icon;
+    }
+
+
+
+    public static Bitmap CropToSelection()
+    {
+      var icon = NewIcon( out Graphics g );
+      using ( g )
+      using ( var pen = new Pen( INK, 1.6f ) )
+      using ( var faint = new Pen( Color.FromArgb( 110, INK ), 1.2f ) )
+      {
+        // Classic crop glyph: two overlapping L brackets + cut diagonal.
+        g.DrawLines( pen, new PointF[] { new PointF( 4, 1 ), new PointF( 4, 11 ), new PointF( 15, 11 ) } );
+        g.DrawLines( pen, new PointF[] { new PointF( 1, 4 ), new PointF( 11, 4 ), new PointF( 11, 15 ) } );
+        faint.DashStyle = DashStyle.Dot;
+        g.DrawLine( faint, 5, 5, 10, 10 );
+      }
+      return icon;
+    }
+
+
+
     public static Bitmap CenterView()
     {
       var icon = NewIcon( out Graphics g );

@@ -462,6 +462,98 @@ namespace RetroDevStudio.Documents
       public int        FrameTicks = 0;
     }
 
+    /// <summary>
+    /// Undo task for a map's session-only sprite instance list. Nested in
+    /// MapEditor because MapSpriteInstance is private editor state — the
+    /// instances aren't part of the persisted map, so UndoMapRevert can't
+    /// cover them; this grouped task rides along wherever a whole-map
+    /// mutation (crop) displaces or drops instances. CreateComplementaryTask
+    /// re-snapshots the CURRENT list at undo time, so redo re-applies the
+    /// mutated state symmetrically.
+    /// </summary>
+    private class UndoMapSpriteInstancesChange : Undo.UndoTask
+    {
+      private MapEditor                 m_Editor;
+      private Formats.MapProject.Map    m_Map;
+      private List<MapSpriteInstance>   m_Snapshot;
+
+
+
+      public UndoMapSpriteInstancesChange( MapEditor Editor, Formats.MapProject.Map Map )
+      {
+        m_Editor = Editor;
+        m_Map = Map;
+        m_Snapshot = new List<MapSpriteInstance>();
+        if ( ( Map != null )
+        &&   ( Editor.m_MapSpriteInstances.TryGetValue( Map, out var instances ) ) )
+        {
+          foreach ( var inst in instances )
+          {
+            m_Snapshot.Add( new MapSpriteInstance()
+            {
+              AnimationID = inst.AnimationID,
+              CharX       = inst.CharX,
+              CharY       = inst.CharY,
+              OffsetX     = inst.OffsetX,
+              OffsetY     = inst.OffsetY,
+              FramePos    = inst.FramePos,
+              FrameTicks  = inst.FrameTicks
+            } );
+          }
+        }
+      }
+
+
+
+      public override string Description
+      {
+        get
+        {
+          return "Map Sprite Instances";
+        }
+      }
+
+
+
+      public override Undo.UndoTask CreateComplementaryTask()
+      {
+        return new UndoMapSpriteInstancesChange( m_Editor, m_Map );
+      }
+
+
+
+      public override void Apply()
+      {
+        if ( m_Map == null )
+        {
+          return;
+        }
+        if ( !m_Editor.m_MapSpriteInstances.TryGetValue( m_Map, out var instances ) )
+        {
+          instances = new List<MapSpriteInstance>();
+          m_Editor.m_MapSpriteInstances[m_Map] = instances;
+        }
+        instances.Clear();
+        foreach ( var inst in m_Snapshot )
+        {
+          instances.Add( new MapSpriteInstance()
+          {
+            AnimationID = inst.AnimationID,
+            CharX       = inst.CharX,
+            CharY       = inst.CharY,
+            OffsetX     = inst.OffsetX,
+            OffsetY     = inst.OffsetY,
+            FramePos    = inst.FramePos,
+            FrameTicks  = inst.FrameTicks
+          } );
+        }
+        // The restored instances may differ from what the selection held.
+        m_Editor.ClearSpriteSelection();
+        m_Editor.UpdateSpriteAnimTimerState();
+        m_Editor.pictureEditor.Invalidate();
+      }
+    }
+
     // The externally loaded sprite project (Browse...). Null = none loaded; the
     // persisted path may still be set (missing file degrades silently).
     private Formats.SpriteProject       m_MapSpriteProject = null;
@@ -1225,17 +1317,35 @@ namespace RetroDevStudio.Documents
       {
         // Clipboard functions get their OUTLINE meaning while the paint
         // face is showing — and must never fall through to the hidden
-        // map's marker/tile handlers.
+        // map's marker/tile handlers. With a selection active they act on
+        // the SELECTION; without one, on the whole canvas.
         switch ( Function )
         {
           case Function.COPY:
-            btnOutlineCopyImage_Click( null, EventArgs.Empty );
+            if ( outlineCanvas.SelectionRect.HasValue )
+            {
+              CopyOutlineSelectionToClipboard();
+            }
+            else
+            {
+              btnOutlineCopyImage_Click( null, EventArgs.Empty );
+            }
             return true;
           case Function.PASTE:
-            btnOutlinePasteImage_Click( null, EventArgs.Empty );
+            // Ctrl+V floats the clipboard image under the cursor for
+            // placement; the toolbar Paste button still replaces the
+            // whole canvas (round-trip restore).
+            StartOutlineFloatingPaste();
             return true;
           case Function.CUT:
-            // No outline meaning — swallowed so the map's cut cannot run.
+            // Cut = copy the selection, then erase it. Without a
+            // selection it stays swallowed (cutting the whole canvas
+            // would just be Delete picture with extra steps).
+            if ( outlineCanvas.SelectionRect.HasValue )
+            {
+              CopyOutlineSelectionToClipboard();
+              outlineCanvas.EraseSelection();
+            }
             return true;
         }
       }
@@ -1358,6 +1468,15 @@ namespace RetroDevStudio.Documents
     {
       get
       {
+        // Outline mode: copy is always meaningful (selection or whole
+        // canvas) — MainForm gates Function.COPY on this BEFORE the
+        // ApplyFunction interception ever runs, so without this arm
+        // Ctrl+C is silently swallowed while painting. The focus guard
+        // still defers to a focused text-input control's own copy.
+        if ( OutlineModeActive )
+        {
+          return !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE );
+        }
         return ( ( characterEditor.EditorFocused )
         ||       ( ( ( m_ToolMode == ToolMode.SELECT )
         ||           ( ( m_ToolMode == ToolMode.MARKER )
@@ -1370,11 +1489,17 @@ namespace RetroDevStudio.Documents
 
     // Without this override Ctrl+X never reaches the editor at all — the
     // base implementation returns false and MainForm gates Function.CUT on
-    // it. Cut is a marker-selection-only operation here.
+    // it. Cut is a marker-selection-only operation on the map face; in
+    // outline mode it needs an active selection to cut.
     public override bool CutPossible
     {
       get
       {
+        if ( OutlineModeActive )
+        {
+          return ( outlineCanvas.SelectionRect.HasValue )
+              && ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) );
+        }
         return ( ( m_ToolMode == ToolMode.MARKER )
         &&       ( m_SelectedMarkers.Count > 0 )
         &&       ( !m_IsViewingRevision )
@@ -7820,6 +7945,534 @@ namespace RetroDevStudio.Documents
 
 
 
+    /// <summary>Any cell marked in the SELECT tool's selection?</summary>
+    private bool HasTileSelection()
+    {
+      if ( ( m_CurrentMap == null )
+      ||   ( m_SelectedTiles == null ) )
+      {
+        return false;
+      }
+      int w = Math.Min( m_SelectedTiles.GetLength( 0 ), m_CurrentMap.Tiles.Width );
+      int h = Math.Min( m_SelectedTiles.GetLength( 1 ), m_CurrentMap.Tiles.Height );
+      for ( int y = 0; y < h; ++y )
+      {
+        for ( int x = 0; x < w; ++x )
+        {
+          if ( m_SelectedTiles[x, y] )
+          {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+
+
+    /// <summary>Bounding box of the selection in tile cells; false when empty.</summary>
+    private bool TileSelectionBounds( out int MinX, out int MinY, out int MaxX, out int MaxY )
+    {
+      MinX = int.MaxValue;
+      MinY = int.MaxValue;
+      MaxX = -1;
+      MaxY = -1;
+      if ( ( m_CurrentMap == null )
+      ||   ( m_SelectedTiles == null ) )
+      {
+        return false;
+      }
+      int w = Math.Min( m_SelectedTiles.GetLength( 0 ), m_CurrentMap.Tiles.Width );
+      int h = Math.Min( m_SelectedTiles.GetLength( 1 ), m_CurrentMap.Tiles.Height );
+      for ( int y = 0; y < h; ++y )
+      {
+        for ( int x = 0; x < w; ++x )
+        {
+          if ( m_SelectedTiles[x, y] )
+          {
+            if ( x < MinX ) MinX = x;
+            if ( y < MinY ) MinY = y;
+            if ( x > MaxX ) MaxX = x;
+            if ( y > MaxY ) MaxY = y;
+          }
+        }
+      }
+      return MaxX >= 0;
+    }
+
+
+
+    /// <summary>
+    /// Delete (key) on a SELECT-tool region: every selected cell on the
+    /// ACTIVE layer clears with the Clear-layer semantics — Background
+    /// stamps the configured blank tile + colour, upper layers go
+    /// transparent. Per cleared cell the OLD tile's char footprint drops
+    /// its colour overrides (and, on the Background, its passability
+    /// overrides — the blocked layer is map-global, so an upper-layer
+    /// delete must not strip the Background's). One Ctrl+Z restores all.
+    /// </summary>
+    private void DeleteSelectedRegion()
+    {
+      if ( ( m_CurrentMap == null )
+      ||   ( !IsMapEditable )
+      ||   ( !TileSelectionBounds( out int minX, out int minY, out int maxX, out int maxY ) ) )
+      {
+        return;
+      }
+
+      int clearTile  = ActiveLayerClearTileIndex;
+      int clearColor = ActiveLayerClearColor;
+      var layer      = ActiveLayer;
+
+      int selW = Math.Min( m_SelectedTiles.GetLength( 0 ), m_CurrentMap.Tiles.Width );
+      int selH = Math.Min( m_SelectedTiles.GetLength( 1 ), m_CurrentMap.Tiles.Height );
+
+      // No-op detection: an already-clear region must not push an undo
+      // entry or dirty the document (matches the single-tile delete's
+      // "already empty consumes the key silently" contract).
+      bool anythingToClear = false;
+      for ( int y = minY; ( y <= maxY ) && ( y < selH ) && ( !anythingToClear ); ++y )
+      {
+        for ( int x = minX; ( x <= maxX ) && ( x < selW ); ++x )
+        {
+          if ( !m_SelectedTiles[x, y] )
+          {
+            continue;
+          }
+          if ( layer.Tiles[x, y] != clearTile )
+          {
+            anythingToClear = true;
+            break;
+          }
+          int probeBaseX = x * m_CurrentMap.TileSpacingX;
+          int probeBaseY = y * m_CurrentMap.TileSpacingY;
+          for ( int dy = 0; ( dy < m_CurrentMap.TileSpacingY ) && ( !anythingToClear ); ++dy )
+          {
+            for ( int dx = 0; dx < m_CurrentMap.TileSpacingX; ++dx )
+            {
+              int cx = probeBaseX + dx;
+              int cy = probeBaseY + dy;
+              if ( ( cx < layer.TileColorOverrides.Width )
+              &&   ( cy < layer.TileColorOverrides.Height )
+              &&   ( layer.TileColorOverrides[cx, cy] != clearColor ) )
+              {
+                anythingToClear = true;
+                break;
+              }
+              if ( ( m_ActiveLayerIndex == 0 )
+              &&   ( cx < m_CurrentMap.CharBlockedOverrides.Width )
+              &&   ( cy < m_CurrentMap.CharBlockedOverrides.Height )
+              &&   ( m_CurrentMap.CharBlockedOverrides[cx, cy] ) )
+              {
+                anythingToClear = true;
+                break;
+              }
+            }
+          }
+          if ( anythingToClear )
+          {
+            break;
+          }
+        }
+      }
+      if ( !anythingToClear )
+      {
+        return;
+      }
+
+      // Whole-layer snapshot: oversized tiles' char footprints can reach
+      // past the selection's bounding rect, so a rect-scoped snapshot
+      // could miss override cells the clear below touches.
+      DocumentInfo.UndoManager.AddUndoTask(
+        new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0,
+                                     m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height,
+                                     m_ActiveLayerIndex ) );
+      for ( int y = minY; y <= maxY && y < selH; ++y )
+      {
+        for ( int x = minX; x <= maxX && x < selW; ++x )
+        {
+          if ( !m_SelectedTiles[x, y] )
+          {
+            continue;
+          }
+          int oldIndex = layer.Tiles[x, y];
+          layer.Tiles[x, y] = clearTile;
+
+          // Footprint of the OLD tile (max of spacing and its char dims) —
+          // same contract as single-tile delete, so an oversized tile
+          // can't leave stale overrides on chars outside its cell block.
+          int fpW = m_CurrentMap.TileSpacingX;
+          int fpH = m_CurrentMap.TileSpacingY;
+          if ( ( oldIndex >= 0 )
+          &&   ( oldIndex < m_MapProject.Tiles.Count ) )
+          {
+            var oldTile = m_MapProject.Tiles[oldIndex];
+            if ( oldTile.Chars.Width  > fpW ) fpW = oldTile.Chars.Width;
+            if ( oldTile.Chars.Height > fpH ) fpH = oldTile.Chars.Height;
+          }
+          int charBaseX = x * m_CurrentMap.TileSpacingX;
+          int charBaseY = y * m_CurrentMap.TileSpacingY;
+          for ( int dy = 0; dy < fpH; ++dy )
+          {
+            for ( int dx = 0; dx < fpW; ++dx )
+            {
+              int cx = charBaseX + dx;
+              int cy = charBaseY + dy;
+              if ( ( cx < layer.TileColorOverrides.Width )
+              &&   ( cy < layer.TileColorOverrides.Height ) )
+              {
+                layer.TileColorOverrides[cx, cy] = clearColor;
+              }
+              if ( ( m_ActiveLayerIndex == 0 )
+              &&   ( cx < m_CurrentMap.CharBlockedOverrides.Width )
+              &&   ( cy < m_CurrentMap.CharBlockedOverrides.Height ) )
+              {
+                m_CurrentMap.CharBlockedOverrides[cx, cy] = false;
+              }
+            }
+          }
+        }
+      }
+
+      RecalcTileUsageInCurrentMap();
+      RedrawMap();
+      pictureEditor.Invalidate();
+      SetModified();
+    }
+
+
+
+    private void cropToSelectionToolStripMenuItem_Click( object sender, EventArgs e )
+    {
+      CropMapToSelection();
+    }
+
+
+
+    /// <summary>
+    /// Crops the map to the selection's bounding rectangle. All spatial
+    /// content shifts by (-minX, -minY): every layer's tiles, both
+    /// per-char override layers, markers, entities and sprite instances.
+    /// Deletion policy per element type:
+    ///  - tiles/overrides outside the rect: gone (that is the crop),
+    ///  - entities outside: DELETED (strictly in-map content, same as the
+    ///    resize and shift paths),
+    ///  - markers: NEVER deleted. In-map markers left/above the rect
+    ///    clamp to the new map edge and then resolve to the nearest free
+    ///    cell so no two markers share a position; markers right/below
+    ///    stay out-of-bounds (the Reflow button handles those); markers
+    ///    that were ALREADY off-map (global meta-markers) are untouched —
+    ///    same contract as the shift function.
+    /// Undo = one full-state snapshot (UndoMapRevert — the task class
+    /// built for size-changing whole-map mutations), so a single Ctrl+Z
+    /// restores size and every piece of content. Revisions are separate
+    /// full snapshots and restore their own size on revert. The outline
+    /// sidecar is keyed by GUID and never touched here.
+    /// </summary>
+    private void CropMapToSelection()
+    {
+      if ( ( m_CurrentMap == null )
+      ||   ( !IsMapEditable ) )
+      {
+        return;
+      }
+      if ( !TileSelectionBounds( out int minX, out int minY, out int maxX, out int maxY ) )
+      {
+        MessageBox.Show( this, "Select a region with the Select tool first, then crop.",
+                         "Crop map to selection",
+                         MessageBoxButtons.OK, MessageBoxIcon.Information );
+        return;
+      }
+      int oldW = m_CurrentMap.Tiles.Width;
+      int oldH = m_CurrentMap.Tiles.Height;
+      int newW = maxX - minX + 1;
+      int newH = maxY - minY + 1;
+      if ( ( minX == 0 )
+      &&   ( minY == 0 )
+      &&   ( newW == oldW )
+      &&   ( newH == oldH ) )
+      {
+        return;
+      }
+      if ( MessageBox.Show( this,
+                            $"Crop map to {newW} x {newH} tiles (cells {minX},{minY} to {maxX},{maxY})?\r\n\r\n"
+                            + "Tiles and entities outside the region are removed. Markers are never deleted.",
+                            "Crop map to selection",
+                            MessageBoxButtons.OKCancel, MessageBoxIcon.Warning,
+                            MessageBoxDefaultButton.Button2 ) != DialogResult.OK )
+      {
+        return;
+      }
+
+      // One full-state undo entry: size, all layers, overrides, markers,
+      // entities — restored together by a single Ctrl+Z. The grouped task
+      // right after covers the session-only sprite instances the snapshot
+      // can't (they aren't part of the persisted map).
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapRevert( this, m_LiveMap ) );
+      DocumentInfo.UndoManager.AddGroupedUndoTask( new UndoMapSpriteInstancesChange( this, m_LiveMap ) );
+
+      // Resolve sprite↔marker value links BEFORE anything shifts: the
+      // TRIGGER_SPRITE_ANIM markers' Value2/3 encode the sprite's CharX/Y,
+      // and matching needs the pre-shift values on both sides.
+      var linkedMarkersBySprite = new Dictionary<MapSpriteInstance, List<Formats.MapProject.Marker>>();
+      {
+        var preShiftInstances = CurrentMapSpriteInstances( false );
+        if ( preShiftInstances != null )
+        {
+          foreach ( var inst in preShiftInstances )
+          {
+            var linked = FindLinkedMarkers( inst );
+            if ( linked.Count > 0 )
+            {
+              linkedMarkersBySprite[inst] = linked;
+            }
+          }
+        }
+      }
+
+      int spacingX = m_CurrentMap.TileSpacingX;
+      int spacingY = m_CurrentMap.TileSpacingY;
+      int newCharW = newW * spacingX;
+      int newCharH = newH * spacingY;
+      int charMinX = minX * spacingX;
+      int charMinY = minY * spacingY;
+
+      // ----- Tiles + colour overrides, every layer. Reads are bounds-
+      // guarded (legacy maps can carry override layers in an older shape)
+      // with the layer's own "empty" defaults filling the gaps. -----
+      for ( int li = 0; li < m_CurrentMap.Layers.Count; ++li )
+      {
+        var srcTiles = m_CurrentMap.Layers[li].Tiles;
+        var newTiles = new GR.Game.Layer<int>();
+        newTiles.Resize( newW, newH );
+        int emptyTile = ( li == 0 ) ? 0 : -1;
+        for ( int y = 0; y < newH; ++y )
+        {
+          for ( int x = 0; x < newW; ++x )
+          {
+            int sx = minX + x;
+            int sy = minY + y;
+            newTiles[x, y] = ( ( sx < srcTiles.Width ) && ( sy < srcTiles.Height ) )
+                               ? srcTiles[sx, sy] : emptyTile;
+          }
+        }
+        m_CurrentMap.Layers[li].Tiles = newTiles;
+
+        var srcOverrides = m_CurrentMap.Layers[li].TileColorOverrides;
+        var newOverrides = new GR.Game.Layer<int>();
+        newOverrides.Resize( newCharW, newCharH );
+        for ( int cy = 0; cy < newCharH; ++cy )
+        {
+          for ( int cx = 0; cx < newCharW; ++cx )
+          {
+            int sx = charMinX + cx;
+            int sy = charMinY + cy;
+            newOverrides[cx, cy] = ( ( sx < srcOverrides.Width ) && ( sy < srcOverrides.Height ) )
+                                     ? srcOverrides[sx, sy] : -1;
+          }
+        }
+        m_CurrentMap.Layers[li].TileColorOverrides = newOverrides;
+      }
+
+      // ----- Blocked overrides (map-global char grid). -----
+      var srcBlocked = m_CurrentMap.CharBlockedOverrides;
+      var newBlocked = new GR.Game.Layer<bool>();
+      newBlocked.Resize( newCharW, newCharH );
+      for ( int cy = 0; cy < newCharH; ++cy )
+      {
+        for ( int cx = 0; cx < newCharW; ++cx )
+        {
+          int sx = charMinX + cx;
+          int sy = charMinY + cy;
+          newBlocked[cx, cy] = ( sx < srcBlocked.Width )
+                            && ( sy < srcBlocked.Height )
+                            && srcBlocked[sx, sy];
+        }
+      }
+      m_CurrentMap.CharBlockedOverrides = newBlocked;
+
+      // ----- Markers: never deleted. Occupancy is tracked over each
+      // marker's FULL Width×Height footprint, not just its anchor — the
+      // editor's markers must not overlap each other's cells. -----
+      var occupiedCells = new HashSet<long>();
+      var clampedMarkers = new List<Formats.MapProject.Marker>();
+      System.Func<int, int, long> cellKey = ( x, y ) => ( (long)y << 32 ) | (uint)x;
+      System.Action<Formats.MapProject.Marker> occupyFootprint = ( m ) =>
+      {
+        for ( int dy = 0; dy < Math.Max( 1, m.Height ); ++dy )
+        {
+          for ( int dx = 0; dx < Math.Max( 1, m.Width ); ++dx )
+          {
+            occupiedCells.Add( cellKey( m.X + dx, m.Y + dy ) );
+          }
+        }
+      };
+      System.Func<Formats.MapProject.Marker, int, int, bool> footprintFree = ( m, atX, atY ) =>
+      {
+        for ( int dy = 0; dy < Math.Max( 1, m.Height ); ++dy )
+        {
+          for ( int dx = 0; dx < Math.Max( 1, m.Width ); ++dx )
+          {
+            if ( occupiedCells.Contains( cellKey( atX + dx, atY + dy ) ) )
+            {
+              return false;
+            }
+          }
+        }
+        return true;
+      };
+      foreach ( var marker in m_CurrentMap.Markers )
+      {
+        bool wasInMap = ( marker.X >= 0 ) && ( marker.Y >= 0 )
+                     && ( marker.X < oldW ) && ( marker.Y < oldH );
+        if ( !wasInMap )
+        {
+          // Off-map meta-marker — untouched, same as the shift function.
+          occupyFootprint( marker );
+          continue;
+        }
+        int newX = marker.X - minX;
+        int newY = marker.Y - minY;
+        // Left/above the crop rect would go negative (not addressable —
+        // exports are u8): clamp onto the new map edge, dedup below.
+        bool clamped = ( newX < 0 ) || ( newY < 0 );
+        if ( newX < 0 ) newX = 0;
+        if ( newY < 0 ) newY = 0;
+        marker.X = newX;
+        marker.Y = newY;
+        if ( clamped )
+        {
+          clampedMarkers.Add( marker );
+        }
+        else
+        {
+          // Uniform shift keeps distinct markers distinct — register only.
+          occupyFootprint( marker );
+        }
+      }
+      // Clamped markers may now overlap (each other or shifted ones):
+      // resolve each to the nearest position whose whole footprint is
+      // free — ring by ring, PREFERRING cells inside the new map (a
+      // marker that was in-map must not get relocated off it while
+      // in-map space remains), falling back to the full addressable
+      // range only when the map itself has no room.
+      foreach ( var marker in clampedMarkers )
+      {
+        if ( footprintFree( marker, marker.X, marker.Y ) )
+        {
+          occupyFootprint( marker );
+          continue;
+        }
+        bool placed = false;
+        for ( int pass = 0; ( pass < 2 ) && ( !placed ); ++pass )
+        {
+          int maxRadius = ( pass == 0 ) ? Math.Max( newW, newH ) : 255;
+          for ( int radius = 1; ( radius <= maxRadius ) && ( !placed ); ++radius )
+          {
+            for ( int dy = -radius; ( dy <= radius ) && ( !placed ); ++dy )
+            {
+              for ( int dx = -radius; dx <= radius; ++dx )
+              {
+                if ( Math.Max( Math.Abs( dx ), Math.Abs( dy ) ) != radius )
+                {
+                  continue;   // ring perimeter only
+                }
+                int cx = marker.X + dx;
+                int cy = marker.Y + dy;
+                if ( ( cx < 0 ) || ( cy < 0 ) || ( cx > 255 ) || ( cy > 255 ) )
+                {
+                  continue;
+                }
+                if ( ( pass == 0 )
+                &&   ( ( cx + Math.Max( 1, marker.Width ) > newW )
+                ||     ( cy + Math.Max( 1, marker.Height ) > newH ) ) )
+                {
+                  continue;   // pass 0: footprint fully inside the new map
+                }
+                if ( footprintFree( marker, cx, cy ) )
+                {
+                  marker.X = cx;
+                  marker.Y = cy;
+                  occupyFootprint( marker );
+                  placed = true;
+                  break;
+                }
+              }
+            }
+          }
+        }
+        if ( !placed )
+        {
+          // Pathological density (the addressable space is packed solid) —
+          // the marker keeps its clamped position rather than vanishing.
+          occupyFootprint( marker );
+        }
+      }
+      UpdateMarkerOutOfBoundsLabel();
+
+      // ----- Entities: strictly in-map content — shift, drop outside. -----
+      var keptEntities = new List<Formats.MapProject.Entity>();
+      foreach ( var entity in m_CurrentMap.Entities )
+      {
+        int newX = entity.X - minX;
+        int newY = entity.Y - minY;
+        if ( ( newX < 0 ) || ( newY < 0 ) || ( newX >= newW ) || ( newY >= newH ) )
+        {
+          continue;
+        }
+        entity.X = newX;
+        entity.Y = newY;
+        keptEntities.Add( entity );
+      }
+      m_CurrentMap.Entities = keptEntities;
+      UpdateEntityCountLabel();
+
+      // ----- Sprite instances (session-only preview state, char coords):
+      // shift along; anchors outside the new map drop. Covered by the
+      // grouped UndoMapSpriteInstancesChange pushed above. Surviving
+      // instances' value-linked TRIGGER_SPRITE_ANIM markers get their
+      // position payload (Value2/3) rewritten in lockstep so the link
+      // survives the crop — the marker records themselves are already
+      // snapshotted by the UndoMapRevert task. -----
+      var spriteInstances = CurrentMapSpriteInstances( false );
+      if ( spriteInstances != null )
+      {
+        ClearSpriteSelection();
+        spriteInstances.RemoveAll( inst =>
+        {
+          inst.CharX -= charMinX;
+          inst.CharY -= charMinY;
+          return ( inst.CharX < 0 ) || ( inst.CharY < 0 )
+              || ( inst.CharX >= newCharW ) || ( inst.CharY >= newCharH );
+        } );
+        foreach ( var inst in spriteInstances )
+        {
+          if ( linkedMarkersBySprite.TryGetValue( inst, out var linked ) )
+          {
+            foreach ( var linkedMarker in linked )
+            {
+              linkedMarker.Value2 = (byte)inst.CharX;
+              linkedMarker.Value3 = (byte)inst.CharY;
+            }
+          }
+        }
+      }
+
+      // ----- UI resync (same set the size-change paths use). -----
+      m_SelectedTiles = new bool[newW, newH];
+      if ( checkFOWEnabled.Checked )
+      {
+        ResetFogOfWar();
+      }
+      RecalcTileUsageInCurrentMap();
+      // Full resync: width/height textboxes, scrollbars, redraw — the
+      // same method the size-changing revision revert relies on.
+      InvalidateCurrentMap();
+      SetModified();
+    }
+
+
+
     private void btnFlattenLayers_Click( object sender, EventArgs e )
     {
       if ( m_CurrentMap == null ) return;
@@ -13090,6 +13743,13 @@ namespace RetroDevStudio.Documents
           outlineCanvas.CancelActiveStroke();
           return true;
         }
+        if ( keyData == Keys.Delete )
+        {
+          // Delete erases the selection contents (undoable). Swallowed
+          // either way — the map face's Delete must never fire from here.
+          outlineCanvas.EraseSelection();
+          return true;
+        }
         if ( keyData == Keys.Space )
         {
           // Space is the pan chord. After any toolbar click the BUTTON
@@ -13108,6 +13768,44 @@ namespace RetroDevStudio.Documents
           }
           outlineCanvas.BeginSpacePan();
           return true;
+        }
+        // Bare-letter shortcuts, PAINTER-ONLY by construction (this whole
+        // branch is gated on the outline face being the visible one):
+        // B = brush, S = selection rect, E = rect erase, C = center the
+        // canvas. Skipped while a text box / floating paste is open
+        // (letters are input) and while a TextBox control has focus —
+        // same guard as the map face's bare 'G' (the COPY_PASTE focus
+        // check returns true exactly for TextBox).
+        if ( ( ( keyData == Keys.B )
+        ||     ( keyData == Keys.S )
+        ||     ( keyData == Keys.E )
+        ||     ( keyData == Keys.C ) )
+        &&   ( !outlineCanvas.ToolHasPendingEdit )
+        &&   ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) ) )
+        {
+          switch ( keyData )
+          {
+            case Keys.B:
+              btnOutlineToolBrush.Checked = true;
+              return true;
+            case Keys.S:
+              btnOutlineToolSelect.Checked = true;
+              return true;
+            case Keys.E:
+              // E cycles the two erasers; first press lands on the brush.
+              if ( btnOutlineToolEraser.Checked )
+              {
+                btnOutlineToolRectErase.Checked = true;
+              }
+              else
+              {
+                btnOutlineToolEraser.Checked = true;
+              }
+              return true;
+            case Keys.C:
+              btnOutlineCenterView_Click( null, EventArgs.Empty );
+              return true;
+          }
         }
         return base.ProcessCmdKey( ref msg, keyData );
       }
@@ -13209,6 +13907,12 @@ namespace RetroDevStudio.Documents
           &&   ( m_SelectedEntity != null ) )
           {
             btnDeleteSelectedEntity_Click( null, EventArgs.Empty );
+            return true;
+          }
+          if ( ( m_ToolMode == ToolMode.SELECT )
+          &&   ( HasTileSelection() ) )
+          {
+            DeleteSelectedRegion();
             return true;
           }
           if ( ( m_ToolMode == ToolMode.SPRITE )
@@ -13483,9 +14187,13 @@ namespace RetroDevStudio.Documents
           // Same reasoning for blocked overrides — the tile that owned
           // these chars is being cleared, so any per-char passability
           // override for its footprint is now stale. UndoMapTilesChange
-          // (taken above on line 8147) snapshots both layers, so Ctrl+Z
-          // restores the old tile + both override layers in one step.
-          if ( ( cx < m_CurrentMap.CharBlockedOverrides.Width )
+          // (taken above) snapshots both layers, so Ctrl+Z restores the
+          // old tile + both override layers in one step. Layer 0 only:
+          // the blocked layer is map-global, so deleting a tile from an
+          // UPPER layer must not strip the Background's passability
+          // (same contract as region delete).
+          if ( ( ClampedActiveLayerIndex() == 0 )
+          &&   ( cx < m_CurrentMap.CharBlockedOverrides.Width )
           &&   ( cy < m_CurrentMap.CharBlockedOverrides.Height ) )
           {
             m_CurrentMap.CharBlockedOverrides[cx, cy] = false;
@@ -18889,6 +19597,33 @@ namespace RetroDevStudio.Documents
       // Merely entering outline mode must not touch the .mapproject.
       var entry = string.IsNullOrEmpty( Map.OutlineGuid )
         ? null : container.GetImage( Map.OutlineGuid );
+      if ( ( entry == null )
+      &&   ( string.IsNullOrEmpty( Map.OutlineGuid ) ) )
+      {
+        // Orphan ADOPTION — the self-heal for the split-brain case: the
+        // sidecar auto-saves the picture, but its GUID key lives in the
+        // .mapproject and only reaches disk when the USER saves. Close
+        // without saving and the map comes back GUID-less while its
+        // image sits orphaned in the sidecar ("my drawing is black").
+        // Re-associate by the stored name/index hints. Ride-along
+        // adoption, like LastSelectedTabIndex: no SetModified — it
+        // persists with the next real save, and until then this adoption
+        // simply repeats every session.
+        var guidsInUse = new HashSet<string>();
+        foreach ( var otherMap in m_MapProject.Maps )
+        {
+          if ( !string.IsNullOrEmpty( otherMap.OutlineGuid ) )
+          {
+            guidsInUse.Add( otherMap.OutlineGuid );
+          }
+        }
+        var orphan = container.FindAdoptableImage( Map.Name, m_MapProject.Maps.IndexOf( Map ), guidsInUse );
+        if ( orphan != null )
+        {
+          Map.OutlineGuid = orphan.Guid;
+          entry = orphan;
+        }
+      }
       if ( entry != null )
       {
         m_OutlineBitmap = DecodeOutlinePNG( entry.PNGData );
@@ -18984,7 +19719,10 @@ namespace RetroDevStudio.Documents
       using ( var stream = new System.IO.MemoryStream() )
       {
         m_OutlineBitmap.Save( stream, System.Drawing.Imaging.ImageFormat.Png );
-        container.SetImage( guid, m_OutlineBitmap.Width, m_OutlineBitmap.Height, stream.ToArray() );
+        // Name/index ride along as re-association hints (see the orphan
+        // adoption in ActivateOutlineForMap).
+        container.SetImage( guid, m_OutlineBitmap.Width, m_OutlineBitmap.Height, stream.ToArray(),
+                            m_OutlineActiveMap.Name, m_MapProject.Maps.IndexOf( m_OutlineActiveMap ) );
       }
       m_OutlineBitmapDirty = false;
       m_OutlineContainerDirty = true;
@@ -19079,6 +19817,25 @@ namespace RetroDevStudio.Documents
           if ( !string.IsNullOrEmpty( map.OutlineGuid ) )
           {
             live.Add( map.OutlineGuid );
+          }
+        }
+        // Orphans that hint-match a CURRENT GUID-less map survive the
+        // prune too: a map whose outline wasn't opened this session has
+        // not run its adoption yet — its picture must not be eaten just
+        // because the container happened to get loaded for another map.
+        // Adding to `live` as we go also prevents two maps claiming the
+        // same orphan.
+        foreach ( var map in m_MapProject.Maps )
+        {
+          if ( !string.IsNullOrEmpty( map.OutlineGuid ) )
+          {
+            continue;
+          }
+          var orphan = m_OutlineContainer.FindAdoptableImage(
+            map.Name, m_MapProject.Maps.IndexOf( map ), live );
+          if ( orphan != null )
+          {
+            live.Add( orphan.Guid );
           }
         }
         liveGuids = live;
@@ -19184,6 +19941,9 @@ namespace RetroDevStudio.Documents
       btnOutlineToolText.Values.Text = "";
       btnOutlineToolStamp.Values.Image = RetroDevStudio.Controls.OutlineToolIcons.TileStamp();
       btnOutlineToolStamp.Values.Text = "";
+      btnOutlineToolSelect.Values.Image = RetroDevStudio.Controls.OutlineToolIcons.MarqueeSelect();
+      btnOutlineToolSelect.Values.Text = "";
+      btnOutlineCropSelection.Values.Image = RetroDevStudio.Controls.OutlineToolIcons.CropToSelection();
       btnOutlineCopyImage.Values.Image = RetroDevStudio.Controls.OutlineToolIcons.CopyImage();
       btnOutlineCopyImage.Values.Text = "";
       btnOutlinePasteImage.Values.Image = RetroDevStudio.Controls.OutlineToolIcons.PasteImage();
@@ -19297,6 +20057,20 @@ namespace RetroDevStudio.Documents
         btnOutlineToolText, new Controls.TextTool() ) );
       m_OutlineToolRegistry.Add( new KeyValuePair<Krypton.Toolkit.KryptonCheckButton, Controls.IOutlineTool>(
         btnOutlineToolStamp, new Controls.TileStampTool() ) );
+      m_OutlineToolRegistry.Add( new KeyValuePair<Krypton.Toolkit.KryptonCheckButton, Controls.IOutlineTool>(
+        btnOutlineToolSelect, new Controls.SelectionTool() ) );
+
+      // Apply the design-time default tool (the brush's Checked = true is
+      // set BEFORE its event wire in InitializeComponent, so no
+      // CheckedChanged ever fired to route it to the canvas).
+      foreach ( var toolPair in m_OutlineToolRegistry )
+      {
+        if ( toolPair.Key.Checked )
+        {
+          outlineCanvas.ActiveTool = toolPair.Value;
+          break;
+        }
+      }
 
       // Stamp magnification options (fixed set; the combo control itself
       // is Designer-authored). Detached during populate.
@@ -19901,6 +20675,118 @@ namespace RetroDevStudio.Documents
 
 
 
+    private void btnOutlineCropSelection_Click( object sender, EventArgs e )
+    {
+      if ( ( !OutlineModeActive )
+      ||   ( m_OutlineBitmap == null ) )
+      {
+        return;
+      }
+      var selection = outlineCanvas.SelectionRect;
+      if ( selection == null )
+      {
+        MessageBox.Show( this, "Make a selection with the Select tool first, then crop.",
+                         "Crop to selection",
+                         MessageBoxButtons.OK, MessageBoxIcon.Information );
+        return;
+      }
+      var region = selection.Value;
+      if ( ( region.Width == m_OutlineBitmap.Width )
+      &&   ( region.Height == m_OutlineBitmap.Height ) )
+      {
+        return;   // full-canvas selection = nothing to crop
+      }
+      outlineCanvas.FinalizePendingEdit();
+
+      var cropped = m_OutlineBitmap.Clone( region, System.Drawing.Imaging.PixelFormat.Format32bppArgb );
+      // Same whole-image replace choreography as paste: the undo entry
+      // takes ownership of the OLD bitmap, one Ctrl+Z restores it whole.
+      var oldBitmap = m_OutlineBitmap;
+      outlineCanvas.Image = null;
+      m_OutlineBitmap = cropped;
+      m_OutlineBitmapDirty = true;
+      outlineCanvas.Image = m_OutlineBitmap;
+      CurrentOutlineUndoStack( true )?.PushImageReplace(
+        oldBitmap, (System.Drawing.Bitmap)cropped.Clone(), "Crop to selection" );
+      outlineCanvas.CenterView();
+      UpdateOutlineToolbarLabels();
+      Core.MainForm.UpdateUndoSettings();
+    }
+
+
+
+    /// <summary>Selection copy: just the marquee region, PNG + bitmap formats.</summary>
+    private void CopyOutlineSelectionToClipboard()
+    {
+      using ( var regionBitmap = outlineCanvas.CopySelectionRegion() )
+      {
+        if ( regionBitmap == null )
+        {
+          return;
+        }
+        var data = new DataObject();
+        var pngStream = new System.IO.MemoryStream();
+        regionBitmap.Save( pngStream, System.Drawing.Imaging.ImageFormat.Png );
+        pngStream.Position = 0;
+        data.SetData( "PNG", false, pngStream );
+        data.SetImage( regionBitmap );
+        Clipboard.SetDataObject( data, true );
+      }
+    }
+
+
+
+    /// <summary>
+    /// Ctrl+V: the clipboard image FLOATS centered under the cursor until
+    /// a left-click stamps it (undoable) — Escape / right-click discards.
+    /// The toolbar Paste button keeps its replace-whole-canvas meaning
+    /// (the round-trip restore from an external paint program).
+    /// </summary>
+    private void StartOutlineFloatingPaste()
+    {
+      System.Drawing.Bitmap pasted = null;
+      var dataObject = Clipboard.GetDataObject();
+      if ( ( dataObject != null )
+      &&   ( dataObject.GetDataPresent( "PNG" ) )
+      &&   ( dataObject.GetData( "PNG" ) is System.IO.MemoryStream pngStream ) )
+      {
+        try
+        {
+          using ( var decoded = System.Drawing.Image.FromStream( pngStream ) )
+          {
+            pasted = new System.Drawing.Bitmap( decoded );
+          }
+        }
+        catch ( Exception )
+        {
+          pasted = null;
+        }
+      }
+      if ( ( pasted == null )
+      &&   ( Clipboard.ContainsImage() ) )
+      {
+        using ( var clipImage = Clipboard.GetImage() )
+        {
+          if ( clipImage != null )
+          {
+            pasted = new System.Drawing.Bitmap( clipImage );
+          }
+        }
+      }
+      if ( pasted == null )
+      {
+        MessageBox.Show( this, "The clipboard does not contain an image.",
+                         "Paste", MessageBoxButtons.OK, MessageBoxIcon.Information );
+        return;
+      }
+      // An open text box commits before the float takes over the pointer.
+      outlineCanvas.FinalizePendingEdit();
+      outlineCanvas.BeginFloatingPaste( pasted );   // ownership to the canvas
+      outlineCanvas.Focus();
+    }
+
+
+
     private void btnOutlineDeletePicture_Click( object sender, EventArgs e )
     {
       if ( ( m_OutlineBitmap == null )
@@ -20357,6 +21243,9 @@ namespace RetroDevStudio.Documents
 
     private void RefreshOutlineRecentColors()
     {
+      // A header over an empty row just raises questions — show the
+      // "Recent" label only once something is actually under it.
+      labelOutlineRecent.Visible = ( m_OutlineRecentColors.Count > 0 );
       flowOutlineRecentColors.SuspendLayout();
       while ( flowOutlineRecentColors.Controls.Count > 0 )
       {
@@ -20953,6 +21842,9 @@ namespace RetroDevStudio.Documents
       if ( comboTilePlacementColor != null ) comboTilePlacementColor.Enabled = enabled;
       if ( comboTiles != null )              comboTiles.Enabled              = enabled;
       if (clearAllMarkersToolStripMenuItem != null ) clearAllMarkersToolStripMenuItem.Enabled         = enabled;
+      // Crop mutates the whole map — locked while viewing a revision like
+      // its mutating Tools-menu siblings.
+      if ( cropToSelectionToolStripMenuItem != null ) cropToSelectionToolStripMenuItem.Enabled = enabled;
       // Outline mode edits per-map sidecar data keyed to the LIVE map —
       // meaningless (and identity-confusing) while viewing a revision
       // snapshot, so the swap button locks alongside the edit controls.
@@ -21000,6 +21892,17 @@ namespace RetroDevStudio.Documents
 
         m_CurrentMap = snapshot;
         m_IsViewingRevision = true;
+      }
+
+      // The freshly-targeted map can differ in SIZE from what was showing
+      // (a crop or resize done since the snapshot was taken). The selection
+      // mask and fog-of-war are sized to the map, and the paint path
+      // indexes them by the MAP's dimensions — stale (smaller) arrays
+      // would throw IndexOutOfRange on the very next repaint.
+      m_SelectedTiles = new bool[m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height];
+      if ( checkFOWEnabled.Checked )
+      {
+        ResetFogOfWar();
       }
 
       // Sync everything that renders or gates on m_CurrentMap.
@@ -21118,6 +22021,15 @@ namespace RetroDevStudio.Documents
       // Revert always lands the user back on the live (now editable) map.
       m_CurrentMap = m_LiveMap;
       m_IsViewingRevision = false;
+
+      // The restored snapshot may have a different SIZE than what was
+      // being shown (e.g. reverting past a crop) — resize the map-sized
+      // masks before anything repaints (see comboRevisions handler).
+      m_SelectedTiles = new bool[m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height];
+      if ( checkFOWEnabled.Checked )
+      {
+        ResetFogOfWar();
+      }
 
       // Resync UI fields that mirror map metadata. This is the same
       // populate sequence comboMaps_SelectedIndexChanged uses; centralising

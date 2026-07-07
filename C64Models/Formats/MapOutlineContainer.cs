@@ -33,6 +33,12 @@ namespace RetroDevStudio.Formats
       public int        Width = 0;
       public int        Height = 0;
       public byte[]     PNGData = null;
+      // Re-association hints: the GUID's other half lives in the
+      // .mapproject and only reaches disk when the USER saves — these
+      // let a map with no (persisted) GUID re-adopt its image by name /
+      // index, so drawings survive even when the project is never saved.
+      public string     MapName = "";
+      public int        MapIndex = -1;
     }
 
 
@@ -99,7 +105,8 @@ namespace RetroDevStudio.Formats
 
 
 
-    public void SetImage( string OutlineGuid, int Width, int Height, byte[] PNGData )
+    public void SetImage( string OutlineGuid, int Width, int Height, byte[] PNGData,
+                          string MapName = "", int MapIndex = -1 )
     {
       if ( ( string.IsNullOrEmpty( OutlineGuid ) )
       ||   ( PNGData == null )
@@ -111,11 +118,91 @@ namespace RetroDevStudio.Formats
       }
       m_Images[OutlineGuid] = new OutlineImageEntry()
       {
-        Guid    = OutlineGuid,
-        Width   = Width,
-        Height  = Height,
-        PNGData = PNGData
+        Guid     = OutlineGuid,
+        Width    = Width,
+        Height   = Height,
+        PNGData  = PNGData,
+        MapName  = MapName ?? "",
+        MapIndex = MapIndex
       };
+    }
+
+
+
+    /// <summary>
+    /// Finds an image a GUID-less map can re-ADOPT — the self-heal for
+    /// the split-brain failure where the sidecar (auto-saved) has the
+    /// picture but the .mapproject (user-saved) never persisted the
+    /// GUID. Excludes GUIDs other maps already hold. Match order: exact
+    /// name+index, then unique name, then unique index — hints are only
+    /// trusted when they identify ONE candidate.
+    /// </summary>
+    public OutlineImageEntry FindAdoptableImage( string MapName, int MapIndex, ICollection<string> GuidsInUse )
+    {
+      var candidates = new List<OutlineImageEntry>();
+      foreach ( var entry in m_Images.Values )
+      {
+        if ( ( GuidsInUse != null )
+        &&   ( GuidsInUse.Contains( entry.Guid ) ) )
+        {
+          continue;
+        }
+        // Entries from files predating the hints carry ""/-1 — never
+        // adoptable (no evidence which map they belonged to).
+        if ( ( string.IsNullOrEmpty( entry.MapName ) )
+        &&   ( entry.MapIndex < 0 ) )
+        {
+          continue;
+        }
+        candidates.Add( entry );
+      }
+
+      OutlineImageEntry match = null;
+      foreach ( var entry in candidates )
+      {
+        if ( ( entry.MapName == ( MapName ?? "" ) )
+        &&   ( entry.MapIndex == MapIndex ) )
+        {
+          if ( match != null )
+          {
+            return null;   // ambiguous even on the strongest key
+          }
+          match = entry;
+        }
+      }
+      if ( match != null )
+      {
+        return match;
+      }
+      foreach ( var entry in candidates )
+      {
+        if ( ( !string.IsNullOrEmpty( entry.MapName ) )
+        &&   ( entry.MapName == MapName ) )
+        {
+          if ( match != null )
+          {
+            return null;
+          }
+          match = entry;
+        }
+      }
+      if ( match != null )
+      {
+        return match;
+      }
+      foreach ( var entry in candidates )
+      {
+        if ( ( entry.MapIndex >= 0 )
+        &&   ( entry.MapIndex == MapIndex ) )
+        {
+          if ( match != null )
+          {
+            return null;
+          }
+          match = entry;
+        }
+      }
+      return match;
     }
 
 
@@ -157,6 +244,10 @@ namespace RetroDevStudio.Formats
         chunkImage.AppendI32( entry.Height );
         chunkImage.AppendU32( (uint)entry.PNGData.Length );
         chunkImage.Append( new GR.Memory.ByteBuffer( entry.PNGData ) );
+        // Appended re-association hints (see OutlineImageEntry) — older
+        // readers stop after the blob and fall through to ""/-1.
+        chunkImage.AppendString( entry.MapName ?? "" );
+        chunkImage.AppendI32( entry.MapIndex );
         projectFile.Append( chunkImage.ToBuffer() );
       }
       return projectFile;
@@ -202,7 +293,17 @@ namespace RetroDevStudio.Formats
               if ( ( length > 0 )
               &&   ( chunkReader.ReadBlock( pngData, length ) == length ) )
               {
-                SetImage( guid, width, height, pngData.Data() );
+                string mapName = "";
+                int mapIndex = -1;
+                if ( chunkReader.Size - chunkReader.Position >= 4 )
+                {
+                  mapName = chunkReader.ReadString();
+                }
+                if ( chunkReader.Size - chunkReader.Position >= 4 )
+                {
+                  mapIndex = chunkReader.ReadInt32();
+                }
+                SetImage( guid, width, height, pngData.Data(), mapName, mapIndex );
               }
             }
             break;

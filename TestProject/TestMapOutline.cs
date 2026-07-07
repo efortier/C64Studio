@@ -283,6 +283,51 @@ namespace TestProject
 
 
     [TestMethod]
+    public void TestContainerOrphanAdoption()
+    {
+      // The self-heal for "drew, auto-saved, but never saved the project":
+      // the map returns GUID-less and must re-adopt its image by the
+      // stored name/index hints.
+      var container = new MapOutlineContainer();
+      container.SetImage( "guid-a", 10, 10, MakeFakePNG( 3, 10 ), "Arrival", 0 );
+      container.SetImage( "guid-b", 10, 10, MakeFakePNG( 4, 10 ), "Dungeon", 1 );
+
+      // Hints survive the file round-trip.
+      var reloaded = new MapOutlineContainer();
+      Assert.IsTrue( reloaded.ReadFromBuffer( container.SaveToBuffer( null ) ) );
+      Assert.AreEqual( "Arrival", reloaded.GetImage( "guid-a" ).MapName );
+      Assert.AreEqual( 1, reloaded.GetImage( "guid-b" ).MapIndex );
+
+      var inUse = new HashSet<string>();
+      // Exact name+index match wins.
+      Assert.AreEqual( "guid-a", reloaded.FindAdoptableImage( "Arrival", 0, inUse ).Guid );
+      // Renamed map (unsaved rename would keep the OLD stored name): the
+      // unique index still matches.
+      Assert.AreEqual( "guid-b", reloaded.FindAdoptableImage( "Dungeon Renamed", 1, inUse ).Guid );
+      // Name matches even when the index shifted (map inserted above).
+      Assert.AreEqual( "guid-b", reloaded.FindAdoptableImage( "Dungeon", 2, inUse ).Guid );
+      // GUIDs already held by other maps are never stolen.
+      inUse.Add( "guid-a" );
+      Assert.IsNull( reloaded.FindAdoptableImage( "Arrival", 0, inUse ) );
+      // No hint match at all → nothing adopted.
+      inUse.Clear();
+      Assert.IsNull( reloaded.FindAdoptableImage( "Nowhere", 9, inUse ) );
+
+      // Ambiguity refuses to guess: two entries with the same name.
+      var ambiguous = new MapOutlineContainer();
+      ambiguous.SetImage( "g1", 10, 10, MakeFakePNG( 3, 10 ), "Twin", 0 );
+      ambiguous.SetImage( "g2", 10, 10, MakeFakePNG( 4, 10 ), "Twin", 5 );
+      Assert.IsNull( ambiguous.FindAdoptableImage( "Twin", 9, new HashSet<string>() ) );
+
+      // Hint-less legacy entries are never adoptable.
+      var legacy = new MapOutlineContainer();
+      legacy.SetImage( "g3", 10, 10, MakeFakePNG( 3, 10 ) );
+      Assert.IsNull( legacy.FindAdoptableImage( "Anything", 0, new HashSet<string>() ) );
+    }
+
+
+
+    [TestMethod]
     public void TestContainerCorruptFilePreservedOnWrite()
     {
       // A transient read failure must never let the next write silently

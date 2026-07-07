@@ -144,6 +144,7 @@
             clearAllMarkersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             clearMarkerTypeMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             editExtraDataToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            cropToSelectionToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             brightnessTablesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             mapControlsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -315,6 +316,8 @@
             panelOutlineSep1 = new System.Windows.Forms.Panel();
             btnOutlineZoomReset = new Krypton.Toolkit.KryptonButton();
             btnOutlineCenterView = new Krypton.Toolkit.KryptonButton();
+            btnOutlineToolSelect = new Krypton.Toolkit.KryptonCheckButton();
+            btnOutlineCropSelection = new Krypton.Toolkit.KryptonButton();
             comboOutlineFont = new System.Windows.Forms.ComboBox();
             editOutlineFontSize = new System.Windows.Forms.NumericUpDown();
             btnOutlineTextBold = new Krypton.Toolkit.KryptonCheckButton();
@@ -1638,7 +1641,7 @@
             // 
             // toolsToolStripMenuItem
             // 
-            toolsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] { createImageOfMapToolStripMenuItem, toolStripSeparator1, clearAllMarkersToolStripMenuItem, clearMarkerTypeMenuItem, editExtraDataToolStripMenuItem, brightnessTablesToolStripMenuItem });
+            toolsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] { createImageOfMapToolStripMenuItem, toolStripSeparator1, clearAllMarkersToolStripMenuItem, clearMarkerTypeMenuItem, editExtraDataToolStripMenuItem, brightnessTablesToolStripMenuItem, cropToSelectionToolStripMenuItem });
             toolsToolStripMenuItem.Name = "toolsToolStripMenuItem";
             toolsToolStripMenuItem.Size = new System.Drawing.Size(46, 20);
             toolsToolStripMenuItem.Text = "Tools";
@@ -1675,6 +1678,13 @@
             editExtraDataToolStripMenuItem.Size = new System.Drawing.Size(185, 22);
             editExtraDataToolStripMenuItem.Text = "Edit extra data...";
             editExtraDataToolStripMenuItem.Click += editExtraDataToolStripMenuItem_Click;
+            //
+            // cropToSelectionToolStripMenuItem
+            //
+            cropToSelectionToolStripMenuItem.Name = "cropToSelectionToolStripMenuItem";
+            cropToSelectionToolStripMenuItem.Size = new System.Drawing.Size(185, 22);
+            cropToSelectionToolStripMenuItem.Text = "Crop map to selection...";
+            cropToSelectionToolStripMenuItem.Click += cropToSelectionToolStripMenuItem_Click;
             // 
             // brightnessTablesToolStripMenuItem
             // 
@@ -3717,10 +3727,12 @@
             flowOutlineTools.Controls.Add(btnOutlineToolEllipse);
             flowOutlineTools.Controls.Add(btnOutlineToolText);
             flowOutlineTools.Controls.Add(btnOutlineToolStamp);
+            flowOutlineTools.Controls.Add(btnOutlineToolSelect);
             flowOutlineTools.Controls.Add(panelOutlineSep1);
             flowOutlineTools.Controls.Add(btnOutlineCopyImage);
             flowOutlineTools.Controls.Add(btnOutlinePasteImage);
             flowOutlineTools.Controls.Add(btnOutlineDeletePicture);
+            flowOutlineTools.Controls.Add(btnOutlineCropSelection);
             flowOutlineTools.Controls.Add(labelOutlineBrushSize);
             flowOutlineTools.Controls.Add(editOutlineBrushSize);
             flowOutlineTools.Controls.Add(labelOutlineEraserSize);
@@ -3743,6 +3755,7 @@
             //
             // btnOutlineToolBrush
             //
+            btnOutlineToolBrush.Checked = true;
             btnOutlineToolBrush.Location = new System.Drawing.Point(3, 3);
             btnOutlineToolBrush.Name = "btnOutlineToolBrush";
             btnOutlineToolBrush.Size = new System.Drawing.Size(24, 24);
@@ -3815,6 +3828,28 @@
             toolTip1.SetToolTip(editOutlineEraserSize, "Eraser size in pixels");
             editOutlineEraserSize.Value = new decimal(new int[] { 24, 0, 0, 0 });
             editOutlineEraserSize.ValueChanged += editOutlineEraserSize_ValueChanged;
+            //
+            // btnOutlineToolSelect
+            //
+            btnOutlineToolSelect.Location = new System.Drawing.Point(221, 3);
+            btnOutlineToolSelect.Name = "btnOutlineToolSelect";
+            btnOutlineToolSelect.Size = new System.Drawing.Size(24, 24);
+            btnOutlineToolSelect.TabIndex = 28;
+            toolTip1.SetToolTip(btnOutlineToolSelect, "Select a region — Del erases it, Ctrl+C/X/V copy/cut/paste it, Crop crops to it");
+            btnOutlineToolSelect.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineToolSelect.Values.Text = "▧";
+            btnOutlineToolSelect.CheckedChanged += btnOutlineTool_CheckedChanged;
+            //
+            // btnOutlineCropSelection
+            //
+            btnOutlineCropSelection.Location = new System.Drawing.Point(251, 3);
+            btnOutlineCropSelection.Name = "btnOutlineCropSelection";
+            btnOutlineCropSelection.Size = new System.Drawing.Size(26, 24);
+            btnOutlineCropSelection.TabIndex = 29;
+            toolTip1.SetToolTip(btnOutlineCropSelection, "Crop the picture to the selection");
+            btnOutlineCropSelection.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineCropSelection.Values.Text = "";
+            btnOutlineCropSelection.Click += btnOutlineCropSelection_Click;
             //
             // panelOutlineSep1
             //
@@ -5488,6 +5523,8 @@
         private System.Windows.Forms.Panel panelOutlineSep1;
         private Krypton.Toolkit.KryptonButton btnOutlineZoomReset;
         private Krypton.Toolkit.KryptonButton btnOutlineCenterView;
+        private Krypton.Toolkit.KryptonCheckButton btnOutlineToolSelect;
+        private Krypton.Toolkit.KryptonButton btnOutlineCropSelection;
         private System.Windows.Forms.ComboBox comboOutlineFont;
         private System.Windows.Forms.NumericUpDown editOutlineFontSize;
         private Krypton.Toolkit.KryptonCheckButton btnOutlineTextBold;
@@ -5536,6 +5573,7 @@
         private Krypton.Toolkit.KryptonComboBox comboMaps;
         private Krypton.Toolkit.KryptonComboBox comboMapProjectMode;
         private System.Windows.Forms.ToolStripMenuItem editExtraDataToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem cropToSelectionToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem brightnessTablesToolStripMenuItem;
         private Krypton.Navigator.KryptonPage tabMarkers;
         private Krypton.Navigator.KryptonPage tabEntities;

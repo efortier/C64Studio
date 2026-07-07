@@ -4841,6 +4841,12 @@ namespace RetroDevStudio.Formats
       // outline images). Older readers stop before it; readers guard on
       // the remaining length and fall back to "" (= assign lazily).
       chunkMapInfo.AppendString( map.OutlineGuid ?? "" );
+      // Appended for SelectedEntityType — the map's persisted entity-type
+      // combo choice (sibling of SelectedMarkerType earlier in the fixed
+      // sequence; the editor already SetModified()s on change with the
+      // stated intent to persist, but the field was never written).
+      // Older readers stop before it and keep the default of -1.
+      chunkMapInfo.AppendI32( map.SelectedEntityType );
       chunkMap.Append( chunkMapInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkMapData = new GR.IO.FileChunk( FileChunkConstants.MAP_DATA );
@@ -5162,6 +5168,13 @@ namespace RetroDevStudio.Formats
             if ( mapChunkReader.Size - mapChunkReader.Position >= 4 )
             {
               map.OutlineGuid = mapChunkReader.ReadString();
+            }
+            if ( mapChunkReader.Size - mapChunkReader.Position >= 4 )
+            {
+              // Stale IDs (entity type deleted since) are benign — the
+              // editor's combo restore leaves nothing selected for an
+              // unknown ID.
+              map.SelectedEntityType = mapChunkReader.ReadInt32();
             }
             break;
           case FileChunkConstants.MAP_DATA:

@@ -35,6 +35,11 @@ namespace RetroDevStudio.Controls
     // tile pixels, 2× doubles, ...).
     public Bitmap                       StampImage;
     public float                        StampScale;
+    // Rectangular selection (image space, clamped to the image); null =
+    // none. OWNED by the canvas — the selection tool writes it through
+    // SetSelectionRect so crop/delete/copy toolbar operations can read it.
+    public Rectangle?                   SelectionRect;
+    public Action<Rectangle?>           SetSelectionRect;
     /// <summary>New drawing session against Image. Dispose after use.</summary>
     public Func<IOutlineRenderer>       CreateRenderer;
     /// <summary>Repaint request for an image-space region (view mapping is the canvas' job).</summary>
