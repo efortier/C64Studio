@@ -98,6 +98,7 @@ namespace RetroDevStudio.Undo
       m_AffectedMap.SelectedEntityType          = m_Snapshot.SelectedEntityType;
       m_AffectedMap.MarkerDimOpacity            = m_Snapshot.MarkerDimOpacity;
       m_AffectedMap.AlternativeMode             = m_Snapshot.AlternativeMode;
+      m_AffectedMap.MemoRTF                     = m_Snapshot.MemoRTF;
 
       // Full editor resync. This covers width/height textboxes,
       // scrollbars, char-list refresh, redraw — all the UI bits that

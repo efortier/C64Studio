@@ -690,6 +690,9 @@ namespace RetroDevStudio.Documents
     // / revert / delete operations.
     private Formats.MapProject.Map      m_LiveMap = null;
     private bool                        m_IsViewingRevision = false;
+    // The modeless Map-memo popup (Tools -> Map memo...). Null = closed;
+    // non-null = open, and retargeted to the current map on every switch.
+    private Dialogs.DlgMapMemo          m_MemoDialog = null;
     // Set during programmatic comboRevisions repopulation so the
     // SelectedIndexChanged handler doesn't try to swap maps mid-rebuild.
     private bool                        m_PopulatingRevisionsCombo = false;
@@ -6559,6 +6562,13 @@ namespace RetroDevStudio.Documents
 
     public override GR.Memory.ByteBuffer SaveToBuffer()
     {
+      // Land any pending memo text + window geometry before serializing —
+      // the popup holds the authoritative text while it is open.
+      if ( m_MemoDialog != null )
+      {
+        m_MemoDialog.FlushToMap();
+        m_MapProject.MemoWindowPlacement = m_MemoDialog.CurrentPlacement;
+      }
       UpdateExportSettingsFromUI( false );
       m_MapProject.CharactersPerRow = characterEditor.CharactersPerRow;
       m_MapProject.CharacterEditorMode = characterEditor.EditorMode;
@@ -9510,6 +9520,7 @@ namespace RetroDevStudio.Documents
           UpdateOutlineToolbarLabels();
         }
         RefreshRevisionsCombo();
+        RefreshMemoDialog();
         return;
       }
       m_CurrentMap = ( (GR.Generic.Tupel<string, Formats.MapProject.Map>)comboMaps.SelectedItem ).second;
@@ -9532,6 +9543,7 @@ namespace RetroDevStudio.Documents
       }
 
       editMapName.Text = m_CurrentMap.Name;
+      RefreshMemoDialog();
       editTileSpacingW.Text = m_CurrentMap.TileSpacingX.ToString();
       editTileSpacingH.Text = m_CurrentMap.TileSpacingY.ToString();
       editMapWidth.Text = m_CurrentMap.Tiles.Width.ToString();
@@ -11882,6 +11894,72 @@ namespace RetroDevStudio.Documents
 
 
 
+    private void mapMemoToolStripMenuItem_Click( object sender, EventArgs e )
+    {
+      if ( m_CurrentMap == null )
+      {
+        return;
+      }
+      // One instance — a second click just re-focuses it.
+      if ( m_MemoDialog != null )
+      {
+        m_MemoDialog.Focus();
+        return;
+      }
+
+      m_MemoDialog = new Dialogs.DlgMapMemo( Core );
+      m_MemoDialog.SetFontPick( m_MapProject.MemoFontFamily, m_MapProject.MemoFontSize );
+      m_MemoDialog.SetPlacement( m_MapProject.MemoWindowPlacement );
+      m_MemoDialog.SetMap( m_CurrentMap, m_CurrentMap.Name, m_IsViewingRevision );
+      m_MemoDialog.MemoModified += SetModified;
+      m_MemoDialog.FontPickChanged += ( family, size ) =>
+      {
+        if ( m_MapProject == null )
+        {
+          return;
+        }
+        if ( ( m_MapProject.MemoFontFamily != family )
+        ||   ( m_MapProject.MemoFontSize != size ) )
+        {
+          m_MapProject.MemoFontFamily = family;
+          m_MapProject.MemoFontSize = size;
+          SetModified();
+        }
+      };
+      m_MemoDialog.FormClosed += ( s, ev ) =>
+      {
+        // Land pending text + remember where the window was. Placement is
+        // ride-along state — captured, but never dirties the document.
+        m_MemoDialog.FlushToMap();
+        if ( m_MapProject != null )
+        {
+          m_MapProject.MemoWindowPlacement = m_MemoDialog.CurrentPlacement;
+        }
+        m_MemoDialog = null;
+      };
+      // Owned by the editor so it floats above it, minimizes with it, and
+      // closes when the document closes.
+      m_MemoDialog.Show( this );
+    }
+
+
+
+    /// <summary>
+    /// Retargets an open memo popup at the current map (read-only for a
+    /// revision snapshot). No-op when the popup is closed. Called wherever
+    /// m_CurrentMap / m_IsViewingRevision changes.
+    /// </summary>
+    private void RefreshMemoDialog()
+    {
+      if ( m_MemoDialog == null )
+      {
+        return;
+      }
+      m_MemoDialog.SetMap( m_CurrentMap, m_CurrentMap?.Name ?? "", m_IsViewingRevision );
+    }
+
+
+
     public bool OpenCharpadFile( string filename )
     {
       GR.Memory.ByteBuffer projectFile = GR.IO.File.ReadAllBytes( filename );
@@ -13740,25 +13818,38 @@ namespace RetroDevStudio.Documents
         // (undo/redo etc.) alive.
         if ( keyData == Keys.Escape )
         {
-          outlineCanvas.CancelActiveStroke();
-          return true;
+          // A focused sidebar combo (e.g. the tile picker) needs Escape to
+          // close its dropdown — cancel the stroke only when a combo is
+          // NOT the focus.
+          if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.ESCAPE ) )
+          {
+            outlineCanvas.CancelActiveStroke();
+            return true;
+          }
+          return base.ProcessCmdKey( ref msg, keyData );
         }
         if ( keyData == Keys.Delete )
         {
-          // Delete erases the selection contents (undoable). Swallowed
-          // either way — the map face's Delete must never fire from here.
-          outlineCanvas.EraseSelection();
-          return true;
+          // Delete erases the canvas selection — but ONLY when focus is
+          // not in a sidebar text/numeric input (COPY_PASTE exempts
+          // TextBox, e.g. the extend-step box). Otherwise Delete belongs
+          // to that control; forwarding lets it reach it.
+          if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
+          {
+            outlineCanvas.EraseSelection();
+            return true;
+          }
+          return base.ProcessCmdKey( ref msg, keyData );
         }
         if ( keyData == Keys.Space )
         {
           // Space is the pan chord. After any toolbar click the BUTTON
           // holds keyboard focus and a bare Space would "click" it —
-          // intercept here, hand focus to the canvas and arm the chord
-          // directly (the swallowed press never reaches OnKeyDown). The
-          // one exception: an open WYSIWYG text box, where Space is
-          // ordinary typing.
-          if ( outlineCanvas.ToolHasPendingEdit )
+          // intercept here, hand focus to the canvas and arm the chord.
+          // Not while a WYSIWYG text box is open, and not while a sidebar
+          // text/numeric input has focus (there Space is typing).
+          if ( ( outlineCanvas.ToolHasPendingEdit )
+          ||   ( FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) ) )
           {
             return base.ProcessCmdKey( ref msg, keyData );
           }
@@ -21904,9 +21995,9 @@ namespace RetroDevStudio.Documents
       {
         ResetFogOfWar();
       }
-
       // Sync everything that renders or gates on m_CurrentMap.
       SetMapEditingControlsEnabled( !m_IsViewingRevision );
+      RefreshMemoDialog();
       UpdateRevisionButtonsEnabled();
 
       // Marker/entity selection belongs to whichever map was previously
@@ -22017,6 +22108,7 @@ namespace RetroDevStudio.Documents
       m_LiveMap.SelectedEntityType          = fresh.SelectedEntityType;
       m_LiveMap.MarkerDimOpacity            = fresh.MarkerDimOpacity;
       m_LiveMap.AlternativeMode             = fresh.AlternativeMode;
+      m_LiveMap.MemoRTF                     = fresh.MemoRTF;
 
       // Revert always lands the user back on the live (now editable) map.
       m_CurrentMap = m_LiveMap;
@@ -22048,6 +22140,7 @@ namespace RetroDevStudio.Documents
       UpdateSpritePanelControlsState();
       RecalcTileUsageInCurrentMap();
       SetMapEditingControlsEnabled( true );
+      RefreshMemoDialog();
       RefreshRevisionsCombo();   // resets dropdown to "(Current)"
       AdjustScrollbars();
       RedrawMap();

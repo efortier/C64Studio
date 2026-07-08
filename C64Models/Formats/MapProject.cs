@@ -372,6 +372,12 @@ namespace RetroDevStudio.Formats
       public string             OutlineGuid = "";
 
       /// <summary>
+      /// Free-form per-map notes (the sidebar "Map memo"), stored as RTF
+      /// so bold/italic/fonts survive. Empty = no memo (chunk skipped).
+      /// </summary>
+      public string             MemoRTF = "";
+
+      /// <summary>
       /// overrides Project.Mode when set (e.g. display MC instead of hires)
       /// </summary>
       public TextCharMode       AlternativeMode = TextCharMode.UNKNOWN;
@@ -666,6 +672,22 @@ namespace RetroDevStudio.Formats
     public MapOutlineToolSettings       OutlineToolSettings = new MapOutlineToolSettings();
 
     /// <summary>
+    /// Font pick for the Map memo box ("" = the control's default font).
+    /// Project-wide, applied to new typing / the current selection; the
+    /// memo CONTENT carries its own per-run fonts in its RTF regardless.
+    /// </summary>
+    public string                       MemoFontFamily = "";
+    public int                          MemoFontSize = 9;
+
+    /// <summary>
+    /// Serialized geometry of the (modeless) Map-memo popup window —
+    /// GR.Forms.WindowStateManager string; "" = never opened / default
+    /// placement. Per-project so the notes window reopens where it was
+    /// left. Ride-along state: changing it never dirties the document.
+    /// </summary>
+    public string                       MemoWindowPlacement = "";
+
+    /// <summary>
     /// Optional path to a binary font file used when rendering the Map
     /// Strings tab's preview canvas. The expected format matches what the
     /// game-binary export emits: a 2-byte little-endian load-address header
@@ -789,6 +811,8 @@ namespace RetroDevStudio.Formats
       DisplayFiltersEnabled = false;
       DisplayFilterData = null;
       OutlineToolSettings = new MapOutlineToolSettings();
+      MemoFontFamily = "";
+      MemoFontSize = 9;
       Settings = new ExportSettings();
     }
 
@@ -860,6 +884,11 @@ namespace RetroDevStudio.Formats
       // Map-bounds overlay opacity (0..100, shown while the grid is off).
       // Append-only; old files fall through to the field default.
       chunkProjectInfo.AppendI32( MapBoundsOpacity );
+      // Map memo font pick. Append-only; old files keep the defaults.
+      chunkProjectInfo.AppendString( MemoFontFamily ?? "" );
+      chunkProjectInfo.AppendI32( MemoFontSize );
+      // Map memo popup window geometry. Append-only.
+      chunkProjectInfo.AppendString( MemoWindowPlacement ?? "" );
       projectFile.Append( chunkProjectInfo.ToBuffer() );
 
       // Per-project CRT display filters. Written only once the editor has
@@ -1287,6 +1316,20 @@ namespace RetroDevStudio.Formats
               if ( chunkReader.Size - chunkReader.Position >= 4 )
               {
                 MapBoundsOpacity = Math.Max( 0, Math.Min( 100, chunkReader.ReadInt32() ) );
+              }
+              // Map memo font pick (append-only; defaults for old files).
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                MemoFontFamily = chunkReader.ReadString();
+              }
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                MemoFontSize = Math.Max( 6, Math.Min( 72, chunkReader.ReadInt32() ) );
+              }
+              // Map memo popup window geometry (append-only).
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                MemoWindowPlacement = chunkReader.ReadString();
               }
             }
             break;
@@ -5102,6 +5145,15 @@ namespace RetroDevStudio.Formats
         chunkMap.Append( chunkMapExtraData.ToBuffer() );
       }
 
+      // Per-map memo (RTF). Only written when non-empty — absent chunk =
+      // empty memo, fully back-compat.
+      if ( !string.IsNullOrEmpty( map.MemoRTF ) )
+      {
+        var chunkMemo = new GR.IO.FileChunk( FileChunkConstants.MAP_MEMO );
+        chunkMemo.AppendString( map.MemoRTF );
+        chunkMap.Append( chunkMemo.ToBuffer() );
+      }
+
       // Revisions live alongside the rest of the map's content. Each
       // MAP_REVISION sub-chunk carries a label, a creation timestamp, and
       // a fully-serialized inner MAP chunk for the snapshot itself. We
@@ -5405,6 +5457,9 @@ namespace RetroDevStudio.Formats
               map.ExtraDataText = map.ExtraDataOld.ToString();
               map.ExtraDataOld.Clear();
             }
+            break;
+          case FileChunkConstants.MAP_MEMO:
+            map.MemoRTF = mapChunkReader.ReadString();
             break;
           case FileChunkConstants.MAP_EXTRA_DATA_TEXT:
             {

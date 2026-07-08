@@ -144,6 +144,7 @@
             clearAllMarkersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             clearMarkerTypeMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             editExtraDataToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            mapMemoToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             cropToSelectionToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             brightnessTablesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -1641,7 +1642,7 @@
             // 
             // toolsToolStripMenuItem
             // 
-            toolsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] { createImageOfMapToolStripMenuItem, toolStripSeparator1, clearAllMarkersToolStripMenuItem, clearMarkerTypeMenuItem, editExtraDataToolStripMenuItem, brightnessTablesToolStripMenuItem, cropToSelectionToolStripMenuItem });
+            toolsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] { createImageOfMapToolStripMenuItem, toolStripSeparator1, clearAllMarkersToolStripMenuItem, clearMarkerTypeMenuItem, editExtraDataToolStripMenuItem, mapMemoToolStripMenuItem, brightnessTablesToolStripMenuItem, cropToSelectionToolStripMenuItem });
             toolsToolStripMenuItem.Name = "toolsToolStripMenuItem";
             toolsToolStripMenuItem.Size = new System.Drawing.Size(46, 20);
             toolsToolStripMenuItem.Text = "Tools";
@@ -1678,6 +1679,13 @@
             editExtraDataToolStripMenuItem.Size = new System.Drawing.Size(185, 22);
             editExtraDataToolStripMenuItem.Text = "Edit extra data...";
             editExtraDataToolStripMenuItem.Click += editExtraDataToolStripMenuItem_Click;
+            //
+            // mapMemoToolStripMenuItem
+            //
+            mapMemoToolStripMenuItem.Name = "mapMemoToolStripMenuItem";
+            mapMemoToolStripMenuItem.Size = new System.Drawing.Size(185, 22);
+            mapMemoToolStripMenuItem.Text = "Map memo...";
+            mapMemoToolStripMenuItem.Click += mapMemoToolStripMenuItem_Click;
             //
             // cropToSelectionToolStripMenuItem
             //
@@ -5573,6 +5581,7 @@
         private Krypton.Toolkit.KryptonComboBox comboMaps;
         private Krypton.Toolkit.KryptonComboBox comboMapProjectMode;
         private System.Windows.Forms.ToolStripMenuItem editExtraDataToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem mapMemoToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem cropToSelectionToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem brightnessTablesToolStripMenuItem;
         private Krypton.Navigator.KryptonPage tabMarkers;

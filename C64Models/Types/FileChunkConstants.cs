@@ -87,6 +87,11 @@
     // lives in the .mapproject itself, unlike the two sidecar chunks
     // above. Absent chunk = defaults (fully back-compat).
     public const ushort    MAP_OUTLINE_TOOL_SETTINGS      = 0x1339;
+    // Per-map memo (free-form notes on the Map tab's sidebar), stored as
+    // an RTF string — RTF is 7-bit ASCII by design (non-ANSI chars are
+    // escaped), so the byte-per-char AppendString is lossless for it.
+    // Sub-chunk of MAP; only written when non-empty (back-compat free).
+    public const ushort    MAP_MEMO                       = 0x133A;
 
     public const ushort    CHARSET_PROJECT                = 0x1340;
     public const ushort    CHARSET_INFO                   = 0x1341;

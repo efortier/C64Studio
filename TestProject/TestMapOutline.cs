@@ -283,6 +283,25 @@ namespace TestProject
 
 
     [TestMethod]
+    public void TestMapMemoRoundTrip()
+    {
+      var proj = CreateProjectWithMaps( 2 );
+      proj.Maps[0].MemoRTF = @"{\rtf1\ansi Bold \b stuff\b0 .}";
+      // Maps[1] stays empty — must survive as empty, no chunk written.
+
+      var reloaded = new MapProject();
+      Assert.IsTrue( reloaded.ReadFromBuffer( proj.SaveToBuffer() ) );
+      Assert.AreEqual( proj.Maps[0].MemoRTF, reloaded.Maps[0].MemoRTF );
+      Assert.AreEqual( "", reloaded.Maps[1].MemoRTF );
+
+      // CloneMap (revisions/duplicate/undo path) carries the memo.
+      var clone = MapProject.CloneMap( reloaded.Maps[0] );
+      Assert.AreEqual( proj.Maps[0].MemoRTF, clone.MemoRTF );
+    }
+
+
+
+    [TestMethod]
     public void TestContainerOrphanAdoption()
     {
       // The self-heal for "drew, auto-saved, but never saved the project":

@@ -383,10 +383,18 @@ namespace RetroDevStudio.Formats
         // An unreadable original must never be silently clobbered — the
         // user's images are (possibly recoverably) inside it. Park a copy
         // next to it before any replace/delete below.
+        //
+        // ONE-TIME capture: LoadFailed stays true for the whole session, so
+        // this guard runs on every write. Without the !Exists check the
+        // SECOND write would copy the (now-good, already-replaced) Filename
+        // over the backup and destroy the only recoverable copy of the
+        // originally-corrupt images. The !Exists guard makes the first
+        // backup win permanently; overwrite:false is belt-and-suspenders.
         if ( ( LoadFailed )
-        &&   ( System.IO.File.Exists( Filename ) ) )
+        &&   ( System.IO.File.Exists( Filename ) )
+        &&   ( !System.IO.File.Exists( Filename + ".corrupt" ) ) )
         {
-          System.IO.File.Copy( Filename, Filename + ".corrupt", true );
+          System.IO.File.Copy( Filename, Filename + ".corrupt", false );
         }
 
         if ( !hasAnyImage )

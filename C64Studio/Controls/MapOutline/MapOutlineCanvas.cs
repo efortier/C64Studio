@@ -157,6 +157,7 @@ namespace RetroDevStudio.Controls
           m_ActiveTool.OnDeactivate( RefreshToolContext() );
         }
         m_ToolStrokeInFlight = false;
+        ReleaseStrokeCapture();
         m_ActiveTool = value;
         // Selection is operations-only and belongs to the selection tool:
         // switching to any OTHER tool clears it.
@@ -528,10 +529,20 @@ namespace RetroDevStudio.Controls
       // this, Ctrl+wheel zoom dies the moment a toolbar control was
       // touched. Hover-focus is standard paint-program behavior; gated on
       // the containing form being active so a background window never
-      // steals focus.
+      // steals focus — and on the current focus NOT being a text/numeric
+      // input or a combo (memo, font size, font list, extend step): merely
+      // brushing the cursor across the canvas must not yank the caret
+      // mid-typing or interrupt a font-list browse. Those users get
+      // wheel-zoom back on their next canvas click. GetFocusedControl
+      // (Win32 GetFocus) resolves the INNER control — a Krypton wrapper's
+      // real RichTextBox is a TextBoxBase — so no wrapper-type checks.
+      var focused = FocusSupport.GetFocusedControl();
+      bool typingHasFocus = ( focused is TextBoxBase )
+                         || ( focused is ComboBox );
       if ( ( Visible )
       &&   ( CanFocus )
-      &&   ( Form.ActiveForm == FindForm() ) )
+      &&   ( Form.ActiveForm == FindForm() )
+      &&   ( !typingHasFocus ) )
       {
         Focus();
       }
@@ -751,6 +762,29 @@ namespace RetroDevStudio.Controls
         m_ActiveTool.Cancel( RefreshToolContext() );
       }
       m_ToolStrokeInFlight = false;
+      ReleaseStrokeCapture();
+    }
+
+
+
+    /// <summary>
+    /// Releases an explicit mouse capture taken for a stroke/pan when that
+    /// operation ends by any route OTHER than the normal mouse-up (RMB
+    /// abort, tool switch mid-drag, flush point). Without this the canvas
+    /// keeps Win32 capture with no button down, so the next click on a
+    /// sibling control is delivered here instead — eating the click and
+    /// possibly starting a phantom off-image stroke. Releasing capture
+    /// re-enters OnMouseCaptureChanged synchronously, so callers clear
+    /// m_ToolStrokeInFlight FIRST to keep that safety net a no-op instead
+    /// of recursing; the Capture guard means we never steal a capture
+    /// another control legitimately holds.
+    /// </summary>
+    private void ReleaseStrokeCapture()
+    {
+      if ( Capture )
+      {
+        Capture = false;
+      }
     }
 
 
@@ -804,6 +838,7 @@ namespace RetroDevStudio.Controls
         m_ActiveTool.OnDeactivate( RefreshToolContext() );
       }
       m_ToolStrokeInFlight = false;
+      ReleaseStrokeCapture();
     }
 
 
