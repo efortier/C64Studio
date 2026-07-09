@@ -624,6 +624,10 @@ namespace C64Studio
       try
       {
         System.IO.File.Move( oldFilename, newFilename );
+        // A .mapproject's outline drawings live in a ".mapoutlines" sidecar
+        // keyed by path — it must travel with the rename or every sketch
+        // appears blank under the new name.
+        Formats.MapOutlineContainer.AccompanyProjectFileRename( oldFilename, newFilename );
       }
       catch ( System.Exception ex )
       {

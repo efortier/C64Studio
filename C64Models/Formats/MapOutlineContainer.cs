@@ -186,22 +186,10 @@ namespace RetroDevStudio.Formats
           match = entry;
         }
       }
-      if ( match != null )
-      {
-        return match;
-      }
-      foreach ( var entry in candidates )
-      {
-        if ( ( entry.MapIndex >= 0 )
-        &&   ( entry.MapIndex == MapIndex ) )
-        {
-          if ( match != null )
-          {
-            return null;
-          }
-          match = entry;
-        }
-      }
+      // Deliberately NO index-only tier: after a rename + reorder, a bare index
+      // match can bind ANOTHER map's drawing, which that map then overwrites —
+      // destructive. An unadopted orphan stays in the sidecar and remains
+      // recoverable, so name evidence is required.
       return match;
     }
 
@@ -350,6 +338,47 @@ namespace RetroDevStudio.Formats
         return false;
       }
       return true;
+    }
+
+
+
+    /// <summary>
+    /// Call after renaming/moving a project file on disk: a .mapproject's
+    /// ".mapoutlines" sidecar must travel along, or every outline drawing
+    /// appears blank under the new name (the images are keyed by the sidecar
+    /// path). Best effort — the project rename itself already succeeded, and
+    /// a stranded sidecar remains recoverable by renaming it manually.
+    /// </summary>
+    public static void AccompanyProjectFileRename( string OldPath, string NewPath )
+    {
+      try
+      {
+        if ( ( string.IsNullOrEmpty( OldPath ) )
+        ||   ( string.IsNullOrEmpty( NewPath ) )
+        ||   ( !string.Equals( System.IO.Path.GetExtension( OldPath ), ".mapproject",
+                               StringComparison.OrdinalIgnoreCase ) ) )
+        {
+          return;
+        }
+        string oldSidecar = System.IO.Path.ChangeExtension( OldPath, ".mapoutlines" );
+        string newSidecar = System.IO.Path.ChangeExtension( NewPath, ".mapoutlines" );
+        if ( ( !System.IO.File.Exists( oldSidecar ) )
+        ||   ( string.Equals( oldSidecar, newSidecar, StringComparison.OrdinalIgnoreCase ) ) )
+        {
+          return;
+        }
+        if ( System.IO.File.Exists( newSidecar ) )
+        {
+          // The project rename only succeeded because no .mapproject existed at
+          // the target, so a sidecar there is an orphan of a deleted project —
+          // replacing it is safe.
+          System.IO.File.Delete( newSidecar );
+        }
+        System.IO.File.Move( oldSidecar, newSidecar );
+      }
+      catch ( Exception )
+      {
+      }
     }
 
 

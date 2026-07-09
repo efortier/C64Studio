@@ -43,6 +43,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SourceControl", "SourceCont
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "CommonWindows", "CommonWindows\CommonWindows.shproj", "{42A48161-843F-4E9F-8C2D-AA2B05B04343}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetroDevStudio.Tablet", "RetroDevStudio.Tablet\RetroDevStudio.Tablet.csproj", "{C1F94712-C92B-4BBC-A76C-39BB573B014E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -107,6 +109,10 @@ Global
 		{9C873FB0-2E5F-4AD8-84E7-5A3F2CCADAB2}.Release|Any CPU.Build.0 = Release|Any CPU
 		{9C873FB0-2E5F-4AD8-84E7-5A3F2CCADAB2}.Release|ARM64.ActiveCfg = Release|ARM64
 		{9C873FB0-2E5F-4AD8-84E7-5A3F2CCADAB2}.Release|ARM64.Build.0 = Release|ARM64
+		{C1F94712-C92B-4BBC-A76C-39BB573B014E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C1F94712-C92B-4BBC-A76C-39BB573B014E}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{C1F94712-C92B-4BBC-A76C-39BB573B014E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C1F94712-C92B-4BBC-A76C-39BB573B014E}.Release|ARM64.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

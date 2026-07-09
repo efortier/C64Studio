@@ -587,7 +587,12 @@ namespace RetroDevStudio.Documents
           return false;
         }
         Core.MainForm.RaiseApplicationEvent( new RetroDevStudio.Types.ApplicationEvent( RetroDevStudio.Types.ApplicationEvent.Type.DOCUMENT_SAVED, DocumentInfo ) );
-        SetUnmodified();
+        // SAVE_COPY_AS: a COPY was written elsewhere — the document's OWN file
+        // was NOT saved, so it must stay modified. Clearing the flag here made
+        // close skip the save prompt (silently dropping unsaved changes) and
+        // defeated the map editor's !Modified outline-prune gate, which could
+        // permanently delete outline drawings the on-disk project still
+        // references.
         return true;
       }
 

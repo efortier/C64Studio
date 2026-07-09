@@ -261,6 +261,37 @@ namespace RetroDevStudio.Controls
 
 
 
+    /// <summary>
+    /// The smallest canvas size that can replay every stored entry without
+    /// clipping. Used when a map's canvas is re-created blank (blank canvases
+    /// are never persisted) while its history is still alive — undoing the
+    /// erase-all must restore the drawing at its full former size.
+    /// </summary>
+    public Size RequiredCanvasExtent()
+    {
+      int width = 0;
+      int height = 0;
+      foreach ( var list in new[] { m_UndoEntries, m_RedoEntries } )
+      {
+        foreach ( var entry in list )
+        {
+          if ( entry.IsImageReplace )
+          {
+            width  = Math.Max( width, Math.Max( entry.Before.Width, entry.After.Width ) );
+            height = Math.Max( height, Math.Max( entry.Before.Height, entry.After.Height ) );
+          }
+          else
+          {
+            width  = Math.Max( width, entry.Region.Right );
+            height = Math.Max( height, entry.Region.Bottom );
+          }
+        }
+      }
+      return new Size( width, height );
+    }
+
+
+
     private void ClearRedo()
     {
       foreach ( var entry in m_RedoEntries )

@@ -301,6 +301,26 @@
             flowOutlineOptions = new System.Windows.Forms.FlowLayoutPanel();
             outlineCanvas = new RetroDevStudio.Controls.MapOutlineCanvas();
             collapsiblePanelOutlineColors = new RetroDevStudio.Controls.CollapsiblePanel();
+            collapsiblePanelPenPressure = new RetroDevStudio.Controls.CollapsiblePanel();
+            chkPenPressureEnabled = new System.Windows.Forms.CheckBox();
+            labelPenTarget = new System.Windows.Forms.Label();
+            comboPenPressureTarget = new System.Windows.Forms.ComboBox();
+            labelPenGamma = new System.Windows.Forms.Label();
+            editPenGamma = new System.Windows.Forms.NumericUpDown();
+            labelPenMinWidth = new System.Windows.Forms.Label();
+            editPenMinWidth = new System.Windows.Forms.NumericUpDown();
+            labelPenMinAlpha = new System.Windows.Forms.Label();
+            editPenMinAlpha = new System.Windows.Forms.NumericUpDown();
+            chkPenFlipEraser = new System.Windows.Forms.CheckBox();
+            labelPenStatus = new System.Windows.Forms.Label();
+            collapsiblePanelPenButtons = new RetroDevStudio.Controls.CollapsiblePanel();
+            labelPenButton1 = new System.Windows.Forms.Label();
+            comboPenButton1 = new System.Windows.Forms.ComboBox();
+            labelPenButton2 = new System.Windows.Forms.Label();
+            comboPenButton2 = new System.Windows.Forms.ComboBox();
+            collapsiblePanelPenCursor = new RetroDevStudio.Controls.CollapsiblePanel();
+            labelPenCursor = new System.Windows.Forms.Label();
+            comboPenCursor = new System.Windows.Forms.ComboBox();
             btnOutlineToolBrush = new Krypton.Toolkit.KryptonCheckButton();
             btnOutlineToolEraser = new Krypton.Toolkit.KryptonCheckButton();
             btnOutlineToolRectErase = new Krypton.Toolkit.KryptonCheckButton();
@@ -478,6 +498,9 @@
             ((System.ComponentModel.ISupportInitialize)editOutlineBorderSize).BeginInit();
             ((System.ComponentModel.ISupportInitialize)editOutlineExtendStep).BeginInit();
             ((System.ComponentModel.ISupportInitialize)editOutlineFontSize).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)editPenGamma).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)editPenMinWidth).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)editPenMinAlpha).BeginInit();
             flowOutlineOptions.SuspendLayout();
             collapsiblePanelOutlineColors.SuspendLayout();
             groupBox4.SuspendLayout();
@@ -2102,6 +2125,9 @@
             flowLayoutPanel3.Controls.Add(collapsiblePanelFogOfWar);
             flowLayoutPanel3.Controls.Add(collapsiblePanelSprites);
             flowLayoutPanel3.Controls.Add(collapsiblePanelOutlineColors);
+            flowLayoutPanel3.Controls.Add(collapsiblePanelPenPressure);
+            flowLayoutPanel3.Controls.Add(collapsiblePanelPenButtons);
+            flowLayoutPanel3.Controls.Add(collapsiblePanelPenCursor);
             flowLayoutPanel3.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
             flowLayoutPanel3.Location = new System.Drawing.Point(1581, 10);
             flowLayoutPanel3.Name = "flowLayoutPanel3";
@@ -4296,6 +4322,208 @@
             flowOutlineRecentColors.Size = new System.Drawing.Size(334, 54);
             flowOutlineRecentColors.TabIndex = 8;
             //
+            // collapsiblePanelPenPressure
+            //
+            collapsiblePanelPenPressure.Controls.Add(chkPenPressureEnabled);
+            collapsiblePanelPenPressure.Controls.Add(labelPenTarget);
+            collapsiblePanelPenPressure.Controls.Add(comboPenPressureTarget);
+            collapsiblePanelPenPressure.Controls.Add(labelPenGamma);
+            collapsiblePanelPenPressure.Controls.Add(editPenGamma);
+            collapsiblePanelPenPressure.Controls.Add(labelPenMinWidth);
+            collapsiblePanelPenPressure.Controls.Add(editPenMinWidth);
+            collapsiblePanelPenPressure.Controls.Add(labelPenMinAlpha);
+            collapsiblePanelPenPressure.Controls.Add(editPenMinAlpha);
+            collapsiblePanelPenPressure.Controls.Add(chkPenFlipEraser);
+            collapsiblePanelPenPressure.Controls.Add(labelPenStatus);
+            collapsiblePanelPenPressure.ExpandedHeight = 218;
+            collapsiblePanelPenPressure.MinimumSize = new System.Drawing.Size(40, 22);
+            collapsiblePanelPenPressure.Name = "collapsiblePanelPenPressure";
+            collapsiblePanelPenPressure.Padding = new System.Windows.Forms.Padding(0, 22, 0, 0);
+            collapsiblePanelPenPressure.Size = new System.Drawing.Size(350, 218);
+            collapsiblePanelPenPressure.TabIndex = 46;
+            collapsiblePanelPenPressure.Title = "Pen / Pressure";
+            collapsiblePanelPenPressure.Visible = false;
+            //
+            // chkPenPressureEnabled
+            //
+            chkPenPressureEnabled.AutoSize = true;
+            chkPenPressureEnabled.Location = new System.Drawing.Point(8, 30);
+            chkPenPressureEnabled.Name = "chkPenPressureEnabled";
+            chkPenPressureEnabled.Size = new System.Drawing.Size(140, 19);
+            chkPenPressureEnabled.TabIndex = 0;
+            chkPenPressureEnabled.Text = "Enable pen pressure";
+            //
+            // labelPenTarget
+            //
+            labelPenTarget.AutoSize = true;
+            labelPenTarget.Location = new System.Drawing.Point(8, 58);
+            labelPenTarget.Name = "labelPenTarget";
+            labelPenTarget.Size = new System.Drawing.Size(52, 15);
+            labelPenTarget.TabIndex = 1;
+            labelPenTarget.Text = "Maps to";
+            //
+            // comboPenPressureTarget
+            //
+            comboPenPressureTarget.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            comboPenPressureTarget.Location = new System.Drawing.Point(110, 55);
+            comboPenPressureTarget.Name = "comboPenPressureTarget";
+            comboPenPressureTarget.Size = new System.Drawing.Size(110, 23);
+            comboPenPressureTarget.TabIndex = 2;
+            //
+            // labelPenGamma
+            //
+            labelPenGamma.AutoSize = true;
+            labelPenGamma.Location = new System.Drawing.Point(8, 86);
+            labelPenGamma.Name = "labelPenGamma";
+            labelPenGamma.Size = new System.Drawing.Size(67, 15);
+            labelPenGamma.TabIndex = 3;
+            labelPenGamma.Text = "Sensitivity";
+            //
+            // editPenGamma
+            //
+            editPenGamma.DecimalPlaces = 2;
+            editPenGamma.Increment = new decimal(new int[] { 5, 0, 0, 131072 });
+            editPenGamma.Location = new System.Drawing.Point(150, 84);
+            editPenGamma.Maximum = new decimal(new int[] { 8, 0, 0, 0 });
+            editPenGamma.Minimum = new decimal(new int[] { 1, 0, 0, 65536 });
+            editPenGamma.Name = "editPenGamma";
+            editPenGamma.Size = new System.Drawing.Size(70, 23);
+            editPenGamma.TabIndex = 4;
+            editPenGamma.Value = new decimal(new int[] { 1, 0, 0, 0 });
+            //
+            // labelPenMinWidth
+            //
+            labelPenMinWidth.AutoSize = true;
+            labelPenMinWidth.Location = new System.Drawing.Point(8, 114);
+            labelPenMinWidth.Name = "labelPenMinWidth";
+            labelPenMinWidth.Size = new System.Drawing.Size(63, 15);
+            labelPenMinWidth.TabIndex = 5;
+            labelPenMinWidth.Text = "Min width";
+            //
+            // editPenMinWidth
+            //
+            editPenMinWidth.DecimalPlaces = 1;
+            editPenMinWidth.Location = new System.Drawing.Point(150, 112);
+            editPenMinWidth.Maximum = new decimal(new int[] { 128, 0, 0, 0 });
+            editPenMinWidth.Name = "editPenMinWidth";
+            editPenMinWidth.Size = new System.Drawing.Size(70, 23);
+            editPenMinWidth.TabIndex = 6;
+            editPenMinWidth.Value = new decimal(new int[] { 1, 0, 0, 0 });
+            //
+            // labelPenMinAlpha
+            //
+            labelPenMinAlpha.AutoSize = true;
+            labelPenMinAlpha.Location = new System.Drawing.Point(8, 142);
+            labelPenMinAlpha.Name = "labelPenMinAlpha";
+            labelPenMinAlpha.Size = new System.Drawing.Size(90, 15);
+            labelPenMinAlpha.TabIndex = 7;
+            labelPenMinAlpha.Text = "Min opacity %";
+            //
+            // editPenMinAlpha
+            //
+            editPenMinAlpha.Location = new System.Drawing.Point(150, 140);
+            editPenMinAlpha.Maximum = new decimal(new int[] { 100, 0, 0, 0 });
+            editPenMinAlpha.Name = "editPenMinAlpha";
+            editPenMinAlpha.Size = new System.Drawing.Size(70, 23);
+            editPenMinAlpha.TabIndex = 8;
+            editPenMinAlpha.Value = new decimal(new int[] { 20, 0, 0, 0 });
+            //
+            // chkPenFlipEraser
+            //
+            chkPenFlipEraser.AutoSize = true;
+            chkPenFlipEraser.Location = new System.Drawing.Point(8, 168);
+            chkPenFlipEraser.Name = "chkPenFlipEraser";
+            chkPenFlipEraser.Size = new System.Drawing.Size(118, 19);
+            chkPenFlipEraser.TabIndex = 9;
+            chkPenFlipEraser.Text = "Pen flip = eraser";
+            //
+            // labelPenStatus
+            //
+            labelPenStatus.Location = new System.Drawing.Point(8, 190);
+            labelPenStatus.Name = "labelPenStatus";
+            labelPenStatus.Size = new System.Drawing.Size(334, 24);
+            labelPenStatus.TabIndex = 10;
+            labelPenStatus.Text = "Tablet: —";
+            //
+            // collapsiblePanelPenButtons
+            //
+            collapsiblePanelPenButtons.Controls.Add(labelPenButton1);
+            collapsiblePanelPenButtons.Controls.Add(comboPenButton1);
+            collapsiblePanelPenButtons.Controls.Add(labelPenButton2);
+            collapsiblePanelPenButtons.Controls.Add(comboPenButton2);
+            collapsiblePanelPenButtons.ExpandedHeight = 92;
+            collapsiblePanelPenButtons.MinimumSize = new System.Drawing.Size(40, 22);
+            collapsiblePanelPenButtons.Name = "collapsiblePanelPenButtons";
+            collapsiblePanelPenButtons.Padding = new System.Windows.Forms.Padding(0, 22, 0, 0);
+            collapsiblePanelPenButtons.Size = new System.Drawing.Size(350, 92);
+            collapsiblePanelPenButtons.TabIndex = 47;
+            collapsiblePanelPenButtons.Title = "Pen buttons";
+            collapsiblePanelPenButtons.Visible = false;
+            //
+            // labelPenButton1
+            //
+            labelPenButton1.AutoSize = true;
+            labelPenButton1.Location = new System.Drawing.Point(8, 32);
+            labelPenButton1.Name = "labelPenButton1";
+            labelPenButton1.Size = new System.Drawing.Size(43, 15);
+            labelPenButton1.TabIndex = 0;
+            labelPenButton1.Text = "Lower";
+            //
+            // comboPenButton1
+            //
+            comboPenButton1.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            comboPenButton1.Location = new System.Drawing.Point(80, 29);
+            comboPenButton1.Name = "comboPenButton1";
+            comboPenButton1.Size = new System.Drawing.Size(160, 23);
+            comboPenButton1.TabIndex = 1;
+            //
+            // labelPenButton2
+            //
+            labelPenButton2.AutoSize = true;
+            labelPenButton2.Location = new System.Drawing.Point(8, 60);
+            labelPenButton2.Name = "labelPenButton2";
+            labelPenButton2.Size = new System.Drawing.Size(43, 15);
+            labelPenButton2.TabIndex = 2;
+            labelPenButton2.Text = "Upper";
+            //
+            // comboPenButton2
+            //
+            comboPenButton2.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            comboPenButton2.Location = new System.Drawing.Point(80, 57);
+            comboPenButton2.Name = "comboPenButton2";
+            comboPenButton2.Size = new System.Drawing.Size(160, 23);
+            comboPenButton2.TabIndex = 3;
+            //
+            // collapsiblePanelPenCursor
+            //
+            collapsiblePanelPenCursor.Controls.Add(labelPenCursor);
+            collapsiblePanelPenCursor.Controls.Add(comboPenCursor);
+            collapsiblePanelPenCursor.ExpandedHeight = 62;
+            collapsiblePanelPenCursor.MinimumSize = new System.Drawing.Size(40, 22);
+            collapsiblePanelPenCursor.Name = "collapsiblePanelPenCursor";
+            collapsiblePanelPenCursor.Padding = new System.Windows.Forms.Padding(0, 22, 0, 0);
+            collapsiblePanelPenCursor.Size = new System.Drawing.Size(350, 62);
+            collapsiblePanelPenCursor.TabIndex = 48;
+            collapsiblePanelPenCursor.Title = "Pen cursor";
+            collapsiblePanelPenCursor.Visible = false;
+            //
+            // labelPenCursor
+            //
+            labelPenCursor.AutoSize = true;
+            labelPenCursor.Location = new System.Drawing.Point(8, 32);
+            labelPenCursor.Name = "labelPenCursor";
+            labelPenCursor.Size = new System.Drawing.Size(42, 15);
+            labelPenCursor.TabIndex = 0;
+            labelPenCursor.Text = "Cursor";
+            //
+            // comboPenCursor
+            //
+            comboPenCursor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            comboPenCursor.Location = new System.Drawing.Point(80, 29);
+            comboPenCursor.Name = "comboPenCursor";
+            comboPenCursor.Size = new System.Drawing.Size(160, 23);
+            comboPenCursor.TabIndex = 1;
+            //
             // mapHScroll
             //
             mapHScroll.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
@@ -5282,6 +5510,9 @@
             ((System.ComponentModel.ISupportInitialize)editOutlineBorderSize).EndInit();
             ((System.ComponentModel.ISupportInitialize)editOutlineExtendStep).EndInit();
             ((System.ComponentModel.ISupportInitialize)editOutlineFontSize).EndInit();
+            ((System.ComponentModel.ISupportInitialize)editPenGamma).EndInit();
+            ((System.ComponentModel.ISupportInitialize)editPenMinWidth).EndInit();
+            ((System.ComponentModel.ISupportInitialize)editPenMinAlpha).EndInit();
             flowOutlineOptions.ResumeLayout(false);
             collapsiblePanelOutlineColors.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)tabMapEditor).EndInit();
@@ -5691,6 +5922,26 @@
         private System.Windows.Forms.GroupBox groupBox4;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel3;
         private Controls.CollapsiblePanel collapsiblePanel2;
+        private Controls.CollapsiblePanel collapsiblePanelPenPressure;
+        private System.Windows.Forms.CheckBox chkPenPressureEnabled;
+        private System.Windows.Forms.Label labelPenTarget;
+        private System.Windows.Forms.ComboBox comboPenPressureTarget;
+        private System.Windows.Forms.Label labelPenGamma;
+        private System.Windows.Forms.NumericUpDown editPenGamma;
+        private System.Windows.Forms.Label labelPenMinWidth;
+        private System.Windows.Forms.NumericUpDown editPenMinWidth;
+        private System.Windows.Forms.Label labelPenMinAlpha;
+        private System.Windows.Forms.NumericUpDown editPenMinAlpha;
+        private System.Windows.Forms.CheckBox chkPenFlipEraser;
+        private System.Windows.Forms.Label labelPenStatus;
+        private Controls.CollapsiblePanel collapsiblePanelPenButtons;
+        private System.Windows.Forms.Label labelPenButton1;
+        private System.Windows.Forms.ComboBox comboPenButton1;
+        private System.Windows.Forms.Label labelPenButton2;
+        private System.Windows.Forms.ComboBox comboPenButton2;
+        private Controls.CollapsiblePanel collapsiblePanelPenCursor;
+        private System.Windows.Forms.Label labelPenCursor;
+        private System.Windows.Forms.ComboBox comboPenCursor;
         private Controls.CollapsiblePanel collapsiblePanelFogOfWar;
         private Krypton.Toolkit.KryptonCheckBox checkFOWEnabled;
         private Krypton.Toolkit.KryptonCheckBox checkFOWClearOnClick;

@@ -2540,11 +2540,16 @@ namespace RetroDevStudio.Documents
       try
       {
         outlineCanvas.FinalizePendingEdit();
-        WriteOutlineSidecar( !Modified );
+        WriteOutlineSidecarWithRetry( !Modified );
       }
       catch ( Exception )
       {
       }
+      // Close the WinTab context on the real teardown path (window-X / app
+      // shutdown), the authoritative close — the canvas also disposes the
+      // provider, but do it explicitly here beside the rest of the outline
+      // teardown.
+      outlineCanvas.EnableTablet( false );
       DisposeOutlineBitmap();
       m_OutlineActiveMap = null;
       m_OutlineContainer = null;
@@ -5972,6 +5977,22 @@ namespace RetroDevStudio.Documents
       {
         return false;
       }
+      // ON OPEN ONLY: a black ink is invisible on the (black) outline canvas —
+      // start visible instead. Alpha is preserved (a translucent black becomes
+      // an equally translucent white, keeping the user's opacity choice). Done
+      // here, not in the populate, which also runs on every tab return where a
+      // deliberately picked mid-session black must survive. Ride-along value:
+      // no SetModified — it persists with the user's next real save.
+      {
+        var ink = System.Drawing.Color.FromArgb( (int)m_MapProject.OutlineToolSettings.InkColorARGB );
+        if ( ( ink.R == 0 )
+        &&   ( ink.G == 0 )
+        &&   ( ink.B == 0 ) )
+        {
+          m_MapProject.OutlineToolSettings.InkColorARGB =
+            (uint)System.Drawing.Color.FromArgb( ink.A, 255, 255, 255 ).ToArgb();
+        }
+      }
       RefreshMapTileList();
 
       // Upper-clamp StartMapIndex against the actual map count BEFORE
@@ -6610,6 +6631,24 @@ namespace RetroDevStudio.Documents
 
       bool saved = SaveDocumentData( FullPath, projectFile );
 
+      // A SAVE means "my work is on disk" — that must include the outline
+      // drawings, which live in the auto-saved sidecar. Without this, hours of
+      // sketching on one map exist only in RAM until a map switch / mode exit /
+      // close, and a crash after Ctrl+S silently loses all of it.
+      if ( saved )
+      {
+        try
+        {
+          outlineCanvas.FinalizePendingEdit();
+          WriteOutlineSidecar( false );
+        }
+        catch ( Exception )
+        {
+          // The document save itself succeeded — never fail the save over the
+          // sidecar; intermediate flush points will retry.
+        }
+      }
+
       // Save-As / Save-Copy-As: Save() calls this with the NEW path BEFORE
       // DocumentInfo.DocumentFilename updates, so a path mismatch means the
       // document is being written somewhere else — the outline sidecar must
@@ -6682,7 +6721,7 @@ namespace RetroDevStudio.Documents
       try
       {
         outlineCanvas.FinalizePendingEdit();
-        WriteOutlineSidecar( !Modified );
+        WriteOutlineSidecarWithRetry( !Modified );
       }
       catch ( Exception )
       {
@@ -10762,6 +10801,10 @@ namespace RetroDevStudio.Documents
       {
         m_MapProject.LastSelectedTabIndex = tabMapEditor.SelectedIndex;
       }
+      // Tablet is painter-only: this handler is NOT reached from
+      // ApplyOutlineModeVisibility, so leaving/returning to the Map tab must
+      // re-derive the WinTab context here or it stays dead after a tab hop.
+      UpdateTabletEnabled();
     }
 
 
@@ -13213,11 +13256,12 @@ namespace RetroDevStudio.Documents
 
 
     /// <summary>
-    /// Renders the COMPLETE current map (background + tiles with per-char
-    /// color overrides, multi-cell tile coverage) into the given image at
-    /// 1:1 source pixels. No grid, markers, entities or other editor
-    /// chrome. Shared by "copy map as image" and the fullscreen preview.
-    /// The image must already be sized to
+    /// Renders the COMPLETE current map (background fill + ALL VISIBLE tile
+    /// layers composited bottom→top with their per-char color overrides,
+    /// multi-cell tile coverage) into the given image at 1:1 source pixels —
+    /// the same merged view the editor shows. No grid, markers, entities or
+    /// other editor chrome. Shared by "copy map as image" and the fullscreen
+    /// preview. The image must already be sized to
     /// TileSpacing * Tiles.Width/Height * 8 and be 32bpp.
     /// </summary>
     private void RenderFullMapToImage( GR.Image.IImage fullImage )
@@ -13248,82 +13292,101 @@ namespace RetroDevStudio.Documents
           break;
         }
       }
-      bool[,] coveredTiles = needsCoverage ? new bool[m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height] : null;
-
-      for ( int y = 0; y < m_CurrentMap.Tiles.Height; ++y )
+      // Composite the editor tile layers bottom (Background = Layers[0]) to
+      // top, mirroring the on-screen render: each VISIBLE layer draws with its
+      // own tiles + per-char colour overrides, an upper layer's transparent
+      // cells (-1) show the layer below, and coverage tracking is per-layer so
+      // a multi-cell tile on one layer never suppresses drawing on another.
+      // (Reading only m_CurrentMap.Tiles here — a proxy onto Layers[0] — was
+      // the "fullscreen ignores layers" bug; this method also feeds "copy map
+      // as image", which had the same flaw.)
+      foreach ( var renderLayer in m_CurrentMap.Layers )
       {
-        for ( int x = 0; x < m_CurrentMap.Tiles.Width; ++x )
+        if ( !renderLayer.Visible )
         {
-          if ( ( coveredTiles != null )
-          &&   ( coveredTiles[x, y] ) )
-          {
-            continue;
-          }
-          var tileIndex = m_CurrentMap.Tiles[x,y];
-          if ( ( tileIndex < 0 )
-          ||   ( tileIndex >= m_MapProject.Tiles.Count ) )
-          {
-            continue;
-          }
-          var tile = m_MapProject.Tiles[tileIndex];
+          continue;
+        }
+        bool[,] coveredTiles = needsCoverage ? new bool[m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height] : null;
 
-          var alternativeSettings = new Types.AlternativeColorSettings()
+        for ( int y = 0; y < m_CurrentMap.Tiles.Height; ++y )
+        {
+          for ( int x = 0; x < m_CurrentMap.Tiles.Width; ++x )
           {
-            BackgroundColor = ( m_CurrentMap.AlternativeBackgroundColor != -1 ) ? m_CurrentMap.AlternativeBackgroundColor : m_MapProject.BackgroundColor,
-            MultiColor1     = ( m_CurrentMap.AlternativeMultiColor1 != -1 ) ? m_CurrentMap.AlternativeMultiColor1 : m_MapProject.MultiColor1,
-            MultiColor2     = ( m_CurrentMap.AlternativeMultiColor2 != -1 ) ? m_CurrentMap.AlternativeMultiColor2 : m_MapProject.MultiColor2,
-            BGColor4        = ( m_CurrentMap.AlternativeBGColor4 != -1 ) ? m_CurrentMap.AlternativeBGColor4 : m_MapProject.BGColor4,
-            CharMode        = ( m_CurrentMap.AlternativeMode != TextCharMode.UNKNOWN ) ? m_CurrentMap.AlternativeMode : Lookup.TextCharModeFromTextMode( m_MapProject.Mode )
-          };
-
-          // Honor per-CHARACTER color overrides for the exported image
-          // too, so "Copy map to clipboard as image" produces what the
-          // editor shows on screen. Same per-char lookup pattern as the
-          // editor's RedrawMap render.
-          int copyCharBaseX = x * m_CurrentMap.TileSpacingX;
-          int copyCharBaseY = y * m_CurrentMap.TileSpacingY;
-          for ( int j = 0; j < tile.Chars.Height; ++j )
-          {
-            for ( int i = 0; i < tile.Chars.Width; ++i )
+            if ( ( coveredTiles != null )
+            &&   ( coveredTiles[x, y] ) )
             {
-              int charMapX = copyCharBaseX + i;
-              int charMapY = copyCharBaseY + j;
-              int charOverride = -1;
-              if ( ( charMapX < m_CurrentMap.TileColorOverrides.Width )
-              &&   ( charMapY < m_CurrentMap.TileColorOverrides.Height ) )
-              {
-                charOverride = m_CurrentMap.TileColorOverrides[charMapX, charMapY];
-              }
-              alternativeSettings.CustomColor = ( charOverride >= 0 )
-                                                ? charOverride
-                                                : tile.Chars[i, j].Color;
-              Displayer.CharacterDisplayer.DisplayChar( m_MapProject.Charset,
-                                                        tile.Chars[i, j].Character,
-                                                        fullImage,
-                                                        ( x * m_CurrentMap.TileSpacingX + i ) * 8,
-                                                        ( y * m_CurrentMap.TileSpacingY + j ) * 8,
-                                                        alternativeSettings );
+              continue;
             }
-          }
-          if ( coveredTiles != null )
-          {
-            int coverTilesX = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Width / (float)spacingX ) );
-            int coverTilesY = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Height / (float)spacingY ) );
-            for ( int coverY = 0; coverY < coverTilesY; ++coverY )
+            if ( ( x >= renderLayer.Tiles.Width )
+            ||   ( y >= renderLayer.Tiles.Height ) )
             {
-              int targetY = y + coverY;
-              if ( targetY >= m_CurrentMap.Tiles.Height )
+              continue;
+            }
+            var tileIndex = renderLayer.Tiles[x, y];
+            if ( ( tileIndex < 0 )
+            ||   ( tileIndex >= m_MapProject.Tiles.Count ) )
+            {
+              // transparent cell on this layer -> shows the layer below
+              continue;
+            }
+            var tile = m_MapProject.Tiles[tileIndex];
+
+            var alternativeSettings = new Types.AlternativeColorSettings()
+            {
+              BackgroundColor = ( m_CurrentMap.AlternativeBackgroundColor != -1 ) ? m_CurrentMap.AlternativeBackgroundColor : m_MapProject.BackgroundColor,
+              MultiColor1     = ( m_CurrentMap.AlternativeMultiColor1 != -1 ) ? m_CurrentMap.AlternativeMultiColor1 : m_MapProject.MultiColor1,
+              MultiColor2     = ( m_CurrentMap.AlternativeMultiColor2 != -1 ) ? m_CurrentMap.AlternativeMultiColor2 : m_MapProject.MultiColor2,
+              BGColor4        = ( m_CurrentMap.AlternativeBGColor4 != -1 ) ? m_CurrentMap.AlternativeBGColor4 : m_MapProject.BGColor4,
+              CharMode        = ( m_CurrentMap.AlternativeMode != TextCharMode.UNKNOWN ) ? m_CurrentMap.AlternativeMode : Lookup.TextCharModeFromTextMode( m_MapProject.Mode )
+            };
+
+            // Per-CHARACTER color overrides come from THIS layer, exactly as
+            // the editor's RedrawMap render reads them.
+            int copyCharBaseX = x * m_CurrentMap.TileSpacingX;
+            int copyCharBaseY = y * m_CurrentMap.TileSpacingY;
+            for ( int j = 0; j < tile.Chars.Height; ++j )
+            {
+              for ( int i = 0; i < tile.Chars.Width; ++i )
               {
-                break;
+                int charMapX = copyCharBaseX + i;
+                int charMapY = copyCharBaseY + j;
+                int charOverride = -1;
+                if ( ( charMapX < renderLayer.TileColorOverrides.Width )
+                &&   ( charMapY < renderLayer.TileColorOverrides.Height ) )
+                {
+                  charOverride = renderLayer.TileColorOverrides[charMapX, charMapY];
+                }
+                alternativeSettings.CustomColor = ( charOverride >= 0 )
+                                                  ? charOverride
+                                                  : tile.Chars[i, j].Color;
+                Displayer.CharacterDisplayer.DisplayChar( m_MapProject.Charset,
+                                                          tile.Chars[i, j].Character,
+                                                          fullImage,
+                                                          ( x * m_CurrentMap.TileSpacingX + i ) * 8,
+                                                          ( y * m_CurrentMap.TileSpacingY + j ) * 8,
+                                                          alternativeSettings );
               }
-              for ( int coverX = 0; coverX < coverTilesX; ++coverX )
+            }
+            if ( coveredTiles != null )
+            {
+              int coverTilesX = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Width / (float)spacingX ) );
+              int coverTilesY = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Height / (float)spacingY ) );
+              for ( int coverY = 0; coverY < coverTilesY; ++coverY )
               {
-                int targetX = x + coverX;
-                if ( targetX >= m_CurrentMap.Tiles.Width )
+                int targetY = y + coverY;
+                if ( targetY >= m_CurrentMap.Tiles.Height )
                 {
                   break;
                 }
-                coveredTiles[targetX, targetY] = true;
+                for ( int coverX = 0; coverX < coverTilesX; ++coverX )
+                {
+                  int targetX = x + coverX;
+                  if ( targetX >= m_CurrentMap.Tiles.Width )
+                  {
+                    break;
+                  }
+                  coveredTiles[targetX, targetY] = true;
+                }
               }
             }
           }
@@ -19618,6 +19681,9 @@ namespace RetroDevStudio.Documents
       flowOutlineOptions.Visible = outline;
       outlineCanvas.Visible = outline;
       collapsiblePanelOutlineColors.Visible = outline;
+      collapsiblePanelPenPressure.Visible = outline;
+      collapsiblePanelPenButtons.Visible = outline;
+      collapsiblePanelPenCursor.Visible = outline;
 
       flowLayoutPanel3.ResumeLayout( true );
       tabEditor.ResumeLayout( true );
@@ -19637,6 +19703,30 @@ namespace RetroDevStudio.Documents
       // Undo enablement changes meaning with the mode (outline stack vs
       // the map document's) — re-derive the toolbar/menu state.
       Core.MainForm.UpdateUndoSettings();
+
+      UpdateTabletEnabled();
+    }
+
+
+
+    /// <summary>
+    /// Opens the Wacom WinTab context ONLY while the painter is active, and
+    /// closes it otherwise — the tablet must never affect map editing or any
+    /// other tab. Idempotent; the single choke point for every enter/leave
+    /// path (mode toggle, tab switch, close), since OutlineModeActive already
+    /// gates on both the paint button AND the Map tab being selected.
+    /// </summary>
+    private void UpdateTabletEnabled()
+    {
+      bool active = OutlineModeActive;
+      if ( active )
+      {
+        // Fresh edge-detection baseline each time the painter is entered — a
+        // barrel button released while the WinTab context was closed leaves no
+        // up-packet, so a stale "pressed" bit would swallow the next press.
+        m_PrevPenButtons = 0;
+      }
+      outlineCanvas.EnableTablet( active );
     }
 
 
@@ -19723,6 +19813,17 @@ namespace RetroDevStudio.Documents
       {
         int width  = Math.Max( 64, outlineCanvas.ClientSize.Width );
         int height = Math.Max( 64, outlineCanvas.ClientSize.Height );
+        // A map can arrive here with LIVE undo history: erase-all → map switch
+        // (blanks are never persisted, so the entry vanished) → switch back.
+        // The fresh canvas must be big enough to replay that history, or
+        // undoing the erase clips the restored drawing to the viewport size.
+        Controls.OutlineUndoStack previousStack;
+        if ( m_OutlineUndoStacks.TryGetValue( Map, out previousStack ) )
+        {
+          var needed = previousStack.RequiredCanvasExtent();
+          width  = Math.Max( width, needed.Width );
+          height = Math.Max( height, needed.Height );
+        }
         m_OutlineBitmap = new System.Drawing.Bitmap( width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb );
         using ( var g = System.Drawing.Graphics.FromImage( m_OutlineBitmap ) )
         {
@@ -19882,22 +19983,22 @@ namespace RetroDevStudio.Documents
     /// is the moment "deleting a map deletes its picture" becomes
     /// permanent. No-op when outlines were never touched this session.
     /// </summary>
-    private void WriteOutlineSidecar( bool PruneToLiveMaps )
+    private bool WriteOutlineSidecar( bool PruneToLiveMaps )
     {
       FlushOutlineBitmapToContainer();
       if ( m_OutlineContainer == null )
       {
-        return;
+        return true;
       }
       if ( ( !m_OutlineContainerDirty )
       &&   ( !PruneToLiveMaps ) )
       {
-        return;
+        return true;
       }
       string path = OutlineSidecarPath();
       if ( string.IsNullOrEmpty( path ) )
       {
-        return;
+        return true;
       }
       ICollection<string> liveGuids = null;
       if ( PruneToLiveMaps )
@@ -19934,6 +20035,40 @@ namespace RetroDevStudio.Documents
       if ( m_OutlineContainer.WriteToFile( path, liveGuids ) )
       {
         m_OutlineContainerDirty = false;
+        return true;
+      }
+      // Failure keeps the dirty flag so intermediate flush points self-retry.
+      // TERMINAL flush points (close) must use WriteOutlineSidecarWithRetry —
+      // there the in-memory container is about to be discarded and a silent
+      // false here would be unrecoverable data loss.
+      return false;
+    }
+
+
+
+    /// <summary>
+    /// Close-path sidecar write: the in-memory container is the ONLY copy of
+    /// any drawing not yet on disk and is about to be discarded, so a failed
+    /// write (file locked by a sync client / antivirus, disk full) must never
+    /// pass silently — the user gets a retry loop and an explicit warning if
+    /// they give up.
+    /// </summary>
+    private void WriteOutlineSidecarWithRetry( bool PruneToLiveMaps )
+    {
+      while ( !WriteOutlineSidecar( PruneToLiveMaps ) )
+      {
+        var result = System.Windows.Forms.MessageBox.Show(
+          "The map outline drawings could not be saved to:\n\n"
+          + OutlineSidecarPath()
+          + "\n\nThe file may be locked (cloud sync, antivirus) or the disk full.\n"
+          + "Retry saving? Choosing Cancel will DISCARD the unsaved drawings.",
+          "Outline drawings not saved",
+          System.Windows.Forms.MessageBoxButtons.RetryCancel,
+          System.Windows.Forms.MessageBoxIcon.Warning );
+        if ( result != System.Windows.Forms.DialogResult.Retry )
+        {
+          break;
+        }
       }
     }
 
@@ -19967,9 +20102,22 @@ namespace RetroDevStudio.Documents
       string path = OutlineSidecarPath();
       if ( !string.IsNullOrEmpty( path ) )
       {
-        // Missing file = no outlines yet; unreadable file degrades to an
-        // empty container (silent, like the other sidecar loads).
-        m_OutlineContainer.ReadFromFile( path );
+        // Missing file = no outlines yet (silent). An UNREADABLE file must NOT
+        // be silent: the user would see all sketches black, keep drawing, and
+        // the eventual write would supersede the sidecar — tell them up front
+        // that the original is preserved as .corrupt for recovery.
+        if ( !m_OutlineContainer.ReadFromFile( path ) )
+        {
+          System.Windows.Forms.MessageBox.Show(
+            "The map outline drawings file could not be read:\n\n" + path
+            + "\n\nExisting outline sketches will appear empty. The unreadable "
+            + "file will be preserved as \"" + System.IO.Path.GetFileName( path )
+            + ".corrupt\" the next time outlines are saved, so the drawings "
+            + "inside it may still be recoverable.",
+            "Outline drawings unreadable",
+            System.Windows.Forms.MessageBoxButtons.OK,
+            System.Windows.Forms.MessageBoxIcon.Warning );
+        }
       }
       return m_OutlineContainer;
     }
@@ -20185,6 +20333,8 @@ namespace RetroDevStudio.Documents
 
       outlineCanvas.ChangeCommitted += outlineCanvas_ChangeCommitted;
       outlineCanvas.ColorPicked += outlineCanvas_ColorPicked;
+      outlineCanvas.PenSampleChanged += outlineCanvas_PenSampleChanged;
+      InitPenSettingsControls();
       outlineCanvas.BrushSize = (float)editOutlineBrushSize.Value;
       outlineCanvas.EraserSize = (float)editOutlineEraserSize.Value;
       outlineCanvas.ShapeBorderSize = (float)editOutlineBorderSize.Value;
@@ -20546,6 +20696,9 @@ namespace RetroDevStudio.Documents
       {
         outlineCanvas.TextFontFamily = (string)comboOutlineFont.SelectedItem;
       }
+      // NOTE: the black-ink→white visibility coercion happens ONCE in
+      // OpenProject — this populate also runs on every tab return, where
+      // flipping a deliberately chosen mid-session black would be wrong.
       outlineCanvas.PrimaryColor = System.Drawing.Color.FromArgb( (int)tools.InkColorARGB );
       outlineCanvas.SecondaryColor = System.Drawing.Color.FromArgb( (int)tools.FillColorARGB );
       panelOutlinePrimaryColor.Invalidate();
@@ -20557,6 +20710,16 @@ namespace RetroDevStudio.Documents
         m_OutlineRecentColors.Add( System.Drawing.Color.FromArgb( (int)recentARGB ) );
       }
       RefreshOutlineRecentColors();
+
+      // Pen (Wacom) settings → canvas, then reflect into the sidebar controls.
+      outlineCanvas.PenPressureEnabled = tools.PenPressureEnabled;
+      outlineCanvas.PenPressureTarget  = tools.PenPressureTarget;
+      outlineCanvas.PenPressureGamma   = tools.PenPressureGamma;
+      outlineCanvas.PenMinWidth        = tools.PenMinWidth;
+      outlineCanvas.PenMinAlpha        = tools.PenMinAlpha;
+      outlineCanvas.PenFlipEraser      = tools.PenFlipEraser;
+      outlineCanvas.PenCursorIndex     = tools.PenCursorIndex;
+      PopulatePenSettingControls();
     }
 
 
@@ -20582,7 +20745,10 @@ namespace RetroDevStudio.Documents
       {
         return;
       }
-      outlineCanvas.CancelActiveStroke();
+      // FINALIZE (text commits, drags discard), like crop — a plain cancel
+      // silently vaporized an open text box even though extend preserves all
+      // content. Committing first also lands the text in the undo before-image.
+      outlineCanvas.FinalizePendingEdit();
 
       int newWidth = m_OutlineBitmap.Width + LeftAmount + RightAmount;
       int newHeight = m_OutlineBitmap.Height + TopAmount + BottomAmount;
@@ -20741,7 +20907,9 @@ namespace RetroDevStudio.Documents
         return;
       }
 
-      outlineCanvas.CancelActiveStroke();
+      // Finalize (text commits) so the image-replace undo entry captures the
+      // typed text too — undoing the paste then restores everything.
+      outlineCanvas.FinalizePendingEdit();
       // Composite onto opaque black so the canvas keeps its no-alpha-holes
       // invariant even when the pasted PNG carries transparency.
       var newBitmap = new System.Drawing.Bitmap( pasted.Width, pasted.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb );
@@ -20891,7 +21059,9 @@ namespace RetroDevStudio.Documents
         return;
       }
 
-      outlineCanvas.CancelActiveStroke();
+      // Finalize (text commits) so undoing the delete restores the typed text
+      // along with the rest of the picture — the dialog promises undo.
+      outlineCanvas.FinalizePendingEdit();
       int width = Math.Max( 64, outlineCanvas.ClientSize.Width );
       int height = Math.Max( 64, outlineCanvas.ClientSize.Height );
       var newBitmap = new System.Drawing.Bitmap( width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb );
@@ -20964,6 +21134,218 @@ namespace RetroDevStudio.Documents
     private void outlineCanvas_ColorPicked( System.Drawing.Color PickedColor )
     {
       SetOutlinePrimaryColor( PickedColor, true );
+    }
+
+
+
+    // Previous pen barrel-button bitmask, for rising-edge detection.
+    private int m_PrevPenButtons = 0;
+
+    private void outlineCanvas_PenSampleChanged( object sender, RetroDevStudio.Tablet.PenSample e )
+    {
+      // Fire bound actions on the rising edge of each barrel button (bit 0 is
+      // the tip; barrel buttons are bits 1+). NEVER mid-stroke: dispatching
+      // Undo/ToggleEraser/Brush/... while a stroke is in flight cancels or
+      // corrupts the very stroke being drawn (the edge is still consumed via
+      // m_PrevPenButtons above, so nothing fires later either).
+      int pressed = e.Buttons & ~m_PrevPenButtons;
+      m_PrevPenButtons = e.Buttons;
+      if ( ( pressed == 0 )
+      ||   ( outlineCanvas.ToolStrokeInFlight )
+      ||   ( m_MapProject == null )
+      ||   ( m_MapProject.OutlineToolSettings.PenButtonBindings == null ) )
+      {
+        return;
+      }
+      var bindings = m_MapProject.OutlineToolSettings.PenButtonBindings;
+      for ( int index = 0; index < bindings.Count; ++index )
+      {
+        int bit = index + 1;   // binding[0] = barrel button on bit 1, etc.
+        if ( ( pressed & ( 1 << bit ) ) != 0 )
+        {
+          DispatchOutlinePenButton( (Formats.MapProject.OutlinePenButtonAction)bindings[index] );
+        }
+      }
+    }
+
+
+
+    // ---- Pen (Wacom) sidebar settings ------------------------------------
+
+    private void InitPenSettingsControls()
+    {
+      comboPenPressureTarget.Items.Clear();
+      comboPenPressureTarget.Items.AddRange( new object[] { "Size", "Opacity", "Both" } );
+
+      var actionNames = System.Enum.GetNames( typeof( Formats.MapProject.OutlinePenButtonAction ) );
+      comboPenButton1.Items.Clear();
+      comboPenButton1.Items.AddRange( actionNames );
+      comboPenButton2.Items.Clear();
+      comboPenButton2.Items.AddRange( actionNames );
+
+      comboPenCursor.Items.Clear();
+      comboPenCursor.Items.AddRange( RetroDevStudio.Controls.MapOutlineCanvas.PenCursorNames );
+
+      labelPenStatus.Text = outlineCanvas.IsTabletPresent
+        ? "Tablet: connected"
+        : "Tablet: not detected — plug in the tablet and turn Windows Ink off in the Wacom driver.";
+
+      chkPenPressureEnabled.CheckedChanged += penSetting_Changed;
+      comboPenPressureTarget.SelectedIndexChanged += penSetting_Changed;
+      editPenGamma.ValueChanged += penSetting_Changed;
+      editPenMinWidth.ValueChanged += penSetting_Changed;
+      editPenMinAlpha.ValueChanged += penSetting_Changed;
+      chkPenFlipEraser.CheckedChanged += penSetting_Changed;
+      comboPenCursor.SelectedIndexChanged += penSetting_Changed;
+      comboPenButton1.SelectedIndexChanged += penButtonBinding_Changed;
+      comboPenButton2.SelectedIndexChanged += penButtonBinding_Changed;
+    }
+
+
+
+    /// <summary>Loads the saved pen settings into the sidebar controls (handlers
+    /// detached so the populate never dirties the document).</summary>
+    private void PopulatePenSettingControls()
+    {
+      if ( m_MapProject == null )
+      {
+        return;
+      }
+      var t = m_MapProject.OutlineToolSettings;
+
+      chkPenPressureEnabled.CheckedChanged -= penSetting_Changed;
+      comboPenPressureTarget.SelectedIndexChanged -= penSetting_Changed;
+      editPenGamma.ValueChanged -= penSetting_Changed;
+      editPenMinWidth.ValueChanged -= penSetting_Changed;
+      editPenMinAlpha.ValueChanged -= penSetting_Changed;
+      chkPenFlipEraser.CheckedChanged -= penSetting_Changed;
+      comboPenCursor.SelectedIndexChanged -= penSetting_Changed;
+      comboPenButton1.SelectedIndexChanged -= penButtonBinding_Changed;
+      comboPenButton2.SelectedIndexChanged -= penButtonBinding_Changed;
+      try
+      {
+        chkPenPressureEnabled.Checked = t.PenPressureEnabled;
+        comboPenPressureTarget.SelectedIndex = Math.Max( 0, Math.Min( 2, t.PenPressureTarget ) );
+        editPenGamma.Value = ClampDecimal( editPenGamma, (decimal)t.PenPressureGamma );
+        editPenMinWidth.Value = ClampDecimal( editPenMinWidth, (decimal)t.PenMinWidth );
+        editPenMinAlpha.Value = ClampDecimal( editPenMinAlpha, (decimal)Math.Round( t.PenMinAlpha * 100.0f ) );
+        chkPenFlipEraser.Checked = t.PenFlipEraser;
+        comboPenCursor.SelectedIndex = ( ( t.PenCursorIndex >= 0 ) && ( t.PenCursorIndex < comboPenCursor.Items.Count ) )
+          ? t.PenCursorIndex : 0;
+        var b = t.PenButtonBindings;
+        comboPenButton1.SelectedIndex = ClampAction( ( ( b != null ) && ( b.Count > 0 ) ) ? b[0] : 0, comboPenButton1.Items.Count );
+        comboPenButton2.SelectedIndex = ClampAction( ( ( b != null ) && ( b.Count > 1 ) ) ? b[1] : 0, comboPenButton2.Items.Count );
+      }
+      finally
+      {
+        chkPenPressureEnabled.CheckedChanged += penSetting_Changed;
+        comboPenPressureTarget.SelectedIndexChanged += penSetting_Changed;
+        editPenGamma.ValueChanged += penSetting_Changed;
+        editPenMinWidth.ValueChanged += penSetting_Changed;
+        editPenMinAlpha.ValueChanged += penSetting_Changed;
+        chkPenFlipEraser.CheckedChanged += penSetting_Changed;
+        comboPenCursor.SelectedIndexChanged += penSetting_Changed;
+        comboPenButton1.SelectedIndexChanged += penButtonBinding_Changed;
+        comboPenButton2.SelectedIndexChanged += penButtonBinding_Changed;
+      }
+    }
+
+
+
+    private static decimal ClampDecimal( System.Windows.Forms.NumericUpDown Control, decimal Value )
+    {
+      return Math.Max( Control.Minimum, Math.Min( Control.Maximum, Value ) );
+    }
+
+
+
+    private static int ClampAction( int ActionId, int ItemCount )
+    {
+      return Math.Max( 0, Math.Min( ItemCount - 1, ActionId ) );
+    }
+
+
+
+    private void penSetting_Changed( object sender, EventArgs e )
+    {
+      if ( m_MapProject == null )
+      {
+        return;
+      }
+      var t = m_MapProject.OutlineToolSettings;
+      t.PenPressureEnabled = chkPenPressureEnabled.Checked;
+      t.PenPressureTarget  = Math.Max( 0, comboPenPressureTarget.SelectedIndex );
+      t.PenPressureGamma   = (float)editPenGamma.Value;
+      t.PenMinWidth        = (float)editPenMinWidth.Value;
+      t.PenMinAlpha        = (float)editPenMinAlpha.Value / 100.0f;
+      t.PenFlipEraser      = chkPenFlipEraser.Checked;
+      t.PenCursorIndex     = Math.Max( 0, comboPenCursor.SelectedIndex );
+
+      outlineCanvas.PenPressureEnabled = t.PenPressureEnabled;
+      outlineCanvas.PenPressureTarget  = t.PenPressureTarget;
+      outlineCanvas.PenPressureGamma   = t.PenPressureGamma;
+      outlineCanvas.PenMinWidth        = t.PenMinWidth;
+      outlineCanvas.PenMinAlpha        = t.PenMinAlpha;
+      outlineCanvas.PenFlipEraser      = t.PenFlipEraser;
+      outlineCanvas.PenCursorIndex     = t.PenCursorIndex;
+
+      SetModified();
+    }
+
+
+
+    private void penButtonBinding_Changed( object sender, EventArgs e )
+    {
+      if ( m_MapProject == null )
+      {
+        return;
+      }
+      m_MapProject.OutlineToolSettings.PenButtonBindings = new List<int>()
+      {
+        Math.Max( 0, comboPenButton1.SelectedIndex ),
+        Math.Max( 0, comboPenButton2.SelectedIndex )
+      };
+      SetModified();
+    }
+
+
+
+    private void DispatchOutlinePenButton( Formats.MapProject.OutlinePenButtonAction Action )
+    {
+      switch ( Action )
+      {
+        case Formats.MapProject.OutlinePenButtonAction.Eyedropper:
+          outlineCanvas.EyedropAtPointer();
+          break;
+        case Formats.MapProject.OutlinePenButtonAction.ToggleEraser:
+          if ( btnOutlineToolEraser.Checked )
+          {
+            btnOutlineToolBrush.Checked = true;
+          }
+          else
+          {
+            btnOutlineToolEraser.Checked = true;
+          }
+          break;
+        case Formats.MapProject.OutlinePenButtonAction.Brush:
+          btnOutlineToolBrush.Checked = true;
+          break;
+        case Formats.MapProject.OutlinePenButtonAction.Selection:
+          btnOutlineToolSelect.Checked = true;
+          break;
+        case Formats.MapProject.OutlinePenButtonAction.Undo:
+          Undo();
+          break;
+        case Formats.MapProject.OutlinePenButtonAction.Redo:
+          Redo();
+          break;
+        case Formats.MapProject.OutlinePenButtonAction.CenterView:
+          outlineCanvas.CenterView();
+          break;
+        case Formats.MapProject.OutlinePenButtonAction.ResetZoom:
+          outlineCanvas.ResetView();
+          break;
+      }
     }
 
 
@@ -21257,11 +21639,11 @@ namespace RetroDevStudio.Documents
 
     private void btnOutlineSwapColors_Click( object sender, EventArgs e )
     {
+      // Route through the Set* helpers so the swap persists in the project's
+      // tool settings — a raw canvas-only swap silently reverted on reload.
       var primary = outlineCanvas.PrimaryColor;
-      outlineCanvas.PrimaryColor = outlineCanvas.SecondaryColor;
-      outlineCanvas.SecondaryColor = primary;
-      panelOutlinePrimaryColor.Invalidate();
-      panelOutlineSecondaryColor.Invalidate();
+      SetOutlinePrimaryColor( outlineCanvas.SecondaryColor, false );
+      SetOutlineSecondaryColor( primary, false );
     }
 
 

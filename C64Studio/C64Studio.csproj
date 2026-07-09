@@ -627,6 +627,17 @@
     <Reference Include="UIAutomationProvider" />
     <Reference Include="UIAutomationTypes" />
   </ItemGroup>
+  <!-- Prebuilt Wacom WinTab pen-input wrapper. Referenced as a compiled DLL
+       (NOT a ProjectReference) and excluded from the solution build so normal
+       builds stay fast; rebuild RetroDevStudio.Tablet manually and copy its
+       output to ..\lib when it changes. See RetroDevStudio.Tablet\RetroDevStudio.Tablet.csproj. -->
+  <ItemGroup>
+    <Reference Include="RetroDevStudio.Tablet">
+      <HintPath>..\lib\RetroDevStudio.Tablet.dll</HintPath>
+      <SpecificVersion>false</SpecificVersion>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Update="Documents\SampleExplorer.resx">
       <SubType>Designer</SubType>

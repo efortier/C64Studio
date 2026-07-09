@@ -60,6 +60,21 @@ namespace RetroDevStudio.Controls
     private readonly OutlineToolContext   m_ToolContext = new OutlineToolContext();
     private IOutlineTool  m_ActiveTool = null;
     private bool          m_ToolStrokeInFlight = false;
+
+    // Wacom pen input (reusable WinTab wrapper). Enabled only while the painter
+    // is active; supplies pressure/eraser/proximity. Position ALWAYS comes from
+    // the mouse (see OnMouseDown), so mouse and pen mix freely.
+    private readonly RetroDevStudio.Tablet.WintabPenProvider m_Pen
+      = new RetroDevStudio.Tablet.WintabPenProvider();
+    // True while the in-flight stroke originated from the digitizer (pen), not
+    // the mouse — intrinsic state of the current stroke (like m_ToolStrokeInFlight),
+    // captured at pointer-down from the message source + proximity; drives
+    // whether pressure is applied for this stroke.
+    private bool          m_StrokeIsPen = false;
+    // The tool handling the CURRENT stroke — differs from m_ActiveTool when the
+    // pen is flipped to its eraser end (whole-stroke routing). null when idle.
+    private IOutlineTool  m_StrokeTool = null;
+    private readonly EraserTool m_PenEraser = new EraserTool();
     // Last pointer position in image space (NaN when outside the canvas) —
     // feeds tool previews like the brush-size ghost.
     private PointF        m_PointerImagePos = new PointF( float.NaN, float.NaN );
@@ -108,6 +123,124 @@ namespace RetroDevStudio.Controls
 
     public bool TextFontItalic { get; set; } = false;
 
+    // ---- Pen (Wacom) settings. Defaulted here so pressure works immediately;
+    // the editor overrides these from the project's saved tool settings. ----
+
+    /// <summary>Master toggle: apply pen pressure to strokes.</summary>
+    public bool PenPressureEnabled { get; set; } = true;
+
+    /// <summary>0 = size, 1 = opacity, 2 = both.</summary>
+    public int PenPressureTarget { get; set; } = 2;
+
+    /// <summary>Pressure response exponent (1 = linear).</summary>
+    public float PenPressureGamma { get; set; } = 1.0f;
+
+    /// <summary>Lightest-touch stroke width, image pixels.</summary>
+    public float PenMinWidth { get; set; } = 1.0f;
+
+    /// <summary>Lightest-touch opacity factor, 0..1. A small floor (not 0)
+    /// keeps a light touch faintly visible instead of fully transparent.</summary>
+    public float PenMinAlpha { get; set; } = 0.2f;
+
+    /// <summary>Flipping the pen to its eraser end erases instead of drawing.</summary>
+    public bool PenFlipEraser { get; set; } = true;
+
+    private int      m_PenCursorIndex = 0;
+    private Cursor[] m_PenCursors = null;
+    // Raw HCURSOR handles from CreateIconIndirect — the Cursor(IntPtr) wrapper
+    // does NOT own them, so they must be destroyed explicitly in Dispose.
+    private IntPtr[] m_PenCursorHandles = null;
+
+    /// <summary>Names for the pen-cursor dropdown (index = PenCursorIndex).</summary>
+    public static string[] PenCursorNames
+    {
+      get
+      {
+        return new string[] { "Crosshair", "Dot", "Ring", "Precision" };
+      }
+    }
+
+    /// <summary>Which cursor to show while a pen is hovering (index into PenCursorNames).</summary>
+    public int PenCursorIndex
+    {
+      get
+      {
+        return m_PenCursorIndex;
+      }
+      set
+      {
+        if ( value == m_PenCursorIndex )
+        {
+          return;
+        }
+        m_PenCursorIndex = value;
+        UpdateCursor();
+      }
+    }
+
+    /// <summary>True when a Wacom driver + tablet are present.</summary>
+    public bool IsTabletPresent
+    {
+      get
+      {
+        return m_Pen.IsTabletPresent;
+      }
+    }
+
+    /// <summary>The latest pen sample (pressure/eraser/proximity/buttons).</summary>
+    public RetroDevStudio.Tablet.PenSample PenState
+    {
+      get
+      {
+        return m_Pen.Current;
+      }
+    }
+
+    /// <summary>Raised on every pen packet — lets the editor drive button bindings.</summary>
+    public event EventHandler<RetroDevStudio.Tablet.PenSample> PenSampleChanged
+    {
+      add
+      {
+        m_Pen.SampleChanged += value;
+      }
+      remove
+      {
+        m_Pen.SampleChanged -= value;
+      }
+    }
+
+    /// <summary>
+    /// Opens/closes the WinTab context. Called ONLY for the painter (outline
+    /// mode active); the tablet does nothing anywhere else in the app.
+    /// </summary>
+    public void EnableTablet( bool Enable )
+    {
+      m_Pen.Enabled = ( Enable && m_Pen.IsTabletPresent );
+    }
+
+    /// <summary>
+    /// Samples the pixel under the last pointer position and raises ColorPicked
+    /// — the eyedropper as a pen-button action (the RMB eyedropper lives in
+    /// OnMouseDown).
+    /// </summary>
+    public void EyedropAtPointer()
+    {
+      if ( ( m_Image == null )
+      ||   ( float.IsNaN( m_PointerImagePos.X ) ) )
+      {
+        return;
+      }
+      int x = (int)Math.Floor( m_PointerImagePos.X );
+      int y = (int)Math.Floor( m_PointerImagePos.Y );
+      if ( ( x >= 0 )
+      &&   ( y >= 0 )
+      &&   ( x < m_Image.Width )
+      &&   ( y < m_Image.Height ) )
+      {
+        ColorPicked?.Invoke( m_Image.GetPixel( x, y ) );
+      }
+    }
+
     private Bitmap m_StampImage = null;
 
     /// <summary>
@@ -149,14 +282,25 @@ namespace RetroDevStudio.Controls
         {
           return;
         }
-        // Orderly switch: the outgoing tool decides commit-vs-discard
-        // (text commits what was typed; drags discard).
-        if ( ( m_ActiveTool != null )
-        &&   ( m_Image != null ) )
+        // Orderly switch: the outgoing tool decides commit-vs-discard (text
+        // commits what was typed; drags discard). Finalize whichever tool owns
+        // an in-flight stroke — the pen-eraser during a flip-erase, otherwise
+        // the active tool (also the path that commits an open text box).
+        if ( m_StrokeTool != null )
+        {
+          if ( m_Image != null )
+          {
+            m_StrokeTool.OnDeactivate( RefreshToolContext() );
+          }
+          m_StrokeTool = null;
+        }
+        else if ( ( m_ActiveTool != null )
+        &&        ( m_Image != null ) )
         {
           m_ActiveTool.OnDeactivate( RefreshToolContext() );
         }
         m_ToolStrokeInFlight = false;
+        m_StrokeIsPen = false;
         ReleaseStrokeCapture();
         m_ActiveTool = value;
         // Selection is operations-only and belongs to the selection tool:
@@ -222,7 +366,12 @@ namespace RetroDevStudio.Controls
     public bool EraseSelection()
     {
       if ( ( m_SelectionRect == null )
-      ||   ( m_Image == null ) )
+      ||   ( m_Image == null )
+      // Never mid-stroke: erasing the selection region while a stroke's
+      // compositor holds a pre-stroke snapshot interleaves the two edits —
+      // the stroke's commit/cancel would resurrect the erased pixels and the
+      // undo entries would disagree about "before".
+      ||   ( m_ToolStrokeInFlight ) )
       {
         return false;
       }
@@ -381,6 +530,100 @@ namespace RetroDevStudio.Controls
         ControlStyles.UserPaint |
         ControlStyles.Opaque |
         ControlStyles.Selectable, true );
+
+      m_Pen.ProximityChanged += Pen_ProximityChanged;
+    }
+
+
+
+
+    protected override void OnHandleCreated( EventArgs e )
+    {
+      base.OnHandleCreated( e );
+      // WinForms can recreate the handle; keep the WinTab context pointed at
+      // the live HWND.
+      m_Pen.Attach( Handle );
+    }
+
+
+
+    protected override void OnHandleDestroyed( EventArgs e )
+    {
+      m_Pen.Attach( IntPtr.Zero );
+      base.OnHandleDestroyed( e );
+    }
+
+
+
+    protected override void WndProc( ref Message m )
+    {
+      // Forward every message to the pen provider first; it consumes WinTab
+      // packet/proximity events and ignores the rest. Always call base so
+      // normal input/paint messages proceed unchanged.
+      m_Pen.ProcessMessage( ref m );
+      base.WndProc( ref m );
+    }
+
+
+
+    private void Pen_ProximityChanged( object sender, EventArgs e )
+    {
+      // Pen entered/left hover range: swap the cursor and, if the pen was
+      // yanked off while still drawing, land the stroke instead of losing it.
+      if ( ( !m_Pen.Current.InProximity )
+      &&   ( m_ToolStrokeInFlight )
+      &&   ( m_StrokeIsPen )
+      &&   ( m_StrokeTool != null )
+      &&   ( m_Image != null )
+      &&   ( !float.IsNaN( m_PointerImagePos.X ) ) )
+      {
+        // Only a PEN stroke gets landed on proximity loss — a mouse stroke that
+        // happens to be in flight while a pen hovers must be unaffected.
+        m_StrokeTool.OnPointerUp( RefreshToolContext(), m_PointerImagePos );
+        m_StrokeTool = null;
+        m_ToolStrokeInFlight = false;
+        m_StrokeIsPen = false;
+        ReleaseStrokeCapture();
+      }
+      UpdateCursor();
+      Invalidate();
+    }
+
+
+
+    protected override void Dispose( bool disposing )
+    {
+      if ( disposing )
+      {
+        m_Pen.Dispose();
+        if ( m_PenCursors != null )
+        {
+          foreach ( var cur in m_PenCursors )
+          {
+            // Index 0 is the shared built-in Cursors.Cross — never dispose it.
+            if ( ( cur != null )
+            &&   ( cur != Cursors.Cross ) )
+            {
+              cur.Dispose();
+            }
+          }
+          m_PenCursors = null;
+        }
+        if ( m_PenCursorHandles != null )
+        {
+          // The Cursor(IntPtr) wrappers don't own these — destroy them here or
+          // each open→hover→close cycle leaks 3 native cursor handles.
+          foreach ( var handle in m_PenCursorHandles )
+          {
+            if ( handle != IntPtr.Zero )
+            {
+              DestroyIcon( handle );
+            }
+          }
+          m_PenCursorHandles = null;
+        }
+      }
+      base.Dispose( disposing );
     }
 
 
@@ -696,12 +939,122 @@ namespace RetroDevStudio.Controls
         Cursor = Cursors.Hand;
         return;
       }
+      // A hovering pen gets its own selectable cursor (cached — never rebuilt
+      // per proximity flap, which would leak GDI handles).
+      if ( m_Pen.Current.InProximity )
+      {
+        Cursor = CurrentPenCursor();
+        return;
+      }
       if ( m_ActiveTool != null )
       {
         Cursor = m_ActiveTool.Cursor;
         return;
       }
       Cursor = Cursors.Default;
+    }
+
+
+
+    private Cursor CurrentPenCursor()
+    {
+      if ( m_PenCursors == null )
+      {
+        IntPtr h1, h2, h3;
+        var c1 = MakePenCursor( 1, out h1 );
+        var c2 = MakePenCursor( 2, out h2 );
+        var c3 = MakePenCursor( 3, out h3 );
+        m_PenCursors = new Cursor[] { Cursors.Cross, c1, c2, c3 };
+        m_PenCursorHandles = new IntPtr[] { IntPtr.Zero, h1, h2, h3 };
+      }
+      int idx = ( ( m_PenCursorIndex >= 0 ) && ( m_PenCursorIndex < m_PenCursors.Length ) )
+        ? m_PenCursorIndex : 0;
+      return m_PenCursors[idx] ?? Cursors.Cross;
+    }
+
+
+
+    [System.Runtime.InteropServices.StructLayout( System.Runtime.InteropServices.LayoutKind.Sequential )]
+    private struct ICONINFO
+    {
+      public bool   fIcon;
+      public int    xHotspot;
+      public int    yHotspot;
+      public IntPtr hbmMask;
+      public IntPtr hbmColor;
+    }
+
+    [System.Runtime.InteropServices.DllImport( "user32.dll" )]
+    private static extern bool GetIconInfo( IntPtr hIcon, ref ICONINFO piconinfo );
+    [System.Runtime.InteropServices.DllImport( "user32.dll" )]
+    private static extern IntPtr CreateIconIndirect( ref ICONINFO iconinfo );
+    [System.Runtime.InteropServices.DllImport( "user32.dll" )]
+    private static extern bool DestroyIcon( IntPtr hIcon );
+    [System.Runtime.InteropServices.DllImport( "gdi32.dll" )]
+    private static extern bool DeleteObject( IntPtr hObject );
+
+    /// <summary>
+    /// Builds a 32×32 cursor with a CENTERED hotspot. Style: 1 = dot, 2 = ring,
+    /// 3 = precision (long thin cross). Degrades to Cursors.Cross on any Win32
+    /// failure. Caller caches the result.
+    /// </summary>
+    private static Cursor MakePenCursor( int Style, out IntPtr Handle )
+    {
+      Handle = IntPtr.Zero;
+      const int SIZE = 32;
+      const int C = SIZE / 2;
+      using ( var bmp = new Bitmap( SIZE, SIZE, System.Drawing.Imaging.PixelFormat.Format32bppArgb ) )
+      {
+        using ( var g = Graphics.FromImage( bmp ) )
+        using ( var white = new Pen( Color.White, 3f ) )
+        using ( var black = new Pen( Color.Black, 1f ) )
+        using ( var fill = new SolidBrush( Color.White ) )
+        {
+          g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+          switch ( Style )
+          {
+            case 1:   // dot
+              g.FillEllipse( fill, C - 2, C - 2, 4, 4 );
+              g.DrawEllipse( black, C - 2, C - 2, 4, 4 );
+              break;
+            case 2:   // ring
+              g.DrawEllipse( white, C - 6, C - 6, 12, 12 );
+              g.DrawEllipse( black, C - 6, C - 6, 12, 12 );
+              break;
+            default:  // precision cross
+              g.DrawLine( white, C, 2, C, SIZE - 3 );
+              g.DrawLine( white, 2, C, SIZE - 3, C );
+              g.DrawLine( black, C, 2, C, SIZE - 3 );
+              g.DrawLine( black, 2, C, SIZE - 3, C );
+              break;
+          }
+        }
+        IntPtr hIcon = bmp.GetHicon();
+        try
+        {
+          var info = new ICONINFO();
+          if ( !GetIconInfo( hIcon, ref info ) )
+          {
+            return Cursors.Cross;
+          }
+          info.fIcon = false;
+          info.xHotspot = C;
+          info.yHotspot = C;
+          IntPtr hCursor = CreateIconIndirect( ref info );
+          DeleteObject( info.hbmColor );
+          DeleteObject( info.hbmMask );
+          if ( hCursor == IntPtr.Zero )
+          {
+            return Cursors.Cross;
+          }
+          Handle = hCursor;   // returned so Dispose can DestroyIcon it
+          return new Cursor( hCursor );
+        }
+        finally
+        {
+          DestroyIcon( hIcon );
+        }
+      }
     }
 
 
@@ -726,6 +1079,13 @@ namespace RetroDevStudio.Controls
       m_ToolContext.TextFontItalic = TextFontItalic;
       m_ToolContext.StampImage = m_StampImage;
       m_ToolContext.StampScale = StampScale;
+      m_ToolContext.PenActive = m_StrokeIsPen;
+      m_ToolContext.PenPressure = m_Pen.Current.Pressure;
+      m_ToolContext.PenPressureEnabled = PenPressureEnabled;
+      m_ToolContext.PenPressureTarget = PenPressureTarget;
+      m_ToolContext.PenPressureGamma = PenPressureGamma;
+      m_ToolContext.PenMinWidth = PenMinWidth;
+      m_ToolContext.PenMinAlpha = PenMinAlpha;
       m_ToolContext.SelectionRect = m_SelectionRect;
       m_ToolContext.SetSelectionRect = SetSelectionRect;
       m_ToolContext.CreateRenderer = () => new GdiPlusOutlineRenderer( m_Image );
@@ -756,12 +1116,15 @@ namespace RetroDevStudio.Controls
       // A floating paste is the most "in flight" state of all — Escape
       // (and every other cancel route) throws it away first.
       CancelFloatingPaste();
-      if ( ( m_ActiveTool != null )
+      var strokeTool = m_StrokeTool ?? m_ActiveTool;
+      if ( ( strokeTool != null )
       &&   ( m_Image != null ) )
       {
-        m_ActiveTool.Cancel( RefreshToolContext() );
+        strokeTool.Cancel( RefreshToolContext() );
       }
+      m_StrokeTool = null;
       m_ToolStrokeInFlight = false;
+      m_StrokeIsPen = false;
       ReleaseStrokeCapture();
     }
 
@@ -812,7 +1175,13 @@ namespace RetroDevStudio.Controls
     {
       get
       {
+        // Must include the STROKE tool: during a pen flip-erase the in-flight
+        // tool is m_PenEraser (≠ m_ActiveTool), so checking only m_ActiveTool
+        // would report "no pending edit" mid-erase and let Ctrl+Z pop the
+        // committed undo stack into the live bitmap.
         return ( m_FloatingPasteImage != null )
+            || ( ( m_StrokeTool != null )
+            &&   ( m_StrokeTool.HasPendingEdit ) )
             || ( ( m_ActiveTool != null )
             &&   ( m_ActiveTool.HasPendingEdit ) );
       }
@@ -831,13 +1200,16 @@ namespace RetroDevStudio.Controls
       // A floating paste has no position until the user clicks — there is
       // nothing to commit at a flush point, so it discards.
       CancelFloatingPaste();
-      if ( ( m_ActiveTool != null )
+      var pendingTool = m_StrokeTool ?? m_ActiveTool;
+      if ( ( pendingTool != null )
       &&   ( m_Image != null )
-      &&   ( m_ActiveTool.HasPendingEdit ) )
+      &&   ( pendingTool.HasPendingEdit ) )
       {
-        m_ActiveTool.OnDeactivate( RefreshToolContext() );
+        pendingTool.OnDeactivate( RefreshToolContext() );
       }
+      m_StrokeTool = null;
       m_ToolStrokeInFlight = false;
+      m_StrokeIsPen = false;
       ReleaseStrokeCapture();
     }
 
@@ -866,7 +1238,7 @@ namespace RetroDevStudio.Controls
       // Capture can be torn away without a matching mouse-up (Alt+Tab,
       // Win key, modal popup mid-drag). Left un-handled that strands
       // m_IsPanning/m_ToolStrokeInFlight as "true" and buttonless mouse
-      // moves keep panning/PAINTING. Abort both cleanly.
+      // moves keep panning/PAINTING.
       if ( !Capture )
       {
         if ( m_IsPanning )
@@ -876,7 +1248,23 @@ namespace RetroDevStudio.Controls
         }
         if ( m_ToolStrokeInFlight )
         {
-          CancelActiveStroke();
+          // LAND the stroke (as the proximity-out path does) rather than
+          // discard it: the interruption isn't the user's choice, and
+          // reverting minutes of careful freehand to a popup would read as
+          // "my drawing vanished". Escape/RMB remain the deliberate cancels.
+          if ( ( m_StrokeTool != null )
+          &&   ( m_Image != null )
+          &&   ( !float.IsNaN( m_PointerImagePos.X ) ) )
+          {
+            m_StrokeTool.OnPointerUp( RefreshToolContext(), m_PointerImagePos );
+            m_StrokeTool = null;
+            m_ToolStrokeInFlight = false;
+            m_StrokeIsPen = false;
+          }
+          else
+          {
+            CancelActiveStroke();
+          }
         }
       }
       base.OnMouseCaptureChanged( e );
@@ -913,9 +1301,24 @@ namespace RetroDevStudio.Controls
         // The floating paste ghost outranks the tool's pointer ghost.
         extent = Math.Max( m_FloatingPasteImage.Width, m_FloatingPasteImage.Height ) * 0.5f + 2;
       }
-      else if ( m_ActiveTool != null )
+      else
       {
-        extent = m_ActiveTool.PointerGhostExtent( RefreshToolContext() );
+        // During a stroke use the stroke tool; while merely hovering, preview
+        // the eraser footprint if a flipped pen is in range, else the active
+        // tool — mirroring OnPaint's selection exactly (incl. the pending-edit
+        // exception) so the invalidated region always matches what is drawn.
+        var ghostTool = m_StrokeTool;
+        if ( ghostTool == null )
+        {
+          bool flipHover = ( m_Pen.Current.InProximity && m_Pen.Current.IsEraser && PenFlipEraser )
+                        && ( ( m_ActiveTool == null )
+                        ||   ( !m_ActiveTool.HasPendingEdit ) );
+          ghostTool = flipHover ? (IOutlineTool)m_PenEraser : m_ActiveTool;
+        }
+        if ( ghostTool != null )
+        {
+          extent = ghostTool.PointerGhostExtent( RefreshToolContext() );
+        }
       }
       if ( extent <= 0 )
       {
@@ -981,12 +1384,24 @@ namespace RetroDevStudio.Controls
       {
         if ( m_ToolStrokeInFlight )
         {
-          // Standard paint-program move: right button aborts the stroke.
-          CancelActiveStroke();
+          // Standard paint-program move: right button aborts the stroke — but
+          // ONLY from the mouse. A Wacom barrel button mapped to right-click in
+          // the driver fires WM_RBUTTONDOWN mid-stroke; silently vaporizing the
+          // stroke being drawn is the "it reverts while I draw" bug. Pen users
+          // abort with Escape.
+          if ( !m_Pen.Current.InProximity )
+          {
+            CancelActiveStroke();
+          }
           return;
         }
-        // Eyedropper — anywhere on the picture, any active tool (or none).
-        if ( m_Image != null )
+        // Eyedropper — anywhere on the picture, any active tool (or none). But
+        // NOT while a pen is in range: a Wacom barrel button is commonly mapped
+        // to right-click in the driver, so a pen right-click here would silently
+        // change the ink colour. The pen only changes colour via an explicit
+        // sidebar button binding; a real MOUSE right-click still eyedrops.
+        if ( ( m_Image != null )
+        &&   ( !m_Pen.Current.InProximity ) )
         {
           var imagePos = ViewToImage( e.Location );
           int x = (int)Math.Floor( imagePos.X );
@@ -1006,10 +1421,27 @@ namespace RetroDevStudio.Controls
       &&   ( m_ActiveTool != null )
       &&   ( m_Image != null ) )
       {
+        // Fix the stroke's input source at pointer-down: it is a PEN stroke iff
+        // a pen is in range AND actually touching (tip bit / nonzero pressure in
+        // the latest packet). We do NOT test the OS pen-message signature: WinTab
+        // pressure requires the Wacom driver's "Windows Ink" to be OFF, and in
+        // that mode the driver synthesizes the mouse events WITHOUT the OS
+        // digitizer signature. The contact test keeps a pen merely PARKED in
+        // hover range from hijacking a physical-mouse click into a zero-pressure
+        // (near-invisible, or flip-erasing) pen stroke; if a genuine pen tap
+        // ever races its contact packet, it degrades to a constant-width stroke.
+        m_StrokeIsPen = ( m_Pen.Current.InProximity )
+                     && ( ( ( m_Pen.Current.Buttons & 1 ) != 0 )
+                     ||   ( m_Pen.Current.Pressure > 0f ) );
+        // Pen flipped to its eraser end erases regardless of the selected tool
+        // — route the WHOLE stroke through an internal eraser, leaving the
+        // user's active tool untouched (restored automatically on flip-back).
+        bool flipErase = ( m_StrokeIsPen && m_Pen.Current.IsEraser && PenFlipEraser );
+        m_StrokeTool = flipErase ? (IOutlineTool)m_PenEraser : m_ActiveTool;
         m_ToolStrokeInFlight = true;
         Capture = true;
         m_PointerImagePos = ViewToImage( e.Location );
-        m_ActiveTool.OnPointerDown( RefreshToolContext(), m_PointerImagePos );
+        m_StrokeTool.OnPointerDown( RefreshToolContext(), m_PointerImagePos );
         return;
       }
       base.OnMouseDown( e );
@@ -1032,7 +1464,7 @@ namespace RetroDevStudio.Controls
 
       if ( m_ToolStrokeInFlight )
       {
-        m_ActiveTool.OnPointerMove( RefreshToolContext(), m_PointerImagePos );
+        m_StrokeTool.OnPointerMove( RefreshToolContext(), m_PointerImagePos );
       }
       if ( ( m_ActiveTool != null )
       ||   ( m_FloatingPasteImage != null ) )
@@ -1074,7 +1506,11 @@ namespace RetroDevStudio.Controls
       {
         m_ToolStrokeInFlight = false;
         Capture = false;
-        m_ActiveTool.OnPointerUp( RefreshToolContext(), ViewToImage( e.Location ) );
+        // PenActive must still be true through OnPointerUp so the pressure
+        // path commits; clear it after.
+        m_StrokeTool.OnPointerUp( RefreshToolContext(), ViewToImage( e.Location ) );
+        m_StrokeTool = null;
+        m_StrokeIsPen = false;
         return;
       }
       base.OnMouseUp( e );
@@ -1138,10 +1574,25 @@ namespace RetroDevStudio.Controls
                          destRect.Width + 1, destRect.Height + 1 );
       }
 
-      // Tool overlay pass — in-flight shape previews, brush-size ghost.
-      if ( m_ActiveTool != null )
+      // Tool overlay pass — in-flight shape previews, brush-size ghost. During
+      // a flip-erase stroke this is the eraser; while merely HOVERING with a
+      // flipped pen, preview the eraser too so the ghost matches what a press
+      // will do (mirrors GhostViewRect's selection so the invalidation region
+      // and the drawn ghost agree).
+      var previewTool = m_StrokeTool;
+      if ( previewTool == null )
       {
-        m_ActiveTool.OnPaintPreview( RefreshToolContext(), g, ImageToView, m_Zoom, m_PointerImagePos );
+        // Hovering with a flipped pen previews the eraser footprint — but never
+        // at the cost of hiding an active tool's LIVE pending edit (an open
+        // text box must stay visible while the pen hovers).
+        bool flipHover = ( m_Pen.Current.InProximity && m_Pen.Current.IsEraser && PenFlipEraser )
+                      && ( ( m_ActiveTool == null )
+                      ||   ( !m_ActiveTool.HasPendingEdit ) );
+        previewTool = flipHover ? (IOutlineTool)m_PenEraser : m_ActiveTool;
+      }
+      if ( previewTool != null )
+      {
+        previewTool.OnPaintPreview( RefreshToolContext(), g, ImageToView, m_Zoom, m_PointerImagePos );
       }
 
       // Committed selection marquee (the in-flight drag is drawn by the

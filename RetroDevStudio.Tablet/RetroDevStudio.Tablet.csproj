@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Reusable Wacom WinTab pen-input wrapper (pressure / proximity / eraser /
+    buttons), consumed by C64Studio's Map Outline painter and reusable by the
+    graphics editors later.
+
+    DELIBERATELY EXCLUDED FROM THE SOLUTION BUILD: this project has no Build.0
+    entries in C64Studio.sln, and C64Studio references the prebuilt DLL in
+    ..\lib via a <Reference><HintPath> (not a ProjectReference), so a normal
+    `dotnet build C64Studio.sln` never recompiles it. Rebuild it manually only
+    when it changes:
+        dotnet build RetroDevStudio.Tablet\RetroDevStudio.Tablet.csproj -c Release
+    then copy bin\Release\net8.0-windows\RetroDevStudio.Tablet.dll to ..\lib\.
+
+    AnyCPU only (no ARM64): the HintPath in C64Studio.csproj has no platform
+    segment. On ARM64 Windows the native Wintab32.dll may be absent, in which
+    case WintabPenProvider.IsTabletPresent is false and the feature no-ops.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <OutputType>Library</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>RetroDevStudio.Tablet</RootNamespace>
+    <AssemblyName>RetroDevStudio.Tablet</AssemblyName>
+    <Platforms>AnyCPU</Platforms>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <!-- Vendored WintabDN triggers CA-style analyzer noise; keep the lib quiet. -->
+    <NoWarn>$(NoWarn);CS0169;CS0649;CS0660;CS0661;CS0414</NoWarn>
+  </PropertyGroup>
+
+</Project>

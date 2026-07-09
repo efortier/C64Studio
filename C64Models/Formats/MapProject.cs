@@ -24,6 +24,20 @@ namespace RetroDevStudio.Formats
     /// the editor's Designer defaults (a missing chunk falls back to
     /// these). Colors are raw ARGB so full alpha survives.
     /// </summary>
+    /// <summary>Action a pen barrel button can be bound to (see OutlineToolSettings.PenButtonBindings).</summary>
+    public enum OutlinePenButtonAction
+    {
+      None = 0,
+      Eyedropper,
+      ToggleEraser,
+      Brush,
+      Selection,
+      Undo,
+      Redo,
+      CenterView,
+      ResetZoom
+    }
+
     public class MapOutlineToolSettings
     {
       public int        BrushSize = 8;
@@ -38,6 +52,19 @@ namespace RetroDevStudio.Formats
       public uint       FillColorARGB = 0xFF808080;
       public int        ExtendStep = 32;
       public List<uint> RecentColorsARGB = new List<uint>();
+      // ---- Pen (Wacom) settings. All persisted; defaults match the canvas. ----
+      public bool       PenPressureEnabled = true;
+      public int        PenPressureTarget = 2;        // 0 = size, 1 = opacity, 2 = both
+      public float      PenPressureGamma = 1.0f;
+      public float      PenMinWidth = 1.0f;
+      public float      PenMinAlpha = 0.2f;
+      public bool       PenFlipEraser = true;
+      public int        PenCursorIndex = 0;
+      // Per barrel button (index 0 = lower, 1 = upper) → OutlinePenButtonAction id.
+      // Default None: the pen must not change the ink colour or the selected tool
+      // as a side effect — the user opts each button in from the sidebar.
+      public List<int>  PenButtonBindings = new List<int>()
+        { (int)OutlinePenButtonAction.None, (int)OutlinePenButtonAction.None };
     };
 
     public class Marker
@@ -923,6 +950,22 @@ namespace RetroDevStudio.Formats
         {
           chunkOutlineTools.AppendU32( recentColor );
         }
+        // Pen (Wacom) settings — appended AFTER the variable-length recent-colors
+        // list; older readers stop at the colors and keep the class defaults.
+        // Floats go out as scaled ints (the chunk writer has no float append).
+        // PenButtonBindings is a trailing length-prefixed list and MUST stay last.
+        chunkOutlineTools.AppendU8( (byte)( OutlineToolSettings.PenPressureEnabled ? 1 : 0 ) );
+        chunkOutlineTools.AppendI32( OutlineToolSettings.PenPressureTarget );
+        chunkOutlineTools.AppendI32( (int)Math.Round( OutlineToolSettings.PenPressureGamma * 100 ) );
+        chunkOutlineTools.AppendI32( (int)Math.Round( OutlineToolSettings.PenMinWidth * 10 ) );
+        chunkOutlineTools.AppendI32( (int)Math.Round( OutlineToolSettings.PenMinAlpha * 100 ) );
+        chunkOutlineTools.AppendU8( (byte)( OutlineToolSettings.PenFlipEraser ? 1 : 0 ) );
+        chunkOutlineTools.AppendI32( OutlineToolSettings.PenCursorIndex );
+        chunkOutlineTools.AppendI32( OutlineToolSettings.PenButtonBindings.Count );
+        foreach ( var binding in OutlineToolSettings.PenButtonBindings )
+        {
+          chunkOutlineTools.AppendI32( binding );
+        }
         projectFile.Append( chunkOutlineTools.ToBuffer() );
       }
 
@@ -1366,6 +1409,50 @@ namespace RetroDevStudio.Formats
                   break;
                 }
                 tools.RecentColorsARGB.Add( chunkReader.ReadUInt32() );
+              }
+              // Pen settings (appended after the recents list) — each guarded so
+              // files written before pen support fall back to the class default.
+              if ( chunkReader.Size - chunkReader.Position >= 1 )
+              {
+                tools.PenPressureEnabled = ( chunkReader.ReadUInt8() != 0 );
+              }
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                tools.PenPressureTarget = Math.Max( 0, Math.Min( 2, chunkReader.ReadInt32() ) );
+              }
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                tools.PenPressureGamma = Math.Max( 0.1f, Math.Min( 8.0f, chunkReader.ReadInt32() / 100.0f ) );
+              }
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                tools.PenMinWidth = Math.Max( 0.0f, Math.Min( 128.0f, chunkReader.ReadInt32() / 10.0f ) );
+              }
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                tools.PenMinAlpha = Math.Max( 0.0f, Math.Min( 1.0f, chunkReader.ReadInt32() / 100.0f ) );
+              }
+              if ( chunkReader.Size - chunkReader.Position >= 1 )
+              {
+                tools.PenFlipEraser = ( chunkReader.ReadUInt8() != 0 );
+              }
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                tools.PenCursorIndex = Math.Max( 0, Math.Min( 15, chunkReader.ReadInt32() ) );
+              }
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                int bindingCount = Math.Max( 0, Math.Min( 16, chunkReader.ReadInt32() ) );
+                var bindings = new List<int>();
+                for ( int i = 0; i < bindingCount; ++i )
+                {
+                  if ( chunkReader.Size - chunkReader.Position < 4 )
+                  {
+                    break;
+                  }
+                  bindings.Add( chunkReader.ReadInt32() );
+                }
+                tools.PenButtonBindings = bindings;
               }
               OutlineToolSettings = tools;
             }

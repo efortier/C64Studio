@@ -320,9 +320,11 @@ namespace TestProject
       var inUse = new HashSet<string>();
       // Exact name+index match wins.
       Assert.AreEqual( "guid-a", reloaded.FindAdoptableImage( "Arrival", 0, inUse ).Guid );
-      // Renamed map (unsaved rename would keep the OLD stored name): the
-      // unique index still matches.
-      Assert.AreEqual( "guid-b", reloaded.FindAdoptableImage( "Dungeon Renamed", 1, inUse ).Guid );
+      // Renamed map with only the index matching is deliberately NOT adopted:
+      // after a rename + reorder a bare index can bind ANOTHER map's drawing,
+      // which that map would then overwrite — name evidence is required. The
+      // orphan stays in the sidecar, recoverable.
+      Assert.IsNull( reloaded.FindAdoptableImage( "Dungeon Renamed", 1, inUse ) );
       // Name matches even when the index shifted (map inserted above).
       Assert.AreEqual( "guid-b", reloaded.FindAdoptableImage( "Dungeon", 2, inUse ).Guid );
       // GUIDs already held by other maps are never stolen.
@@ -407,6 +409,67 @@ namespace TestProject
       {
         System.IO.File.Delete( corrupt );
       }
+    }
+
+
+
+    // ================================================================
+    // Pen (Wacom) tool settings — every field must round-trip in the
+    // MAP_OUTLINE_TOOL_SETTINGS chunk (the user's "save/reload ALL tablet
+    // settings" requirement). Floats are stored scaled, hence the tolerances.
+    // ================================================================
+
+    [TestMethod]
+    public void TestOutlinePenSettingsRoundTrip()
+    {
+      var proj = new MapProject();
+      var s = proj.OutlineToolSettings;
+      // Every pen field set to a distinctive, in-range non-default.
+      s.PenPressureEnabled = false;
+      s.PenPressureTarget  = 1;
+      s.PenPressureGamma   = 2.5f;
+      s.PenMinWidth        = 3.5f;
+      s.PenMinAlpha        = 0.4f;
+      s.PenFlipEraser      = false;
+      s.PenCursorIndex     = 3;
+      s.PenButtonBindings  = new List<int>() { 5, 7, 2 };
+      // Also nudge a pre-existing field + the recents list to prove the
+      // appended pen block reads correctly AFTER the variable-length list.
+      s.BrushSize = 11;
+      s.RecentColorsARGB = new List<uint>() { 0xFF102030, 0xFF405060 };
+
+      var reloaded = new MapProject();
+      Assert.IsTrue( reloaded.ReadFromBuffer( proj.SaveToBuffer() ) );
+      var r = reloaded.OutlineToolSettings;
+
+      Assert.AreEqual( false, r.PenPressureEnabled, "PenPressureEnabled" );
+      Assert.AreEqual( 1, r.PenPressureTarget, "PenPressureTarget" );
+      Assert.AreEqual( 2.5f, r.PenPressureGamma, 0.011f, "PenPressureGamma" );
+      Assert.AreEqual( 3.5f, r.PenMinWidth, 0.051f, "PenMinWidth" );
+      Assert.AreEqual( 0.4f, r.PenMinAlpha, 0.011f, "PenMinAlpha" );
+      Assert.AreEqual( false, r.PenFlipEraser, "PenFlipEraser" );
+      Assert.AreEqual( 3, r.PenCursorIndex, "PenCursorIndex" );
+      CollectionAssert.AreEqual( new List<int>() { 5, 7, 2 }, r.PenButtonBindings, "PenButtonBindings" );
+      // The recents list + the earlier field must still be intact around it.
+      Assert.AreEqual( 11, r.BrushSize, "BrushSize (before the pen block)" );
+      CollectionAssert.AreEqual( new List<uint>() { 0xFF102030, 0xFF405060 }, r.RecentColorsARGB, "recents" );
+    }
+
+
+
+    [TestMethod]
+    public void TestOutlinePenSettingsDefaultsWhenAbsent()
+    {
+      // A round-trip that never touched the pen fields must load them at their
+      // defaults — never throw, never zero them (forward/backward-compat).
+      var proj = new MapProject();
+      var reloaded = new MapProject();
+      Assert.IsTrue( reloaded.ReadFromBuffer( proj.SaveToBuffer() ) );
+      var r = reloaded.OutlineToolSettings;
+      Assert.IsTrue( r.PenPressureEnabled );
+      Assert.AreEqual( 2, r.PenPressureTarget );
+      Assert.IsTrue( r.PenFlipEraser );
+      Assert.IsNotNull( r.PenButtonBindings );
     }
   }
 }

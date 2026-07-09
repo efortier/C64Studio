@@ -35,6 +35,23 @@ namespace RetroDevStudio.Controls
     // tile pixels, 2× doubles, ...).
     public Bitmap                       StampImage;
     public float                        StampScale;
+    // Pen (Wacom) state — refreshed before every callback from the canvas'
+    // tablet provider. PenActive = this stroke was started by the digitizer
+    // (not the mouse); PenPressure = the live 0..1 tip pressure. The pressure
+    // MAPPING knobs come from the sidebar. A tool applies pressure only when
+    // PenActive && PenPressureEnabled; otherwise it behaves exactly as a mouse
+    // stroke (constant width/opacity). See PressureStroke.
+    public bool                         PenActive;
+    public float                        PenPressure;
+    public bool                         PenPressureEnabled;
+    /// <summary>0 = size, 1 = opacity, 2 = both.</summary>
+    public int                          PenPressureTarget;
+    /// <summary>Response curve exponent (1 = linear).</summary>
+    public float                        PenPressureGamma;
+    /// <summary>Lightest-touch stroke width in image pixels.</summary>
+    public float                        PenMinWidth;
+    /// <summary>Lightest-touch opacity factor, 0..1.</summary>
+    public float                        PenMinAlpha;
     // Rectangular selection (image space, clamped to the image); null =
     // none. OWNED by the canvas — the selection tool writes it through
     // SetSelectionRect so crop/delete/copy toolbar operations can read it.
