@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -30,6 +31,8 @@ namespace RetroDevStudio.Controls
     public float                        TextFontSize;
     public bool                         TextFontBold;
     public bool                         TextFontItalic;
+    public float                        TextCharSpacing;
+    public float                        TextLineSpacing;
     // Tile stamp: the pre-rendered tile bitmap (owned by the editor; may
     // be null = nothing armed) and its integer magnification (1× = native
     // tile pixels, 2× doubles, ...).
@@ -57,6 +60,37 @@ namespace RetroDevStudio.Controls
     // SetSelectionRect so crop/delete/copy toolbar operations can read it.
     public Rectangle?                   SelectionRect;
     public Action<Rectangle?>           SetSelectionRect;
+    /// <summary>
+    /// Moves the committed raster selection (source → dest, image space): the
+    /// canvas vacates the source to background, stamps the lifted pixels at the
+    /// destination, records ONE undo entry that carries the selection
+    /// transition, and re-homes the selection on the destination.
+    /// </summary>
+    public Action<Rectangle, Rectangle> MoveSelectionRegion;
+    // Persistent text objects — image space. The LIST is owned by the editor
+    // and shared by reference (never cache it across callbacks: the reference
+    // changes on map switch); selection/editing state is canvas-owned and
+    // written through the callbacks, mirroring the SelectionRect pattern.
+    public List<OutlineTextObject>      TextObjects;
+    /// <summary>The PRIMARY selected object (last selected); null = none.</summary>
+    public OutlineTextObject            SelectedTextObject;
+    /// <summary>The whole selection set (Ctrl+click multi-selects).</summary>
+    public IReadOnlyList<OutlineTextObject> SelectedTextObjects;
+    public Action<OutlineTextObject>    SetSelectedTextObject;
+    /// <summary>Ctrl+click membership toggle.</summary>
+    public Action<OutlineTextObject>    ToggleSelectedTextObject;
+    public Action<OutlineTextObject>    SetEditingTextObject;
+    /// <summary>
+    /// Finished text-object mutation: invalid image rect (∩ image, computed
+    /// by the raiser) + the list's PRE-change deep copy (ownership transfers)
+    /// + undo description — the object twin of CommitChange.
+    /// </summary>
+    public Action<Rectangle, List<OutlineTextObject>, string> CommitTextObjectsChange;
+    /// <summary>
+    /// Current view zoom — pointer callbacks are image-space, so a view-space
+    /// drag threshold (e.g. "4 screen px") needs this to convert.
+    /// </summary>
+    public float                        ViewZoom;
     /// <summary>New drawing session against Image. Dispose after use.</summary>
     public Func<IOutlineRenderer>       CreateRenderer;
     /// <summary>Repaint request for an image-space region (view mapping is the canvas' job).</summary>

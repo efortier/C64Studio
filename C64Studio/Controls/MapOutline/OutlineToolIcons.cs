@@ -29,6 +29,48 @@ namespace RetroDevStudio.Controls
 
 
 
+    public static Bitmap CenterTextHorizontally()
+    {
+      var icon = NewIcon( out Graphics g );
+      using ( g )
+      using ( var pen = new Pen( INK, 1.4f ) )
+      using ( var fill = new SolidBrush( INK ) )
+      {
+        // Center line with two arrows pushing toward it.
+        pen.DashStyle = DashStyle.Dot;
+        g.DrawLine( pen, 8, 1, 8, 15 );
+        pen.DashStyle = DashStyle.Solid;
+        g.DrawLine( pen, 1, 8, 5, 8 );
+        g.FillPolygon( fill, new PointF[] { new PointF( 4, 5.5f ), new PointF( 7, 8 ), new PointF( 4, 10.5f ) } );
+        g.DrawLine( pen, 11, 8, 15, 8 );
+        g.FillPolygon( fill, new PointF[] { new PointF( 12, 5.5f ), new PointF( 9, 8 ), new PointF( 12, 10.5f ) } );
+      }
+      return icon;
+    }
+
+
+
+    public static Bitmap FlattenText()
+    {
+      var icon = NewIcon( out Graphics g );
+      using ( g )
+      using ( var pen = new Pen( INK, 1.4f ) )
+      using ( var fill = new SolidBrush( INK ) )
+      using ( var font = new Font( "Arial", 8, FontStyle.Bold ) )
+      {
+        // A "T" pressed down onto a base line: text baking into the raster.
+        g.DrawString( "T", font, fill, 2.5f, 0.5f );
+        // Down arrow.
+        g.DrawLine( pen, 12, 3, 12, 9 );
+        g.FillPolygon( fill, new PointF[] { new PointF( 10, 8 ), new PointF( 14, 8 ), new PointF( 12, 11 ) } );
+        // The raster base.
+        g.DrawLine( pen, 2, 13.5f, 14, 13.5f );
+      }
+      return icon;
+    }
+
+
+
     public static Bitmap Brush()
     {
       var icon = NewIcon( out Graphics g );

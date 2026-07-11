@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -88,9 +89,11 @@ namespace RetroDevStudio.Controls
     /// <summary>
     /// A tool finished mutating the image: affected image rect + the
     /// region's PRE-change pixels (ownership transfers to the handler —
-    /// push onto the undo stack or dispose) + undo description.
+    /// push onto the undo stack or dispose) + undo description + the
+    /// selection-rect transition (both null except for move/center, which
+    /// carry source→dest so undo/redo re-homes the marquee with the pixels).
     /// </summary>
-    public event Action<Rectangle, Bitmap, string> ChangeCommitted;
+    public event Action<Rectangle, Bitmap, string, Rectangle?, Rectangle?> ChangeCommitted;
 
     /// <summary>Right-click eyedropper result.</summary>
     public event Action<Color> ColorPicked;
@@ -122,6 +125,12 @@ namespace RetroDevStudio.Controls
     public bool TextFontBold { get; set; } = false;
 
     public bool TextFontItalic { get; set; } = false;
+
+    /// <summary>Extra pixels between characters for new/edited text (image space).</summary>
+    public float TextCharSpacing { get; set; } = 0f;
+
+    /// <summary>Extra pixels between lines for new/edited text (image space).</summary>
+    public float TextLineSpacing { get; set; } = 0f;
 
     // ---- Pen (Wacom) settings. Defaulted here so pressure works immediately;
     // the editor overrides these from the project's saved tool settings. ----
@@ -309,6 +318,12 @@ namespace RetroDevStudio.Controls
         {
           SetSelectionRect( null );
         }
+        // Object selection is text-tool domain, same rule.
+        if ( !( value is TextTool ) )
+        {
+          SetEditingTextObject( null );
+          SetSelectedTextObject( null );
+        }
         UpdateCursor();
         Invalidate();
       }
@@ -402,6 +417,502 @@ namespace RetroDevStudio.Controls
 
 
 
+    /// <summary>
+    /// Centers the committed raster SELECTION horizontally on the canvas: the
+    /// pixels under it are lifted, the source vacated to opaque background, and
+    /// stamped at the horizontally-centered destination in ONE undo step — the
+    /// same lift/vacate/stamp the Select tool's drag performs, only with a
+    /// computed center offset. Affects ONLY the flattened raster; text objects
+    /// float above it and are never touched. The selection follows the moved
+    /// pixels. Returns false = no selection / no image / mid-stroke (nothing
+    /// happened); returns true when already centered (a no-op, no undo entry).
+    /// </summary>
+    public bool CenterSelectionHorizontally()
+    {
+      if ( ( m_SelectionRect == null )
+      ||   ( m_Image == null )
+      ||   ( m_ToolStrokeInFlight ) )
+      {
+        return false;
+      }
+      var source = m_SelectionRect.Value;
+      // SetSelectionRect clamps the selection to the image, so its width never
+      // exceeds the image width — the centered destination always lands fully
+      // in bounds (no pixels shifted off-canvas).
+      int destX = (int)Math.Round( ( m_Image.Width - source.Width ) / 2.0 );
+      if ( destX - source.X == 0 )
+      {
+        return true;   // already centered — no phantom undo entry
+      }
+      return CommitSelectionMove( source, new Rectangle( destX, source.Y, source.Width, source.Height ),
+                                  "Center selection" );
+    }
+
+
+
+    /// <summary>
+    /// Moves the committed raster selection from Source to Dest (image space):
+    /// the vacated source becomes background, the lifted pixels are stamped at
+    /// the destination, and the selection follows. Used by the Select-region
+    /// tool's drag-move gesture. See CommitSelectionMove.
+    /// </summary>
+    public bool MoveSelectionRegion( Rectangle Source, Rectangle Dest )
+    {
+      return CommitSelectionMove( Source, Dest, "Move selection" );
+    }
+
+
+
+    /// <summary>
+    /// Shared pixel move for the raster selection (drag-move and center):
+    /// vacate Source to opaque background, stamp its lifted pixels at Dest, and
+    /// record ONE undo entry spanning both — carrying the selection transition
+    /// (Source→clamped Dest) so undo/redo re-homes the marquee with the pixels.
+    /// </summary>
+    private bool CommitSelectionMove( Rectangle Source, Rectangle Dest, string Description )
+    {
+      if ( ( m_SelectionRect == null )
+      ||   ( m_Image == null )
+      // Never mid-stroke: same reasoning as EraseSelection — a stroke's
+      // compositor holds a pre-stroke snapshot; mutating the image out from
+      // under it makes the two edits' "before" states disagree.
+      ||   ( m_ToolStrokeInFlight ) )
+      {
+        return false;
+      }
+      var imageBounds = new Rectangle( 0, 0, m_Image.Width, m_Image.Height );
+      // One undo entry spans BOTH the vacated source and the filled destination.
+      var region = Rectangle.Intersect( Rectangle.Union( Source, Dest ), imageBounds );
+      if ( ( region.Width < 1 )
+      ||   ( region.Height < 1 ) )
+      {
+        return false;
+      }
+      var selectionBefore = m_SelectionRect;
+      var beforeCrop      = m_Image.Clone( region, m_Image.PixelFormat );
+      // Lift the selection's pixels BEFORE disturbing anything so the source/
+      // dest overlap (small offsets) stamps correctly.
+      using ( var lifted = m_Image.Clone( Source, m_Image.PixelFormat ) )
+      using ( var g = Graphics.FromImage( m_Image ) )
+      using ( var fill = new SolidBrush( Color.FromArgb( 255, EraseColor ) ) )
+      {
+        // Vacate the source to opaque background, then stamp the lifted pixels
+        // at the destination. Nearest-neighbor at 1:1 is a pixel-exact copy;
+        // the outline image is always opaque so no blending occurs.
+        g.FillRectangle( fill, Source );
+        g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+        g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+        g.DrawImage( lifted, Dest.X, Dest.Y, Dest.Width, Dest.Height );
+      }
+      InvalidateImageRegion( region );
+      // Re-home the selection on the destination FIRST so the "after" handed to
+      // the undo entry matches the live (clamped) state; a fully off-canvas
+      // destination clamps to null (the patch was dragged off the picture).
+      SetSelectionRect( Dest );
+      RaiseChangeCommitted( region, beforeCrop, Description, selectionBefore, m_SelectionRect );
+      return true;
+    }
+
+
+
+    // ---- Persistent text objects -----------------------------------------
+    // The list is OWNED BY THE EDITOR (single-active-map lifecycle, like the
+    // backing bitmap) and shared here by reference; undo-apply mutates it in
+    // place. Selection/editing state is canvas-owned (SelectionRect pattern):
+    // the text tool mutates it, the paint pass draws it, the editor reads it.
+    private List<OutlineTextObject> m_TextObjects = null;
+    // Selection is a SET (Ctrl+click multi-selects); the last entry is the
+    // PRIMARY object (drives the toolbar binding and F2-edit).
+    private readonly List<OutlineTextObject> m_SelectedTextObjects = new List<OutlineTextObject>();
+    // The object whose WYSIWYG editor is open — hidden from the object render
+    // pass (the edit box replaces it visually).
+    private OutlineTextObject       m_EditingTextObject = null;
+
+    /// <summary>Raised when the selected text object changes (incl. cleared).</summary>
+    public event EventHandler SelectedTextObjectChanged;
+
+    /// <summary>
+    /// A finished text-object mutation: invalid image rect + the list's
+    /// PRE-change deep copy (ownership transfers) + undo description — the
+    /// object twin of ChangeCommitted.
+    /// </summary>
+    public event Action<Rectangle, List<OutlineTextObject>, string> TextObjectsChangeCommitted;
+
+
+
+    /// <summary>The active map's text objects (editor-owned; null off-map).</summary>
+    public List<OutlineTextObject> TextObjects
+    {
+      get
+      {
+        return m_TextObjects;
+      }
+      set
+      {
+        m_TextObjects = value;
+        // Stale selection/editing against a different map's list is meaningless.
+        SetEditingTextObject( null );
+        SetSelectedTextObject( null );
+        Invalidate();
+      }
+    }
+
+
+
+    /// <summary>The PRIMARY selected object (last selected); null = none.</summary>
+    public OutlineTextObject SelectedTextObject
+    {
+      get
+      {
+        return ( m_SelectedTextObjects.Count > 0 )
+          ? m_SelectedTextObjects[m_SelectedTextObjects.Count - 1] : null;
+      }
+    }
+
+
+
+    /// <summary>The whole selection set (Ctrl+click multi-selects).</summary>
+    public IReadOnlyList<OutlineTextObject> SelectedTextObjects
+    {
+      get
+      {
+        return m_SelectedTextObjects;
+      }
+    }
+
+
+
+    public bool IsTextObjectSelected( OutlineTextObject Obj )
+    {
+      return ( Obj != null )
+          && ( m_SelectedTextObjects.Contains( Obj ) );
+    }
+
+
+
+    /// <summary>Single-select (null clears the whole set).</summary>
+    public void SetSelectedTextObject( OutlineTextObject Obj )
+    {
+      if ( ( ( Obj == null )
+      &&     ( m_SelectedTextObjects.Count == 0 ) )
+      ||   ( ( m_SelectedTextObjects.Count == 1 )
+      &&     ( m_SelectedTextObjects[0] == Obj ) ) )
+      {
+        return;
+      }
+      m_SelectedTextObjects.Clear();
+      if ( Obj != null )
+      {
+        m_SelectedTextObjects.Add( Obj );
+      }
+      SelectedTextObjectChanged?.Invoke( this, EventArgs.Empty );
+      Invalidate();
+    }
+
+
+
+    /// <summary>Ctrl+click membership toggle; the toggled-in object becomes primary.</summary>
+    public void ToggleSelectedTextObject( OutlineTextObject Obj )
+    {
+      if ( Obj == null )
+      {
+        return;
+      }
+      if ( !m_SelectedTextObjects.Remove( Obj ) )
+      {
+        m_SelectedTextObjects.Add( Obj );
+      }
+      SelectedTextObjectChanged?.Invoke( this, EventArgs.Empty );
+      Invalidate();
+    }
+
+
+
+    /// <summary>Marks the object whose editor box is open (hidden from the render pass).</summary>
+    public void SetEditingTextObject( OutlineTextObject Obj )
+    {
+      if ( Obj == m_EditingTextObject )
+      {
+        return;
+      }
+      m_EditingTextObject = Obj;
+      Invalidate();
+    }
+
+
+
+    /// <summary>Image-space bounds of a text object (layout-exact + AA margin).</summary>
+    public Rectangle TextObjectBounds( OutlineTextObject Obj )
+    {
+      return Obj.BoundsWithMargin();
+    }
+
+
+
+    private RectangleF ViewBoundsOfTextObject( OutlineTextObject Obj )
+    {
+      var bounds = TextObjectBounds( Obj );
+      var topLeft = ImageToView( new PointF( bounds.X, bounds.Y ) );
+      return new RectangleF( topLeft.X, topLeft.Y, bounds.Width * m_Zoom, bounds.Height * m_Zoom );
+    }
+
+
+
+    /// <summary>
+    /// Deletes ALL selected text objects through the commit pipeline (the
+    /// object twin of EraseSelection). False = nothing deletable right now
+    /// (no selection, an editor box is open, a stroke is in flight).
+    /// </summary>
+    public bool DeleteSelectedTextObject()
+    {
+      if ( ( m_TextObjects == null )
+      ||   ( m_SelectedTextObjects.Count == 0 )
+      ||   ( m_EditingTextObject != null )
+      ||   ( m_ToolStrokeInFlight )
+      ||   ( m_Image == null ) )
+      {
+        return false;
+      }
+      var before = OutlineTextObject.CloneList( m_TextObjects );
+      var union = Rectangle.Empty;
+      foreach ( var obj in m_SelectedTextObjects )
+      {
+        var bounds = TextObjectBounds( obj );
+        union = union.IsEmpty ? bounds : Rectangle.Union( union, bounds );
+        m_TextObjects.Remove( obj );
+      }
+      SetSelectedTextObject( null );
+      Invalidate();
+      RaiseTextObjectsChangeCommitted(
+        Rectangle.Intersect( union, new Rectangle( 0, 0, m_Image.Width, m_Image.Height ) ),
+        before, "Delete text" );
+      return true;
+    }
+
+
+
+    /// <summary>
+    /// Centers the SELECTION horizontally on the canvas — a multi-selection
+    /// centers as ONE GROUP (the union of its bounds moves to the middle;
+    /// relative object positions are preserved), not each object separately.
+    /// One undo entry. False = no selection / editing / stroke in flight.
+    /// </summary>
+    public bool CenterSelectedTextObjectsHorizontally()
+    {
+      if ( ( m_TextObjects == null )
+      ||   ( m_SelectedTextObjects.Count == 0 )
+      ||   ( m_EditingTextObject != null )
+      ||   ( m_ToolStrokeInFlight )
+      ||   ( m_Image == null ) )
+      {
+        return false;
+      }
+      var union = Rectangle.Empty;
+      foreach ( var obj in m_SelectedTextObjects )
+      {
+        var bounds = TextObjectBounds( obj );
+        union = union.IsEmpty ? bounds : Rectangle.Union( union, bounds );
+      }
+      float offsetX = ( ( m_Image.Width - union.Width ) / 2.0f ) - union.X;
+      if ( Math.Abs( offsetX ) < 0.5f )
+      {
+        return true;   // already centered — no phantom undo entry
+      }
+      var before = OutlineTextObject.CloneList( m_TextObjects );
+      foreach ( var obj in m_SelectedTextObjects )
+      {
+        obj.Position = new PointF( obj.Position.X + offsetX, obj.Position.Y );
+      }
+      Invalidate();
+      var moved = new Rectangle( union.X + (int)Math.Floor( offsetX ), union.Y, union.Width, union.Height );
+      RaiseTextObjectsChangeCommitted(
+        Rectangle.Intersect( Rectangle.Union( union, moved ),
+                             new Rectangle( 0, 0, m_Image.Width, m_Image.Height ) ),
+        before, "Center text" );
+      return true;
+    }
+
+
+
+    /// <summary>
+    /// Escape's exit-edit-mode: commits the text tool's open box (undo
+    /// reverts the edit if unwanted) and closes it. False = no box open —
+    /// Escape falls through to its abort/deselect meanings.
+    /// </summary>
+    public bool CommitOpenTextEdit()
+    {
+      var textTool = m_ActiveTool as TextTool;
+      if ( ( textTool == null )
+      ||   ( m_Image == null )
+      ||   ( !textTool.HasOpenEditBox ) )
+      {
+        return false;
+      }
+      textTool.CommitOpenBox( RefreshToolContext() );
+      return true;
+    }
+
+
+
+    /// <summary>
+    /// Routes a key that ProcessCmdKey intercepts BEFORE the canvas (e.g.
+    /// Delete = forward-delete) into the text tool's open edit box. False =
+    /// no box open / key not handled — the caller's own binding applies.
+    /// </summary>
+    public bool ForwardKeyToTextEdit( Keys Key )
+    {
+      var textTool = m_ActiveTool as TextTool;
+      if ( ( textTool == null )
+      ||   ( m_Image == null ) )
+      {
+        return false;
+      }
+      return textTool.HandleNavigationKey( RefreshToolContext(), Key );
+    }
+
+
+
+    /// <summary>
+    /// F2: opens the editor box on the selected object — only with EXACTLY
+    /// one selected (multi-selection has no single edit target), the text
+    /// tool active, no box already open and no stroke in flight.
+    /// </summary>
+    public bool BeginEditSelectedTextObject()
+    {
+      if ( ( m_SelectedTextObjects.Count != 1 )
+      ||   ( m_EditingTextObject != null )
+      ||   ( m_ToolStrokeInFlight )
+      ||   ( m_Image == null ) )
+      {
+        return false;
+      }
+      var textTool = m_ActiveTool as TextTool;
+      if ( textTool == null )
+      {
+        return false;
+      }
+      textTool.OpenEditorOnObject( RefreshToolContext(), m_SelectedTextObjects[0] );
+      Invalidate();
+      return true;
+    }
+
+
+
+    /// <summary>
+    /// Removes every text object whose ANCHOR lies inside the given image
+    /// rect (the same containment rule crop uses), through the commit
+    /// pipeline — used by Cut so copied text leaves the canvas. False = no
+    /// object removed (none inside / editing / stroke in flight).
+    /// </summary>
+    public bool RemoveTextObjectsInRect( Rectangle ImageRect, string Description )
+    {
+      if ( ( m_TextObjects == null )
+      ||   ( m_TextObjects.Count == 0 )
+      ||   ( m_EditingTextObject != null )
+      ||   ( m_ToolStrokeInFlight )
+      ||   ( m_Image == null ) )
+      {
+        return false;
+      }
+      var toRemove = new List<OutlineTextObject>();
+      foreach ( var obj in m_TextObjects )
+      {
+        if ( ImageRect.Contains( (int)Math.Floor( obj.Position.X ), (int)Math.Floor( obj.Position.Y ) ) )
+        {
+          toRemove.Add( obj );
+        }
+      }
+      if ( toRemove.Count == 0 )
+      {
+        return false;
+      }
+      var before = OutlineTextObject.CloneList( m_TextObjects );
+      var union = Rectangle.Empty;
+      foreach ( var obj in toRemove )
+      {
+        var bounds = TextObjectBounds( obj );
+        union = union.IsEmpty ? bounds : Rectangle.Union( union, bounds );
+        m_TextObjects.Remove( obj );
+      }
+      SetSelectedTextObject( null );
+      Invalidate();
+      RaiseTextObjectsChangeCommitted(
+        Rectangle.Intersect( union, new Rectangle( 0, 0, m_Image.Width, m_Image.Height ) ),
+        before, Description );
+      return true;
+    }
+
+
+
+    /// <summary>
+    /// Writes the canvas' CURRENT text style (font/size/bold/italic/ink) into
+    /// the selected object — the toolbar→object half of the two-way binding.
+    /// No-ops (without an undo entry) when nothing would change, so populate-
+    /// time mirroring can never push phantom history.
+    /// </summary>
+    public void RestyleSelectedTextObject()
+    {
+      if ( ( m_TextObjects == null )
+      ||   ( m_SelectedTextObjects.Count == 0 )
+      ||   ( m_EditingTextObject != null )
+      ||   ( m_ToolStrokeInFlight )
+      ||   ( m_Image == null ) )
+      {
+        return;
+      }
+      // No-change guard across the WHOLE selection, so populate-time
+      // mirroring can never push phantom history.
+      bool anyChange = false;
+      foreach ( var obj in m_SelectedTextObjects )
+      {
+        if ( ( obj.FontFamily != TextFontFamily )
+        ||   ( obj.FontSize != TextFontSize )
+        ||   ( obj.Bold != TextFontBold )
+        ||   ( obj.Italic != TextFontItalic )
+        ||   ( obj.CharSpacing != TextCharSpacing )
+        ||   ( obj.LineSpacing != TextLineSpacing )
+        ||   ( obj.Color.ToArgb() != PrimaryColor.ToArgb() ) )
+        {
+          anyChange = true;
+          break;
+        }
+      }
+      if ( !anyChange )
+      {
+        return;
+      }
+      var before = OutlineTextObject.CloneList( m_TextObjects );
+      var union = Rectangle.Empty;
+      foreach ( var obj in m_SelectedTextObjects )
+      {
+        var oldBounds = TextObjectBounds( obj );
+        obj.FontFamily  = TextFontFamily;
+        obj.FontSize    = TextFontSize;
+        obj.Bold        = TextFontBold;
+        obj.Italic      = TextFontItalic;
+        obj.CharSpacing = TextCharSpacing;
+        obj.LineSpacing = TextLineSpacing;
+        obj.Color       = PrimaryColor;
+        obj.InvalidateMeasurement();
+        var bothBounds = Rectangle.Union( oldBounds, TextObjectBounds( obj ) );
+        union = union.IsEmpty ? bothBounds : Rectangle.Union( union, bothBounds );
+      }
+      Invalidate();
+      RaiseTextObjectsChangeCommitted(
+        Rectangle.Intersect( union, new Rectangle( 0, 0, m_Image.Width, m_Image.Height ) ),
+        before, "Text style" );
+    }
+
+
+
+    private void RaiseTextObjectsChangeCommitted( Rectangle Region,
+        List<OutlineTextObject> ObjectsBefore, string Description )
+    {
+      TextObjectsChangeCommitted?.Invoke( Region, ObjectsBefore, Description );
+    }
+
+
+
     // Floating paste: the clipboard image rides centered under the cursor
     // until a left-click stamps it (one undoable commit) or Escape /
     // right-click / any flush point cancels it. Owned by the canvas.
@@ -487,12 +998,13 @@ namespace RetroDevStudio.Controls
 
 
 
-    private void RaiseChangeCommitted( Rectangle Region, Bitmap BeforeCrop, string Description )
+    private void RaiseChangeCommitted( Rectangle Region, Bitmap BeforeCrop, string Description,
+                                       Rectangle? SelectionBefore = null, Rectangle? SelectionAfter = null )
     {
       var handler = ChangeCommitted;
       if ( handler != null )
       {
-        handler( Region, BeforeCrop, Description );
+        handler( Region, BeforeCrop, Description, SelectionBefore, SelectionAfter );
       }
       else
       {
@@ -651,6 +1163,10 @@ namespace RetroDevStudio.Controls
           // SetSelectionRect runs against a consistent state.
           m_SelectionRect = null;
           SelectionChanged?.Invoke( this, EventArgs.Empty );
+          // A text-object selection would equally dangle against the new
+          // geometry (crop/extend/paste all swap the bitmap).
+          SetEditingTextObject( null );
+          SetSelectedTextObject( null );
         }
         m_Image = value;
         Invalidate();
@@ -857,9 +1373,11 @@ namespace RetroDevStudio.Controls
         case Keys.Left:
         case Keys.Right:
         // Enter/Back feed the text tool's WYSIWYG box (newline/delete)
-        // instead of acting as dialog navigation.
+        // instead of acting as dialog navigation; Home/End move its caret.
         case Keys.Enter:
         case Keys.Back:
+        case Keys.Home:
+        case Keys.End:
           return true;
       }
       return base.IsInputKey( keyData );
@@ -883,6 +1401,17 @@ namespace RetroDevStudio.Controls
 
     protected override void OnKeyDown( KeyEventArgs e )
     {
+      // Caret navigation for the text tool's open edit box — arrows and
+      // Home/End never arrive as KeyPress characters, so they route here.
+      // The tool returns false when no box is open or the key isn't its.
+      var navTextTool = m_ActiveTool as TextTool;
+      if ( ( navTextTool != null )
+      &&   ( m_Image != null )
+      &&   ( navTextTool.HandleNavigationKey( RefreshToolContext(), e.KeyCode ) ) )
+      {
+        e.Handled = true;
+        return;
+      }
       if ( e.KeyCode == Keys.Space )
       {
         // With an open text box (or any pending edit), Space is INPUT for
@@ -938,6 +1467,40 @@ namespace RetroDevStudio.Controls
       {
         Cursor = Cursors.Hand;
         return;
+      }
+      // Hovering a selected text object's right-border resize zone (or an
+      // in-flight resize drag) shows the sizing cursor — positional feedback
+      // wins over both the pen cursor and the tool's I-beam.
+      var cursorTextTool = m_ActiveTool as TextTool;
+      if ( cursorTextTool != null )
+      {
+        bool overResizeZone = ( !m_ToolStrokeInFlight )
+                           && ( !float.IsNaN( m_PointerImagePos.X ) )
+                           && ( TextTool.HitTestResizeHandle( m_SelectedTextObjects, m_PointerImagePos, m_Zoom ) != null );
+        if ( ( overResizeZone )
+        ||   ( cursorTextTool.IsResizingTextObject ) )
+        {
+          Cursor = Cursors.SizeWE;
+          return;
+        }
+      }
+      // Inside a committed selection (or mid-move), the selection tool shows
+      // the move cursor — positional feedback wins over the pen cursor and the
+      // cross, mirroring the text tool's resize cursor above.
+      var cursorSelectionTool = m_ActiveTool as SelectionTool;
+      if ( cursorSelectionTool != null )
+      {
+        bool overSelection = ( !m_ToolStrokeInFlight )
+                          && ( !float.IsNaN( m_PointerImagePos.X ) )
+                          && ( m_SelectionRect.HasValue )
+                          && ( m_SelectionRect.Value.Contains( (int)Math.Floor( m_PointerImagePos.X ),
+                                                               (int)Math.Floor( m_PointerImagePos.Y ) ) );
+        if ( ( overSelection )
+        ||   ( cursorSelectionTool.IsMovingSelection ) )
+        {
+          Cursor = Cursors.SizeAll;
+          return;
+        }
       }
       // A hovering pen gets its own selectable cursor (cached — never rebuilt
       // per proximity flap, which would leak GDI handles).
@@ -1077,6 +1640,8 @@ namespace RetroDevStudio.Controls
       m_ToolContext.TextFontSize = TextFontSize;
       m_ToolContext.TextFontBold = TextFontBold;
       m_ToolContext.TextFontItalic = TextFontItalic;
+      m_ToolContext.TextCharSpacing = TextCharSpacing;
+      m_ToolContext.TextLineSpacing = TextLineSpacing;
       m_ToolContext.StampImage = m_StampImage;
       m_ToolContext.StampScale = StampScale;
       m_ToolContext.PenActive = m_StrokeIsPen;
@@ -1088,6 +1653,14 @@ namespace RetroDevStudio.Controls
       m_ToolContext.PenMinAlpha = PenMinAlpha;
       m_ToolContext.SelectionRect = m_SelectionRect;
       m_ToolContext.SetSelectionRect = SetSelectionRect;
+      m_ToolContext.TextObjects = m_TextObjects;
+      m_ToolContext.SelectedTextObject = SelectedTextObject;
+      m_ToolContext.SelectedTextObjects = m_SelectedTextObjects;
+      m_ToolContext.SetSelectedTextObject = SetSelectedTextObject;
+      m_ToolContext.ToggleSelectedTextObject = ToggleSelectedTextObject;
+      m_ToolContext.SetEditingTextObject = SetEditingTextObject;
+      m_ToolContext.CommitTextObjectsChange = RaiseTextObjectsChangeCommitted;
+      m_ToolContext.ViewZoom = m_Zoom;
       m_ToolContext.CreateRenderer = () => new GdiPlusOutlineRenderer( m_Image );
       m_ToolContext.InvalidateImageRegion = InvalidateImageRegion;
       m_ToolContext.CommitChange = ( region, beforeCrop, description ) =>
@@ -1095,13 +1668,15 @@ namespace RetroDevStudio.Controls
         var handler = ChangeCommitted;
         if ( handler != null )
         {
-          handler( region, beforeCrop, description );
+          // Ordinary tool commits never move the selection.
+          handler( region, beforeCrop, description, null, null );
         }
         else
         {
           beforeCrop.Dispose();
         }
       };
+      m_ToolContext.MoveSelectionRegion = ( source, dest ) => MoveSelectionRegion( source, dest );
       return m_ToolContext;
     }
 
@@ -1462,6 +2037,16 @@ namespace RetroDevStudio.Controls
       m_PointerImagePos = ViewToImage( e.Location );
       m_LastGhostViewRect = GhostViewRect( m_PointerImagePos );
 
+      // Position-sensitive cursor: the text tool (SizeWE over a selected
+      // object's resize border) and the selection tool (SizeAll inside a
+      // committed selection) — a couple of rect tests; other tools keep their
+      // static cursor.
+      if ( ( m_ActiveTool is TextTool )
+      ||   ( m_ActiveTool is SelectionTool ) )
+      {
+        UpdateCursor();
+      }
+
       if ( m_ToolStrokeInFlight )
       {
         m_StrokeTool.OnPointerMove( RefreshToolContext(), m_PointerImagePos );
@@ -1574,6 +2159,41 @@ namespace RetroDevStudio.Controls
                          destRect.Width + 1, destRect.Height + 1 );
       }
 
+      // Persistent text objects — CONTENT, drawn above the raster but under
+      // tool previews / marquee / floating paste. View-space draw = crisp at
+      // any zoom. List order is z-order (last = topmost).
+      if ( ( m_TextObjects != null )
+      &&   ( m_TextObjects.Count > 0 ) )
+      {
+        foreach ( var textObj in m_TextObjects )
+        {
+          if ( textObj == m_EditingTextObject )
+          {
+            // Its open WYSIWYG editor box replaces it — no double draw.
+            continue;
+          }
+          GdiPlusOutlineRenderer.DrawTextObjectView( g, textObj,
+            ImageToView( textObj.Position ), m_Zoom );
+        }
+        foreach ( var selectedObj in m_SelectedTextObjects )
+        {
+          if ( selectedObj != m_EditingTextObject )
+          {
+            var frame = ViewBoundsOfTextObject( selectedObj );
+            DrawMarquee( g, frame );
+            // Right-edge resize handle: drag it to set the wrap width.
+            float handleY = frame.Y + frame.Height / 2;
+            var handleRect = new RectangleF( frame.Right - 3, handleY - 3, 6, 6 );
+            using ( var handleFill = new SolidBrush( Color.White ) )
+            using ( var handlePen = new Pen( Color.Black ) )
+            {
+              g.FillRectangle( handleFill, handleRect.X, handleRect.Y, handleRect.Width, handleRect.Height );
+              g.DrawRectangle( handlePen, handleRect.X, handleRect.Y, handleRect.Width, handleRect.Height );
+            }
+          }
+        }
+      }
+
       // Tool overlay pass — in-flight shape previews, brush-size ghost. During
       // a flip-erase stroke this is the eraser; while merely HOVERING with a
       // flipped pen, preview the eraser too so the ghost matches what a press
@@ -1596,13 +2216,18 @@ namespace RetroDevStudio.Controls
       }
 
       // Committed selection marquee (the in-flight drag is drawn by the
-      // selection tool's preview pass above).
-      if ( m_SelectionRect.HasValue )
+      // selection tool's preview pass above). While the selection is being
+      // moved, the marquee tracks the destination the tool reports.
+      var marqueeTool = m_ActiveTool as SelectionTool;
+      Rectangle? marqueeRect = ( ( marqueeTool != null ) && ( marqueeTool.SelectionMoveDestRect.HasValue ) )
+                             ? marqueeTool.SelectionMoveDestRect
+                             : m_SelectionRect;
+      if ( marqueeRect.HasValue )
       {
-        var selTopLeft = ImageToView( new PointF( m_SelectionRect.Value.X, m_SelectionRect.Value.Y ) );
+        var selTopLeft = ImageToView( new PointF( marqueeRect.Value.X, marqueeRect.Value.Y ) );
         DrawMarquee( g, new RectangleF( selTopLeft.X, selTopLeft.Y,
-                                        m_SelectionRect.Value.Width * m_Zoom,
-                                        m_SelectionRect.Value.Height * m_Zoom ) );
+                                        marqueeRect.Value.Width * m_Zoom,
+                                        marqueeRect.Value.Height * m_Zoom ) );
       }
 
       // Floating paste ghost, centered on the cursor: mostly-opaque

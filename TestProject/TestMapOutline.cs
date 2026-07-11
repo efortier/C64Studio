@@ -457,6 +457,52 @@ namespace TestProject
 
 
 
+    // ================================================================
+    // Text-objects blob on sidecar entries — the container treats it as
+    // opaque bytes; it must survive SetImage (which recreates entries),
+    // buffer round-trips, pruning, and be null for pre-feature files.
+    // ================================================================
+
+    [TestMethod]
+    public void TestOutlineTextObjectsBlobSurvivesRoundTrip()
+    {
+      var blob = new byte[] { 1, 2, 3, 4, 5, 6, 7 };
+      var container = new MapOutlineContainer();
+      // SetImage recreates the entry wholesale — the blob must travel through
+      // the signature (the landmine this guards against).
+      container.SetImage( "guid-t", 10, 10, MakeFakePNG( 5, 16 ), "MapT", 0, blob );
+      Assert.IsNotNull( container.GetImage( "guid-t" ).TextObjectsData );
+
+      var reloaded = new MapOutlineContainer();
+      Assert.IsTrue( reloaded.ReadFromBuffer( container.SaveToBuffer( null ) ) );
+      CollectionAssert.AreEqual( blob, reloaded.GetImage( "guid-t" ).TextObjectsData );
+
+      // Pruning to live GUIDs keeps the blob with its entry.
+      var live = new HashSet<string>() { "guid-t" };
+      var pruned = new MapOutlineContainer();
+      Assert.IsTrue( pruned.ReadFromBuffer( reloaded.SaveToBuffer( live ) ) );
+      CollectionAssert.AreEqual( blob, pruned.GetImage( "guid-t" ).TextObjectsData );
+    }
+
+
+
+    [TestMethod]
+    public void TestOutlineTextObjectsAbsentInOldFiles()
+    {
+      // An entry stored WITHOUT a blob (pre-feature or plain drawing) loads
+      // with null — and a mixed container keeps each entry's own state.
+      var container = new MapOutlineContainer();
+      container.SetImage( "guid-plain", 10, 10, MakeFakePNG( 1, 12 ), "Plain", 0 );
+      container.SetImage( "guid-texty", 10, 10, MakeFakePNG( 2, 12 ), "Texty", 1, new byte[] { 9, 9 } );
+
+      var reloaded = new MapOutlineContainer();
+      Assert.IsTrue( reloaded.ReadFromBuffer( container.SaveToBuffer( null ) ) );
+      Assert.IsNull( reloaded.GetImage( "guid-plain" ).TextObjectsData );
+      Assert.IsNotNull( reloaded.GetImage( "guid-texty" ).TextObjectsData );
+    }
+
+
+
     [TestMethod]
     public void TestOutlinePenSettingsDefaultsWhenAbsent()
     {

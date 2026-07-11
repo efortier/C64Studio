@@ -92,6 +92,12 @@
     // escaped), so the byte-per-char AppendString is lossless for it.
     // Sub-chunk of MAP; only written when non-empty (back-compat free).
     public const ushort    MAP_MEMO                       = 0x133A;
+    // One persistent outline text OBJECT (selectable/editable text in the
+    // paint mode): [string text][string fontFamily][f32 size][u8 styleBits]
+    // [u32 argb][f32 x][f32 y]. A map's objects are a SEQUENCE of these
+    // chunks inside an opaque blob appended to its MAP_OUTLINE_IMAGE entry
+    // (the container never decodes it). Append-tolerant per object.
+    public const ushort    MAP_OUTLINE_TEXT_OBJECT        = 0x133B;
 
     public const ushort    CHARSET_PROJECT                = 0x1340;
     public const ushort    CHARSET_INFO                   = 0x1341;

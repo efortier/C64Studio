@@ -50,6 +50,13 @@ namespace RetroDevStudio.Controls
     SizeF MeasureText( string Text, string FontFamily, float FontSize, bool Bold, bool Italic );
 
     /// <summary>
+    /// Bakes a persistent text object at 1:1 through the SAME per-character
+    /// layout the canvas overlay draws with (word wrap, char/line spacing) —
+    /// flatten and clipboard output match the screen exactly.
+    /// </summary>
+    void DrawTextObject( OutlineTextObject Obj );
+
+    /// <summary>
     /// Nearest-neighbor image stamp — chunky pixel-art scaling for tile
     /// stamps (bilinear would smear the C64 look).
     /// </summary>

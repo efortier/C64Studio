@@ -159,9 +159,65 @@ namespace RetroDevStudio.Controls
         return SizeF.Empty;
       }
       using ( var font = CreateFont( FontFamily, FontSize, Bold, Italic ) )
+      using ( var format = (StringFormat)StringFormat.GenericDefault.Clone() )
       {
-        return m_Graphics.MeasureString( Text, font );
+        // Trailing spaces count: bounds/invalidation/hit-testing must cover
+        // the full typed content (MeasureString drops them by default).
+        format.FormatFlags |= StringFormatFlags.MeasureTrailingSpaces;
+        return m_Graphics.MeasureString( Text, font, new SizeF( 1000000f, 1000000f ), format );
       }
+    }
+
+
+
+    /// <summary>
+    /// Bakes a text object at 1:1 through the shared layout engine — the
+    /// exact arrangement (wrap, char/line spacing, typographic advances) the
+    /// canvas overlay shows.
+    /// </summary>
+    public void DrawTextObject( OutlineTextObject Obj )
+    {
+      if ( ( Obj == null )
+      ||   ( string.IsNullOrEmpty( Obj.Text ) )
+      ||   ( Obj.Color.A == 0 ) )
+      {
+        return;
+      }
+      var previousHint = m_Graphics.TextRenderingHint;
+      m_Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+      using ( var font = CreateFont( Obj.FontFamily, Obj.FontSize, Obj.Bold, Obj.Italic ) )
+      {
+        OutlineTextLayout.Draw( m_Graphics, Obj.GetLayout(), Obj.Text, font,
+                                Obj.Position, 1.0f, Obj.LineSpacing, Obj.Color );
+      }
+      m_Graphics.TextRenderingHint = previousHint;
+    }
+
+
+
+    /// <summary>
+    /// Draws a text object in VIEW space: the layout's image-space positions
+    /// scaled by the zoom, glyphs drawn with a zoom-scaled font — identical
+    /// arrangement to the 1:1 bake, crisp at any zoom.
+    /// </summary>
+    public static void DrawTextObjectView( Graphics ViewGraphics, OutlineTextObject Obj,
+                                           PointF ViewOrigin, float ViewZoom )
+    {
+      if ( ( Obj == null )
+      ||   ( string.IsNullOrEmpty( Obj.Text ) )
+      ||   ( Obj.Color.A == 0 ) )
+      {
+        return;
+      }
+      float viewFontSize = Math.Max( 1.0f, Obj.FontSize * ViewZoom );
+      var previousHint = ViewGraphics.TextRenderingHint;
+      ViewGraphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+      using ( var font = CreateFont( Obj.FontFamily, viewFontSize, Obj.Bold, Obj.Italic ) )
+      {
+        OutlineTextLayout.Draw( ViewGraphics, Obj.GetLayout(), Obj.Text, font,
+                                ViewOrigin, ViewZoom, Obj.LineSpacing, Obj.Color );
+      }
+      ViewGraphics.TextRenderingHint = previousHint;
     }
 
 

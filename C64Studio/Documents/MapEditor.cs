@@ -607,6 +607,13 @@ namespace RetroDevStudio.Documents
     // canvas keeps m_OutlineBitmapDirty false so blanks are never persisted.
     private bool                        m_OutlineBitmapDirty = false;
     private bool                        m_OutlineContainerDirty = false;
+    // Persistent text objects of the ACTIVE map's outline (single-active-map
+    // lifecycle, exactly like m_OutlineBitmap). The canvas shares this list
+    // by reference; undo-apply mutates it IN PLACE (never reassigns).
+    // IsDirty twin of m_OutlineBitmapDirty: object edits the container
+    // hasn't seen yet.
+    private List<Controls.OutlineTextObject> m_OutlineTextObjects = null;
+    private bool                        m_OutlineTextObjectsDirty = false;
     // Outline undo: one self-contained stack per Map object, kept for the whole
     // session (same object-keyed pattern as m_MapSpriteInstances — survives map
     // delete + undo). NEVER mixed with DocumentInfo.UndoManager.
@@ -1343,10 +1350,15 @@ namespace RetroDevStudio.Documents
           case Function.CUT:
             // Cut = copy the selection, then erase it. Without a
             // selection it stays swallowed (cutting the whole canvas
-            // would just be Delete picture with extra steps).
+            // would just be Delete picture with extra steps). Text
+            // objects inside the selection were baked into the COPY, so
+            // they must leave the canvas too — otherwise cut duplicates
+            // them (copy finalizes the open box first, so a fresh box
+            // commits into an object before the removal test).
             if ( outlineCanvas.SelectionRect.HasValue )
             {
               CopyOutlineSelectionToClipboard();
+              outlineCanvas.RemoveTextObjectsInRect( outlineCanvas.SelectionRect.Value, "Cut text" );
               outlineCanvas.EraseSelection();
             }
             return true;
@@ -2553,6 +2565,8 @@ namespace RetroDevStudio.Documents
       DisposeOutlineBitmap();
       m_OutlineActiveMap = null;
       m_OutlineContainer = null;
+      m_OutlineTextObjects = null;
+      outlineCanvas.TextObjects = null;
       outlineCanvas.StampImage = null;
       if ( m_OutlineStampBitmap != null )
       {
@@ -6730,6 +6744,8 @@ namespace RetroDevStudio.Documents
       m_OutlineActiveMap = null;
       m_OutlineContainer = null;
       m_OutlineContainerDirty = false;
+      m_OutlineTextObjects = null;
+      outlineCanvas.TextObjects = null;
       foreach ( var outlineStack in m_OutlineUndoStacks.Values )
       {
         outlineStack.Clear();
@@ -9552,10 +9568,15 @@ namespace RetroDevStudio.Documents
           // No map left to attach to (e.g. the outlined map was just
           // deleted): flush what we have and show an empty canvas. The
           // flushed image stays in the container as an orphan — undoing
-          // the delete revives it.
+          // the delete revives it. FINALIZE first, like every other flush
+          // point — an open text box must commit into an object (and ride
+          // the orphan), not be silently discarded.
+          outlineCanvas.FinalizePendingEdit();
           WriteOutlineSidecar( false );
           DisposeOutlineBitmap();
           m_OutlineActiveMap = null;
+          m_OutlineTextObjects = null;
+          outlineCanvas.TextObjects = null;
           UpdateOutlineToolbarLabels();
         }
         RefreshRevisionsCombo();
@@ -13882,11 +13903,23 @@ namespace RetroDevStudio.Documents
         if ( keyData == Keys.Escape )
         {
           // A focused sidebar combo (e.g. the tile picker) needs Escape to
-          // close its dropdown — cancel the stroke only when a combo is
-          // NOT the focus.
+          // close its dropdown — act only when a combo is NOT the focus.
           if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.ESCAPE ) )
           {
-            outlineCanvas.CancelActiveStroke();
+            // Escape stays an ABORT for anything in flight (stroke, shape or
+            // box drag, floating paste). With an open text box and nothing
+            // dragging, it just EXITS edit mode: the edit COMMITS — undo
+            // reverts it if unwanted (user choice; Ctrl+Z-with-box still
+            // discards). A further Escape then deselects.
+            if ( ( outlineCanvas.ToolStrokeInFlight )
+            ||   ( outlineCanvas.HasFloatingPaste ) )
+            {
+              outlineCanvas.CancelActiveStroke();
+            }
+            else if ( !outlineCanvas.CommitOpenTextEdit() )
+            {
+              outlineCanvas.CancelActiveStroke();
+            }
             return true;
           }
           return base.ProcessCmdKey( ref msg, keyData );
@@ -13899,7 +13932,31 @@ namespace RetroDevStudio.Documents
           // to that control; forwarding lets it reach it.
           if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
           {
-            outlineCanvas.EraseSelection();
+            // With an EDIT BOX open, Delete is forward-delete at its caret.
+            // Otherwise a selected text OBJECT wins over the marquee erase —
+            // the two selections are mutually exclusive by tool, no ambiguity.
+            if ( outlineCanvas.ForwardKeyToTextEdit( Keys.Delete ) )
+            {
+              return true;
+            }
+            if ( !outlineCanvas.DeleteSelectedTextObject() )
+            {
+              outlineCanvas.EraseSelection();
+            }
+            return true;
+          }
+          return base.ProcessCmdKey( ref msg, keyData );
+        }
+        if ( keyData == Keys.F2 )
+        {
+          // F2 edits the selected text object (the canvas refuses unless
+          // EXACTLY one is selected — a multi-selection has no edit target).
+          if ( outlineCanvas.BeginEditSelectedTextObject() )
+          {
+            if ( !outlineCanvas.Focused )
+            {
+              outlineCanvas.Focus();
+            }
             return true;
           }
           return base.ProcessCmdKey( ref msg, keyData );
@@ -19830,9 +19887,28 @@ namespace RetroDevStudio.Documents
           g.Clear( System.Drawing.Color.Black );
         }
       }
+      // Text objects ride the same entry: decode the blob (empty list when
+      // absent). The canvas shares the list by REFERENCE — undo-apply mutates
+      // it in place; this reassignment happens only here, on map activation.
+      m_OutlineTextObjects = RetroDevStudio.Controls.OutlineTextObject.ReadListFromBuffer(
+        ( entry != null ) ? entry.TextObjectsData : null );
+      // One-time migration for blobs predating the frozen auto-wrap width
+      // (sentinel -1): derive it from the object's position against this
+      // canvas — reproducing exactly what the live-derive build displayed —
+      // and freeze it. Ride-along (no dirty flag): it only persists with the
+      // next real edit's flush.
+      foreach ( var textObj in m_OutlineTextObjects )
+      {
+        if ( textObj.AutoBreakWidth < 0f )
+        {
+          textObj.AutoBreakWidth = Math.Max( 0f, m_OutlineBitmap.Width - textObj.Position.X );
+        }
+      }
+      m_OutlineTextObjectsDirty = false;
       m_OutlineBitmapDirty = false;
       m_OutlineActiveMap = Map;
       outlineCanvas.Image = m_OutlineBitmap;
+      outlineCanvas.TextObjects = m_OutlineTextObjects;
       outlineCanvas.ResetView();
       UpdateOutlineToolbarLabels();
       // The armed stamp tile re-renders against THIS map's alternative
@@ -19881,19 +19957,26 @@ namespace RetroDevStudio.Documents
     /// </summary>
     private void FlushOutlineBitmapToContainer()
     {
+      // Object-only edits must flush too — they never touch the bitmap.
       if ( ( m_OutlineBitmap == null )
       ||   ( m_OutlineActiveMap == null )
-      ||   ( !m_OutlineBitmapDirty ) )
+      ||   ( ( !m_OutlineBitmapDirty )
+      &&     ( !m_OutlineTextObjectsDirty ) ) )
       {
         return;
       }
       var container = EnsureOutlineContainerLoaded();
+      bool hasTextObjects = ( m_OutlineTextObjects != null )
+                         && ( m_OutlineTextObjects.Count > 0 );
 
-      // Blank canvases are never persisted — and a canvas that BECAME
-      // blank again (delete-picture redone, or every stroke undone) drops
-      // its container entry instead of storing a black rectangle. This is
-      // what makes "Delete picture" stick across undo/redo.
-      if ( IsOutlineBitmapBlank( m_OutlineBitmap ) )
+      // Blank AND object-free canvases are never persisted — and a canvas
+      // that BECAME blank again (delete-picture redone, or every stroke
+      // undone) drops its container entry instead of storing a black
+      // rectangle. This is what makes "Delete picture" stick across
+      // undo/redo. A blank canvas WITH text objects must persist (the
+      // objects live in the entry) — hence the object check.
+      if ( ( !hasTextObjects )
+      &&   ( IsOutlineBitmapBlank( m_OutlineBitmap ) ) )
       {
         if ( ( !string.IsNullOrEmpty( m_OutlineActiveMap.OutlineGuid ) )
         &&   ( container.HasImage( m_OutlineActiveMap.OutlineGuid ) ) )
@@ -19902,21 +19985,27 @@ namespace RetroDevStudio.Documents
           m_OutlineContainerDirty = true;
         }
         m_OutlineBitmapDirty = false;
+        m_OutlineTextObjectsDirty = false;
         return;
       }
 
       // First actual persisted drawing for this map: NOW the stable GUID
-      // is needed (and the one sanctioned SetModified happens inside).
+      // is needed (EnsureOutlineGuid SetModifieds for the new project-file
+      // link; the edit itself already dirtied the doc at commit time).
       string guid = EnsureOutlineGuid( m_OutlineActiveMap );
       using ( var stream = new System.IO.MemoryStream() )
       {
         m_OutlineBitmap.Save( stream, System.Drawing.Imaging.ImageFormat.Png );
         // Name/index ride along as re-association hints (see the orphan
-        // adoption in ActivateOutlineForMap).
+        // adoption in ActivateOutlineForMap). The text objects travel as an
+        // opaque blob THROUGH SetImage — it recreates the entry wholesale,
+        // so attaching them afterwards would be dropped by the next flush.
         container.SetImage( guid, m_OutlineBitmap.Width, m_OutlineBitmap.Height, stream.ToArray(),
-                            m_OutlineActiveMap.Name, m_MapProject.Maps.IndexOf( m_OutlineActiveMap ) );
+                            m_OutlineActiveMap.Name, m_MapProject.Maps.IndexOf( m_OutlineActiveMap ),
+                            RetroDevStudio.Controls.OutlineTextObject.SaveListToBuffer( m_OutlineTextObjects ) );
       }
       m_OutlineBitmapDirty = false;
+      m_OutlineTextObjectsDirty = false;
       m_OutlineContainerDirty = true;
     }
 
@@ -20182,6 +20271,9 @@ namespace RetroDevStudio.Documents
       btnOutlineToolStamp.Values.Text = "";
       btnOutlineToolSelect.Values.Image = RetroDevStudio.Controls.OutlineToolIcons.MarqueeSelect();
       btnOutlineToolSelect.Values.Text = "";
+      // Flatten/Center keep their text (wide action buttons) — icon on the left.
+      btnOutlineFlattenText.Values.Image = RetroDevStudio.Controls.OutlineToolIcons.FlattenText();
+      btnOutlineCenterText.Values.Image = RetroDevStudio.Controls.OutlineToolIcons.CenterTextHorizontally();
       btnOutlineCropSelection.Values.Image = RetroDevStudio.Controls.OutlineToolIcons.CropToSelection();
       btnOutlineCopyImage.Values.Image = RetroDevStudio.Controls.OutlineToolIcons.CopyImage();
       btnOutlineCopyImage.Values.Text = "";
@@ -20332,6 +20424,8 @@ namespace RetroDevStudio.Documents
       ApplyOutlineToolIcons();
 
       outlineCanvas.ChangeCommitted += outlineCanvas_ChangeCommitted;
+      outlineCanvas.TextObjectsChangeCommitted += outlineCanvas_TextObjectsChangeCommitted;
+      outlineCanvas.SelectedTextObjectChanged += outlineCanvas_SelectedTextObjectChanged;
       outlineCanvas.ColorPicked += outlineCanvas_ColorPicked;
       outlineCanvas.PenSampleChanged += outlineCanvas_PenSampleChanged;
       InitPenSettingsControls();
@@ -20479,6 +20573,10 @@ namespace RetroDevStudio.Documents
         string family = (string)comboOutlineFont.SelectedItem;
         outlineCanvas.TextFontFamily = family;
         outlineCanvas.Invalidate();   // restyle an open text box live
+        // Toolbar→object binding: a USER style change applies to the selected
+        // text object too (one undo entry; no-ops when nothing would change —
+        // and the programmatic populate paths run detached, never here).
+        outlineCanvas.RestyleSelectedTextObject();
         if ( ( m_MapProject != null )
         &&   ( m_MapProject.OutlineToolSettings.TextFontFamily != family ) )
         {
@@ -20495,10 +20593,35 @@ namespace RetroDevStudio.Documents
       int size = (int)editOutlineFontSize.Value;
       outlineCanvas.TextFontSize = size;
       outlineCanvas.Invalidate();
+      outlineCanvas.RestyleSelectedTextObject();
       if ( ( m_MapProject != null )
       &&   ( m_MapProject.OutlineToolSettings.TextFontSize != size ) )
       {
         m_MapProject.OutlineToolSettings.TextFontSize = size;
+        SetModified();
+      }
+    }
+
+
+
+    /// <summary>
+    /// Shared by the char-spacing and line-spacing numerics — same two-way
+    /// binding contract as the other text style handlers.
+    /// </summary>
+    private void editOutlineTextSpacing_ValueChanged( object sender, EventArgs e )
+    {
+      float charSpacing = (float)editOutlineCharSpacing.Value;
+      float lineSpacing = (float)editOutlineLineSpacing.Value;
+      outlineCanvas.TextCharSpacing = charSpacing;
+      outlineCanvas.TextLineSpacing = lineSpacing;
+      outlineCanvas.Invalidate();
+      outlineCanvas.RestyleSelectedTextObject();
+      if ( ( m_MapProject != null )
+      &&   ( ( m_MapProject.OutlineToolSettings.TextCharSpacing != charSpacing )
+      ||     ( m_MapProject.OutlineToolSettings.TextLineSpacing != lineSpacing ) ) )
+      {
+        m_MapProject.OutlineToolSettings.TextCharSpacing = charSpacing;
+        m_MapProject.OutlineToolSettings.TextLineSpacing = lineSpacing;
         SetModified();
       }
     }
@@ -20510,6 +20633,7 @@ namespace RetroDevStudio.Documents
       outlineCanvas.TextFontBold = btnOutlineTextBold.Checked;
       outlineCanvas.TextFontItalic = btnOutlineTextItalic.Checked;
       outlineCanvas.Invalidate();
+      outlineCanvas.RestyleSelectedTextObject();
       if ( ( m_MapProject != null )
       &&   ( ( m_MapProject.OutlineToolSettings.TextFontBold != btnOutlineTextBold.Checked )
       ||     ( m_MapProject.OutlineToolSettings.TextFontItalic != btnOutlineTextItalic.Checked ) ) )
@@ -20540,7 +20664,13 @@ namespace RetroDevStudio.Documents
             return;   // some other tool took over — its event set the tool
           }
         }
-        outlineCanvas.ActiveTool = null;
+        // Clicking the ACTIVE tool's button again would toggle it off and
+        // leave no tool (with an odd half-pressed look). A paint program
+        // always has the selected tool selected — re-check it and change
+        // nothing (detached: no recursion, tool untouched).
+        button.CheckedChanged -= btnOutlineTool_CheckedChanged;
+        button.Checked = true;
+        button.CheckedChanged += btnOutlineTool_CheckedChanged;
         return;
       }
       foreach ( var entry in m_OutlineToolRegistry )
@@ -20655,6 +20785,8 @@ namespace RetroDevStudio.Documents
       comboOutlineFont.SelectedIndexChanged -= comboOutlineFont_SelectedIndexChanged;
       btnOutlineTextBold.CheckedChanged -= btnOutlineTextStyle_CheckedChanged;
       btnOutlineTextItalic.CheckedChanged -= btnOutlineTextStyle_CheckedChanged;
+      editOutlineCharSpacing.ValueChanged -= editOutlineTextSpacing_ValueChanged;
+      editOutlineLineSpacing.ValueChanged -= editOutlineTextSpacing_ValueChanged;
       try
       {
         editOutlineBrushSize.Value = ClampToNumeric( editOutlineBrushSize, tools.BrushSize );
@@ -20670,6 +20802,8 @@ namespace RetroDevStudio.Documents
         }
         btnOutlineTextBold.Checked = tools.TextFontBold;
         btnOutlineTextItalic.Checked = tools.TextFontItalic;
+        editOutlineCharSpacing.Value = ClampToNumeric( editOutlineCharSpacing, (int)tools.TextCharSpacing );
+        editOutlineLineSpacing.Value = ClampToNumeric( editOutlineLineSpacing, (int)tools.TextLineSpacing );
       }
       finally
       {
@@ -20682,6 +20816,8 @@ namespace RetroDevStudio.Documents
         comboOutlineFont.SelectedIndexChanged += comboOutlineFont_SelectedIndexChanged;
         btnOutlineTextBold.CheckedChanged += btnOutlineTextStyle_CheckedChanged;
         btnOutlineTextItalic.CheckedChanged += btnOutlineTextStyle_CheckedChanged;
+        editOutlineCharSpacing.ValueChanged += editOutlineTextSpacing_ValueChanged;
+        editOutlineLineSpacing.ValueChanged += editOutlineTextSpacing_ValueChanged;
       }
 
       // Mirror into the canvas + color UI (the handlers were detached).
@@ -20692,6 +20828,8 @@ namespace RetroDevStudio.Documents
       outlineCanvas.TextFontSize = (float)editOutlineFontSize.Value;
       outlineCanvas.TextFontBold = btnOutlineTextBold.Checked;
       outlineCanvas.TextFontItalic = btnOutlineTextItalic.Checked;
+      outlineCanvas.TextCharSpacing = (float)editOutlineCharSpacing.Value;
+      outlineCanvas.TextLineSpacing = (float)editOutlineLineSpacing.Value;
       if ( comboOutlineFont.SelectedIndex >= 0 )
       {
         outlineCanvas.TextFontFamily = (string)comboOutlineFont.SelectedItem;
@@ -20720,6 +20858,15 @@ namespace RetroDevStudio.Documents
       outlineCanvas.PenFlipEraser      = tools.PenFlipEraser;
       outlineCanvas.PenCursorIndex     = tools.PenCursorIndex;
       PopulatePenSettingControls();
+
+      // This populate also runs on tab RETURNS — if a text object is still
+      // selected, the project-default text style just overwrote its mirror
+      // (toolbar + canvas TextFont*), and the next restyle would clobber the
+      // object with defaults. Re-assert the selection's style on top.
+      if ( outlineCanvas.SelectedTextObject != null )
+      {
+        outlineCanvas_SelectedTextObjectChanged( outlineCanvas, EventArgs.Empty );
+      }
     }
 
 
@@ -20770,6 +20917,22 @@ namespace RetroDevStudio.Documents
                      System.Drawing.GraphicsUnit.Pixel );
       }
 
+      // Text objects: existing content re-blits at the (LeftAmount, TopAmount)
+      // inset — anchors must translate identically or undo/redo of the extend
+      // teleports text relative to the drawing.
+      var objectsBeforeExtend = RetroDevStudio.Controls.OutlineTextObject.CloneList( m_OutlineTextObjects );
+      if ( ( m_OutlineTextObjects != null )
+      &&   ( ( LeftAmount != 0 )
+      ||     ( TopAmount != 0 ) ) )
+      {
+        foreach ( var textObj in m_OutlineTextObjects )
+        {
+          textObj.Position = new System.Drawing.PointF(
+            textObj.Position.X + LeftAmount, textObj.Position.Y + TopAmount );
+        }
+        m_OutlineTextObjectsDirty = true;
+      }
+
       // The old bitmap's ownership moves INTO the undo entry (it is being
       // swapped out anyway) — one full-image copy saved per extend.
       var oldBitmap = m_OutlineBitmap;
@@ -20778,7 +20941,9 @@ namespace RetroDevStudio.Documents
       m_OutlineBitmapDirty = true;
       outlineCanvas.Image = m_OutlineBitmap;
       CurrentOutlineUndoStack( true )?.PushImageReplace(
-        oldBitmap, (System.Drawing.Bitmap)newBitmap.Clone(), "Extend canvas" );
+        oldBitmap, (System.Drawing.Bitmap)newBitmap.Clone(), "Extend canvas",
+        objectsBeforeExtend, RetroDevStudio.Controls.OutlineTextObject.CloneList( m_OutlineTextObjects ) );
+      SetModified();
 
       // Keep the picture visually anchored: growing at left/top shifts the
       // image origin, so the pan compensates by the same view distance.
@@ -20834,18 +20999,49 @@ namespace RetroDevStudio.Documents
       {
         return;
       }
+      // Every flush point finalizes: an open text box commits into an object
+      // so the copy matches what is on screen (no pixels are touched).
+      outlineCanvas.FinalizePendingEdit();
       var data = new DataObject();
       var pngStream = new System.IO.MemoryStream();
-      m_OutlineBitmap.Save( pngStream, System.Drawing.Imaging.ImageFormat.Png );
-      pngStream.Position = 0;
-      data.SetData( "PNG", false, pngStream );
-      using ( var clipBitmap = (System.Drawing.Bitmap)m_OutlineBitmap.Clone() )
+      // Bake the text objects into the outgoing pixels — what you copy is
+      // what you see (the live objects stay editable; only the copy bakes).
+      using ( var baked = CloneOutlineWithTextBaked() )
       {
-        data.SetImage( clipBitmap );
+        baked.Save( pngStream, System.Drawing.Imaging.ImageFormat.Png );
+        pngStream.Position = 0;
+        data.SetData( "PNG", false, pngStream );
+        data.SetImage( baked );
         // copy=true renders all formats immediately, so the clone may be
         // disposed and the clipboard survives the app closing.
         Clipboard.SetDataObject( data, true );
       }
+    }
+
+
+
+    /// <summary>
+    /// A CLONE of the outline bitmap with all text objects baked in — for
+    /// clipboard/export output only (the sidecar keeps raster and objects
+    /// separate; the live canvas draws objects as an overlay). Caller
+    /// disposes.
+    /// </summary>
+    private System.Drawing.Bitmap CloneOutlineWithTextBaked()
+    {
+      var clone = (System.Drawing.Bitmap)m_OutlineBitmap.Clone();
+      if ( ( m_OutlineTextObjects != null )
+      &&   ( m_OutlineTextObjects.Count > 0 ) )
+      {
+        using ( var renderer = new RetroDevStudio.Controls.GdiPlusOutlineRenderer( clone ) )
+        {
+          foreach ( var textObj in m_OutlineTextObjects )
+          {
+            // Layout-based bake — wrap + spacing identical to the overlay.
+            renderer.DrawTextObject( textObj );
+          }
+        }
+      }
+      return clone;
     }
 
 
@@ -20920,13 +21116,25 @@ namespace RetroDevStudio.Documents
       }
       pasted.Dispose();
 
+      // Paste-replace means EVERYTHING is replaced — text objects clear too
+      // (user-locked rule); the payload restores image + texts in ONE undo.
+      var objectsBeforePaste = RetroDevStudio.Controls.OutlineTextObject.CloneList( m_OutlineTextObjects );
+      if ( ( m_OutlineTextObjects != null )
+      &&   ( m_OutlineTextObjects.Count > 0 ) )
+      {
+        m_OutlineTextObjects.Clear();
+        m_OutlineTextObjectsDirty = true;
+      }
+
       var oldBitmap = m_OutlineBitmap;
       outlineCanvas.Image = null;
       m_OutlineBitmap = newBitmap;
       m_OutlineBitmapDirty = true;
       outlineCanvas.Image = m_OutlineBitmap;
       CurrentOutlineUndoStack( true )?.PushImageReplace(
-        oldBitmap, (System.Drawing.Bitmap)newBitmap.Clone(), "Paste image" );
+        oldBitmap, (System.Drawing.Bitmap)newBitmap.Clone(), "Paste image",
+        objectsBeforePaste, new List<RetroDevStudio.Controls.OutlineTextObject>() );
+      SetModified();
       outlineCanvas.ResetView();
       UpdateOutlineToolbarLabels();
       Core.MainForm.UpdateUndoSettings();
@@ -20958,15 +21166,40 @@ namespace RetroDevStudio.Documents
       outlineCanvas.FinalizePendingEdit();
 
       var cropped = m_OutlineBitmap.Clone( region, System.Drawing.Imaging.PixelFormat.Format32bppArgb );
+      // Text objects: the crop origin becomes the new (0,0) — survivors
+      // translate by −region.Location; objects whose anchor lies outside the
+      // crop are dropped (user-locked rule; the undo payload restores them).
+      var objectsBefore = RetroDevStudio.Controls.OutlineTextObject.CloneList( m_OutlineTextObjects );
+      if ( m_OutlineTextObjects != null )
+      {
+        for ( int i = m_OutlineTextObjects.Count - 1; i >= 0; --i )
+        {
+          var textObj = m_OutlineTextObjects[i];
+          // Floor, not cast: (int)-0.5 truncates to 0 and would wrongly KEEP
+          // an anchor just left/above an edge-touching crop.
+          if ( !region.Contains( (int)Math.Floor( textObj.Position.X ),
+                                 (int)Math.Floor( textObj.Position.Y ) ) )
+          {
+            m_OutlineTextObjects.RemoveAt( i );
+            continue;
+          }
+          textObj.Position = new System.Drawing.PointF(
+            textObj.Position.X - region.X, textObj.Position.Y - region.Y );
+        }
+        m_OutlineTextObjectsDirty = true;
+      }
       // Same whole-image replace choreography as paste: the undo entry
-      // takes ownership of the OLD bitmap, one Ctrl+Z restores it whole.
+      // takes ownership of the OLD bitmap, one Ctrl+Z restores it whole
+      // (image AND text objects — the payload rides the same entry).
       var oldBitmap = m_OutlineBitmap;
       outlineCanvas.Image = null;
       m_OutlineBitmap = cropped;
       m_OutlineBitmapDirty = true;
       outlineCanvas.Image = m_OutlineBitmap;
       CurrentOutlineUndoStack( true )?.PushImageReplace(
-        oldBitmap, (System.Drawing.Bitmap)cropped.Clone(), "Crop to selection" );
+        oldBitmap, (System.Drawing.Bitmap)cropped.Clone(), "Crop to selection",
+        objectsBefore, RetroDevStudio.Controls.OutlineTextObject.CloneList( m_OutlineTextObjects ) );
+      SetModified();
       outlineCanvas.CenterView();
       UpdateOutlineToolbarLabels();
       Core.MainForm.UpdateUndoSettings();
@@ -20977,12 +21210,19 @@ namespace RetroDevStudio.Documents
     /// <summary>Selection copy: just the marquee region, PNG + bitmap formats.</summary>
     private void CopyOutlineSelectionToClipboard()
     {
-      using ( var regionBitmap = outlineCanvas.CopySelectionRegion() )
+      var selection = outlineCanvas.SelectionRect;
+      if ( ( selection == null )
+      ||   ( m_OutlineBitmap == null ) )
       {
-        if ( regionBitmap == null )
-        {
-          return;
-        }
+        return;
+      }
+      // Same finalize-before-output contract as the whole-canvas copy.
+      outlineCanvas.FinalizePendingEdit();
+      // Bake text objects into the copied pixels (full-size bake first so
+      // text overlapping the selection edge crops exactly like the raster).
+      using ( var baked = CloneOutlineWithTextBaked() )
+      using ( var regionBitmap = baked.Clone( selection.Value, System.Drawing.Imaging.PixelFormat.Format32bppArgb ) )
+      {
         var data = new DataObject();
         var pngStream = new System.IO.MemoryStream();
         regionBitmap.Save( pngStream, System.Drawing.Imaging.ImageFormat.Png );
@@ -21070,15 +21310,29 @@ namespace RetroDevStudio.Documents
         g.Clear( System.Drawing.Color.Black );
       }
 
+      // Delete picture wipes the text objects too (they live in the entry
+      // being removed); the payload restores everything on undo.
+      var objectsBeforeDelete = RetroDevStudio.Controls.OutlineTextObject.CloneList( m_OutlineTextObjects );
+      if ( ( m_OutlineTextObjects != null )
+      &&   ( m_OutlineTextObjects.Count > 0 ) )
+      {
+        m_OutlineTextObjects.Clear();
+        // NOT set dirty: like the blank bitmap below, the container entry is
+        // removed directly — there is nothing left to flush.
+      }
+
       var oldBitmap = m_OutlineBitmap;
       outlineCanvas.Image = null;
       m_OutlineBitmap = newBitmap;
       // A deleted picture is a BLANK — not dirty, so it is never flushed
       // back into the container; the container entry itself goes now.
       m_OutlineBitmapDirty = false;
+      m_OutlineTextObjectsDirty = false;
       outlineCanvas.Image = m_OutlineBitmap;
       CurrentOutlineUndoStack( true )?.PushImageReplace(
-        oldBitmap, (System.Drawing.Bitmap)newBitmap.Clone(), "Delete picture" );
+        oldBitmap, (System.Drawing.Bitmap)newBitmap.Clone(), "Delete picture",
+        objectsBeforeDelete, new List<RetroDevStudio.Controls.OutlineTextObject>() );
+      SetModified();
 
       if ( ( m_OutlineContainer != null )
       &&   ( !string.IsNullOrEmpty( m_OutlineActiveMap.OutlineGuid ) ) )
@@ -21114,7 +21368,8 @@ namespace RetroDevStudio.Documents
 
 
 
-    private void outlineCanvas_ChangeCommitted( System.Drawing.Rectangle Region, System.Drawing.Bitmap BeforeCrop, string Description )
+    private void outlineCanvas_ChangeCommitted( System.Drawing.Rectangle Region, System.Drawing.Bitmap BeforeCrop, string Description,
+                                                System.Drawing.Rectangle? SelectionBefore, System.Drawing.Rectangle? SelectionAfter )
     {
       if ( ( m_OutlineBitmap == null )
       ||   ( m_OutlineActiveMap == null ) )
@@ -21122,10 +21377,13 @@ namespace RetroDevStudio.Documents
         BeforeCrop.Dispose();
         return;
       }
-      CurrentOutlineUndoStack( true ).PushChange( m_OutlineBitmap, Region, BeforeCrop, Description );
+      CurrentOutlineUndoStack( true ).PushChange( m_OutlineBitmap, Region, BeforeCrop, Description,
+                                                  SelectionBefore: SelectionBefore, SelectionAfter: SelectionAfter );
       m_OutlineBitmapDirty = true;
-      // Refresh the toolbar/menu undo enablement — but never SetModified:
-      // outline drawing does not dirty the .mapproject.
+      // Outline edits mark the document modified (user decision 2026-07-10):
+      // the tab shows the pending work and closing prompts to save — Ctrl+S
+      // writes the .mapproject AND flushes the sidecar.
+      SetModified();
       Core.MainForm.UpdateUndoSettings();
     }
 
@@ -21133,7 +21391,9 @@ namespace RetroDevStudio.Documents
 
     private void outlineCanvas_ColorPicked( System.Drawing.Color PickedColor )
     {
-      SetOutlinePrimaryColor( PickedColor, true );
+      // Eyedropper = SAMPLING, not styling — never recolor the selected text
+      // object from a pick (it changes the ink for the NEXT stroke only).
+      SetOutlinePrimaryColor( PickedColor, true, false );
     }
 
 
@@ -21471,6 +21731,24 @@ namespace RetroDevStudio.Documents
     {
       if ( Result != null )
       {
+        if ( Result.ObjectsChanged )
+        {
+          // Replace the live text-object list IN PLACE — the canvas shares
+          // the list instance by reference (reassignment happens only on map
+          // activation). The result list is already a deep copy owned by us.
+          if ( m_OutlineTextObjects != null )
+          {
+            m_OutlineTextObjects.Clear();
+            m_OutlineTextObjects.AddRange( Result.Objects );
+            m_OutlineTextObjectsDirty = true;
+            // A selected object may no longer exist in the restored list.
+            outlineCanvas.SetSelectedTextObject( null );
+            // FULL repaint: text objects legitimately live (partly) OFF the
+            // bitmap, but the entry's Region is image-clamped — a region-only
+            // invalidate would leave off-image text ghosted or missing.
+            outlineCanvas.Invalidate();
+          }
+        }
         if ( Result.ReplacementImage != null )
         {
           // Size-changing entry (extend/paste/delete): swap the whole image.
@@ -21478,10 +21756,201 @@ namespace RetroDevStudio.Documents
         }
         else
         {
-          m_OutlineBitmapDirty = true;
+          // Bitmap dirty ONLY when pixels actually changed — an object-only
+          // step must not force a PNG blank-scan/re-encode by itself (the
+          // objects dirty flag covers the flush).
+          if ( Result.ImageChanged )
+          {
+            m_OutlineBitmapDirty = true;
+          }
           outlineCanvas.InvalidateImageRegion( Result.Region );
         }
+        // Move/center entries carry the selection transition — re-home the
+        // marquee so undo/redo travels it with the pixels (Result.Selection
+        // may be null = the patch was dragged off-canvas).
+        if ( Result.SelectionChanged )
+        {
+          outlineCanvas.SetSelectionRect( Result.Selection );
+        }
+        // Undo/redo changes the canvas/objects like any other edit — the
+        // document is modified relative to what a save would capture.
+        SetModified();
       }
+      Core.MainForm.UpdateUndoSettings();
+    }
+
+
+
+    /// <summary>
+    /// Centers the current selection horizontally on the canvas. A committed
+    /// raster selection (Select-region tool) centers its PIXELS; otherwise a
+    /// text-object selection centers as one group. The two are mutually
+    /// exclusive — switching to the selection tool clears the text selection
+    /// and vice versa — so the raster case takes precedence when present. Each
+    /// path commits through its own pipeline as a single undo step.
+    /// </summary>
+    private void btnOutlineCenterText_Click( object sender, EventArgs e )
+    {
+      if ( !OutlineModeActive )
+      {
+        return;
+      }
+      if ( outlineCanvas.SelectionRect.HasValue )
+      {
+        outlineCanvas.CenterSelectionHorizontally();
+        return;
+      }
+      outlineCanvas.CenterSelectedTextObjectsHorizontally();
+    }
+
+
+
+    /// <summary>
+    /// Bakes every text object into pixels — they stop being editable; ONE
+    /// combined undo entry (pixel region + object payload) un-flattens.
+    /// </summary>
+    private void btnOutlineFlattenText_Click( object sender, EventArgs e )
+    {
+      if ( ( !OutlineModeActive )
+      ||   ( m_OutlineBitmap == null )
+      ||   ( m_OutlineTextObjects == null ) )
+      {
+        return;
+      }
+      // An open edit box commits into an object first, so it flattens too.
+      outlineCanvas.FinalizePendingEdit();
+      if ( m_OutlineTextObjects.Count == 0 )
+      {
+        return;
+      }
+
+      var imageRect = new System.Drawing.Rectangle( 0, 0, m_OutlineBitmap.Width, m_OutlineBitmap.Height );
+      var union = System.Drawing.Rectangle.Empty;
+      foreach ( var textObj in m_OutlineTextObjects )
+      {
+        var bounds = outlineCanvas.TextObjectBounds( textObj );
+        union = union.IsEmpty ? bounds : System.Drawing.Rectangle.Union( union, bounds );
+      }
+      var region = System.Drawing.Rectangle.Intersect( union, imageRect );
+      var objectsBefore = RetroDevStudio.Controls.OutlineTextObject.CloneList( m_OutlineTextObjects );
+
+      if ( ( region.Width < 1 )
+      ||   ( region.Height < 1 ) )
+      {
+        // Every object sits fully off-image — nothing bakes; removing them is
+        // a pure OBJECT change (PushChange would early-out on the empty
+        // region and silently drop the undo payload).
+        m_OutlineTextObjects.Clear();
+        outlineCanvas.SetSelectedTextObject( null );
+        CurrentOutlineUndoStack( true ).PushObjectChange( System.Drawing.Rectangle.Empty,
+          objectsBefore, new List<RetroDevStudio.Controls.OutlineTextObject>(), "Flatten text" );
+        m_OutlineTextObjectsDirty = true;
+        SetModified();
+        outlineCanvas.Invalidate();
+        Core.MainForm.UpdateUndoSettings();
+        return;
+      }
+
+      var beforeCrop = m_OutlineBitmap.Clone( region, m_OutlineBitmap.PixelFormat );
+      using ( var renderer = new RetroDevStudio.Controls.GdiPlusOutlineRenderer( m_OutlineBitmap ) )
+      {
+        foreach ( var textObj in m_OutlineTextObjects )
+        {
+          // Layout-based bake — the flattened pixels match the live overlay
+          // exactly (wrap, char/line spacing, typographic advances).
+          renderer.DrawTextObject( textObj );
+        }
+      }
+      m_OutlineTextObjects.Clear();
+      outlineCanvas.SetSelectedTextObject( null );
+      CurrentOutlineUndoStack( true ).PushChange( m_OutlineBitmap, region, beforeCrop, "Flatten text",
+        objectsBefore, new List<RetroDevStudio.Controls.OutlineTextObject>() );
+      m_OutlineBitmapDirty = true;
+      m_OutlineTextObjectsDirty = true;
+      SetModified();
+      outlineCanvas.InvalidateImageRegion( region );
+      Core.MainForm.UpdateUndoSettings();
+    }
+
+
+
+    /// <summary>
+    /// Object→toolbar half of the two-way binding: selecting a text object
+    /// shows ITS font/size/style/ink in the toolbar. Handlers detached and
+    /// canvas properties set directly — programmatic sync must never persist
+    /// project defaults or SetModified (the attached handlers do both).
+    /// </summary>
+    private void outlineCanvas_SelectedTextObjectChanged( object sender, EventArgs e )
+    {
+      var selected = outlineCanvas.SelectedTextObject;
+      if ( selected == null )
+      {
+        return;
+      }
+      comboOutlineFont.SelectedIndexChanged -= comboOutlineFont_SelectedIndexChanged;
+      editOutlineFontSize.ValueChanged -= editOutlineFontSize_ValueChanged;
+      btnOutlineTextBold.CheckedChanged -= btnOutlineTextStyle_CheckedChanged;
+      btnOutlineTextItalic.CheckedChanged -= btnOutlineTextStyle_CheckedChanged;
+      editOutlineCharSpacing.ValueChanged -= editOutlineTextSpacing_ValueChanged;
+      editOutlineLineSpacing.ValueChanged -= editOutlineTextSpacing_ValueChanged;
+      try
+      {
+        int fontIndex = comboOutlineFont.Items.IndexOf( selected.FontFamily ?? "" );
+        if ( fontIndex >= 0 )
+        {
+          comboOutlineFont.SelectedIndex = fontIndex;
+        }
+        editOutlineFontSize.Value = Math.Max( editOutlineFontSize.Minimum,
+          Math.Min( editOutlineFontSize.Maximum, (decimal)selected.FontSize ) );
+        btnOutlineTextBold.Checked = selected.Bold;
+        btnOutlineTextItalic.Checked = selected.Italic;
+        editOutlineCharSpacing.Value = Math.Max( editOutlineCharSpacing.Minimum,
+          Math.Min( editOutlineCharSpacing.Maximum, (decimal)selected.CharSpacing ) );
+        editOutlineLineSpacing.Value = Math.Max( editOutlineLineSpacing.Minimum,
+          Math.Min( editOutlineLineSpacing.Maximum, (decimal)selected.LineSpacing ) );
+      }
+      finally
+      {
+        comboOutlineFont.SelectedIndexChanged += comboOutlineFont_SelectedIndexChanged;
+        editOutlineFontSize.ValueChanged += editOutlineFontSize_ValueChanged;
+        btnOutlineTextBold.CheckedChanged += btnOutlineTextStyle_CheckedChanged;
+        btnOutlineTextItalic.CheckedChanged += btnOutlineTextStyle_CheckedChanged;
+        editOutlineCharSpacing.ValueChanged += editOutlineTextSpacing_ValueChanged;
+        editOutlineLineSpacing.ValueChanged += editOutlineTextSpacing_ValueChanged;
+      }
+      // Mirror into the canvas so a subsequent NEW box (and RestyleSelected's
+      // no-change guard) sees the object's style; ink shows in the swatch.
+      outlineCanvas.TextFontFamily = selected.FontFamily;
+      outlineCanvas.TextFontSize = selected.FontSize;
+      outlineCanvas.TextFontBold = selected.Bold;
+      outlineCanvas.TextFontItalic = selected.Italic;
+      outlineCanvas.TextCharSpacing = selected.CharSpacing;
+      outlineCanvas.TextLineSpacing = selected.LineSpacing;
+      outlineCanvas.PrimaryColor = selected.Color;
+      panelOutlinePrimaryColor.Invalidate();
+    }
+
+
+
+    /// <summary>
+    /// A text-object mutation finished on the canvas: push the object-only
+    /// undo entry (before = the raiser's snapshot, after = the live list as
+    /// it stands now — the object twin of how PushChange captures its after
+    /// crop from the current image). SetModified — same contract as pixel
+    /// drawing (all outline edits dirty the document).
+    /// </summary>
+    private void outlineCanvas_TextObjectsChangeCommitted( System.Drawing.Rectangle Region,
+        List<RetroDevStudio.Controls.OutlineTextObject> ObjectsBefore, string Description )
+    {
+      if ( ( m_OutlineActiveMap == null )
+      ||   ( m_OutlineTextObjects == null ) )
+      {
+        return;
+      }
+      CurrentOutlineUndoStack( true ).PushObjectChange( Region, ObjectsBefore,
+          RetroDevStudio.Controls.OutlineTextObject.CloneList( m_OutlineTextObjects ), Description );
+      m_OutlineTextObjectsDirty = true;
+      SetModified();
       Core.MainForm.UpdateUndoSettings();
     }
 
@@ -21509,10 +21978,19 @@ namespace RetroDevStudio.Documents
 
     // ---- Outline colors ---------------------------------------------------
 
-    private void SetOutlinePrimaryColor( System.Drawing.Color NewColor, bool AddToRecent )
+    private void SetOutlinePrimaryColor( System.Drawing.Color NewColor, bool AddToRecent,
+                                         bool RestyleSelectedText = true )
     {
       outlineCanvas.PrimaryColor = NewColor;
       panelOutlinePrimaryColor.Invalidate();
+      // A DELIBERATE ink pick (swatch, picker dialog, swap) recolors the
+      // selected text object too (undoable; no-ops when unchanged). The RMB
+      // EYEDROPPER passes false: sampling a color off the canvas must never
+      // restyle the selection as a side effect (user report).
+      if ( RestyleSelectedText )
+      {
+        outlineCanvas.RestyleSelectedTextObject();
+      }
       if ( AddToRecent )
       {
         PushOutlineRecentColor( NewColor );

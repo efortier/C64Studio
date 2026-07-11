@@ -341,6 +341,10 @@
             btnOutlineCropSelection = new Krypton.Toolkit.KryptonButton();
             comboOutlineFont = new System.Windows.Forms.ComboBox();
             editOutlineFontSize = new System.Windows.Forms.NumericUpDown();
+            labelOutlineCharSpacing = new System.Windows.Forms.Label();
+            editOutlineCharSpacing = new System.Windows.Forms.NumericUpDown();
+            labelOutlineLineSpacing = new System.Windows.Forms.Label();
+            editOutlineLineSpacing = new System.Windows.Forms.NumericUpDown();
             btnOutlineTextBold = new Krypton.Toolkit.KryptonCheckButton();
             btnOutlineTextItalic = new Krypton.Toolkit.KryptonCheckButton();
             labelOutlineBorderSize = new System.Windows.Forms.Label();
@@ -355,6 +359,8 @@
             btnOutlineCopyImage = new Krypton.Toolkit.KryptonButton();
             btnOutlinePasteImage = new Krypton.Toolkit.KryptonButton();
             btnOutlineDeletePicture = new Krypton.Toolkit.KryptonButton();
+            btnOutlineFlattenText = new Krypton.Toolkit.KryptonButton();
+            btnOutlineCenterText = new Krypton.Toolkit.KryptonButton();
             labelOutlineInk = new System.Windows.Forms.Label();
             panelOutlinePrimaryColor = new System.Windows.Forms.Panel();
             labelOutlineFill = new System.Windows.Forms.Label();
@@ -498,6 +504,8 @@
             ((System.ComponentModel.ISupportInitialize)editOutlineBorderSize).BeginInit();
             ((System.ComponentModel.ISupportInitialize)editOutlineExtendStep).BeginInit();
             ((System.ComponentModel.ISupportInitialize)editOutlineFontSize).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)editOutlineCharSpacing).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)editOutlineLineSpacing).BeginInit();
             ((System.ComponentModel.ISupportInitialize)editPenGamma).BeginInit();
             ((System.ComponentModel.ISupportInitialize)editPenMinWidth).BeginInit();
             ((System.ComponentModel.ISupportInitialize)editPenMinAlpha).BeginInit();
@@ -4010,6 +4018,12 @@
             flowOutlineOptions.Controls.Add(editOutlineFontSize);
             flowOutlineOptions.Controls.Add(btnOutlineTextBold);
             flowOutlineOptions.Controls.Add(btnOutlineTextItalic);
+            flowOutlineOptions.Controls.Add(labelOutlineCharSpacing);
+            flowOutlineOptions.Controls.Add(editOutlineCharSpacing);
+            flowOutlineOptions.Controls.Add(labelOutlineLineSpacing);
+            flowOutlineOptions.Controls.Add(editOutlineLineSpacing);
+            flowOutlineOptions.Controls.Add(btnOutlineCenterText);
+            flowOutlineOptions.Controls.Add(btnOutlineFlattenText);
             flowOutlineOptions.Location = new System.Drawing.Point(177, 42);
             flowOutlineOptions.Name = "flowOutlineOptions";
             flowOutlineOptions.Size = new System.Drawing.Size(1399, 31);
@@ -4208,6 +4222,68 @@
             btnOutlineDeletePicture.Values.DropDownArrowColor = System.Drawing.Color.Empty;
             btnOutlineDeletePicture.Values.Text = "Delete picture";
             btnOutlineDeletePicture.Click += btnOutlineDeletePicture_Click;
+            //
+            // labelOutlineCharSpacing
+            //
+            labelOutlineCharSpacing.Location = new System.Drawing.Point(810, 0);
+            labelOutlineCharSpacing.Name = "labelOutlineCharSpacing";
+            labelOutlineCharSpacing.Size = new System.Drawing.Size(42, 30);
+            labelOutlineCharSpacing.TabIndex = 14;
+            labelOutlineCharSpacing.Text = "Chr sp";
+            labelOutlineCharSpacing.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // editOutlineCharSpacing
+            //
+            editOutlineCharSpacing.Location = new System.Drawing.Point(858, 4);
+            editOutlineCharSpacing.Maximum = new decimal(new int[] { 32, 0, 0, 0 });
+            editOutlineCharSpacing.Minimum = new decimal(new int[] { 8, 0, 0, -2147483648 });
+            editOutlineCharSpacing.Name = "editOutlineCharSpacing";
+            editOutlineCharSpacing.Size = new System.Drawing.Size(44, 20);
+            editOutlineCharSpacing.TabIndex = 15;
+            toolTip1.SetToolTip(editOutlineCharSpacing, "Extra pixels between characters (0 = font default)");
+            editOutlineCharSpacing.ValueChanged += editOutlineTextSpacing_ValueChanged;
+            //
+            // labelOutlineLineSpacing
+            //
+            labelOutlineLineSpacing.Location = new System.Drawing.Point(908, 0);
+            labelOutlineLineSpacing.Name = "labelOutlineLineSpacing";
+            labelOutlineLineSpacing.Size = new System.Drawing.Size(38, 30);
+            labelOutlineLineSpacing.TabIndex = 16;
+            labelOutlineLineSpacing.Text = "Ln sp";
+            labelOutlineLineSpacing.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // editOutlineLineSpacing
+            //
+            editOutlineLineSpacing.Location = new System.Drawing.Point(952, 4);
+            editOutlineLineSpacing.Maximum = new decimal(new int[] { 64, 0, 0, 0 });
+            editOutlineLineSpacing.Minimum = new decimal(new int[] { 16, 0, 0, -2147483648 });
+            editOutlineLineSpacing.Name = "editOutlineLineSpacing";
+            editOutlineLineSpacing.Size = new System.Drawing.Size(44, 20);
+            editOutlineLineSpacing.TabIndex = 17;
+            toolTip1.SetToolTip(editOutlineLineSpacing, "Extra pixels between lines (0 = font default)");
+            editOutlineLineSpacing.ValueChanged += editOutlineTextSpacing_ValueChanged;
+            //
+            // btnOutlineCenterText
+            //
+            btnOutlineCenterText.Location = new System.Drawing.Point(497, 3);
+            btnOutlineCenterText.Name = "btnOutlineCenterText";
+            btnOutlineCenterText.Size = new System.Drawing.Size(90, 24);
+            btnOutlineCenterText.TabIndex = 13;
+            toolTip1.SetToolTip(btnOutlineCenterText, "Center the selection horizontally on the canvas. A Select-region selection centers its pixels; a text selection centers as one group.");
+            btnOutlineCenterText.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineCenterText.Values.Text = "Center H";
+            btnOutlineCenterText.Click += btnOutlineCenterText_Click;
+            //
+            // btnOutlineFlattenText
+            //
+            btnOutlineFlattenText.Location = new System.Drawing.Point(497, 3);
+            btnOutlineFlattenText.Name = "btnOutlineFlattenText";
+            btnOutlineFlattenText.Size = new System.Drawing.Size(100, 24);
+            btnOutlineFlattenText.TabIndex = 12;
+            toolTip1.SetToolTip(btnOutlineFlattenText, "Bake all text objects into pixels (they stop being editable; one undo restores them)");
+            btnOutlineFlattenText.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineFlattenText.Values.Text = "Flatten text";
+            btnOutlineFlattenText.Click += btnOutlineFlattenText_Click;
             //
             // outlineCanvas
             //
@@ -5510,6 +5586,8 @@
             ((System.ComponentModel.ISupportInitialize)editOutlineBorderSize).EndInit();
             ((System.ComponentModel.ISupportInitialize)editOutlineExtendStep).EndInit();
             ((System.ComponentModel.ISupportInitialize)editOutlineFontSize).EndInit();
+            ((System.ComponentModel.ISupportInitialize)editOutlineCharSpacing).EndInit();
+            ((System.ComponentModel.ISupportInitialize)editOutlineLineSpacing).EndInit();
             ((System.ComponentModel.ISupportInitialize)editPenGamma).EndInit();
             ((System.ComponentModel.ISupportInitialize)editPenMinWidth).EndInit();
             ((System.ComponentModel.ISupportInitialize)editPenMinAlpha).EndInit();
@@ -5755,6 +5833,12 @@
         private Krypton.Toolkit.KryptonButton btnOutlineCopyImage;
         private Krypton.Toolkit.KryptonButton btnOutlinePasteImage;
         private Krypton.Toolkit.KryptonButton btnOutlineDeletePicture;
+        private Krypton.Toolkit.KryptonButton btnOutlineFlattenText;
+        private Krypton.Toolkit.KryptonButton btnOutlineCenterText;
+        private System.Windows.Forms.Label labelOutlineCharSpacing;
+        private System.Windows.Forms.NumericUpDown editOutlineCharSpacing;
+        private System.Windows.Forms.Label labelOutlineLineSpacing;
+        private System.Windows.Forms.NumericUpDown editOutlineLineSpacing;
         private Krypton.Toolkit.KryptonCheckButton btnOutlineToolText;
         private Krypton.Toolkit.KryptonCheckButton btnOutlineToolStamp;
         private System.Windows.Forms.Label labelOutlineStampScale;

@@ -39,6 +39,11 @@ namespace RetroDevStudio.Formats
       // index, so drawings survive even when the project is never saved.
       public string     MapName = "";
       public int        MapIndex = -1;
+      // Persistent text objects of the paint mode, as an OPAQUE blob (a
+      // sequence of MAP_OUTLINE_TEXT_OBJECT chunks, encoded/decoded by
+      // OutlineTextObject in the editor layer — the container never looks
+      // inside, mirroring the undecoded-PNG policy). null = none.
+      public byte[]     TextObjectsData = null;
     }
 
 
@@ -106,7 +111,8 @@ namespace RetroDevStudio.Formats
 
 
     public void SetImage( string OutlineGuid, int Width, int Height, byte[] PNGData,
-                          string MapName = "", int MapIndex = -1 )
+                          string MapName = "", int MapIndex = -1,
+                          byte[] TextObjectsData = null )
     {
       if ( ( string.IsNullOrEmpty( OutlineGuid ) )
       ||   ( PNGData == null )
@@ -116,14 +122,18 @@ namespace RetroDevStudio.Formats
       {
         return;
       }
+      // SetImage recreates the entry wholesale, so the text-objects blob MUST
+      // travel through this signature — attaching it to the entry afterwards
+      // would be silently dropped by the next flush.
       m_Images[OutlineGuid] = new OutlineImageEntry()
       {
-        Guid     = OutlineGuid,
-        Width    = Width,
-        Height   = Height,
-        PNGData  = PNGData,
-        MapName  = MapName ?? "",
-        MapIndex = MapIndex
+        Guid            = OutlineGuid,
+        Width           = Width,
+        Height          = Height,
+        PNGData         = PNGData,
+        MapName         = MapName ?? "",
+        MapIndex        = MapIndex,
+        TextObjectsData = TextObjectsData
       };
     }
 
@@ -236,6 +246,14 @@ namespace RetroDevStudio.Formats
         // readers stop after the blob and fall through to ""/-1.
         chunkImage.AppendString( entry.MapName ?? "" );
         chunkImage.AppendI32( entry.MapIndex );
+        // Appended text-objects blob (opaque; may be absent). Older readers
+        // stop before it; readers without it fall through to null.
+        uint textObjectsLength = ( entry.TextObjectsData != null ) ? (uint)entry.TextObjectsData.Length : 0;
+        chunkImage.AppendU32( textObjectsLength );
+        if ( textObjectsLength > 0 )
+        {
+          chunkImage.Append( new GR.Memory.ByteBuffer( entry.TextObjectsData ) );
+        }
         projectFile.Append( chunkImage.ToBuffer() );
       }
       return projectFile;
@@ -283,6 +301,7 @@ namespace RetroDevStudio.Formats
               {
                 string mapName = "";
                 int mapIndex = -1;
+                byte[] textObjectsData = null;
                 if ( chunkReader.Size - chunkReader.Position >= 4 )
                 {
                   mapName = chunkReader.ReadString();
@@ -291,7 +310,21 @@ namespace RetroDevStudio.Formats
                 {
                   mapIndex = chunkReader.ReadInt32();
                 }
-                SetImage( guid, width, height, pngData.Data(), mapName, mapIndex );
+                // Appended text-objects blob — absent in older files (null).
+                if ( chunkReader.Size - chunkReader.Position >= 4 )
+                {
+                  uint textObjectsLength = chunkReader.ReadUInt32();
+                  if ( ( textObjectsLength > 0 )
+                  &&   ( chunkReader.Size - chunkReader.Position >= textObjectsLength ) )
+                  {
+                    var blob = new GR.Memory.ByteBuffer();
+                    if ( chunkReader.ReadBlock( blob, textObjectsLength ) == textObjectsLength )
+                    {
+                      textObjectsData = blob.Data();
+                    }
+                  }
+                }
+                SetImage( guid, width, height, pngData.Data(), mapName, mapIndex, textObjectsData );
               }
             }
             break;

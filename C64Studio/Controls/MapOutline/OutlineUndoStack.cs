@@ -10,10 +10,11 @@ namespace RetroDevStudio.Controls
   /// <summary>
   /// Self-contained undo/redo for one map's outline image — deliberately
   /// NOT an UndoManager/UndoTask: the outline's history must never mix
-  /// with the map document's, and applying an outline entry must never
-  /// SetModified (drawing does not dirty the .mapproject). The map editor
-  /// keeps one instance per Map object for the whole session and routes
-  /// Undo/Redo here while outline mode is active.
+  /// with the map document's. (Dirty-marking is the EDITOR's policy, applied
+  /// in its commit/apply handlers — since 2026-07-10 outline edits DO mark
+  /// the document modified; this stack stays UI-free either way.) The map
+  /// editor keeps one instance per Map object for the whole session and
+  /// routes Undo/Redo here while outline mode is active.
   ///
   /// An entry is a dirty-rect pixel snapshot pair (before/after crops).
   /// Memory is bounded GLOBALLY across all stacks: past the shared byte
@@ -38,6 +39,23 @@ namespace RetroDevStudio.Controls
       // complete images and applying hands the editor a clone to swap in,
       // instead of blitting a region in place.
       public bool         IsImageReplace;
+      // Text-object payload, attachable to ANY entry kind. BOTH null = the
+      // entry doesn't touch objects; BOTH non-null (possibly empty) =
+      // applying replaces the whole live list with the respective snapshot.
+      // Deep copies, owned by the stack. Whole-list snapshots by design:
+      // objects are tiny, and one apply path covers create/edit/move/delete/
+      // restyle/flatten/crop/extend/paste-replace alike.
+      public List<OutlineTextObject> ObjectsBefore;
+      public List<OutlineTextObject> ObjectsAfter;
+      // Selection-rect transition, for operations that move the committed
+      // raster selection with the pixels (move/center). SelectionBefore
+      // having a value is the MARKER that this entry carries a selection
+      // change — a raster move always has a non-null source, and no other
+      // op transitions the selection, so no separate flag is needed. Undo
+      // restores SelectionBefore, redo SelectionAfter (either may be null =
+      // "cleared", e.g. a patch dragged fully off-canvas).
+      public Rectangle?   SelectionBefore;
+      public Rectangle?   SelectionAfter;
       public string       Description;
       public long         Bytes;
       public long         Sequence;
@@ -49,12 +67,24 @@ namespace RetroDevStudio.Controls
     /// Result of applying one undo/redo step. Region is the in-place dirty
     /// rect; when ReplacementImage is non-null the operation changed the
     /// image (usually its size) as a whole — the caller takes ownership of
-    /// the clone and must swap it in for its current bitmap.
+    /// the clone and must swap it in for its current bitmap. When
+    /// ObjectsChanged is set, Objects (a DEEP COPY — caller takes ownership,
+    /// never aliases the stack's snapshot) replaces the live text-object
+    /// list wholesale; ImageChanged tells the caller whether any pixels
+    /// changed at all (an object-only step must not dirty the bitmap).
     /// </summary>
     public class OutlineUndoResult
     {
       public Rectangle    Region;
       public Bitmap       ReplacementImage;
+      public bool         ImageChanged;
+      public bool         ObjectsChanged;
+      public List<OutlineTextObject> Objects;
+      // When set, the caller must re-home the committed selection rect on
+      // Selection (which may be null = clear it). Only move/center entries
+      // set this; every other undo/redo leaves the selection untouched.
+      public bool         SelectionChanged;
+      public Rectangle?   Selection;
     }
 
 
@@ -131,10 +161,17 @@ namespace RetroDevStudio.Controls
     /// <summary>
     /// Records a finished mutation. BeforeCrop is the Region's pre-change
     /// pixels (ownership transfers here); the after-crop is captured from
-    /// CurrentImage, which must already hold the post-change state.
+    /// CurrentImage, which must already hold the post-change state. Optional
+    /// object payload (both-or-neither, deep copies, ownership transfers) —
+    /// e.g. Flatten pairs its pixel bake with objects→empty in ONE entry.
     /// </summary>
-    public void PushChange( Bitmap CurrentImage, Rectangle Region, Bitmap BeforeCrop, string Description )
+    public void PushChange( Bitmap CurrentImage, Rectangle Region, Bitmap BeforeCrop, string Description,
+                            List<OutlineTextObject> ObjectsBefore = null,
+                            List<OutlineTextObject> ObjectsAfter = null,
+                            Rectangle? SelectionBefore = null,
+                            Rectangle? SelectionAfter = null )
     {
+      NormalizeObjectPayload( ref ObjectsBefore, ref ObjectsAfter );
       var region = Rectangle.Intersect( Region, new Rectangle( 0, 0, CurrentImage.Width, CurrentImage.Height ) );
       if ( ( region.IsEmpty )
       ||   ( BeforeCrop == null ) )
@@ -148,12 +185,17 @@ namespace RetroDevStudio.Controls
 
       var entry = new Entry()
       {
-        Region      = region,
-        Before      = BeforeCrop,
-        After       = CurrentImage.Clone( region, CurrentImage.PixelFormat ),
-        Description = Description,
-        Bytes       = (long)region.Width * region.Height * 4 * 2,
-        Sequence    = s_NextSequence++
+        Region          = region,
+        Before          = BeforeCrop,
+        After           = CurrentImage.Clone( region, CurrentImage.PixelFormat ),
+        ObjectsBefore   = ObjectsBefore,
+        ObjectsAfter    = ObjectsAfter,
+        SelectionBefore = SelectionBefore,
+        SelectionAfter  = SelectionAfter,
+        Description     = Description,
+        Bytes         = (long)region.Width * region.Height * 4 * 2
+                      + ObjectPayloadBytes( ObjectsBefore ) + ObjectPayloadBytes( ObjectsAfter ),
+        Sequence      = s_NextSequence++
       };
       m_UndoEntries.Add( entry );
       s_TotalBytes += entry.Bytes;
@@ -167,9 +209,14 @@ namespace RetroDevStudio.Controls
     /// Records a size-changing operation. Ownership of BOTH bitmaps
     /// transfers to the stack — hand over the pre-operation image itself
     /// (the editor is swapping it out anyway) and a clone of the result.
+    /// Optional object payload: crop/extend/paste-replace/delete-picture
+    /// restore image AND objects in one undo step.
     /// </summary>
-    public void PushImageReplace( Bitmap BeforeFullImage, Bitmap AfterFullImage, string Description )
+    public void PushImageReplace( Bitmap BeforeFullImage, Bitmap AfterFullImage, string Description,
+                                  List<OutlineTextObject> ObjectsBefore = null,
+                                  List<OutlineTextObject> ObjectsAfter = null )
     {
+      NormalizeObjectPayload( ref ObjectsBefore, ref ObjectsAfter );
       if ( ( BeforeFullImage == null )
       ||   ( AfterFullImage == null ) )
       {
@@ -183,15 +230,84 @@ namespace RetroDevStudio.Controls
         Before         = BeforeFullImage,
         After          = AfterFullImage,
         IsImageReplace = true,
+        ObjectsBefore  = ObjectsBefore,
+        ObjectsAfter   = ObjectsAfter,
         Description    = Description,
         Bytes          = (long)BeforeFullImage.Width * BeforeFullImage.Height * 4
-                       + (long)AfterFullImage.Width * AfterFullImage.Height * 4,
+                       + (long)AfterFullImage.Width * AfterFullImage.Height * 4
+                       + ObjectPayloadBytes( ObjectsBefore ) + ObjectPayloadBytes( ObjectsAfter ),
         Sequence       = s_NextSequence++
       };
       m_UndoEntries.Add( entry );
       s_TotalBytes += entry.Bytes;
       ClearRedo();
       EnforceGlobalBudget();
+    }
+
+
+
+    /// <summary>
+    /// Records an object-ONLY mutation (text add/edit/move/delete/restyle) —
+    /// no pixels change. Region is the union of the affected bounds ∩ image,
+    /// used for invalidation on apply; an empty region is allowed. Both lists
+    /// must be deep copies; ownership transfers to the stack.
+    /// </summary>
+    public void PushObjectChange( Rectangle Region,
+                                  List<OutlineTextObject> ObjectsBefore,
+                                  List<OutlineTextObject> ObjectsAfter, string Description )
+    {
+      if ( ( ObjectsBefore == null )
+      ||   ( ObjectsAfter == null ) )
+      {
+        return;
+      }
+      var entry = new Entry()
+      {
+        Region        = Region,
+        ObjectsBefore = ObjectsBefore,
+        ObjectsAfter  = ObjectsAfter,
+        Description   = Description,
+        Bytes         = ObjectPayloadBytes( ObjectsBefore ) + ObjectPayloadBytes( ObjectsAfter ),
+        Sequence      = s_NextSequence++
+      };
+      m_UndoEntries.Add( entry );
+      s_TotalBytes += entry.Bytes;
+      ClearRedo();
+      EnforceGlobalBudget();
+    }
+
+
+
+    /// <summary>Both-or-neither: a half payload is normalized to none.</summary>
+    private static void NormalizeObjectPayload( ref List<OutlineTextObject> Before,
+                                                ref List<OutlineTextObject> After )
+    {
+      if ( ( Before == null )
+      !=   ( After == null ) )
+      {
+        Before = null;
+        After = null;
+      }
+    }
+
+
+
+    /// <summary>
+    /// Honest (if approximate) heap cost of an object snapshot — proportional
+    /// to text length so a pasted novel can't hide from the byte budget.
+    /// </summary>
+    private static long ObjectPayloadBytes( List<OutlineTextObject> Objects )
+    {
+      if ( Objects == null )
+      {
+        return 0;
+      }
+      long bytes = 64;
+      foreach ( var obj in Objects )
+      {
+        bytes += 96 + 2L * ( obj.Text != null ? obj.Text.Length : 0 );
+      }
+      return bytes;
     }
 
 
@@ -206,19 +322,7 @@ namespace RetroDevStudio.Controls
       var entry = m_UndoEntries[m_UndoEntries.Count - 1];
       m_UndoEntries.RemoveAt( m_UndoEntries.Count - 1 );
       m_RedoEntries.Add( entry );
-      if ( entry.IsImageReplace )
-      {
-        return new OutlineUndoResult()
-        {
-          Region = new Rectangle( 0, 0, entry.Before.Width, entry.Before.Height ),
-          ReplacementImage = (Bitmap)entry.Before.Clone()
-        };
-      }
-      BlitRegion( TargetImage, entry.Before, entry.Region );
-      return new OutlineUndoResult()
-      {
-        Region = entry.Region
-      };
+      return ApplyEntry( entry, TargetImage, entry.Before, entry.ObjectsBefore, entry.SelectionBefore );
     }
 
 
@@ -232,19 +336,50 @@ namespace RetroDevStudio.Controls
       var entry = m_RedoEntries[m_RedoEntries.Count - 1];
       m_RedoEntries.RemoveAt( m_RedoEntries.Count - 1 );
       m_UndoEntries.Add( entry );
-      if ( entry.IsImageReplace )
+      return ApplyEntry( entry, TargetImage, entry.After, entry.ObjectsAfter, entry.SelectionAfter );
+    }
+
+
+
+    /// <summary>
+    /// Shared apply for both directions: PixelSide/ObjectSide are the entry's
+    /// respective snapshots for the travel direction. Object snapshots return
+    /// as DEEP COPIES so the stack's stored state can never alias the live
+    /// list the editor mutates next (redo correctness).
+    /// </summary>
+    private static OutlineUndoResult ApplyEntry( Entry Applied, Bitmap TargetImage,
+                                                 Bitmap PixelSide, List<OutlineTextObject> ObjectSide,
+                                                 Rectangle? SelectionSide )
+    {
+      var result = new OutlineUndoResult()
       {
-        return new OutlineUndoResult()
-        {
-          Region = new Rectangle( 0, 0, entry.After.Width, entry.After.Height ),
-          ReplacementImage = (Bitmap)entry.After.Clone()
-        };
-      }
-      BlitRegion( TargetImage, entry.After, entry.Region );
-      return new OutlineUndoResult()
-      {
-        Region = entry.Region
+        Region = Applied.Region
       };
+      if ( Applied.IsImageReplace )
+      {
+        result.Region = new Rectangle( 0, 0, PixelSide.Width, PixelSide.Height );
+        result.ReplacementImage = (Bitmap)PixelSide.Clone();
+        result.ImageChanged = true;
+      }
+      else if ( PixelSide != null )
+      {
+        BlitRegion( TargetImage, PixelSide, Applied.Region );
+        result.ImageChanged = true;
+      }
+      // else: object-only entry — no pixels touched.
+      if ( Applied.ObjectsBefore != null )
+      {
+        result.ObjectsChanged = true;
+        result.Objects = OutlineTextObject.CloneList( ObjectSide );
+      }
+      // A non-null SelectionBefore marks a move/center entry: re-home the
+      // committed selection on the travel-direction's rect (may be null).
+      if ( Applied.SelectionBefore.HasValue )
+      {
+        result.SelectionChanged = true;
+        result.Selection = SelectionSide;
+      }
+      return result;
     }
 
 
@@ -328,6 +463,9 @@ namespace RetroDevStudio.Controls
         Entry.After.Dispose();
         Entry.After = null;
       }
+      // Object snapshots need no disposal — just release them to the GC.
+      Entry.ObjectsBefore = null;
+      Entry.ObjectsAfter = null;
     }
 
 

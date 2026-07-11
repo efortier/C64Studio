@@ -65,6 +65,9 @@ namespace RetroDevStudio.Formats
       // as a side effect — the user opts each button in from the sidebar.
       public List<int>  PenButtonBindings = new List<int>()
         { (int)OutlinePenButtonAction.None, (int)OutlinePenButtonAction.None };
+      // Text object spacing defaults (extra px between characters / lines).
+      public float      TextCharSpacing = 0f;
+      public float      TextLineSpacing = 0f;
     };
 
     public class Marker
@@ -966,6 +969,11 @@ namespace RetroDevStudio.Formats
         {
           chunkOutlineTools.AppendI32( binding );
         }
+        // Text object spacing defaults — appended AFTER the bindings list
+        // (the list is length-prefixed, so trailing fields read fine; older
+        // readers stop at the bindings and keep the class defaults).
+        chunkOutlineTools.AppendI32( (int)Math.Round( OutlineToolSettings.TextCharSpacing * 10 ) );
+        chunkOutlineTools.AppendI32( (int)Math.Round( OutlineToolSettings.TextLineSpacing * 10 ) );
         projectFile.Append( chunkOutlineTools.ToBuffer() );
       }
 
@@ -1453,6 +1461,15 @@ namespace RetroDevStudio.Formats
                   bindings.Add( chunkReader.ReadInt32() );
                 }
                 tools.PenButtonBindings = bindings;
+              }
+              // Text spacing defaults, appended after the bindings list.
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                tools.TextCharSpacing = Math.Max( -32f, Math.Min( 256f, chunkReader.ReadInt32() / 10.0f ) );
+              }
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                tools.TextLineSpacing = Math.Max( -64f, Math.Min( 256f, chunkReader.ReadInt32() / 10.0f ) );
               }
               OutlineToolSettings = tools;
             }
