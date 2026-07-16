@@ -19,6 +19,7 @@ namespace RetroDevStudio.Undo
     public int                    TileSpacingY = 0;
     public string                 Name = "";
     public string                 ExtraData = "";
+    public bool                   NotExported = false;
 
 
 
@@ -37,6 +38,7 @@ namespace RetroDevStudio.Undo
       TileSpacingX        = Map.TileSpacingX;
       TileSpacingY        = Map.TileSpacingY;
       AlternativeMode     = Map.AlternativeMode;
+      NotExported         = Map.NotExported;
     }
 
 
@@ -70,8 +72,11 @@ namespace RetroDevStudio.Undo
       AffectedMap.TileSpacingX        = TileSpacingX;
       AffectedMap.TileSpacingY        = TileSpacingY;
       AffectedMap.AlternativeMode     = AlternativeMode;
+      AffectedMap.NotExported         = NotExported;
 
       MapEditor.InvalidateCurrentMap();
+      // The dropdown row shows a "(not exported)" suffix — keep it current.
+      MapEditor.RefreshMapListDisplay();
     }
   }
 }

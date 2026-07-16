@@ -44,12 +44,12 @@ namespace RetroDevStudio.Documents
       // PictureEditor_PostPaint overlay tints the map so the user can
       // see which chars block movement (red = tile-driven, orange =
       // override-driven, blue = redundant override).
-      PASSABLE,
-      // Sprites-panel select/move mode (the panel's "Select/Move" toggle acts
-      // as the tool button): clicks select sprite instances (Ctrl+click
-      // multi-select), dragging moves the selection pixel-precise. No tile
-      // painting while active.
-      SPRITE
+      PASSABLE
+      // NOTE: sprite selection is NOT a tool mode. Sprites float above the
+      // map, so a fresh left press that lands on one selects/arms it in
+      // EVERY mode (priority hit-test in HandleMouseOnEditor, before the
+      // tool dispatch); empty-ground presses fall through to the active
+      // tool. Hide sprites (the panel's "Show" checkbox) to click through.
     };
 
 
@@ -571,6 +571,22 @@ namespace RetroDevStudio.Documents
     // Armed one-shot placement (the panel's Place button): the AnimationID the
     // next map click will place. Null = not armed.
     private int?                        m_PendingSpritePlacementAnimID = null;
+    // Armed sprite paste (Ctrl+V with a sprite payload): the copied group as
+    // pixel offsets RELATIVE to its bounding-box top-left + animation ids,
+    // placed as a formation on the next click. Mirrors m_FloatingMarkers —
+    // and like it deliberately SURVIVES map switches so the user can copy on
+    // one map and paste onto another.
+    private class FloatingSpritePaste
+    {
+      public int      RelPxX = 0;
+      public int      RelPxY = 0;
+      public int      AnimationID = 0;
+    }
+    private List<FloatingSpritePaste>   m_FloatingSprites = null;
+    // Last ghost anchor in ABSOLUTE map pixels (-1,-1 = pointer not seen);
+    // pixel-granular because the drop is pixel-precise, unlike the cell-
+    // granular marker ghost.
+    private System.Drawing.Point        m_FloatingSpritesLastPos = new System.Drawing.Point( -1, -1 );
     // Sprite mouse-drag state, mirroring the marker drag fields above: press
     // arms m_PressedSprite; the drag begins when the cursor moves a pixel.
     private MapSpriteInstance           m_PressedSprite = null;
@@ -1426,6 +1442,20 @@ namespace RetroDevStudio.Documents
         switch ( Function )
         {
           case Function.COPY:
+            // Sprite selection first — it is ambient (priority hit-test, no
+            // tool mode), so a non-empty selection means the last thing
+            // clicked was a sprite. Same precedence rule as the Delete key.
+            // Map-tab gated: a selection lingering while another tab is
+            // active must not hijack that tab's copy.
+            if ( ( m_SelectedSprites.Count > 0 )
+            &&   ( tabMapEditor.SelectedPage == tabEditor ) )
+            {
+              if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
+              {
+                CopySelectedSprites();
+                return true;
+              }
+            }
             if ( m_ToolMode == ToolMode.SELECT )
             {
               if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
@@ -1460,8 +1490,16 @@ namespace RetroDevStudio.Documents
             if ( ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
             ||   ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabTiles, FocusSupport.FocusControlReason.COPY_PASTE ) ) )
             {
-              // A marker payload in MARKER mode arms the click-to-place
-              // marker paste; anything else falls through to the tile paste.
+              // A sprite payload arms the click-to-place sprite paste in any
+              // tool mode (sprite selection is ambient) — Map tab only. A
+              // marker payload in MARKER mode arms the marker paste; anything
+              // else falls through to the tile paste.
+              if ( ( tabMapEditor.SelectedPage == tabEditor )
+              &&   ( ClipboardContainsSpritePayload() ) )
+              {
+                PasteSpritesFromClipboard();
+                return true;
+              }
               if ( ( m_ToolMode == ToolMode.MARKER )
               &&   ( ClipboardContainsMarkerPayload() ) )
               {
@@ -1494,6 +1532,7 @@ namespace RetroDevStudio.Documents
         }
         return ( ( characterEditor.EditorFocused )
         ||       ( ( ( m_ToolMode == ToolMode.SELECT )
+        ||           ( m_SelectedSprites.Count > 0 )
         ||           ( ( m_ToolMode == ToolMode.MARKER )
         &&             ( m_SelectedMarkers.Count > 0 ) ) )
         &&         ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) ) ) );
@@ -1898,10 +1937,11 @@ namespace RetroDevStudio.Documents
         };
         // No border at all while a sprite drag is in flight — the box
         // would just chase the sprite and add noise; it returns on drop
-        // (the mouse-up cleanup invalidates).
+        // (the mouse-up cleanup invalidates). Not gated on a tool mode:
+        // sprite selection is ambient (priority hit-test), so the border
+        // shows whichever tool is active.
         if ( ( m_SelectedSprites.Count > 0 )
         &&   ( m_SpriteDragOrigins == null )
-        &&   ( m_ToolMode == ToolMode.SPRITE )
         &&   ( m_MapSpriteProject != null ) )
         {
           var currentInstances = CurrentMapSpriteInstances( false );
@@ -2133,6 +2173,50 @@ namespace RetroDevStudio.Documents
           int pTargetH  = Math.Max( 1, pTargetY2 - pTargetY + 1 );
 
           TargetBuffer.Rectangle( pTargetX, pTargetY, pTargetW, pTargetH, pasteColor );
+        }
+      }
+
+      // Sprite-paste preview — while a sprite paste is armed (Ctrl+V with a
+      // sprite payload), outline every pending sprite's bounding box at its
+      // would-be position anchored to the cursor's absolute PIXEL (the drop
+      // is pixel-precise, unlike the cell-anchored marker paste above).
+      if ( ( m_CurrentMap != null )
+      &&   ( m_FloatingSprites != null )
+      &&   ( m_FloatingSpritesLastPos.X >= 0 ) )
+      {
+        uint spritePasteColor = Core.Settings.FGColor( ColorableElement.SELECTION_FRAME );
+        int ghostScrollPxX = m_CurEditorOffsetX * m_CurrentMap.TileSpacingX * 8;
+        int ghostScrollPxY = m_CurEditorOffsetY * m_CurrentMap.TileSpacingY * 8;
+        foreach ( var floatingSprite in m_FloatingSprites )
+        {
+          if ( !m_SpriteAnimLookup.TryGetValue( floatingSprite.AnimationID, out var ghostOverlay ) )
+          {
+            continue;
+          }
+          var ghostBB = OverlayBoundingBox( ghostOverlay );
+          if ( ghostBB.IsEmpty )
+          {
+            continue;
+          }
+          int gSourceX  = renderOffsetX + m_FloatingSpritesLastPos.X + floatingSprite.RelPxX - ghostScrollPxX;
+          int gSourceY  = renderOffsetY + m_FloatingSpritesLastPos.Y + floatingSprite.RelPxY - ghostScrollPxY;
+          int gSourceX2 = gSourceX + ghostBB.Width;
+          int gSourceY2 = gSourceY + ghostBB.Height;
+          if ( ( gSourceX2 <= 0 )
+          ||   ( gSourceY2 <= 0 )
+          ||   ( gSourceX >= sourceWidth )
+          ||   ( gSourceY >= sourceHeight ) )
+          {
+            continue;
+          }
+          int gTargetX  = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( gSourceX,  sourceWidth,  targetWidth  ) ) );
+          int gTargetY  = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( gSourceY,  sourceHeight, targetHeight ) ) );
+          int gTargetX2 = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( gSourceX2, sourceWidth,  targetWidth  ) - 1 ) );
+          int gTargetY2 = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( gSourceY2, sourceHeight, targetHeight ) - 1 ) );
+          int gTargetW  = Math.Max( 1, gTargetX2 - gTargetX + 1 );
+          int gTargetH  = Math.Max( 1, gTargetY2 - gTargetY + 1 );
+
+          TargetBuffer.Rectangle( gTargetX, gTargetY, gTargetW, gTargetH, spritePasteColor );
         }
       }
 
@@ -2754,6 +2838,52 @@ namespace RetroDevStudio.Documents
     {
       if ( e.Button != MouseButtons.Left )
       {
+        return;
+      }
+      // Armed one-shot placements commit on the RELEASE, not the press: a
+      // down-commit cleared the armed state while the button stayed held, and
+      // the residual hold fell through to the active tool — moving a pixel
+      // right after the paste-click painted a tile under the fresh paste.
+      // Position parity with the old down-commit: negative absolute positions
+      // (the centering gap left/above the origin) don't commit and keep the
+      // arm, exactly like the down-path's gate used to refuse them.
+      if ( m_FloatingSprites != null )
+      {
+        if ( ( TryClientToAbsoluteMapPixel( e.X, e.Y, out int pastePxX, out int pastePxY ) )
+        &&   ( pastePxX >= 0 )
+        &&   ( pastePxY >= 0 ) )
+        {
+          InsertFloatingSprites( pastePxX, pastePxY );
+        }
+        return;
+      }
+      if ( m_PendingSpritePlacementAnimID.HasValue )
+      {
+        if ( ( TryClientToAbsoluteMapPixel( e.X, e.Y, out int placePxX, out int placePxY ) )
+        &&   ( placePxX >= 0 )
+        &&   ( placePxY >= 0 ) )
+        {
+          PlaceArmedSprite( FloorDiv( placePxX, 8 ), FloorDiv( placePxY, 8 ) );
+        }
+        return;
+      }
+      if ( m_FloatingSelection != null )
+      {
+        // The tile paste writes at m_MousePos (kept current by every mouse
+        // event, swallowed or not) — commit only when the release lands on a
+        // map cell, matching the down-path's old in-bounds gate.
+        if ( TryClientToAbsoluteMapPixel( e.X, e.Y, out int tilePxX, out int tilePxY ) )
+        {
+          int cellX = FloorDiv( FloorDiv( tilePxX, 8 ), m_CurrentMap.TileSpacingX );
+          int cellY = FloorDiv( FloorDiv( tilePxY, 8 ), m_CurrentMap.TileSpacingY );
+          if ( ( cellX >= 0 )
+          &&   ( cellY >= 0 )
+          &&   ( cellX < m_CurrentMap.Tiles.Width )
+          &&   ( cellY < m_CurrentMap.Tiles.Height ) )
+          {
+            InsertFloatingSelection();
+          }
+        }
         return;
       }
       // A left press + release with no drag in between is a click — select
@@ -3714,6 +3844,39 @@ namespace RetroDevStudio.Documents
 
 
 
+    /// <summary>
+    /// Client-pixel → absolute map PIXEL position (8 px char space, scroll
+    /// included) — the same conversion HandleMouseOnEditor applies. False
+    /// when there is no map/display to convert against. Used by the
+    /// mouse-UP commits of the armed one-shot placements, which fire from
+    /// pictureEditor_MouseUp where none of the handler's locals exist.
+    /// </summary>
+    private bool TryClientToAbsoluteMapPixel( int ClientX, int ClientY, out int AbsPxX, out int AbsPxY )
+    {
+      AbsPxX = 0;
+      AbsPxY = 0;
+      if ( ( m_CurrentMap == null )
+      ||   ( pictureEditor.ClientRectangle.Width <= 0 )
+      ||   ( pictureEditor.ClientRectangle.Height <= 0 )
+      ||   ( pictureEditor.DisplayPage.Width == 0 )
+      ||   ( pictureEditor.DisplayPage.Height == 0 ) )
+      {
+        return false;
+      }
+      float scaleX = pictureEditor.DisplayPage.Width / (float)pictureEditor.ClientRectangle.Width;
+      float scaleY = pictureEditor.DisplayPage.Height / (float)pictureEditor.ClientRectangle.Height;
+      int sourceX = (int)Math.Floor( ClientX * scaleX );
+      int sourceY = (int)Math.Floor( ClientY * scaleY );
+      GetMapRenderOffsets( out int renderOffsetX, out int renderOffsetY );
+      sourceX -= renderOffsetX;
+      sourceY -= renderOffsetY;
+      AbsPxX = sourceX + m_CurEditorOffsetX * m_CurrentMap.TileSpacingX * 8;
+      AbsPxY = sourceY + m_CurEditorOffsetY * m_CurrentMap.TileSpacingY * 8;
+      return true;
+    }
+
+
+
     private void HandleMouseOnEditor( int X, int Y, MouseButtons Buttons )
     {
       if ( m_CurrentMap == null )
@@ -3773,6 +3936,20 @@ namespace RetroDevStudio.Documents
           pictureEditor.Invalidate();
         }
       }
+      // The armed sprite-paste preview is PIXEL-anchored (the drop is
+      // pixel-precise) — redraw per moved pixel, same cost as a sprite drag.
+      if ( m_FloatingSprites != null )
+      {
+        var spritePastePos = new System.Drawing.Point(
+          sourceX + m_CurEditorOffsetX * m_CurrentMap.TileSpacingX * 8,
+          sourceY + m_CurEditorOffsetY * m_CurrentMap.TileSpacingY * 8 );
+        if ( spritePastePos != m_FloatingSpritesLastPos )
+        {
+          m_FloatingSpritesLastPos = spritePastePos;
+          Redraw();
+          pictureEditor.Invalidate();
+        }
+      }
 
       int offsetX = m_CurEditorOffsetX;
       int offsetY = m_CurEditorOffsetY;
@@ -3790,13 +3967,13 @@ namespace RetroDevStudio.Documents
       int trueX = FloorDiv( charX, m_CurrentMap.TileSpacingX );
       int trueY = FloorDiv( charY, m_CurrentMap.TileSpacingY );
 
-      // Absolute map position in PIXELS / CHARACTER cells — the sprite panel's
-      // coordinate space (8 px char cells, independent of tile spacing; the
-      // scroll offset is in TILES, hence the spacing factor).
+      // Absolute map position in PIXELS — the sprite panel's coordinate space
+      // (8 px char cells, independent of tile spacing; the scroll offset is
+      // in TILES, hence the spacing factor). The armed one-shot placements
+      // convert client coords themselves at commit time (mouse UP) via
+      // TryClientToAbsoluteMapPixel — keep both in sync.
       int absPxX = sourceX + offsetX * m_CurrentMap.TileSpacingX * 8;
       int absPxY = sourceY + offsetY * m_CurrentMap.TileSpacingY * 8;
-      int absCharX = FloorDiv( absPxX, 8 );
-      int absCharY = FloorDiv( absPxY, 8 );
 
       if ( ( trueX + offsetX < 0 )
       ||   ( trueX + offsetX >= m_CurrentMap.Tiles.Width )
@@ -3804,12 +3981,16 @@ namespace RetroDevStudio.Documents
       ||   ( trueY + offsetY >= m_CurrentMap.Tiles.Height ) )
       {
         // Marker tool can place off-map (for global/non-level markers), so let
-        // the click through — likewise the sprite tool / an armed sprite
-        // placement (char-addressed, and a drag must not freeze at the map
-        // edge). Tile-editing tools still require an in-bounds click.
+        // the click through — likewise an armed sprite placement, an in-flight
+        // sprite press/drag (char-addressed 0..255, so a drag must not freeze
+        // at the map edge), and any event over an off-map sprite (the priority
+        // hit-test below must be reachable to select it). Tile-editing tools
+        // still require an in-bounds click.
         if ( ( m_ToolMode != ToolMode.MARKER )
-        &&   ( m_ToolMode != ToolMode.SPRITE )
-        &&   ( !m_PendingSpritePlacementAnimID.HasValue ) )
+        &&   ( !m_PendingSpritePlacementAnimID.HasValue )
+        &&   ( m_FloatingSprites == null )
+        &&   ( m_PressedSprite == null )
+        &&   ( HitTestSprite( absPxX, absPxY ) == null ) )
         {
           return;
         }
@@ -4306,13 +4487,18 @@ namespace RetroDevStudio.Documents
         // An armed sprite placement (the Sprites panel's Place button) takes
         // the next click as the sprite's char-cell anchor — checked before the
         // other floating states so one click can only do one thing.
+        // The armed sprite placement/paste (and the tile paste below) commit
+        // on the mouse UP — pictureEditor_MouseUp — NOT here on the press: a
+        // down-commit cleared the armed state while the button stayed held,
+        // and the residual hold fell through to the active tool on the very
+        // next moved pixel (painting a tile right under the fresh paste).
+        // While armed, the whole press/hold is swallowed.
         if ( m_PendingSpritePlacementAnimID.HasValue )
         {
-          if ( m_MouseButtonReleased )
-          {
-            PlaceArmedSprite( absCharX, absCharY );
-            m_MouseButtonReleased = false;
-          }
+          return;
+        }
+        if ( m_FloatingSprites != null )
+        {
           return;
         }
 
@@ -4332,12 +4518,40 @@ namespace RetroDevStudio.Documents
 
         if ( m_FloatingSelection != null )
         {
-          if ( m_MouseButtonReleased )
-          {
-            InsertFloatingSelection();
-            m_MouseButtonReleased = false;
-          }
+          // Commit on mouse UP too — same residual-hold hazard as the sprite
+          // paste above (a tile paste in a painting mode left the held button
+          // to the brush).
           return;
+        }
+
+        // Sprite priority selection: sprites float ABOVE the map, so a fresh
+        // left press that lands on one selects/arms it in EVERY tool mode
+        // (there is no sprite tool mode — the old Select/Move button is gone).
+        // The armed press behaves exactly as before: a plain release selects
+        // (pictureEditor_MouseUp, honoring the press-time Ctrl snapshot for
+        // multi-select), moving a pixel starts the pixel-precise drag (the
+        // m_PressedSprite block above). A press on empty ground drops the
+        // sprite selection and FALLS THROUGH so the same click still does its
+        // normal tool action (Ctrl+click is an additive gesture that landed
+        // on nothing — keep the selection). To click THROUGH sprites — paint
+        // or place under one — hide them via the panel's "Show" checkbox
+        // (HitTestSprite ignores hidden sprites).
+        if ( m_MouseButtonReleased )
+        {
+          var pressedSprite = HitTestSprite( absPxX, absPxY );
+          if ( pressedSprite != null )
+          {
+            m_MouseButtonReleased = false;
+            m_PressedSprite = pressedSprite;
+            m_PressedSpriteWithCtrl = ( ( ModifierKeys & Keys.Control ) == Keys.Control );
+            m_SpriteDragStartPx = new System.Drawing.Point( absPxX, absPxY );
+            return;
+          }
+          if ( ( m_SelectedSprites.Count > 0 )
+          &&   ( ( ModifierKeys & Keys.Control ) != Keys.Control ) )
+          {
+            SelectSprite( null );
+          }
         }
 
         // Ctrl+left-click (without Shift) writes the placement-override
@@ -4348,14 +4562,14 @@ namespace RetroDevStudio.Documents
         // Ctrl+drag colours multiple chars under one undo entry,
         // mirroring the existing Shift-blank-click drag pattern. Falls
         // through to tool-mode handling only when Ctrl isn't held.
-        // NOT in MARKER or SPRITE mode — there, Ctrl+left-click is
-        // multi-select (markers / sprite instances) and must never paint
-        // char colours.
+        // NOT in MARKER mode — there, Ctrl+left-click is marker
+        // multi-select and must never paint char colours. (Ctrl+click on
+        // a SPRITE never reaches here — the priority block above consumed
+        // it as a selection toggle.)
         bool ctrlPaintColor = ( ( Control.ModifierKeys & Keys.Control ) == Keys.Control )
                            && ( ( Control.ModifierKeys & Keys.Shift ) != Keys.Shift )
                            && ( m_TilePlacementColorOverride >= 0 )
                            && ( m_ToolMode != ToolMode.MARKER )
-                           && ( m_ToolMode != ToolMode.SPRITE )
                            && ( m_CurrentMap != null );
         if ( ctrlPaintColor )
         {
@@ -4750,32 +4964,6 @@ namespace RetroDevStudio.Documents
              }
              break;
 
-          case ToolMode.SPRITE:
-             if ( m_MouseButtonReleased )
-             {
-               m_MouseButtonReleased = false;
-
-               // Left-press on a sprite arms it: a plain release selects it
-               // (pictureEditor_MouseUp, honoring the press-time Ctrl
-               // snapshot), moving a pixel starts the drag (see the sprite
-               // drag block above). Nothing happens on the press itself.
-               var pressedSprite = HitTestSprite( absPxX, absPxY );
-               if ( pressedSprite != null )
-               {
-                 m_PressedSprite = pressedSprite;
-                 m_PressedSpriteWithCtrl = ( ( ModifierKeys & Keys.Control ) == Keys.Control );
-                 m_SpriteDragStartPx = new System.Drawing.Point( absPxX, absPxY );
-                 break;
-               }
-               // Empty ground: a plain click clears the selection; Ctrl+click
-               // is an additive gesture that landed on nothing — keep it.
-               if ( ( ModifierKeys & Keys.Control ) != Keys.Control )
-               {
-                 SelectSprite( null );
-               }
-             }
-             break;
-
           case ToolMode.ENTITY:
              if ( m_MouseButtonReleased )
              {
@@ -5025,11 +5213,12 @@ namespace RetroDevStudio.Documents
           Redraw();
           return;
         }
-        if ( m_PendingSpritePlacementAnimID.HasValue )
+        if ( ( m_PendingSpritePlacementAnimID.HasValue )
+        ||   ( m_FloatingSprites != null ) )
         {
-          // An armed sprite placement owns the mouse — a right-click must
-          // not eyedrop or paint the tile underneath the placement cursor.
-          // Deliberately empty (Escape cancels the placement).
+          // An armed sprite placement/paste owns the mouse — a right-click
+          // must not eyedrop or paint the tile underneath the cursor.
+          // Deliberately empty (Escape cancels the arm).
         }
         else if ( m_ToolMode == ToolMode.ENTITY )
         {
@@ -5063,12 +5252,6 @@ namespace RetroDevStudio.Documents
            // Right-click does nothing in MARKER mode — marker selection is
            // left-click only. The branch is kept (empty) so a right-click
            // here doesn't fall through to the tile-eyedrop action below.
-        }
-        else if ( m_ToolMode == ToolMode.SPRITE )
-        {
-           // Same fall-through stop for SPRITE mode — sprite selection is
-           // left-click only; without this an innocent right-click would
-           // eyedrop or even PAINT the tile under the cursor.
         }
         else if ( string.IsNullOrEmpty( m_MapProject.RightClickAction ) )
         {
@@ -5969,6 +6152,8 @@ namespace RetroDevStudio.Documents
       m_MapSpriteProject = null;
       m_SpriteAnimLookup.Clear();
       m_PendingSpritePlacementAnimID = null;
+      m_FloatingSprites = null;
+      m_FloatingSpritesLastPos = new System.Drawing.Point( -1, -1 );
     }
 
 
@@ -7202,6 +7387,7 @@ namespace RetroDevStudio.Documents
         // Only one armed click-consumer at a time (see the marker paste for
         // the same rule in the other directions).
         RemoveFloatingMarkers();
+        RemoveFloatingSprites();
         CancelPendingSpritePlacement();
         System.IO.MemoryStream ms = (System.IO.MemoryStream)dataObj.GetData( "RetroDevStudio.MapEditorSelection" );
 
@@ -7638,6 +7824,7 @@ namespace RetroDevStudio.Documents
       // Only one armed click-consumer at a time — the commit click couldn't
       // disambiguate several.
       RemoveFloatingSelection();
+      RemoveFloatingSprites();
       CancelPendingSpritePlacement();
 
       m_FloatingMarkers          = floating;
@@ -9616,6 +9803,8 @@ namespace RetroDevStudio.Documents
       comboMapBGColor.SelectedIndex = m_CurrentMap.AlternativeBackgroundColor + 1;
   comboMapAlternativeBGColor4.SelectedIndex = m_CurrentMap.AlternativeBGColor4 + 1;
   comboMapAlternativeMode.SelectedIndex = (int)m_CurrentMap.AlternativeMode + 1;
+  // Value-equality guard in the handler keeps this populate clean.
+  checkMapNotExported.Checked = m_CurrentMap.NotExported;
   
   dimSlider.Value = m_CurrentMap.MarkerDimOpacity;
   if ( m_MapProject.MarkerTypes.Count > 0 )
@@ -10322,7 +10511,8 @@ namespace RetroDevStudio.Documents
     private string FormatMapDisplayName( int Index, Formats.MapProject.Map Map )
     {
       string prefix = ( ( m_MapProject != null ) && ( Index == m_MapProject.StartMapIndex ) ) ? "★ " : "";
-      return prefix + Index.ToString() + ": " + Map.Name;
+      string suffix = Map.NotExported ? " (not exported)" : "";
+      return prefix + Index.ToString() + ": " + Map.Name + suffix;
     }
 
 
@@ -10342,6 +10532,29 @@ namespace RetroDevStudio.Documents
         // Force the combo to repaint the changed row.
         comboMaps.Items[i] = comboMaps.Items[i];
       }
+    }
+
+
+
+    /// <summary>
+    /// "Map not exported": excludes the current map from every all-maps
+    /// export (game binary, assembly, raw buffer). Persisted per map — a
+    /// REAL toggle marks the document modified; the value-equality guard
+    /// keeps the map-switch populate clean (same pattern as the
+    /// alternative-color combos). Undoable via UndoMapValueChange.
+    /// </summary>
+    private void checkMapNotExported_CheckedChanged( object sender, EventArgs e )
+    {
+      if ( ( m_CurrentMap == null )
+      ||   ( m_CurrentMap.NotExported == checkMapNotExported.Checked ) )
+      {
+        return;
+      }
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapValueChange( this, m_CurrentMap ) );
+      m_CurrentMap.NotExported = checkMapNotExported.Checked;
+      // The dropdown row carries a "(not exported)" suffix.
+      RefreshMapListDisplay();
+      SetModified();
     }
 
 
@@ -12194,7 +12407,7 @@ namespace RetroDevStudio.Documents
           btnToolEdit, btnToolRect, btnToolQuad, btnToolFill,
           btnToolColorReplace, btnToolEraseColor,
           btnToolSelect, btnToolMarker, btnToolEntity,
-          btnToolPassable, btnSpriteSelectMove,
+          btnToolPassable,
         };
         bool needFocusMove = false;
         foreach ( var b in buttons )
@@ -12279,8 +12492,9 @@ namespace RetroDevStudio.Documents
       // An armed marker paste is likewise a MARKER-mode concept — cancel it
       // (the clipboard and any pending cut survive; Ctrl+V re-arms).
       RemoveFloatingMarkers();
-      // Same for the Sprites panel's armed placement and selection.
+      // Same for the Sprites panel's armed placement/paste and selection.
       CancelPendingSpritePlacement();
+      RemoveFloatingSprites();
       ClearSpriteSelection();
       ClearMarkerEntitySelection();
       UpdateMarkerControlsState();
@@ -13196,6 +13410,14 @@ namespace RetroDevStudio.Documents
       using ( var mapImage = new GR.Image.FastImage( mapPixelW, mapPixelH, GR.Drawing.PixelFormat.Format32bppRgb ) )
       {
         RenderFullMapToImage( mapImage );
+        // Entities follow the editor's Show Entities checkbox, same rule as
+        // the sprites below — drawn above all tile layers (editor order),
+        // under the sprites the view composites live.
+        if ( ( checkShowEntities != null )
+        &&   ( checkShowEntities.Checked ) )
+        {
+          DrawEntitiesToImage( mapImage );
+        }
 
         uint bgColorIndex = (uint)m_MapProject.BackgroundColor;
         if ( m_CurrentMap.AlternativeBackgroundColor != -1 )
@@ -13282,7 +13504,9 @@ namespace RetroDevStudio.Documents
     /// multi-cell tile coverage) into the given image at 1:1 source pixels —
     /// the same merged view the editor shows. No grid, markers, entities or
     /// other editor chrome. Shared by "copy map as image" and the fullscreen
-    /// preview. The image must already be sized to
+    /// preview — the fullscreen additionally layers entities on top via
+    /// DrawEntitiesToImage (gated on Show Entities); the clipboard copy
+    /// deliberately stays raster-only. The image must already be sized to
     /// TileSpacing * Tiles.Width/Height * 8 and be 32bpp.
     /// </summary>
     private void RenderFullMapToImage( GR.Image.IImage fullImage )
@@ -13410,6 +13634,59 @@ namespace RetroDevStudio.Documents
                 }
               }
             }
+          }
+        }
+      }
+    }
+
+
+
+    /// <summary>
+    /// Draws every entity's tile (full multi-cell footprint) at its map cell
+    /// into a full-map image produced by RenderFullMapToImage — the same
+    /// overlay the editor's RedrawMap paints above the tile layers, minus the
+    /// editor-only concerns (scroll offsets, fog-of-war, ENTITY-mode dim).
+    /// The fullscreen preview calls this when Show Entities is checked.
+    /// </summary>
+    private void DrawEntitiesToImage( GR.Image.IImage fullImage )
+    {
+      if ( m_CurrentMap == null )
+      {
+        return;
+      }
+      var alternativeSettings = new Types.AlternativeColorSettings()
+      {
+        BackgroundColor = ( m_CurrentMap.AlternativeBackgroundColor != -1 ) ? m_CurrentMap.AlternativeBackgroundColor : m_MapProject.BackgroundColor,
+        MultiColor1     = ( m_CurrentMap.AlternativeMultiColor1 != -1 ) ? m_CurrentMap.AlternativeMultiColor1 : m_MapProject.MultiColor1,
+        MultiColor2     = ( m_CurrentMap.AlternativeMultiColor2 != -1 ) ? m_CurrentMap.AlternativeMultiColor2 : m_MapProject.MultiColor2,
+        BGColor4        = ( m_CurrentMap.AlternativeBGColor4 != -1 ) ? m_CurrentMap.AlternativeBGColor4 : m_MapProject.BGColor4,
+        CharMode        = ( m_CurrentMap.AlternativeMode != TextCharMode.UNKNOWN ) ? m_CurrentMap.AlternativeMode : Lookup.TextCharModeFromTextMode( m_MapProject.Mode )
+      };
+
+      foreach ( var entity in m_CurrentMap.Entities )
+      {
+        var type = m_MapProject.EntityTypes.FirstOrDefault( t => t.ID == entity.Type );
+        if ( type == null )
+        {
+          continue;
+        }
+        if ( ( type.TileIndex < 0 )
+        ||   ( type.TileIndex >= m_MapProject.Tiles.Count ) )
+        {
+          continue;
+        }
+        var tile = m_MapProject.Tiles[type.TileIndex];
+        for ( int j = 0; j < tile.Chars.Height; ++j )
+        {
+          for ( int i = 0; i < tile.Chars.Width; ++i )
+          {
+            alternativeSettings.CustomColor = tile.Chars[i, j].Color;
+            Displayer.CharacterDisplayer.DisplayChar( m_MapProject.Charset,
+                                                      tile.Chars[i, j].Character,
+                                                      fullImage,
+                                                      ( entity.X * m_CurrentMap.TileSpacingX + i ) * 8,
+                                                      ( entity.Y * m_CurrentMap.TileSpacingY + j ) * 8,
+                                                      alternativeSettings );
           }
         }
       }
@@ -14039,6 +14316,10 @@ namespace RetroDevStudio.Documents
         {
           return true;
         }
+        if ( RemoveFloatingSprites() )
+        {
+          return true;
+        }
         if ( RemoveFloatingMarkers() )
         {
           return true;
@@ -14050,7 +14331,7 @@ namespace RetroDevStudio.Documents
           ClearMarkerEntitySelection();
           return true;
         }
-        // Likewise a sprite selection (SPRITE tool).
+        // Likewise a sprite selection (ambient — any tool mode).
         if ( m_SelectedSprites.Count > 0 )
         {
           ClearSpriteSelection();
@@ -14102,12 +14383,20 @@ namespace RetroDevStudio.Documents
         // is false.
         if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
         {
-          // Order: marker/entity selection first (they take precedence in
-          // their respective tool modes), then fall back to the right-
-          // clicked tile cell. Both helpers reuse the existing toolbar
+          // Order: sprite selection first — sprite selection is ambient
+          // (priority hit-test, no tool mode), so a non-empty selection
+          // means the LAST thing clicked was a sprite; Delete acts on it
+          // in any tool mode. Then marker/entity selection (they take
+          // precedence in their respective tool modes), then the right-
+          // clicked tile cell. The helpers reuse the existing toolbar
           // button click handlers — same confirmation prompt, same undo
           // entry, same redraw. Sender/EventArgs are unused by those
           // handlers so we can pass nulls / Empty.
+          if ( m_SelectedSprites.Count > 0 )
+          {
+            DeleteSelectedSprites();
+            return true;
+          }
           if ( ( m_ToolMode == ToolMode.MARKER )
           &&   ( m_SelectedMarkers.Count > 0 ) )
           {
@@ -14124,12 +14413,6 @@ namespace RetroDevStudio.Documents
           &&   ( HasTileSelection() ) )
           {
             DeleteSelectedRegion();
-            return true;
-          }
-          if ( ( m_ToolMode == ToolMode.SPRITE )
-          &&   ( m_SelectedSprites.Count > 0 ) )
-          {
-            btnSpriteDeleteSelected_Click( null, EventArgs.Empty );
             return true;
           }
           if ( TryDeleteRightClickedTile() )
@@ -15226,6 +15509,7 @@ namespace RetroDevStudio.Documents
       // disambiguate several.
       RemoveFloatingMarkers();
       RemoveFloatingSelection();
+      RemoveFloatingSprites();
       m_PendingSpritePlacementAnimID = overlay.AnimationID & 0xFF;
       pictureEditor.Cursor = Cursors.Cross;
       labelEditInfo.Text = "Click to place sprite - Esc cancels";
@@ -15292,6 +15576,258 @@ namespace RetroDevStudio.Documents
       }
       CurrentMapSpriteInstances( true ).Add( inst );
       labelEditInfo.Text = "";
+      UpdateSpriteAnimTimerState();
+      UpdateSpritePanelControlsState();
+      Redraw();
+      pictureEditor.Invalidate();
+    }
+
+
+
+    // ---- Sprite copy/paste ------------------------------------------------
+    // Mirrors the marker clipboard (relative-to-anchor payload, armed click-
+    // to-place paste that survives map switches) but with NO same-document
+    // token: instead every AnimationID is validated against the DESTINATION's
+    // loaded sprite file at commit time, and unresolvable ones are skipped
+    // with feedback — cross-document paste degrades gracefully instead of
+    // creating invisible (undrawable, unclickable) instances.
+
+    private const string ClipboardFormatMapSprites = "RetroDevStudio.MapEditorSprites";
+
+    // Defense against a malformed/hostile payload claiming a huge count.
+    private const int MaxSpritesPerClipboardPayload = 4096;
+
+
+
+    /// <summary>
+    /// Ctrl+C on a sprite selection: serialize it (in instance order = paste
+    /// z-order) with positions RELATIVE to the group's bounding-box top-left
+    /// pixel, so the paste anchor preserves the exact formation.
+    /// </summary>
+    private void CopySelectedSprites()
+    {
+      var instances = CurrentMapSpriteInstances( false );
+      if ( ( instances == null )
+      ||   ( m_SelectedSprites.Count == 0 ) )
+      {
+        return;
+      }
+      var sprites = instances.Where( s => m_SelectedSprites.Contains( s ) ).ToList();
+      if ( sprites.Count == 0 )
+      {
+        return;
+      }
+
+      int anchorPxX = sprites.Min( s => s.CharX * 8 + s.OffsetX );
+      int anchorPxY = sprites.Min( s => s.CharY * 8 + s.OffsetY );
+
+      var data = new GR.Memory.ByteBuffer();
+      data.AppendU32( 1 );                       // version
+      data.AppendI32( sprites.Count );
+      foreach ( var sprite in sprites )
+      {
+        data.AppendI32( sprite.CharX * 8 + sprite.OffsetX - anchorPxX );
+        data.AppendI32( sprite.CharY * 8 + sprite.OffsetY - anchorPxY );
+        data.AppendI32( sprite.AnimationID );
+      }
+
+      var dataObj = new DataObject();
+      dataObj.SetData( ClipboardFormatMapSprites, false, data.MemoryStream() );
+      Clipboard.SetDataObject( dataObj, true );
+      labelEditInfo.Text = "Copied " + sprites.Count + " sprite(s) - Ctrl+V, then click to place";
+    }
+
+
+
+    private static bool ClipboardContainsSpritePayload()
+    {
+      IDataObject dataObj = Clipboard.GetDataObject();
+      return ( dataObj != null )
+          && ( dataObj.GetDataPresent( ClipboardFormatMapSprites ) );
+    }
+
+
+
+    /// <summary>
+    /// Ctrl+V with a sprite payload on the clipboard: deserialize it and arm
+    /// the "click to place" mode. Like the marker paste, the armed state
+    /// deliberately survives map switches so the user can paste onto another
+    /// map; re-invoking re-arms with the current clipboard content.
+    /// </summary>
+    private void PasteSpritesFromClipboard()
+    {
+      if ( ( m_CurrentMap == null )
+      ||   ( m_IsViewingRevision ) )
+      {
+        return;
+      }
+      if ( !checkShowMapSprites.Checked )
+      {
+        // Pasting invisible (un-clickable) sprites would feel broken — the
+        // instances would exist but give zero feedback.
+        labelEditInfo.Text = "Cannot paste sprites while they are hidden - enable Show first";
+        return;
+      }
+      IDataObject dataObj = Clipboard.GetDataObject();
+      if ( ( dataObj == null )
+      ||   ( !dataObj.GetDataPresent( ClipboardFormatMapSprites ) ) )
+      {
+        return;
+      }
+      System.IO.MemoryStream ms = (System.IO.MemoryStream)dataObj.GetData( ClipboardFormatMapSprites );
+      GR.Memory.ByteBuffer data = new GR.Memory.ByteBuffer( (uint)ms.Length );
+      ms.Read( data.Data(), 0, (int)ms.Length );
+      GR.IO.MemoryReader memIn = data.MemoryReader();
+
+      // Every read is length-guarded — a truncated or foreign payload must
+      // abandon the paste, never throw.
+      if ( memIn.Size - memIn.Position < 4 + 4 )
+      {
+        return;
+      }
+      uint version = memIn.ReadUInt32();
+      int  count   = memIn.ReadInt32();
+      if ( ( version != 1 )
+      ||   ( count <= 0 )
+      ||   ( count > MaxSpritesPerClipboardPayload ) )
+      {
+        return;
+      }
+
+      var floating = new List<FloatingSpritePaste>( count );
+      int unresolvable = 0;
+      for ( int i = 0; i < count; ++i )
+      {
+        if ( memIn.Size - memIn.Position < 4 + 4 + 4 )
+        {
+          return;
+        }
+        var sprite = new FloatingSpritePaste();
+        sprite.RelPxX      = memIn.ReadInt32();
+        sprite.RelPxY      = memIn.ReadInt32();
+        sprite.AnimationID = memIn.ReadInt32();
+        // Relative offsets are >= 0 by construction; negative = malformed.
+        if ( ( sprite.RelPxX < 0 )
+        ||   ( sprite.RelPxY < 0 ) )
+        {
+          return;
+        }
+        // Validate against THIS document's sprite file — a payload copied
+        // from another document (or before a re-browse) may reference
+        // animations that don't exist here.
+        if ( !m_SpriteAnimLookup.ContainsKey( sprite.AnimationID ) )
+        {
+          ++unresolvable;
+          continue;
+        }
+        floating.Add( sprite );
+      }
+      if ( floating.Count == 0 )
+      {
+        labelEditInfo.Text = "Cannot paste - no matching animations in the loaded sprite file";
+        return;
+      }
+
+      // Only one armed click-consumer at a time — the commit click couldn't
+      // disambiguate several.
+      RemoveFloatingMarkers();
+      RemoveFloatingSelection();
+      CancelPendingSpritePlacement();
+
+      m_FloatingSprites        = floating;
+      m_FloatingSpritesLastPos = new System.Drawing.Point( -1, -1 );
+      pictureEditor.Cursor = Cursors.Cross;
+      labelEditInfo.Text = "Click to place " + floating.Count + " sprite(s)"
+        + ( ( unresolvable > 0 ) ? " (" + unresolvable + " skipped - animation not found)" : "" )
+        + " - Esc cancels";
+      Redraw();
+      pictureEditor.Invalidate();
+    }
+
+
+
+    /// <summary>
+    /// Cancel an armed sprite paste (Escape / tool switch / another arm).
+    /// Returns true if one was armed. Leaves the clipboard untouched —
+    /// Ctrl+V re-arms.
+    /// </summary>
+    private bool RemoveFloatingSprites()
+    {
+      if ( m_FloatingSprites == null )
+      {
+        return false;
+      }
+      m_FloatingSprites        = null;
+      m_FloatingSpritesLastPos = new System.Drawing.Point( -1, -1 );
+      pictureEditor.Cursor = Cursors.Default;
+      Redraw();
+      pictureEditor.Invalidate();
+      return true;
+    }
+
+
+
+    /// <summary>
+    /// Commit an armed sprite paste at the clicked absolute map pixel (the
+    /// anchor for the copied group's bounding-box top-left; the formation is
+    /// preserved exactly). The anchor is clamped as a GROUP so every sprite
+    /// stays in char space 0..255 — same rule as the drag clamp. Session-only
+    /// data: no undo entry, no modified flag (same contract as Place). The
+    /// pasted sprites become the selection, ready to drag/nudge.
+    /// </summary>
+    private void InsertFloatingSprites( int AnchorPxX, int AnchorPxY )
+    {
+      if ( ( m_FloatingSprites == null )
+      ||   ( m_CurrentMap == null )
+      ||   ( m_IsViewingRevision ) )
+      {
+        return;
+      }
+      const int maxAbsPx = 255 * 8 + 7;
+      int maxRelX = m_FloatingSprites.Max( s => s.RelPxX );
+      int maxRelY = m_FloatingSprites.Max( s => s.RelPxY );
+      AnchorPxX = Math.Max( 0, Math.Min( AnchorPxX, maxAbsPx - maxRelX ) );
+      AnchorPxY = Math.Max( 0, Math.Min( AnchorPxY, maxAbsPx - maxRelY ) );
+
+      var instances = CurrentMapSpriteInstances( true );
+      var pasted = new List<MapSpriteInstance>();
+      int skipped = 0;
+      foreach ( var floatingSprite in m_FloatingSprites )
+      {
+        // Re-validate — the sprite file may have been re-browsed between the
+        // arm and this click.
+        if ( !m_SpriteAnimLookup.TryGetValue( floatingSprite.AnimationID, out var overlay ) )
+        {
+          ++skipped;
+          continue;
+        }
+        int px = AnchorPxX + floatingSprite.RelPxX;
+        int py = AnchorPxY + floatingSprite.RelPxY;
+        var inst = new MapSpriteInstance();
+        inst.AnimationID = floatingSprite.AnimationID;
+        inst.CharX   = px / 8;
+        inst.OffsetX = px % 8;
+        inst.CharY   = py / 8;
+        inst.OffsetY = py % 8;
+        if ( ( overlay.StartAtRandomFrame )
+        &&   ( overlay.Frames.Count > 0 ) )
+        {
+          inst.FramePos = m_Random.Next( overlay.Frames.Count );
+        }
+        instances.Add( inst );
+        pasted.Add( inst );
+      }
+
+      m_FloatingSprites        = null;
+      m_FloatingSpritesLastPos = new System.Drawing.Point( -1, -1 );
+      pictureEditor.Cursor = Cursors.Default;
+
+      // The pasted group becomes the selection (mirrors the marker paste) —
+      // immediately draggable/nudgeable/deletable.
+      m_SelectedSprites.Clear();
+      m_SelectedSprites.AddRange( pasted );
+      labelEditInfo.Text = "Pasted " + pasted.Count + " sprite(s)"
+        + ( ( skipped > 0 ) ? " - " + skipped + " skipped (animation not found)" : "" );
       UpdateSpriteAnimTimerState();
       UpdateSpritePanelControlsState();
       Redraw();
@@ -15533,18 +16069,6 @@ namespace RetroDevStudio.Documents
 
 
 
-    private void btnSpriteSelectMove_CheckedChanged( object sender, EventArgs e )
-    {
-      if ( KeepActiveIfUnchecking( btnSpriteSelectMove ) ) return;
-      HideSelection();
-      RemoveFloatingSelection();
-      m_ToolMode = ToolMode.SPRITE;
-      UncheckOtherToolButtons( btnSpriteSelectMove );
-      AfterToolChange();
-    }
-
-
-
     private void checkShowMapSprites_CheckedChanged( object sender, EventArgs e )
     {
       // Persisted per map project — a REAL toggle marks the document
@@ -15574,7 +16098,11 @@ namespace RetroDevStudio.Documents
 
 
 
-    private void btnSpriteDeleteSelected_Click( object sender, EventArgs e )
+    /// <summary>
+    /// Removes the selected sprite instance(s) — the Delete key's sprite
+    /// action (sprite selection is ambient, so this runs in any tool mode).
+    /// </summary>
+    private void DeleteSelectedSprites()
     {
       var instances = CurrentMapSpriteInstances( false );
       if ( ( instances == null )
@@ -15828,16 +16356,11 @@ namespace RetroDevStudio.Documents
       {
         btnSpritePlace.Enabled = fileLoaded && editable && ( comboSpriteAnimations.SelectedIndex >= 0 );
       }
-      if ( btnSpriteSelectMove != null )
-      {
-        btnSpriteSelectMove.Enabled = hasMap;
-      }
       bool canNudge = editable && hasSpriteSelection;
       if ( btnSpriteNudgeUp    != null ) btnSpriteNudgeUp.Enabled    = canNudge;
       if ( btnSpriteNudgeDown  != null ) btnSpriteNudgeDown.Enabled  = canNudge;
       if ( btnSpriteNudgeLeft  != null ) btnSpriteNudgeLeft.Enabled  = canNudge;
       if ( btnSpriteNudgeRight != null ) btnSpriteNudgeRight.Enabled = canNudge;
-      if ( btnSpriteDeleteSelected != null ) btnSpriteDeleteSelected.Enabled = hasSpriteSelection;
       if ( btnSpriteClearAll != null )
       {
         btnSpriteClearAll.Enabled = ( instances != null ) && ( instances.Count > 0 );
@@ -19289,11 +19812,32 @@ namespace RetroDevStudio.Documents
         name = "Entity " + ( m_MapProject.EntityTypes.Count + 1 );
       }
 
+      // Tag ID: a deliberate, still-unused non-zero spinner value is kept;
+      // otherwise (0 = the unset default, or a value another type already
+      // owns — typically stale from the last selection) the next available
+      // id is auto-assigned, so a fresh type can never silently land on
+      // Tag 0 or on a duplicate.
+      int tagID = (int)editEntityTagID.Value;
+      if ( ( tagID == 0 )
+      ||   ( m_MapProject.EntityTypes.Any( t => t.TagID == tagID ) ) )
+      {
+        tagID = FindNextUnusedEntityTagID( null );
+        if ( tagID < 0 )
+        {
+          System.Windows.Forms.MessageBox.Show(
+            "Cannot add the entity type - all Tag IDs from 1 to 255 are already in use. Tag ID 0 is reserved, and the field is exported as a single byte so it cannot exceed 255.",
+            "No free Tag ID",
+            System.Windows.Forms.MessageBoxButtons.OK,
+            System.Windows.Forms.MessageBoxIcon.Warning );
+          return;
+        }
+      }
+
       var newType = new MapProject.EntityType();
       newType.Name = name;
       newType.ExportSymbol = editEntityExportSymbol.Text ?? "";
       newType.TileIndex = (int)editEntityTileIndex.Value;
-      newType.TagID = (int)editEntityTagID.Value;
+      newType.TagID = tagID;
       newType.ID = 0;
       if ( m_MapProject.EntityTypes.Count > 0 )
       {
@@ -19302,6 +19846,8 @@ namespace RetroDevStudio.Documents
       m_MapProject.EntityTypes.Add( newType );
       RefreshEntityTypes();
 
+      // Selecting the new row populates the editor from it — the spinner then
+      // shows the tag that was actually assigned.
       listEntityTypes.SelectedIndex = listEntityTypes.Items.Count - 1;
       SetModified();
     }
@@ -19446,6 +19992,81 @@ namespace RetroDevStudio.Documents
       editEntityExportSymbol.Enabled = Enabled;
       editEntityTileIndex.Enabled    = Enabled;
       editEntityTagID.Enabled        = Enabled;
+      // The two helper buttons feed the spinners above — same gate.
+      btnEntityTileFromSelection.Enabled = Enabled;
+      btnFindNextEntityTagID.Enabled     = Enabled;
+    }
+
+
+
+    /// <summary>
+    /// Lowest unused entity-type Tag ID, starting at 1 — Tag ID 0 is the
+    /// spinner default and reads as "unassigned" (mirrors the marker-type
+    /// rule); cap 255, the byte limit of the exported entity record.
+    /// ExcludeType (the selected type when reassigning) is skipped so its
+    /// own tag doesn't count as taken — the same self-exclusion rule every
+    /// other find-free button uses. Returns -1 when 1..255 are all taken.
+    /// </summary>
+    private int FindNextUnusedEntityTagID( MapProject.EntityType ExcludeType )
+    {
+      var inUse = new HashSet<int>();
+      foreach ( var type in m_MapProject.EntityTypes )
+      {
+        if ( type == ExcludeType ) continue;
+        inUse.Add( type.TagID );
+      }
+      int candidate = 1;
+      while ( ( candidate <= 255 ) && inUse.Contains( candidate ) )
+      {
+        ++candidate;
+      }
+      return ( candidate > 255 ) ? -1 : candidate;
+    }
+
+
+
+    private void btnFindNextEntityTagID_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_MapProject == null ) return;
+
+      // Exclude the selected type so reassigning it can keep its own slot
+      // (identical logic to btnFindFreeMarkerTagID for marker types).
+      MapProject.EntityType selectedType = null;
+      if ( ( listEntityTypes.SelectedIndices.Count == 1 )
+      &&   ( listEntityTypes.SelectedIndex >= 0 )
+      &&   ( listEntityTypes.SelectedIndex < m_MapProject.EntityTypes.Count ) )
+      {
+        selectedType = m_MapProject.EntityTypes[listEntityTypes.SelectedIndex];
+      }
+      int candidate = FindNextUnusedEntityTagID( selectedType );
+      if ( candidate < 0 )
+      {
+        System.Windows.Forms.MessageBox.Show(
+          "All Tag IDs from 1 to 255 are already in use by entity types. Tag ID 0 is reserved, and the field is exported as a single byte so it cannot exceed 255.",
+          "No free Tag ID",
+          System.Windows.Forms.MessageBoxButtons.OK,
+          System.Windows.Forms.MessageBoxIcon.Warning );
+        return;
+      }
+      // The spinner is the staging field for Add/Update — assigning here and
+      // letting the user commit is the same path as typing the value.
+      editEntityTagID.Value = candidate;
+    }
+
+
+
+    private void btnEntityTileFromSelection_Click( DecentForms.ControlBase Sender )
+    {
+      // The Tiles tab's current selection (its list is 1:1 with the project's
+      // tile indices). Nothing selected = acknowledged no-op.
+      if ( listTileInfo.SelectedIndices.Count == 0 )
+      {
+        System.Media.SystemSounds.Beep.Play();
+        return;
+      }
+      int tileIndex = listTileInfo.SelectedIndices[0];
+      editEntityTileIndex.Value = Math.Max( editEntityTileIndex.Minimum,
+        Math.Min( editEntityTileIndex.Maximum, tileIndex ) );
     }
 
     private void editEntityExportSymbol_KeyPress( object sender, KeyPressEventArgs e )
@@ -22771,6 +23392,7 @@ namespace RetroDevStudio.Documents
       if ( comboMapBGColor != null )         comboMapBGColor.Enabled         = enabled;
       if ( comboMapAlternativeBGColor4 != null ) comboMapAlternativeBGColor4.Enabled = enabled;
       if ( comboMapAlternativeMode != null ) comboMapAlternativeMode.Enabled = enabled;
+      if ( checkMapNotExported != null )     checkMapNotExported.Enabled     = enabled;
       // Extra data is now in a dialog opened from Tools — gate the menu
       // item itself so the dialog can't be opened while read-only.
       if ( editExtraDataToolStripMenuItem != null ) editExtraDataToolStripMenuItem.Enabled = enabled;
@@ -22863,12 +23485,13 @@ namespace RetroDevStudio.Documents
       // Marker/entity selection belongs to whichever map was previously
       // active — clear it so the toolbar doesn't act on a hidden instance.
       ClearMarkerEntitySelection();
-      // Sprite state likewise: cancel an armed placement (the read-only gate
-      // would swallow its clicks, leaving an undischargeable cross cursor)
-      // and drop the selection. Crucially, refresh the animation timer: the
-      // snapshot Map has no sprite instances (the tick self-stops on it), and
-      // returning to the live map must restart the animation.
+      // Sprite state likewise: cancel an armed placement/paste (the read-only
+      // gate would swallow their clicks, leaving an undischargeable cross
+      // cursor) and drop the selection. Crucially, refresh the animation
+      // timer: the snapshot Map has no sprite instances (the tick self-stops
+      // on it), and returning to the live map must restart the animation.
       CancelPendingSpritePlacement();
+      RemoveFloatingSprites();
       ClearSpriteSelection();
       UpdateSpriteAnimTimerState();
       UpdateSpritePanelControlsState();

@@ -122,8 +122,10 @@
             editEntityExportSymbol = new System.Windows.Forms.TextBox();
             labelEntityExportSymbol = new System.Windows.Forms.Label();
             editEntityTagID = new System.Windows.Forms.NumericUpDown();
+            btnFindNextEntityTagID = new DecentForms.Button();
             labelEntityTagID = new System.Windows.Forms.Label();
             editEntityTileIndex = new System.Windows.Forms.NumericUpDown();
+            btnEntityTileFromSelection = new DecentForms.Button();
             labelEntityTileIndex = new System.Windows.Forms.Label();
             editEntityName = new System.Windows.Forms.TextBox();
             labelEntityName = new System.Windows.Forms.Label();
@@ -185,6 +187,7 @@
             collapsiblePanel1 = new RetroDevStudio.Controls.CollapsiblePanel();
             comboMapAlternativeMode = new Krypton.Toolkit.KryptonComboBox();
             comboMapProjectMode = new Krypton.Toolkit.KryptonComboBox();
+            checkMapNotExported = new Krypton.Toolkit.KryptonCheckBox();
             label1 = new System.Windows.Forms.Label();
             comboMapAlternativeBGColor4 = new Krypton.Toolkit.KryptonComboBox();
             label25 = new System.Windows.Forms.Label();
@@ -264,13 +267,11 @@
             labelSpriteAnim = new System.Windows.Forms.Label();
             comboSpriteAnimations = new Krypton.Toolkit.KryptonComboBox();
             btnSpritePlace = new Krypton.Toolkit.KryptonButton();
-            btnSpriteSelectMove = new Krypton.Toolkit.KryptonCheckButton();
             checkShowMapSprites = new Krypton.Toolkit.KryptonCheckBox();
             btnSpriteNudgeUp = new Krypton.Toolkit.KryptonButton();
             btnSpriteNudgeDown = new Krypton.Toolkit.KryptonButton();
             btnSpriteNudgeLeft = new Krypton.Toolkit.KryptonButton();
             btnSpriteNudgeRight = new Krypton.Toolkit.KryptonButton();
-            btnSpriteDeleteSelected = new Krypton.Toolkit.KryptonButton();
             btnSpriteClearAll = new Krypton.Toolkit.KryptonButton();
             btnSpriteCreateMarker = new Krypton.Toolkit.KryptonButton();
             labelSpriteColorOverride = new System.Windows.Forms.Label();
@@ -1453,8 +1454,10 @@
             tabEntities.Controls.Add(editEntityExportSymbol);
             tabEntities.Controls.Add(labelEntityExportSymbol);
             tabEntities.Controls.Add(editEntityTagID);
+            tabEntities.Controls.Add(btnFindNextEntityTagID);
             tabEntities.Controls.Add(labelEntityTagID);
             tabEntities.Controls.Add(editEntityTileIndex);
+            tabEntities.Controls.Add(btnEntityTileFromSelection);
             tabEntities.Controls.Add(labelEntityTileIndex);
             tabEntities.Controls.Add(editEntityName);
             tabEntities.Controls.Add(labelEntityName);
@@ -1537,7 +1540,22 @@
             editEntityTagID.Name = "editEntityTagID";
             editEntityTagID.Size = new System.Drawing.Size(120, 20);
             editEntityTagID.TabIndex = 10;
-            // 
+            //
+            // btnFindNextEntityTagID
+            //
+            btnFindNextEntityTagID.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnFindNextEntityTagID.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnFindNextEntityTagID.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnFindNextEntityTagID.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnFindNextEntityTagID.Image = null;
+            btnFindNextEntityTagID.Location = new System.Drawing.Point(598, 94);
+            btnFindNextEntityTagID.Name = "btnFindNextEntityTagID";
+            btnFindNextEntityTagID.Size = new System.Drawing.Size(24, 23);
+            btnFindNextEntityTagID.TabIndex = 13;
+            btnFindNextEntityTagID.Text = "?";
+            toolTip1.SetToolTip(btnFindNextEntityTagID, "Find the lowest unused Tag ID (starting at 1, max 255) among the entity types and assign it to the spinner - Update commits it.");
+            btnFindNextEntityTagID.Click += btnFindNextEntityTagID_Click;
+            //
             // labelEntityTagID
             // 
             labelEntityTagID.AutoSize = true;
@@ -1554,7 +1572,22 @@
             editEntityTileIndex.Name = "editEntityTileIndex";
             editEntityTileIndex.Size = new System.Drawing.Size(120, 20);
             editEntityTileIndex.TabIndex = 4;
-            // 
+            //
+            // btnEntityTileFromSelection
+            //
+            btnEntityTileFromSelection.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnEntityTileFromSelection.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnEntityTileFromSelection.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnEntityTileFromSelection.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnEntityTileFromSelection.Image = null;
+            btnEntityTileFromSelection.Location = new System.Drawing.Point(598, 36);
+            btnEntityTileFromSelection.Name = "btnEntityTileFromSelection";
+            btnEntityTileFromSelection.Size = new System.Drawing.Size(90, 23);
+            btnEntityTileFromSelection.TabIndex = 12;
+            btnEntityTileFromSelection.Text = "Selected tile";
+            toolTip1.SetToolTip(btnEntityTileFromSelection, "Assign the tile currently selected on the Tiles tab to the Tile Index spinner - Update commits it. Does nothing when no tile is selected.");
+            btnEntityTileFromSelection.Click += btnEntityTileFromSelection_Click;
+            //
             // labelEntityTileIndex
             // 
             labelEntityTileIndex.AutoSize = true;
@@ -2178,6 +2211,7 @@
             collapsiblePanel1.Collapsed = true;
             collapsiblePanel1.Controls.Add(comboMapAlternativeMode);
             collapsiblePanel1.Controls.Add(comboMapProjectMode);
+            collapsiblePanel1.Controls.Add(checkMapNotExported);
             collapsiblePanel1.Controls.Add(label1);
             collapsiblePanel1.Controls.Add(comboMapAlternativeBGColor4);
             collapsiblePanel1.Controls.Add(label25);
@@ -2204,7 +2238,7 @@
             collapsiblePanel1.Controls.Add(label23);
             collapsiblePanel1.Controls.Add(label14);
             collapsiblePanel1.Controls.Add(label22);
-            collapsiblePanel1.ExpandedHeight = 230;
+            collapsiblePanel1.ExpandedHeight = 256;
             collapsiblePanel1.Location = new System.Drawing.Point(3, 65);
             collapsiblePanel1.MinimumSize = new System.Drawing.Size(40, 56);
             collapsiblePanel1.Name = "collapsiblePanel1";
@@ -2234,6 +2268,16 @@
             comboMapProjectMode.Size = new System.Drawing.Size(246, 22);
             comboMapProjectMode.TabIndex = 1;
             comboMapProjectMode.SelectedIndexChanged += comboMapProjectMode_SelectedIndexChanged;
+            //
+            // checkMapNotExported
+            //
+            checkMapNotExported.Location = new System.Drawing.Point(18, 227);
+            checkMapNotExported.Name = "checkMapNotExported";
+            checkMapNotExported.Size = new System.Drawing.Size(120, 20);
+            checkMapNotExported.TabIndex = 27;
+            toolTip1.SetToolTip(checkMapNotExported, "Skip this map in every all-maps export (game binary, assembly, raw buffer). Later maps' export indices shift down; the start map is remapped automatically.");
+            checkMapNotExported.Values.Text = "Map not exported";
+            checkMapNotExported.CheckedChanged += checkMapNotExported_CheckedChanged;
             // 
             // label1
             // 
@@ -3020,13 +3064,11 @@
             collapsiblePanelSprites.Controls.Add(labelSpriteAnim);
             collapsiblePanelSprites.Controls.Add(comboSpriteAnimations);
             collapsiblePanelSprites.Controls.Add(btnSpritePlace);
-            collapsiblePanelSprites.Controls.Add(btnSpriteSelectMove);
             collapsiblePanelSprites.Controls.Add(checkShowMapSprites);
             collapsiblePanelSprites.Controls.Add(btnSpriteNudgeUp);
             collapsiblePanelSprites.Controls.Add(btnSpriteNudgeLeft);
             collapsiblePanelSprites.Controls.Add(btnSpriteNudgeRight);
             collapsiblePanelSprites.Controls.Add(btnSpriteNudgeDown);
-            collapsiblePanelSprites.Controls.Add(btnSpriteDeleteSelected);
             collapsiblePanelSprites.Controls.Add(btnSpriteClearAll);
             collapsiblePanelSprites.Controls.Add(btnSpriteCreateMarker);
             collapsiblePanelSprites.Controls.Add(labelSpriteColorOverride);
@@ -3102,26 +3144,15 @@
             btnSpritePlace.Values.Text = "Place";
             btnSpritePlace.Click += btnSpritePlace_Click;
             //
-            // btnSpriteSelectMove
-            //
-            btnSpriteSelectMove.Location = new System.Drawing.Point(8, 84);
-            btnSpriteSelectMove.Name = "btnSpriteSelectMove";
-            btnSpriteSelectMove.Size = new System.Drawing.Size(100, 23);
-            btnSpriteSelectMove.TabIndex = 6;
-            toolTip1.SetToolTip(btnSpriteSelectMove, "Tool mode: click sprites to select (Ctrl+click multi-select), drag to move pixel-precise.");
-            btnSpriteSelectMove.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            btnSpriteSelectMove.Values.Text = "Select/Move";
-            btnSpriteSelectMove.CheckedChanged += btnSpriteSelectMove_CheckedChanged;
-            //
             // checkShowMapSprites
             //
             checkShowMapSprites.Checked = true;
             checkShowMapSprites.CheckState = System.Windows.Forms.CheckState.Checked;
-            checkShowMapSprites.Location = new System.Drawing.Point(116, 86);
+            checkShowMapSprites.Location = new System.Drawing.Point(8, 86);
             checkShowMapSprites.Name = "checkShowMapSprites";
             checkShowMapSprites.Size = new System.Drawing.Size(56, 22);
-            checkShowMapSprites.TabIndex = 7;
-            toolTip1.SetToolTip(checkShowMapSprites, "Editor-only preview; sprite instances are never saved or exported.");
+            checkShowMapSprites.TabIndex = 6;
+            toolTip1.SetToolTip(checkShowMapSprites, "Editor-only preview; sprite instances are never saved or exported. Uncheck to click through sprites (hidden sprites are not selectable).");
             checkShowMapSprites.Values.Text = "Show";
             checkShowMapSprites.CheckedChanged += checkShowMapSprites_CheckedChanged;
             //
@@ -3169,23 +3200,12 @@
             btnSpriteNudgeDown.Values.Text = "▼";
             btnSpriteNudgeDown.Click += btnSpriteNudgeDown_Click;
             //
-            // btnSpriteDeleteSelected
-            //
-            btnSpriteDeleteSelected.Location = new System.Drawing.Point(8, 112);
-            btnSpriteDeleteSelected.Name = "btnSpriteDeleteSelected";
-            btnSpriteDeleteSelected.Size = new System.Drawing.Size(110, 23);
-            btnSpriteDeleteSelected.TabIndex = 12;
-            toolTip1.SetToolTip(btnSpriteDeleteSelected, "Remove the selected sprite instance(s) - markers are not touched.");
-            btnSpriteDeleteSelected.Values.DropDownArrowColor = System.Drawing.Color.Empty;
-            btnSpriteDeleteSelected.Values.Text = "Delete selected";
-            btnSpriteDeleteSelected.Click += btnSpriteDeleteSelected_Click;
-            //
             // btnSpriteClearAll
             //
-            btnSpriteClearAll.Location = new System.Drawing.Point(124, 112);
+            btnSpriteClearAll.Location = new System.Drawing.Point(8, 112);
             btnSpriteClearAll.Name = "btnSpriteClearAll";
             btnSpriteClearAll.Size = new System.Drawing.Size(76, 23);
-            btnSpriteClearAll.TabIndex = 13;
+            btnSpriteClearAll.TabIndex = 12;
             toolTip1.SetToolTip(btnSpriteClearAll, "Remove every sprite instance on this map.");
             btnSpriteClearAll.Values.DropDownArrowColor = System.Drawing.Color.Empty;
             btnSpriteClearAll.Values.Text = "Clear all";
@@ -5895,6 +5915,7 @@
         private Krypton.Toolkit.KryptonTextBox editMapWidth;
         private Krypton.Toolkit.KryptonComboBox comboMaps;
         private Krypton.Toolkit.KryptonComboBox comboMapProjectMode;
+        private Krypton.Toolkit.KryptonCheckBox checkMapNotExported;
         private System.Windows.Forms.ToolStripMenuItem editExtraDataToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem mapMemoToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem cropToSelectionToolStripMenuItem;
@@ -5962,7 +5983,9 @@
         private System.Windows.Forms.TextBox editEntityExportSymbol;
         private System.Windows.Forms.Label labelEntityExportSymbol;
         private System.Windows.Forms.NumericUpDown editEntityTagID;
+        private DecentForms.Button btnFindNextEntityTagID;
         private System.Windows.Forms.NumericUpDown editEntityTileIndex;
+        private DecentForms.Button btnEntityTileFromSelection;
         private System.Windows.Forms.Label labelEntityTileIndex;
         private System.Windows.Forms.TextBox editEntityName;
         private System.Windows.Forms.Label labelEntityName;
@@ -6043,13 +6066,11 @@
         private System.Windows.Forms.Label labelSpriteAnim;
         private Krypton.Toolkit.KryptonComboBox comboSpriteAnimations;
         private Krypton.Toolkit.KryptonButton btnSpritePlace;
-        private Krypton.Toolkit.KryptonCheckButton btnSpriteSelectMove;
         private Krypton.Toolkit.KryptonCheckBox checkShowMapSprites;
         private Krypton.Toolkit.KryptonButton btnSpriteNudgeUp;
         private Krypton.Toolkit.KryptonButton btnSpriteNudgeDown;
         private Krypton.Toolkit.KryptonButton btnSpriteNudgeLeft;
         private Krypton.Toolkit.KryptonButton btnSpriteNudgeRight;
-        private Krypton.Toolkit.KryptonButton btnSpriteDeleteSelected;
         private Krypton.Toolkit.KryptonButton btnSpriteClearAll;
         private Krypton.Toolkit.KryptonButton btnSpriteCreateMarker;
         private System.Windows.Forms.Label labelSpriteColorOverride;

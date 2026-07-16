@@ -408,6 +408,17 @@ namespace RetroDevStudio.Formats
       public string             MemoRTF = "";
 
       /// <summary>
+      /// When true this map is SKIPPED by every all-maps export (game
+      /// binary, assembly, raw buffer): the exported map count shrinks and
+      /// all later maps' export indices shift down — the binary has no
+      /// placeholder slots. StartMapIndex is remapped at export time; any
+      /// map-index references the USER's game data encodes (e.g. door
+      /// targets in marker values) are theirs to manage. Editing and
+      /// explicit single-map exports are unaffected.
+      /// </summary>
+      public bool               NotExported = false;
+
+      /// <summary>
       /// overrides Project.Mode when set (e.g. display MC instead of hires)
       /// </summary>
       public TextCharMode       AlternativeMode = TextCharMode.UNKNOWN;
@@ -1925,10 +1936,12 @@ namespace RetroDevStudio.Formats
 
     public GR.Memory.ByteBuffer ExportMapsAsBuffer( bool RowByRow )
     {
+      // Maps flagged "not exported" are skipped — same rule as the game binary.
+      var exportMaps = ExportedMaps();
       GR.Memory.ByteBuffer    mapData = new GR.Memory.ByteBuffer();
 
 
-      foreach ( var map in Maps )
+      foreach ( var map in exportMaps )
       {
         mapData.Append( ExportMapAsBuffer( map, RowByRow ) );
       }
@@ -2257,8 +2270,10 @@ namespace RetroDevStudio.Formats
 
     public bool ExportMapsAsAssembly( bool Vertical, out string MapData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective, string CommentChars )
     {
+      // Maps flagged "not exported" are skipped — same rule as the game binary.
+      var exportMaps = ExportedMaps();
       bool hasExtraData = false;
-      foreach ( var map in Maps )
+      foreach ( var map in exportMaps )
       {
         if ( map.ExtraDataText.Length > 0 )
         {
@@ -2271,24 +2286,24 @@ namespace RetroDevStudio.Formats
 
       sbMaps.Append( LabelPrefix );
       sbMaps.Append( "NUM_MAPS = " );
-      sbMaps.AppendLine( Maps.Count.ToString() );
+      sbMaps.AppendLine( exportMaps.Count.ToString() );
 
       sbMaps.Append( LabelPrefix );
       sbMaps.AppendLine( "MAP_LIST_LO" );
-      for ( int i = 0; i < Maps.Count; ++i )
+      for ( int i = 0; i < exportMaps.Count; ++i )
       {
         sbMaps.Append( DataByteDirective );
         sbMaps.Append( ' ' );
-        sbMaps.AppendLine( "<" + LabelPrefix + "MAP_" + NormalizeAsLabel( Maps[i].Name.ToUpper() ) );
+        sbMaps.AppendLine( "<" + LabelPrefix + "MAP_" + NormalizeAsLabel( exportMaps[i].Name.ToUpper() ) );
       }
       sbMaps.AppendLine();
       sbMaps.Append( LabelPrefix );
       sbMaps.AppendLine( "MAP_LIST_HI" );
-      for ( int i = 0; i < Maps.Count; ++i )
+      for ( int i = 0; i < exportMaps.Count; ++i )
       {
         sbMaps.Append( DataByteDirective );
         sbMaps.Append( ' ' );
-        sbMaps.AppendLine( ">" + LabelPrefix + "MAP_" + NormalizeAsLabel( Maps[i].Name.ToUpper() ) );
+        sbMaps.AppendLine( ">" + LabelPrefix + "MAP_" + NormalizeAsLabel( exportMaps[i].Name.ToUpper() ) );
       }
       sbMaps.AppendLine();
 
@@ -2297,16 +2312,16 @@ namespace RetroDevStudio.Formats
       {
         sbMaps.Append( LabelPrefix );
         sbMaps.AppendLine( "MAPS_COLOR_TABLE_LOW" );
-        for ( int i = 0; i < Maps.Count; ++i )
+        for ( int i = 0; i < exportMaps.Count; ++i )
         {
           sbMaps.Append( DataByteDirective );
           sbMaps.Append( ' ' );
-          sbMaps.AppendLine( "<" + LabelPrefix + "MAP_" + NormalizeAsLabel( Maps[i].Name.ToUpper() ) + "_COLOR" );
+          sbMaps.AppendLine( "<" + LabelPrefix + "MAP_" + NormalizeAsLabel( exportMaps[i].Name.ToUpper() ) + "_COLOR" );
         }
         sbMaps.AppendLine();
         sbMaps.Append( LabelPrefix );
         sbMaps.AppendLine( "MAPS_COLOR_TABLE_HIGH" );
-        for ( int i = 0; i < Maps.Count; ++i )
+        for ( int i = 0; i < exportMaps.Count; ++i )
         {
           sbMaps.Append( DataByteDirective );
           sbMaps.Append( ' ' );
@@ -2318,20 +2333,20 @@ namespace RetroDevStudio.Formats
       {
         sbMaps.Append( LabelPrefix );
         sbMaps.AppendLine( "MAPS_PASSABLE_BITS_TABLE_LOW" );
-        for ( int i = 0; i < Maps.Count; ++i )
+        for ( int i = 0; i < exportMaps.Count; ++i )
         {
           sbMaps.Append( DataByteDirective );
           sbMaps.Append( ' ' );
-          sbMaps.AppendLine( "<" + LabelPrefix + "MAP_" + NormalizeAsLabel( Maps[i].Name.ToUpper() ) + "_PASSABLE_BITS" );
+          sbMaps.AppendLine( "<" + LabelPrefix + "MAP_" + NormalizeAsLabel( exportMaps[i].Name.ToUpper() ) + "_PASSABLE_BITS" );
         }
         sbMaps.AppendLine();
         sbMaps.Append( LabelPrefix );
         sbMaps.AppendLine( "MAPS_PASSABLE_BITS_TABLE_HIGH" );
-        for ( int i = 0; i < Maps.Count; ++i )
+        for ( int i = 0; i < exportMaps.Count; ++i )
         {
           sbMaps.Append( DataByteDirective );
           sbMaps.Append( ' ' );
-          sbMaps.AppendLine( ">" + LabelPrefix + "MAP_" + NormalizeAsLabel( Maps[i].Name.ToUpper() ) + "_PASSABLE_BITS" );
+          sbMaps.AppendLine( ">" + LabelPrefix + "MAP_" + NormalizeAsLabel( exportMaps[i].Name.ToUpper() ) + "_PASSABLE_BITS" );
         }
         sbMaps.AppendLine();
       }
@@ -2340,19 +2355,19 @@ namespace RetroDevStudio.Formats
       {
         sbMaps.Append( LabelPrefix );
         sbMaps.AppendLine( "MAP_EXTRA_DATA_LIST_LO" );
-        for ( int i = 0; i < Maps.Count; ++i )
+        for ( int i = 0; i < exportMaps.Count; ++i )
         {
           sbMaps.Append( DataByteDirective );
           sbMaps.Append( ' ' );
-          sbMaps.AppendLine( "<" + LabelPrefix + "MAP_EXTRA_DATA_" + NormalizeAsLabel( Maps[i].Name.ToUpper() ) );
+          sbMaps.AppendLine( "<" + LabelPrefix + "MAP_EXTRA_DATA_" + NormalizeAsLabel( exportMaps[i].Name.ToUpper() ) );
         }
         sbMaps.Append( LabelPrefix );
         sbMaps.AppendLine( "MAP_EXTRA_DATA_LIST_HI" );
-        for ( int i = 0; i < Maps.Count; ++i )
+        for ( int i = 0; i < exportMaps.Count; ++i )
         {
           sbMaps.Append( DataByteDirective );
           sbMaps.Append( ' ' );
-          sbMaps.AppendLine( ">" + LabelPrefix + "MAP_EXTRA_DATA_" + NormalizeAsLabel( Maps[i].Name.ToUpper() ) );
+          sbMaps.AppendLine( ">" + LabelPrefix + "MAP_EXTRA_DATA_" + NormalizeAsLabel( exportMaps[i].Name.ToUpper() ) );
         }
         sbMaps.AppendLine();
       }
@@ -2360,9 +2375,9 @@ namespace RetroDevStudio.Formats
       // Marker Tables
       AppendMarkerGlobalTables( sbMaps, LabelPrefix, DataByteDirective, Settings.Assembly.ExportHex );
 
-      for ( int i = 0; i < Maps.Count; ++i )
+      for ( int i = 0; i < exportMaps.Count; ++i )
       {
-        var map = Maps[i];
+        var map = exportMaps[i];
 
         sbMaps.Append( LabelPrefix );
         sbMaps.AppendLine( "MAP_" + NormalizeAsLabel( map.Name.ToUpper() ) );
@@ -2672,8 +2687,10 @@ namespace RetroDevStudio.Formats
 
     public bool ExportMapExtraDataAsAssembly( out string MapData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective )
     {
+      // Maps flagged "not exported" are skipped — same rule as the game binary.
+      var exportMaps = ExportedMaps();
       bool hasExtraData = false;
-      foreach ( var map in Maps )
+      foreach ( var map in exportMaps )
       {
         if ( map.ExtraDataText.Length > 0 )
         {
@@ -2686,33 +2703,33 @@ namespace RetroDevStudio.Formats
 
       sbMaps.Append( LabelPrefix );
       sbMaps.Append( "NUM_MAPS = " );
-      sbMaps.AppendLine( Maps.Count.ToString() );
+      sbMaps.AppendLine( exportMaps.Count.ToString() );
 
       if ( hasExtraData )
       {
         sbMaps.Append( LabelPrefix );
         sbMaps.AppendLine( "MAP_EXTRA_DATA_LIST_LO" );
-        for ( int i = 0; i < Maps.Count; ++i )
+        for ( int i = 0; i < exportMaps.Count; ++i )
         {
           sbMaps.Append( DataByteDirective );
           sbMaps.Append( ' ' );
-          sbMaps.AppendLine( "<" + LabelPrefix + "MAP_EXTRA_DATA_" + NormalizeAsLabel( Maps[i].Name.ToUpper() ) );
+          sbMaps.AppendLine( "<" + LabelPrefix + "MAP_EXTRA_DATA_" + NormalizeAsLabel( exportMaps[i].Name.ToUpper() ) );
         }
         sbMaps.Append( LabelPrefix );
         sbMaps.AppendLine( "MAP_EXTRA_DATA_LIST_HI" );
-        for ( int i = 0; i < Maps.Count; ++i )
+        for ( int i = 0; i < exportMaps.Count; ++i )
         {
           sbMaps.Append( DataByteDirective );
           sbMaps.Append( ' ' );
-          sbMaps.AppendLine( ">" + LabelPrefix + "MAP_EXTRA_DATA_" + NormalizeAsLabel( Maps[i].Name.ToUpper() ) );
+          sbMaps.AppendLine( ">" + LabelPrefix + "MAP_EXTRA_DATA_" + NormalizeAsLabel( exportMaps[i].Name.ToUpper() ) );
         }
         sbMaps.AppendLine();
       }
 
 
-      for ( int i = 0; i < Maps.Count; ++i )
+      for ( int i = 0; i < exportMaps.Count; ++i )
       {
-        var map = Maps[i];
+        var map = exportMaps[i];
 
         if ( hasExtraData )
         //&&   ( map.ExtraDataText.Length > 0 ) )
@@ -2902,6 +2919,27 @@ namespace RetroDevStudio.Formats
 
 
 
+    /// <summary>
+    /// The maps every all-maps export enumerates: project order, minus the
+    /// ones flagged "Map not exported". Export indices are positions in THIS
+    /// list — excluding a map shifts every later map's index down (no
+    /// placeholder slots).
+    /// </summary>
+    public List<Map> ExportedMaps()
+    {
+      var result = new List<Map>();
+      foreach ( var map in Maps )
+      {
+        if ( !map.NotExported )
+        {
+          result.Add( map );
+        }
+      }
+      return result;
+    }
+
+
+
     public GR.Memory.ByteBuffer ExportAsGameBinary( bool ExportMarkers, bool ExportColors, bool ExportPassable )
     {
       var buf = new GR.Memory.ByteBuffer();
@@ -2912,14 +2950,34 @@ namespace RetroDevStudio.Formats
       // data can be relocated freely. (There used to be an absolute BaseAddress
       // parameter that baked a load address into every pointer; it was removed.)
 
+      // Maps flagged "not exported" are skipped WHOLESALE: they occupy no slot
+      // in any per-map array below, so the exported map indices are positions
+      // in this filtered list, not in the editor's map list.
+      var exportMaps = ExportedMaps();
+
+      // StartMapIndex refers to the editor's map list — remap it to the
+      // exported ordinal. A start map that is itself excluded (or out of
+      // range) falls back to 0, the first exported map.
+      int startMapExportIndex = 0;
+      if ( ( StartMapIndex >= 0 )
+      &&   ( StartMapIndex < Maps.Count ) )
+      {
+        int remapped = exportMaps.IndexOf( Maps[StartMapIndex] );
+        if ( remapped >= 0 )
+        {
+          startMapExportIndex = remapped;
+        }
+      }
+
       // ========== HEADER (60 bytes, 0x3C) ==========
       buf.AppendU8( 11 );   // +$00 marker_stride (bytes per marker record: tag, x, y, value1, value2, flags, group_id, link_to_id, link_id, value3, value4) — flags is a bitfield: bit0 = Enabled, bit1 = Triggered, bit2 = AutoDisableGroupAfterTrigger; value3/value4 are appended last (offsets $09, $0A)
       buf.AppendU8( (byte)Tiles.Count );  // +$01
-      buf.AppendU8( (byte)Maps.Count );   // +$02
+      buf.AppendU8( (byte)exportMaps.Count );   // +$02
       // Starting-map index — points runtime code at the map the level
       // begins on. Inserted here (not appended at the end) so it sits
       // alongside the other map metadata; every offset below shifts by 1.
-      buf.AppendU8( (byte)StartMapIndex ); // +$03
+      // Remapped to the EXPORTED ordinal (see above).
+      buf.AppendU8( (byte)startMapExportIndex ); // +$03
       // 21 x 2-byte offset placeholders (+$04 .. +$2D)
       for ( int i = 0; i < 21; ++i )
         buf.AppendU16( 0 );
@@ -3060,24 +3118,24 @@ namespace RetroDevStudio.Formats
       // read below uses the flattened grid, so upper layers export (topmost tile
       // wins). Single-layer maps flatten to the Background unchanged (exports
       // stay byte-identical). Passability is whole-map and read directly.
-      var flatTilesPerMap = new GR.Game.Layer<int>[Maps.Count];
-      var flatColorPerMap = new GR.Game.Layer<int>[Maps.Count];
-      for ( int fm = 0; fm < Maps.Count; ++fm )
+      var flatTilesPerMap = new GR.Game.Layer<int>[exportMaps.Count];
+      var flatColorPerMap = new GR.Game.Layer<int>[exportMaps.Count];
+      for ( int fm = 0; fm < exportMaps.Count; ++fm )
       {
         GR.Game.Layer<int> ftiles, fcolor;
-        FlattenLayers( Maps[fm], out ftiles, out fcolor );
+        FlattenLayers( exportMaps[fm], out ftiles, out fcolor );
         flatTilesPerMap[fm] = ftiles;
         flatColorPerMap[fm] = fcolor;
       }
 
       // Pre-compute char-level dimensions and marker counts for all maps
-      int[] exportWidths = new int[Maps.Count];
-      int[] exportHeights = new int[Maps.Count];
-      int[] markerCounts = new int[Maps.Count];
-      int[] entityCounts = new int[Maps.Count];
-      for ( int m = 0; m < Maps.Count; ++m )
+      int[] exportWidths = new int[exportMaps.Count];
+      int[] exportHeights = new int[exportMaps.Count];
+      int[] markerCounts = new int[exportMaps.Count];
+      int[] entityCounts = new int[exportMaps.Count];
+      for ( int m = 0; m < exportMaps.Count; ++m )
       {
-        var map = Maps[m];
+        var map = exportMaps[m];
         int ew = map.Tiles.Width * map.TileSpacingX;
         int eh = map.Tiles.Height * map.TileSpacingY;
         for ( int ty = 0; ty < map.Tiles.Height; ++ty )
@@ -3103,81 +3161,81 @@ namespace RetroDevStudio.Formats
 
       // map_width[]
       buf.SetU16At( HDR_MAP_WIDTH, (ushort)( buf.Length ) );
-      for ( int m = 0; m < Maps.Count; ++m )
+      for ( int m = 0; m < exportMaps.Count; ++m )
         buf.AppendU8( (byte)exportWidths[m] );
 
       // map_height[]
       buf.SetU16At( HDR_MAP_HEIGHT, (ushort)( buf.Length ) );
-      for ( int m = 0; m < Maps.Count; ++m )
+      for ( int m = 0; m < exportMaps.Count; ++m )
         buf.AppendU8( (byte)exportHeights[m] );
 
       // map_bg_color[]
       buf.SetU16At( HDR_MAP_BG_COLOR, (ushort)( buf.Length ) );
-      for ( int m = 0; m < Maps.Count; ++m )
-        buf.AppendU8( (byte)( Maps[m].AlternativeBackgroundColor >= 0 ? Maps[m].AlternativeBackgroundColor : BackgroundColor ) );
+      for ( int m = 0; m < exportMaps.Count; ++m )
+        buf.AppendU8( (byte)( exportMaps[m].AlternativeBackgroundColor >= 0 ? exportMaps[m].AlternativeBackgroundColor : BackgroundColor ) );
 
       // map_mc1_color[]
       buf.SetU16At( HDR_MAP_MC1_COLOR, (ushort)( buf.Length ) );
-      for ( int m = 0; m < Maps.Count; ++m )
-        buf.AppendU8( (byte)( Maps[m].AlternativeMultiColor1 >= 0 ? Maps[m].AlternativeMultiColor1 : MultiColor1 ) );
+      for ( int m = 0; m < exportMaps.Count; ++m )
+        buf.AppendU8( (byte)( exportMaps[m].AlternativeMultiColor1 >= 0 ? exportMaps[m].AlternativeMultiColor1 : MultiColor1 ) );
 
       // map_mc2_color[]
       buf.SetU16At( HDR_MAP_MC2_COLOR, (ushort)( buf.Length ) );
-      for ( int m = 0; m < Maps.Count; ++m )
-        buf.AppendU8( (byte)( Maps[m].AlternativeMultiColor2 >= 0 ? Maps[m].AlternativeMultiColor2 : MultiColor2 ) );
+      for ( int m = 0; m < exportMaps.Count; ++m )
+        buf.AppendU8( (byte)( exportMaps[m].AlternativeMultiColor2 >= 0 ? exportMaps[m].AlternativeMultiColor2 : MultiColor2 ) );
 
       // map_marker_count[]
       buf.SetU16At( HDR_MAP_MARKER_COUNT, (ushort)( buf.Length ) );
-      for ( int m = 0; m < Maps.Count; ++m )
+      for ( int m = 0; m < exportMaps.Count; ++m )
         buf.AppendU8( (byte)markerCounts[m] );
 
       // map_entity_count[]
       buf.SetU16At( HDR_MAP_ENTITY_COUNT, (ushort)( buf.Length ) );
-      for ( int m = 0; m < Maps.Count; ++m )
+      for ( int m = 0; m < exportMaps.Count; ++m )
         buf.AppendU8( (byte)entityCounts[m] );
 
       // ========== MAP DATA LOOKUP TABLES (placeholders) ==========
 
       int mapCharGridLoPos = (int)buf.Length;
       buf.SetU16At( HDR_MAP_CHAR_GRID_LO, (ushort)( buf.Length ) );
-      for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
+      for ( int m = 0; m < exportMaps.Count; ++m ) buf.AppendU8( 0 );
       int mapCharGridHiPos = (int)buf.Length;
       buf.SetU16At( HDR_MAP_CHAR_GRID_HI, (ushort)( buf.Length ) );
-      for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
+      for ( int m = 0; m < exportMaps.Count; ++m ) buf.AppendU8( 0 );
 
       int mapColorGridLoPos = (int)buf.Length;
       buf.SetU16At( HDR_MAP_COLOR_GRID_LO, (ushort)( buf.Length ) );
-      for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
+      for ( int m = 0; m < exportMaps.Count; ++m ) buf.AppendU8( 0 );
       int mapColorGridHiPos = (int)buf.Length;
       buf.SetU16At( HDR_MAP_COLOR_GRID_HI, (ushort)( buf.Length ) );
-      for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
+      for ( int m = 0; m < exportMaps.Count; ++m ) buf.AppendU8( 0 );
 
       int mapPassableLoPos = (int)buf.Length;
       buf.SetU16At( HDR_MAP_PASSABLE_LO, (ushort)( buf.Length ) );
-      for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
+      for ( int m = 0; m < exportMaps.Count; ++m ) buf.AppendU8( 0 );
       int mapPassableHiPos = (int)buf.Length;
       buf.SetU16At( HDR_MAP_PASSABLE_HI, (ushort)( buf.Length ) );
-      for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
+      for ( int m = 0; m < exportMaps.Count; ++m ) buf.AppendU8( 0 );
 
       int mapMarkersLoPos = (int)buf.Length;
       buf.SetU16At( HDR_MAP_MARKERS_LO, (ushort)( buf.Length ) );
-      for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
+      for ( int m = 0; m < exportMaps.Count; ++m ) buf.AppendU8( 0 );
       int mapMarkersHiPos = (int)buf.Length;
       buf.SetU16At( HDR_MAP_MARKERS_HI, (ushort)( buf.Length ) );
-      for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
+      for ( int m = 0; m < exportMaps.Count; ++m ) buf.AppendU8( 0 );
 
       int mapEntitiesLoPos = (int)buf.Length;
       buf.SetU16At( HDR_MAP_ENTITIES_LO, (ushort)( buf.Length ) );
-      for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
+      for ( int m = 0; m < exportMaps.Count; ++m ) buf.AppendU8( 0 );
       int mapEntitiesHiPos = (int)buf.Length;
       buf.SetU16At( HDR_MAP_ENTITIES_HI, (ushort)( buf.Length ) );
-      for ( int m = 0; m < Maps.Count; ++m ) buf.AppendU8( 0 );
+      for ( int m = 0; m < exportMaps.Count; ++m ) buf.AppendU8( 0 );
 
       // ========== PER-MAP VARIABLE DATA ==========
 
-      for ( int m = 0; m < Maps.Count; ++m )
+      for ( int m = 0; m < exportMaps.Count; ++m )
       {
-        var map = Maps[m];
+        var map = exportMaps[m];
         int ew = exportWidths[m];
         int eh = exportHeights[m];
 
@@ -4152,6 +4210,8 @@ namespace RetroDevStudio.Formats
     [System.Obsolete( "Superseded by ExportAsGameBinary; will be removed." )]
     public bool ExportSparseTileAndMapData( bool Vertical, out string ExportData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective, bool EmptyTileCompression, int EmptyTileIndex, bool AddFilenamespace, string Filenamespace, bool WrapMapData )
     {
+      // Maps flagged "not exported" are skipped — same rule as the game binary.
+      var exportMaps = ExportedMaps();
       StringBuilder sb = new StringBuilder();
 
       if ( Settings.Assembly.AddFilenamespace )
@@ -4213,7 +4273,7 @@ namespace RetroDevStudio.Formats
       }
 
       sb.AppendLine( "TILE_COUNT" + labelSuffix + " " + DataByteDirective + " $" + Tiles.Count.ToString( "X2" ) );
-      sb.AppendLine( "MAP_COUNT" + labelSuffix + " " + DataByteDirective + " $" + Maps.Count.ToString( "X2" ) );
+      sb.AppendLine( "MAP_COUNT" + labelSuffix + " " + DataByteDirective + " $" + exportMaps.Count.ToString( "X2" ) );
       sb.AppendLine();
 
       // Map Data
@@ -4226,9 +4286,9 @@ namespace RetroDevStudio.Formats
       // MAPS_WIDTH
       sb.AppendLine( LabelPrefix + "MAPS_WIDTH" + labelSuffix );
       GR.Memory.ByteBuffer mapWidths = new GR.Memory.ByteBuffer();
-      for ( int i = 0; i < Maps.Count; ++i )
+      for ( int i = 0; i < exportMaps.Count; ++i )
       {
-        mapWidths.AppendU8( (byte)Maps[i].Tiles.Width );
+        mapWidths.AppendU8( (byte)exportMaps[i].Tiles.Width );
       }
       sb.AppendLine( Util.ToASMData( mapWidths, WrapData, WrapByteCount, DataByteDirective ) );
       sb.AppendLine();
@@ -4236,9 +4296,9 @@ namespace RetroDevStudio.Formats
       // MAPS_HEIGHT
       sb.AppendLine( LabelPrefix + "MAPS_HEIGHT" + labelSuffix );
       GR.Memory.ByteBuffer mapHeights = new GR.Memory.ByteBuffer();
-      for ( int i = 0; i < Maps.Count; ++i )
+      for ( int i = 0; i < exportMaps.Count; ++i )
       {
-        mapHeights.AppendU8( (byte)Maps[i].Tiles.Height );
+        mapHeights.AppendU8( (byte)exportMaps[i].Tiles.Height );
       }
       sb.AppendLine( Util.ToASMData( mapHeights, WrapData, WrapByteCount, DataByteDirective ) );
       sb.AppendLine();
@@ -4248,9 +4308,9 @@ namespace RetroDevStudio.Formats
         // MAPS_BG_COLOR
         sb.AppendLine( LabelPrefix + "MAPS_BG_COLOR" + labelSuffix );
         GR.Memory.ByteBuffer mapBGColors = new GR.Memory.ByteBuffer();
-        for ( int i = 0; i < Maps.Count; ++i )
+        for ( int i = 0; i < exportMaps.Count; ++i )
         {
-          int effectiveBGColor = Maps[i].AlternativeBackgroundColor;
+          int effectiveBGColor = exportMaps[i].AlternativeBackgroundColor;
           if ( effectiveBGColor == -1 ) effectiveBGColor = BackgroundColor;
           mapBGColors.AppendU8( (byte)( effectiveBGColor & 0x0f ) );
         }
@@ -4260,9 +4320,9 @@ namespace RetroDevStudio.Formats
         // MAPS_MC1_COLOR
         sb.AppendLine( LabelPrefix + "MAPS_MC1_COLOR" + labelSuffix );
         GR.Memory.ByteBuffer mapMC1Colors = new GR.Memory.ByteBuffer();
-        for ( int i = 0; i < Maps.Count; ++i )
+        for ( int i = 0; i < exportMaps.Count; ++i )
         {
-          int effectiveMC1 = Maps[i].AlternativeMultiColor1;
+          int effectiveMC1 = exportMaps[i].AlternativeMultiColor1;
           if ( effectiveMC1 == -1 ) effectiveMC1 = Charset.Colors.MultiColor1;
           mapMC1Colors.AppendU8( (byte)( effectiveMC1 & 0x0f ) );
         }
@@ -4272,9 +4332,9 @@ namespace RetroDevStudio.Formats
         // MAPS_MC2_COLOR
         sb.AppendLine( LabelPrefix + "MAPS_MC2_COLOR" + labelSuffix );
         GR.Memory.ByteBuffer mapMC2Colors = new GR.Memory.ByteBuffer();
-        for ( int i = 0; i < Maps.Count; ++i )
+        for ( int i = 0; i < exportMaps.Count; ++i )
         {
-          int effectiveMC2 = Maps[i].AlternativeMultiColor2;
+          int effectiveMC2 = exportMaps[i].AlternativeMultiColor2;
           if ( effectiveMC2 == -1 ) effectiveMC2 = Charset.Colors.MultiColor2;
           mapMC2Colors.AppendU8( (byte)( effectiveMC2 & 0x0f ) );
         }
@@ -4410,7 +4470,7 @@ namespace RetroDevStudio.Formats
         sb.AppendLine( LabelPrefix + "MAPS_COLOR_TABLE_LOW" + labelSuffix );
         sbTable = new StringBuilder();
         sbTable.Append( DataByteDirective + " " );
-        for ( int i = 0; i < Maps.Count; ++i )
+        for ( int i = 0; i < exportMaps.Count; ++i )
         {
           if ( i > 0 ) sbTable.Append( ", " );
           sbTable.Append( "<" + LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + "_COLOR" );
@@ -4421,7 +4481,7 @@ namespace RetroDevStudio.Formats
         sb.AppendLine( LabelPrefix + "MAPS_COLOR_TABLE_HIGH" + labelSuffix );
         sbTable = new StringBuilder();
         sbTable.Append( DataByteDirective + " " );
-        for ( int i = 0; i < Maps.Count; ++i )
+        for ( int i = 0; i < exportMaps.Count; ++i )
         {
           if ( i > 0 ) sbTable.Append( ", " );
           sbTable.Append( ">" + LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + "_COLOR" );
@@ -4433,7 +4493,7 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( LabelPrefix + "MAPS_TABLE_LOW" + labelSuffix );
       sbTable = new StringBuilder();
       sbTable.Append( DataByteDirective + " " );
-      for ( int i = 0; i < Maps.Count; ++i )
+      for ( int i = 0; i < exportMaps.Count; ++i )
       {
         if ( i > 0 ) sbTable.Append( ", " );
         sbTable.Append( "<" + LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) );
@@ -4444,7 +4504,7 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( LabelPrefix + "MAPS_TABLE_HIGH" + labelSuffix );
       sbTable = new StringBuilder();
       sbTable.Append( DataByteDirective + " " );
-      for ( int i = 0; i < Maps.Count; ++i )
+      for ( int i = 0; i < exportMaps.Count; ++i )
       {
         if ( i > 0 ) sbTable.Append( ", " );
         sbTable.Append( ">" + LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) );
@@ -4457,7 +4517,7 @@ namespace RetroDevStudio.Formats
         sb.AppendLine( LabelPrefix + "MAPS_PASSABLE_BITS_TABLE_LOW" + labelSuffix );
         sbTable = new StringBuilder();
         sbTable.Append( DataByteDirective + " " );
-        for ( int i = 0; i < Maps.Count; ++i )
+        for ( int i = 0; i < exportMaps.Count; ++i )
         {
           if ( i > 0 ) sbTable.Append( ", " );
           sbTable.Append( "<" + LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + "_PASSABLE_BITS" );
@@ -4468,7 +4528,7 @@ namespace RetroDevStudio.Formats
         sb.AppendLine( LabelPrefix + "MAPS_PASSABLE_BITS_TABLE_HIGH" + labelSuffix );
         sbTable = new StringBuilder();
         sbTable.Append( DataByteDirective + " " );
-        for ( int i = 0; i < Maps.Count; ++i )
+        for ( int i = 0; i < exportMaps.Count; ++i )
         {
           if ( i > 0 ) sbTable.Append( ", " );
           sbTable.Append( ">" + LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + "_PASSABLE_BITS" );
@@ -4480,9 +4540,9 @@ namespace RetroDevStudio.Formats
       // Marker Tables
       AppendMarkerGlobalTables( sb, LabelPrefix, DataByteDirective, Settings.Assembly.ExportHex );
 
-      for ( int i = 0; i < Maps.Count; ++i )
+      for ( int i = 0; i < exportMaps.Count; ++i )
       {
-        var map = Maps[i];
+        var map = exportMaps[i];
         sb.Append( LabelPrefix + "MAP_" + ( i + 1 ).ToString( "D2" ) + labelSuffix + " " );
         if ( (Settings.Assembly.MapSizeCommentEnabled) && (!string.IsNullOrEmpty(Settings.Assembly.CommentChars)) )
         {
@@ -4994,6 +5054,9 @@ namespace RetroDevStudio.Formats
       // stated intent to persist, but the field was never written).
       // Older readers stop before it and keep the default of -1.
       chunkMapInfo.AppendI32( map.SelectedEntityType );
+      // Appended for NotExported — the "Map not exported" checkbox. Older
+      // readers stop before it and keep the default of false (exported).
+      chunkMapInfo.AppendU8( map.NotExported ? (byte)1 : (byte)0 );
       chunkMap.Append( chunkMapInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkMapData = new GR.IO.FileChunk( FileChunkConstants.MAP_DATA );
@@ -5331,6 +5394,10 @@ namespace RetroDevStudio.Formats
               // editor's combo restore leaves nothing selected for an
               // unknown ID.
               map.SelectedEntityType = mapChunkReader.ReadInt32();
+            }
+            if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+            {
+              map.NotExported = ( mapChunkReader.ReadUInt8() != 0 );
             }
             break;
           case FileChunkConstants.MAP_DATA:

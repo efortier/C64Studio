@@ -1287,5 +1287,104 @@ namespace TestProject
       clean.Maps[0].Markers.Add( new MapProject.Marker { X = 0, Y = 0, Type = 0, LinkID = 1, LinkToID = 2 } );
       Assert.AreEqual( 0, clean.GetMarkerSelfLinkWarnings().Count );
     }
+
+    // ================================================================
+    // "Map not exported" — excluded maps compact out of the binary
+    // ================================================================
+
+    /// <summary>Adds another map filled with FillTile (distinct sizes/content per map).</summary>
+    private MapProject.Map AddMap( MapProject proj, string name, int width, int height, int fillTile )
+    {
+      var map = new MapProject.Map();
+      map.Name = name;
+      map.TileSpacingX = 1;
+      map.TileSpacingY = 1;
+      map.Tiles.Resize( width, height );
+      for ( int y = 0; y < height; ++y )
+        for ( int x = 0; x < width; ++x )
+          map.Tiles[x, y] = fillTile;
+      proj.Maps.Add( map );
+      return map;
+    }
+
+    [TestMethod]
+    public void TestNotExportedMapSkippedInGameBinary()
+    {
+      // Three maps of distinct widths and fill tiles (tile N -> char N).
+      var proj = CreateTestProject( 3, 4, 3 );          // map 0: 4 wide, tile 0
+      AddMap( proj, "Middle", 5, 3, 1 );                // map 1: 5 wide, tile 1
+      AddMap( proj, "Last",   6, 3, 2 );                // map 2: 6 wide, tile 2
+
+      proj.Maps[1].NotExported = true;
+
+      var buf = proj.ExportAsGameBinary( false, false, false );
+
+      // The excluded map occupies NO slot: count compacts, later maps shift.
+      Assert.AreEqual( 2, (int)buf.ByteAt( HDR_MAP_COUNT ) );
+      int widthTable = HdrOff( buf, HDR_MAP_WIDTH );
+      Assert.AreEqual( 4, (int)buf.ByteAt( widthTable + 0 ) );   // map 0
+      Assert.AreEqual( 6, (int)buf.ByteAt( widthTable + 1 ) );   // was map 2
+
+      // Exported slot 1 carries the LAST map's data (fill tile 2 -> char 2).
+      int gridPos = LookupAbsOffset( buf, HDR_MAP_CHAR_GRID_LO, HDR_MAP_CHAR_GRID_HI, 1 );
+      Assert.AreEqual( (byte)2, buf.ByteAt( gridPos ) );
+
+      // Unflagging restores the full export.
+      proj.Maps[1].NotExported = false;
+      var bufAll = proj.ExportAsGameBinary( false, false, false );
+      Assert.AreEqual( 3, (int)bufAll.ByteAt( HDR_MAP_COUNT ) );
+    }
+
+    [TestMethod]
+    public void TestNotExportedRemapsStartMapIndex()
+    {
+      var proj = CreateTestProject( 3, 4, 3 );
+      AddMap( proj, "Middle", 5, 3, 1 );
+      AddMap( proj, "Last",   6, 3, 2 );
+
+      // Start on the LAST map; excluding the middle one shifts its ordinal.
+      proj.StartMapIndex = 2;
+      proj.Maps[1].NotExported = true;
+      var buf = proj.ExportAsGameBinary( false, false, false );
+      Assert.AreEqual( 1, (int)buf.ByteAt( HDR_START_MAP_INDEX ) );
+
+      // With nothing excluded the raw index passes through.
+      proj.Maps[1].NotExported = false;
+      var bufAll = proj.ExportAsGameBinary( false, false, false );
+      Assert.AreEqual( 2, (int)bufAll.ByteAt( HDR_START_MAP_INDEX ) );
+    }
+
+    [TestMethod]
+    public void TestNotExportedStartMapFallsBackToFirstExported()
+    {
+      var proj = CreateTestProject( 3, 4, 3 );
+      AddMap( proj, "Middle", 5, 3, 1 );
+      AddMap( proj, "Last",   6, 3, 2 );
+
+      // The start map itself is excluded — the exported start falls back to
+      // 0, the first exported map.
+      proj.StartMapIndex = 1;
+      proj.Maps[1].NotExported = true;
+      var buf = proj.ExportAsGameBinary( false, false, false );
+      Assert.AreEqual( 0, (int)buf.ByteAt( HDR_START_MAP_INDEX ) );
+    }
+
+    [TestMethod]
+    public void TestNotExportedFlagRoundTripsInMapChunk()
+    {
+      var proj = CreateTestProject( 1, 4, 3 );
+      // CloneMap round-trips BuildMapChunk/ReadMapFromBody — the same
+      // serializer the project file uses.
+      proj.Maps[0].NotExported = true;
+      var clone = MapProject.CloneMap( proj.Maps[0] );
+      Assert.IsTrue( clone.NotExported, "flag must survive the map chunk round-trip" );
+
+      // Default stays false (old files without the appended byte load as
+      // exported — the guarded read leaves the default).
+      var fresh = new MapProject.Map();
+      Assert.IsFalse( fresh.NotExported );
+      proj.Maps[0].NotExported = false;
+      Assert.IsFalse( MapProject.CloneMap( proj.Maps[0] ).NotExported );
+    }
   }
 }
