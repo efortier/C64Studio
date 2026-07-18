@@ -12686,6 +12686,10 @@ namespace RetroDevStudio.Documents
         DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapValueChange( this, m_CurrentMap ) );  
 
         m_CurrentMap.AlternativeMultiColor1 = comboMapMultiColor1.SelectedIndex - 1;
+        // An armed painter tile stamp renders with the map's alternative
+        // colors — keep it truthful when colors change while painting
+        // (no-op unless a stamp is armed).
+        RefreshOutlineStampBitmap();
         RedrawMap();
         Modified = true;
       }
@@ -12701,6 +12705,7 @@ namespace RetroDevStudio.Documents
         DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapValueChange( this, m_CurrentMap ) );  
 
         m_CurrentMap.AlternativeMultiColor2 = comboMapMultiColor2.SelectedIndex - 1;
+        RefreshOutlineStampBitmap();
         RedrawMap();
         Modified = true;
       }
@@ -12716,6 +12721,7 @@ namespace RetroDevStudio.Documents
         DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapValueChange( this, m_CurrentMap ) );  
 
         m_CurrentMap.AlternativeBackgroundColor = comboMapBGColor.SelectedIndex - 1;
+        RefreshOutlineStampBitmap();
         RedrawMap();
         Modified = true;
       }
@@ -12848,6 +12854,7 @@ namespace RetroDevStudio.Documents
         DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapValueChange( this, m_CurrentMap ) );
 
         m_CurrentMap.AlternativeBGColor4 = comboMapAlternativeBGColor4.SelectedIndex - 1;
+        RefreshOutlineStampBitmap();
         RedrawMap();
         Modified = true;
       }
@@ -12875,6 +12882,7 @@ namespace RetroDevStudio.Documents
             m_MapProject.Charset.Colors.Palettes[0] = Core.Imaging.PaletteFromMachine( MachineType.VIC20 );
             break;
         }
+        RefreshOutlineStampBitmap();
         RedrawMap();
         Modified = true;
       }
@@ -13865,6 +13873,7 @@ namespace RetroDevStudio.Documents
       Modified = true;
       panelCharacters.Invalidate();
       RedrawColorChooser();
+      RefreshOutlineStampBitmap();
       RedrawMap();
     }
 
@@ -13936,7 +13945,8 @@ namespace RetroDevStudio.Documents
         + "  Delete     Select the entity, then press Delete\r\n"
         + "\r\n"
         + "MAP\r\n"
-        + "  Export     Alt+X, or Map Project menu -> Export Map";
+        + "  Export     Alt+X, or Map Project menu -> Export Map\r\n"
+        + "  Fullscreen Alt+D (Map tab, also while painting), or the Map tools button";
       System.Windows.Forms.MessageBox.Show( this, controls, "Map controls",
         System.Windows.Forms.MessageBoxButtons.OK,
         System.Windows.Forms.MessageBoxIcon.Information );
@@ -14168,6 +14178,23 @@ namespace RetroDevStudio.Documents
 
     protected override bool ProcessCmdKey( ref Message msg, Keys keyData )
     {
+      if ( keyData == ( Keys.Alt | Keys.D ) )
+      {
+        // Alt+D: fullscreen map preview — Map tab only, but on BOTH of its
+        // faces (map editor and painter; the preview renders from map data,
+        // so it works identically while painting — same reason the Map
+        // tools panel stays visible there). Handled BEFORE the outline
+        // branch below, which swallows everything else. Alt chords never
+        // type into text inputs, so no focus guard is needed (same as
+        // Alt+X). Falls through on other tabs so a future mnemonic there
+        // isn't shadowed.
+        if ( ( tabMapEditor != null )
+        &&   ( tabMapEditor.SelectedPage == tabEditor ) )
+        {
+          btnViewFullscreen_Click( null, EventArgs.Empty );
+          return true;
+        }
+      }
       if ( OutlineModeActive )
       {
         // The outline face has its own, much smaller key surface. Escape
@@ -20315,10 +20342,12 @@ namespace RetroDevStudio.Documents
     /// The mode switch itself: flat Visible flips on the two control sets
     /// under SuspendLayout. All map-mode direct children of tabEditor hide
     /// (three toolbar rows, viewport, layer list column, both scrollbars)
-    /// and the sidebar's map panels swap for the outline panels; only
-    /// groupBox4 (the map selector) stays — switching maps remains
-    /// available in outline mode. Speed contract: after the first, lazy
-    /// activation of a map's image, a toggle is nothing but these flips.
+    /// and the sidebar's map panels swap for the outline panels; groupBox4
+    /// (the map selector) and collapsiblePanel1 ("Map details") stay in
+    /// both modes — switching, renaming, resizing, adding/copying maps and
+    /// their per-map settings remain available while painting. Speed
+    /// contract: after the first, lazy activation of a map's image, a
+    /// toggle is nothing but these flips.
     /// </summary>
     private void ApplyOutlineModeVisibility()
     {
@@ -20348,7 +20377,15 @@ namespace RetroDevStudio.Documents
       mapHScroll.Visible = !outline;
       mapVScroll.Visible = !outline;
 
-      collapsiblePanel1.Visible = !outline;
+      // "Map details" stays in BOTH modes (like groupBox4's map selector):
+      // everything in it operates on map DATA — name/size/spacing (Apply),
+      // add/copy/delete/reorder, start map, alternative colors/mode, the
+      // not-exported flag — all safe and useful while the painter hides the
+      // map viewport (repaints of the hidden face are harmless; map
+      // add/delete/switch already handle outline mode via the map combo).
+      // In the sidebar flow it slots right under the map selector while
+      // the outline panels are shown.
+      collapsiblePanel1.Visible = true;
       collapsiblePanel3.Visible = !outline;
       collapsiblePanelMapTab.Visible = !outline;
       collapsiblePanel2.Visible = !outline;
