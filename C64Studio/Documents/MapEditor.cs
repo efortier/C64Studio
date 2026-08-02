@@ -4527,25 +4527,38 @@ namespace RetroDevStudio.Documents
         // Sprite priority selection: sprites float ABOVE the map, so a fresh
         // left press that lands on one selects/arms it in EVERY tool mode
         // (there is no sprite tool mode — the old Select/Move button is gone).
+        // ONE exception: with the MARKER tool active, a marker under the
+        // click outranks the sprite — the user picked that tool to work with
+        // markers, and a sprite covering a marker made it unclickable. The
+        // press then falls through to the MARKER case's own selection/drag
+        // handling (same MarkerContainsPoint test it uses).
         // The armed press behaves exactly as before: a plain release selects
         // (pictureEditor_MouseUp, honoring the press-time Ctrl snapshot for
         // multi-select), moving a pixel starts the pixel-precise drag (the
-        // m_PressedSprite block above). A press on empty ground drops the
-        // sprite selection and FALLS THROUGH so the same click still does its
-        // normal tool action (Ctrl+click is an additive gesture that landed
-        // on nothing — keep the selection). To click THROUGH sprites — paint
-        // or place under one — hide them via the panel's "Show" checkbox
-        // (HitTestSprite ignores hidden sprites).
+        // m_PressedSprite block above). A press on empty ground — or on an
+        // outranking marker — drops the sprite selection and FALLS THROUGH
+        // so the same click still does its normal tool action (Ctrl+click is
+        // an additive gesture that landed on nothing — keep the selection;
+        // clearing on non-sprite presses is what keeps the Delete key's
+        // sprites-first rule honest). To click THROUGH sprites elsewhere —
+        // paint or place under one — hide them via the panel's "Show"
+        // checkbox (HitTestSprite ignores hidden sprites).
         if ( m_MouseButtonReleased )
         {
-          var pressedSprite = HitTestSprite( absPxX, absPxY );
-          if ( pressedSprite != null )
+          bool markerOutranks = ( m_ToolMode == ToolMode.MARKER )
+                             && ( m_CurrentMap.Markers.Any(
+                                    m => MarkerContainsPoint( m, trueX + offsetX, trueY + offsetY ) ) );
+          if ( !markerOutranks )
           {
-            m_MouseButtonReleased = false;
-            m_PressedSprite = pressedSprite;
-            m_PressedSpriteWithCtrl = ( ( ModifierKeys & Keys.Control ) == Keys.Control );
-            m_SpriteDragStartPx = new System.Drawing.Point( absPxX, absPxY );
-            return;
+            var pressedSprite = HitTestSprite( absPxX, absPxY );
+            if ( pressedSprite != null )
+            {
+              m_MouseButtonReleased = false;
+              m_PressedSprite = pressedSprite;
+              m_PressedSpriteWithCtrl = ( ( ModifierKeys & Keys.Control ) == Keys.Control );
+              m_SpriteDragStartPx = new System.Drawing.Point( absPxX, absPxY );
+              return;
+            }
           }
           if ( ( m_SelectedSprites.Count > 0 )
           &&   ( ( ModifierKeys & Keys.Control ) != Keys.Control ) )
@@ -14446,6 +14459,29 @@ namespace RetroDevStudio.Documents
           {
             return true;
           }
+        }
+      }
+      else if ( ( keyData == Keys.Up )
+      ||        ( keyData == Keys.Down )
+      ||        ( keyData == Keys.Left )
+      ||        ( keyData == Keys.Right ) )
+      {
+        // Plain arrows nudge the selected sprite(s) by ONE C64 MAP PIXEL —
+        // the keyboard twin of the Sprites panel's nudge buttons (identical
+        // path: group clamp at the 0..255 char-space edges, linked-marker
+        // updates with undo). Only while the map viewport itself has focus —
+        // arrows inside a combo/list/spinner keep their native meaning —
+        // and only with a sprite selection, so the keys stay free otherwise.
+        // Modified arrows (Shift/Ctrl/Alt) pass through untouched (keyData
+        // carries modifiers, so they don't match the bare values above).
+        if ( ( tabMapEditor.SelectedPage == tabEditor )
+        &&   ( m_SelectedSprites.Count > 0 )
+        &&   ( pictureEditor.Focused ) )
+        {
+          NudgeSelectedSprites(
+            ( keyData == Keys.Left ) ? -1 : ( keyData == Keys.Right ) ? 1 : 0,
+            ( keyData == Keys.Up )   ? -1 : ( keyData == Keys.Down )  ? 1 : 0 );
+          return true;
         }
       }
       else if ( keyData == ( Keys.Alt | Keys.X ) )
