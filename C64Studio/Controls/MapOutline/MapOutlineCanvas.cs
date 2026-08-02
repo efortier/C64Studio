@@ -132,6 +132,25 @@ namespace RetroDevStudio.Controls
     /// <summary>Extra pixels between lines for new/edited text (image space).</summary>
     public float TextLineSpacing { get; set; } = 0f;
 
+    // ---- Layout grid: image-space lattice anchored at the picture's
+    // TOP-LEFT (0,0). Extending the canvas rebuilds the image with a new
+    // origin, so the anchoring realigns automatically. ----
+
+    /// <summary>Draw the grid overlay (over the raster, under the text objects).</summary>
+    public bool GridVisible { get; set; } = false;
+
+    /// <summary>Lattice step in image pixels.</summary>
+    public int GridSize { get; set; } = 32;
+
+    /// <summary>Snap text-object anchors to the lattice on DRAG-moves only.</summary>
+    public bool SnapTextToGrid { get; set; } = false;
+
+    // ---- Caret blink: standard-cadence timer, running ONLY while a text
+    // edit box is open (managed from OnPaint / the tick itself). The phase
+    // rides the tool context; typing resets it to visible. ----
+    private System.Windows.Forms.Timer m_CaretBlinkTimer = null;
+    private bool                       m_CaretPhaseVisible = true;
+
     // ---- Pen (Wacom) settings. Defaulted here so pressure works immediately;
     // the editor overrides these from the project's saved tool settings. ----
 
@@ -707,13 +726,22 @@ namespace RetroDevStudio.Controls
       {
         return false;
       }
+      // The centering math uses the TEXT extents (anchor → widest line), NOT
+      // the frame bounds: an explicit wrap width can make the frame much
+      // wider than its left-aligned text, and centering that box visually
+      // left the text off-center. The frame union below still drives the
+      // invalidation region.
+      float textLeft  = float.MaxValue;
+      float textRight = float.MinValue;
       var union = Rectangle.Empty;
       foreach ( var obj in m_SelectedTextObjects )
       {
+        textLeft  = Math.Min( textLeft, obj.Position.X );
+        textRight = Math.Max( textRight, obj.Position.X + obj.ContentWidth() );
         var bounds = TextObjectBounds( obj );
         union = union.IsEmpty ? bounds : Rectangle.Union( union, bounds );
       }
-      float offsetX = ( ( m_Image.Width - union.Width ) / 2.0f ) - union.X;
+      float offsetX = ( ( m_Image.Width - ( textRight - textLeft ) ) / 2.0f ) - textLeft;
       if ( Math.Abs( offsetX ) < 0.5f )
       {
         return true;   // already centered — no phantom undo entry
@@ -767,7 +795,86 @@ namespace RetroDevStudio.Controls
       {
         return false;
       }
-      return textTool.HandleNavigationKey( RefreshToolContext(), Key );
+      bool handled = textTool.HandleNavigationKey( RefreshToolContext(), Key );
+      if ( handled )
+      {
+        ResetCaretBlink();
+      }
+      return handled;
+    }
+
+
+
+    /// <summary>
+    /// Restarts the caret blink at the VISIBLE phase — called on every edit
+    /// input so the caret is solid while typing/navigating (standard caret
+    /// behavior).
+    /// </summary>
+    private void ResetCaretBlink()
+    {
+      m_CaretPhaseVisible = true;
+      if ( ( m_CaretBlinkTimer != null )
+      &&   ( m_CaretBlinkTimer.Enabled ) )
+      {
+        m_CaretBlinkTimer.Stop();
+        m_CaretBlinkTimer.Start();
+      }
+    }
+
+
+
+    /// <summary>
+    /// Runs the blink timer exactly while a text edit box is open. Called
+    /// from OnPaint (a freshly opened box always paints) and the tick.
+    /// </summary>
+    private void UpdateCaretBlinkTimer()
+    {
+      var textTool = m_ActiveTool as TextTool;
+      bool boxOpen = ( textTool != null )
+                  && ( m_Image != null )
+                  && ( textTool.HasOpenEditBox );
+      if ( boxOpen )
+      {
+        if ( m_CaretBlinkTimer == null )
+        {
+          m_CaretBlinkTimer = new System.Windows.Forms.Timer();
+          // OS-configured cadence; a disabled ("no blink") system setting
+          // reports <= 0 — fall back to the classic 500 ms.
+          int blinkMs = SystemInformation.CaretBlinkTime;
+          m_CaretBlinkTimer.Interval = ( blinkMs > 0 ) ? blinkMs : 500;
+          m_CaretBlinkTimer.Tick += CaretBlinkTimer_Tick;
+        }
+        if ( !m_CaretBlinkTimer.Enabled )
+        {
+          m_CaretPhaseVisible = true;
+          m_CaretBlinkTimer.Start();
+        }
+      }
+      else if ( ( m_CaretBlinkTimer != null )
+      &&        ( m_CaretBlinkTimer.Enabled ) )
+      {
+        m_CaretBlinkTimer.Stop();
+        m_CaretPhaseVisible = true;
+      }
+    }
+
+
+
+    private void CaretBlinkTimer_Tick( object sender, EventArgs e )
+    {
+      var textTool = m_ActiveTool as TextTool;
+      if ( ( textTool == null )
+      ||   ( m_Image == null )
+      ||   ( !textTool.HasOpenEditBox ) )
+      {
+        m_CaretBlinkTimer.Stop();
+        m_CaretPhaseVisible = true;
+        return;
+      }
+      m_CaretPhaseVisible = !m_CaretPhaseVisible;
+      // The box region covers the caret (its +4 px margin exceeds the caret's
+      // 1-2 px overhang past the text edge).
+      InvalidateImageRegion( textTool.EditBoxRegion( RefreshToolContext() ) );
     }
 
 
@@ -1107,6 +1214,12 @@ namespace RetroDevStudio.Controls
     {
       if ( disposing )
       {
+        if ( m_CaretBlinkTimer != null )
+        {
+          m_CaretBlinkTimer.Stop();
+          m_CaretBlinkTimer.Dispose();
+          m_CaretBlinkTimer = null;
+        }
         m_Pen.Dispose();
         if ( m_PenCursors != null )
         {
@@ -1391,6 +1504,8 @@ namespace RetroDevStudio.Controls
       &&   ( m_Image != null )
       &&   ( m_ActiveTool.OnKeyPress( RefreshToolContext(), e.KeyChar ) ) )
       {
+        // Typing shows the caret solid — restart its blink phase.
+        ResetCaretBlink();
         e.Handled = true;
         return;
       }
@@ -1409,6 +1524,8 @@ namespace RetroDevStudio.Controls
       &&   ( m_Image != null )
       &&   ( navTextTool.HandleNavigationKey( RefreshToolContext(), e.KeyCode ) ) )
       {
+        // Moving the caret shows it solid — restart the blink phase.
+        ResetCaretBlink();
         e.Handled = true;
         return;
       }
@@ -1661,6 +1778,9 @@ namespace RetroDevStudio.Controls
       m_ToolContext.SetEditingTextObject = SetEditingTextObject;
       m_ToolContext.CommitTextObjectsChange = RaiseTextObjectsChangeCommitted;
       m_ToolContext.ViewZoom = m_Zoom;
+      m_ToolContext.SnapTextToGrid = SnapTextToGrid;
+      m_ToolContext.GridSize = GridSize;
+      m_ToolContext.CaretVisible = m_CaretPhaseVisible;
       m_ToolContext.CreateRenderer = () => new GdiPlusOutlineRenderer( m_Image );
       m_ToolContext.InvalidateImageRegion = InvalidateImageRegion;
       m_ToolContext.CommitChange = ( region, beforeCrop, description ) =>
@@ -2103,6 +2223,28 @@ namespace RetroDevStudio.Controls
 
 
 
+    protected override void OnMouseDoubleClick( MouseEventArgs e )
+    {
+      // Double-click on a text object opens its editor — the mouse twin of
+      // F2. The second click's mouse-down already armed a press through the
+      // normal tool path; the tool disarms it inside TryOpenEditorAt and the
+      // trailing mouse-up then no-ops against the cleared state.
+      var textTool = m_ActiveTool as TextTool;
+      if ( ( e.Button == MouseButtons.Left )
+      &&   ( !m_IsPanning )
+      &&   ( textTool != null )
+      &&   ( m_Image != null ) )
+      {
+        if ( textTool.TryOpenEditorAt( RefreshToolContext(), ViewToImage( e.Location ) ) )
+        {
+          Invalidate();
+        }
+      }
+      base.OnMouseDoubleClick( e );
+    }
+
+
+
     protected override void OnMouseWheel( MouseEventArgs e )
     {
       if ( ( ModifierKeys & Keys.Control ) == Keys.Control )
@@ -2158,6 +2300,33 @@ namespace RetroDevStudio.Controls
         g.DrawRectangle( borderPen, destRect.X - 1, destRect.Y - 1,
                          destRect.Width + 1, destRect.Height + 1 );
       }
+
+      // Layout grid — an image-space lattice anchored at the picture's
+      // TOP-LEFT (0,0), drawn over the raster and under the text objects.
+      // Extending the canvas rebuilds the image with a new origin, so the
+      // anchoring realigns automatically. Line 0 coincides with the border
+      // and is skipped.
+      if ( ( GridVisible )
+      &&   ( GridSize >= 2 ) )
+      {
+        using ( var gridPen = new Pen( Color.FromArgb( 70, 255, 255, 255 ) ) )
+        {
+          for ( int gx = GridSize; gx < m_Image.Width; gx += GridSize )
+          {
+            float viewX = m_Pan.X + gx * m_Zoom;
+            g.DrawLine( gridPen, viewX, destRect.Top, viewX, destRect.Bottom );
+          }
+          for ( int gy = GridSize; gy < m_Image.Height; gy += GridSize )
+          {
+            float viewY = m_Pan.Y + gy * m_Zoom;
+            g.DrawLine( gridPen, destRect.Left, viewY, destRect.Right, viewY );
+          }
+        }
+      }
+
+      // The caret-blink timer runs exactly while an edit box is open — a
+      // freshly opened box always paints, making this the reliable hook.
+      UpdateCaretBlinkTimer();
 
       // Persistent text objects — CONTENT, drawn above the raster but under
       // tool previews / marquee / floating paste. View-space draw = crisp at

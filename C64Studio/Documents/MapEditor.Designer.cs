@@ -346,6 +346,9 @@
             editOutlineCharSpacing = new System.Windows.Forms.NumericUpDown();
             labelOutlineLineSpacing = new System.Windows.Forms.Label();
             editOutlineLineSpacing = new System.Windows.Forms.NumericUpDown();
+            checkOutlineGrid = new Krypton.Toolkit.KryptonCheckBox();
+            editOutlineGridSize = new System.Windows.Forms.NumericUpDown();
+            checkOutlineSnapGrid = new Krypton.Toolkit.KryptonCheckBox();
             btnOutlineTextBold = new Krypton.Toolkit.KryptonCheckButton();
             btnOutlineTextItalic = new Krypton.Toolkit.KryptonCheckButton();
             labelOutlineBorderSize = new System.Windows.Forms.Label();
@@ -507,6 +510,7 @@
             ((System.ComponentModel.ISupportInitialize)editOutlineFontSize).BeginInit();
             ((System.ComponentModel.ISupportInitialize)editOutlineCharSpacing).BeginInit();
             ((System.ComponentModel.ISupportInitialize)editOutlineLineSpacing).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)editOutlineGridSize).BeginInit();
             ((System.ComponentModel.ISupportInitialize)editPenGamma).BeginInit();
             ((System.ComponentModel.ISupportInitialize)editPenMinWidth).BeginInit();
             ((System.ComponentModel.ISupportInitialize)editPenMinAlpha).BeginInit();
@@ -4044,6 +4048,9 @@
             flowOutlineOptions.Controls.Add(editOutlineLineSpacing);
             flowOutlineOptions.Controls.Add(btnOutlineCenterText);
             flowOutlineOptions.Controls.Add(btnOutlineFlattenText);
+            flowOutlineOptions.Controls.Add(checkOutlineGrid);
+            flowOutlineOptions.Controls.Add(editOutlineGridSize);
+            flowOutlineOptions.Controls.Add(checkOutlineSnapGrid);
             flowOutlineOptions.Location = new System.Drawing.Point(177, 42);
             flowOutlineOptions.Name = "flowOutlineOptions";
             flowOutlineOptions.Size = new System.Drawing.Size(1399, 31);
@@ -4282,6 +4289,38 @@
             editOutlineLineSpacing.TabIndex = 17;
             toolTip1.SetToolTip(editOutlineLineSpacing, "Extra pixels between lines (0 = font default)");
             editOutlineLineSpacing.ValueChanged += editOutlineTextSpacing_ValueChanged;
+            //
+            // checkOutlineGrid
+            //
+            checkOutlineGrid.Location = new System.Drawing.Point(1002, 6);
+            checkOutlineGrid.Name = "checkOutlineGrid";
+            checkOutlineGrid.Size = new System.Drawing.Size(46, 20);
+            checkOutlineGrid.TabIndex = 20;
+            toolTip1.SetToolTip(checkOutlineGrid, "Show the layout grid (anchored at the picture's top-left).");
+            checkOutlineGrid.Values.Text = "Grid";
+            checkOutlineGrid.CheckedChanged += checkOutlineGrid_CheckedChanged;
+            //
+            // editOutlineGridSize
+            //
+            editOutlineGridSize.Location = new System.Drawing.Point(1054, 4);
+            editOutlineGridSize.Maximum = new decimal(new int[] { 512, 0, 0, 0 });
+            editOutlineGridSize.Minimum = new decimal(new int[] { 4, 0, 0, 0 });
+            editOutlineGridSize.Name = "editOutlineGridSize";
+            editOutlineGridSize.Size = new System.Drawing.Size(48, 20);
+            editOutlineGridSize.TabIndex = 21;
+            toolTip1.SetToolTip(editOutlineGridSize, "Grid cell size in pixels (default 32).");
+            editOutlineGridSize.Value = new decimal(new int[] { 32, 0, 0, 0 });
+            editOutlineGridSize.ValueChanged += editOutlineGridSize_ValueChanged;
+            //
+            // checkOutlineSnapGrid
+            //
+            checkOutlineSnapGrid.Location = new System.Drawing.Point(1108, 6);
+            checkOutlineSnapGrid.Name = "checkOutlineSnapGrid";
+            checkOutlineSnapGrid.Size = new System.Drawing.Size(52, 20);
+            checkOutlineSnapGrid.TabIndex = 22;
+            toolTip1.SetToolTip(checkOutlineSnapGrid, "Snap text objects (top/left corner) to the grid when dragging them. Editing, centering and spacing changes never snap.");
+            checkOutlineSnapGrid.Values.Text = "Snap";
+            checkOutlineSnapGrid.CheckedChanged += checkOutlineSnapGrid_CheckedChanged;
             //
             // btnOutlineCenterText
             //
@@ -5608,6 +5647,7 @@
             ((System.ComponentModel.ISupportInitialize)editOutlineFontSize).EndInit();
             ((System.ComponentModel.ISupportInitialize)editOutlineCharSpacing).EndInit();
             ((System.ComponentModel.ISupportInitialize)editOutlineLineSpacing).EndInit();
+            ((System.ComponentModel.ISupportInitialize)editOutlineGridSize).EndInit();
             ((System.ComponentModel.ISupportInitialize)editPenGamma).EndInit();
             ((System.ComponentModel.ISupportInitialize)editPenMinWidth).EndInit();
             ((System.ComponentModel.ISupportInitialize)editPenMinAlpha).EndInit();
@@ -5859,6 +5899,9 @@
         private System.Windows.Forms.NumericUpDown editOutlineCharSpacing;
         private System.Windows.Forms.Label labelOutlineLineSpacing;
         private System.Windows.Forms.NumericUpDown editOutlineLineSpacing;
+        private Krypton.Toolkit.KryptonCheckBox checkOutlineGrid;
+        private System.Windows.Forms.NumericUpDown editOutlineGridSize;
+        private Krypton.Toolkit.KryptonCheckBox checkOutlineSnapGrid;
         private Krypton.Toolkit.KryptonCheckButton btnOutlineToolText;
         private Krypton.Toolkit.KryptonCheckButton btnOutlineToolStamp;
         private System.Windows.Forms.Label labelOutlineStampScale;

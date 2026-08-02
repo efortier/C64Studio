@@ -21286,6 +21286,48 @@ namespace RetroDevStudio.Documents
 
 
 
+    private void checkOutlineGrid_CheckedChanged( object sender, EventArgs e )
+    {
+      outlineCanvas.GridVisible = checkOutlineGrid.Checked;
+      outlineCanvas.Invalidate();
+      if ( ( m_MapProject != null )
+      &&   ( m_MapProject.OutlineToolSettings.GridVisible != checkOutlineGrid.Checked ) )
+      {
+        m_MapProject.OutlineToolSettings.GridVisible = checkOutlineGrid.Checked;
+        SetModified();
+      }
+    }
+
+
+
+    private void editOutlineGridSize_ValueChanged( object sender, EventArgs e )
+    {
+      int gridSize = (int)editOutlineGridSize.Value;
+      outlineCanvas.GridSize = gridSize;
+      outlineCanvas.Invalidate();
+      if ( ( m_MapProject != null )
+      &&   ( m_MapProject.OutlineToolSettings.GridSize != gridSize ) )
+      {
+        m_MapProject.OutlineToolSettings.GridSize = gridSize;
+        SetModified();
+      }
+    }
+
+
+
+    private void checkOutlineSnapGrid_CheckedChanged( object sender, EventArgs e )
+    {
+      outlineCanvas.SnapTextToGrid = checkOutlineSnapGrid.Checked;
+      if ( ( m_MapProject != null )
+      &&   ( m_MapProject.OutlineToolSettings.SnapTextToGrid != checkOutlineSnapGrid.Checked ) )
+      {
+        m_MapProject.OutlineToolSettings.SnapTextToGrid = checkOutlineSnapGrid.Checked;
+        SetModified();
+      }
+    }
+
+
+
     private void btnOutlineTextStyle_CheckedChanged( object sender, EventArgs e )
     {
       outlineCanvas.TextFontBold = btnOutlineTextBold.Checked;
@@ -21445,6 +21487,9 @@ namespace RetroDevStudio.Documents
       btnOutlineTextItalic.CheckedChanged -= btnOutlineTextStyle_CheckedChanged;
       editOutlineCharSpacing.ValueChanged -= editOutlineTextSpacing_ValueChanged;
       editOutlineLineSpacing.ValueChanged -= editOutlineTextSpacing_ValueChanged;
+      checkOutlineGrid.CheckedChanged -= checkOutlineGrid_CheckedChanged;
+      editOutlineGridSize.ValueChanged -= editOutlineGridSize_ValueChanged;
+      checkOutlineSnapGrid.CheckedChanged -= checkOutlineSnapGrid_CheckedChanged;
       try
       {
         editOutlineBrushSize.Value = ClampToNumeric( editOutlineBrushSize, tools.BrushSize );
@@ -21462,6 +21507,9 @@ namespace RetroDevStudio.Documents
         btnOutlineTextItalic.Checked = tools.TextFontItalic;
         editOutlineCharSpacing.Value = ClampToNumeric( editOutlineCharSpacing, (int)tools.TextCharSpacing );
         editOutlineLineSpacing.Value = ClampToNumeric( editOutlineLineSpacing, (int)tools.TextLineSpacing );
+        checkOutlineGrid.Checked = tools.GridVisible;
+        editOutlineGridSize.Value = ClampToNumeric( editOutlineGridSize, tools.GridSize );
+        checkOutlineSnapGrid.Checked = tools.SnapTextToGrid;
       }
       finally
       {
@@ -21476,6 +21524,9 @@ namespace RetroDevStudio.Documents
         btnOutlineTextItalic.CheckedChanged += btnOutlineTextStyle_CheckedChanged;
         editOutlineCharSpacing.ValueChanged += editOutlineTextSpacing_ValueChanged;
         editOutlineLineSpacing.ValueChanged += editOutlineTextSpacing_ValueChanged;
+        checkOutlineGrid.CheckedChanged += checkOutlineGrid_CheckedChanged;
+        editOutlineGridSize.ValueChanged += editOutlineGridSize_ValueChanged;
+        checkOutlineSnapGrid.CheckedChanged += checkOutlineSnapGrid_CheckedChanged;
       }
 
       // Mirror into the canvas + color UI (the handlers were detached).
@@ -21488,6 +21539,9 @@ namespace RetroDevStudio.Documents
       outlineCanvas.TextFontItalic = btnOutlineTextItalic.Checked;
       outlineCanvas.TextCharSpacing = (float)editOutlineCharSpacing.Value;
       outlineCanvas.TextLineSpacing = (float)editOutlineLineSpacing.Value;
+      outlineCanvas.GridVisible = checkOutlineGrid.Checked;
+      outlineCanvas.GridSize = (int)editOutlineGridSize.Value;
+      outlineCanvas.SnapTextToGrid = checkOutlineSnapGrid.Checked;
       if ( comboOutlineFont.SelectedIndex >= 0 )
       {
         outlineCanvas.TextFontFamily = (string)comboOutlineFont.SelectedItem;

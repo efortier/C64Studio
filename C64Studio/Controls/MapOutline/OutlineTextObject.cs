@@ -142,6 +142,26 @@ namespace RetroDevStudio.Controls
 
 
     /// <summary>
+    /// The TEXT's width — the widest laid-out line, ignoring any wider frame
+    /// (an explicit WrapWidth widens MeasuredSize but not this). Centering
+    /// aligns on this so a wide box never drags its text off-center.
+    /// </summary>
+    public float ContentWidth()
+    {
+      float widest = 0f;
+      foreach ( var line in GetLayout().Lines )
+      {
+        if ( line.Width > widest )
+        {
+          widest = line.Width;
+        }
+      }
+      return Math.Max( 1f, widest );
+    }
+
+
+
+    /// <summary>
     /// Image-space bounds: anchor + exact measured size + a 4px AA/overhang
     /// margin, so hit-testing, invalidation, the flatten region and the
     /// selection frame all agree — and hug the text tightly (the old

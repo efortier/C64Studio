@@ -91,6 +91,18 @@ namespace RetroDevStudio.Controls
     /// drag threshold (e.g. "4 screen px") needs this to convert.
     /// </summary>
     public float                        ViewZoom;
+    /// <summary>
+    /// Grid snap for text-object DRAG-moves (anchor → nearest lattice point;
+    /// edits, centering and spacing changes never snap). GridSize is the
+    /// lattice step in image px, anchored at the image's top-left.
+    /// </summary>
+    public bool                         SnapTextToGrid;
+    public int                          GridSize;
+    /// <summary>
+    /// Blink phase of the text edit box's caret — the canvas toggles it on a
+    /// timer; the text tool simply skips drawing the caret when false.
+    /// </summary>
+    public bool                         CaretVisible;
     /// <summary>New drawing session against Image. Dispose after use.</summary>
     public Func<IOutlineRenderer>       CreateRenderer;
     /// <summary>Repaint request for an image-space region (view mapping is the canvas' job).</summary>

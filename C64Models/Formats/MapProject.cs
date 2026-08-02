@@ -68,6 +68,12 @@ namespace RetroDevStudio.Formats
       // Text object spacing defaults (extra px between characters / lines).
       public float      TextCharSpacing = 0f;
       public float      TextLineSpacing = 0f;
+      // Layout grid overlay: lattice anchored at the image's TOP-LEFT
+      // (auto-realigns on canvas extend — the origin IS the anchor). Text
+      // objects optionally snap their anchor to it on drag-moves only.
+      public bool       GridVisible = false;
+      public int        GridSize = 32;
+      public bool       SnapTextToGrid = false;
     };
 
     public class Marker
@@ -985,6 +991,11 @@ namespace RetroDevStudio.Formats
         // readers stop at the bindings and keep the class defaults).
         chunkOutlineTools.AppendI32( (int)Math.Round( OutlineToolSettings.TextCharSpacing * 10 ) );
         chunkOutlineTools.AppendI32( (int)Math.Round( OutlineToolSettings.TextLineSpacing * 10 ) );
+        // Grid overlay settings — appended after the spacings (guarded reads;
+        // older readers stop earlier and keep the class defaults).
+        chunkOutlineTools.AppendU8( (byte)( OutlineToolSettings.GridVisible ? 1 : 0 ) );
+        chunkOutlineTools.AppendI32( OutlineToolSettings.GridSize );
+        chunkOutlineTools.AppendU8( (byte)( OutlineToolSettings.SnapTextToGrid ? 1 : 0 ) );
         projectFile.Append( chunkOutlineTools.ToBuffer() );
       }
 
@@ -1481,6 +1492,18 @@ namespace RetroDevStudio.Formats
               if ( chunkReader.Size - chunkReader.Position >= 4 )
               {
                 tools.TextLineSpacing = Math.Max( -64f, Math.Min( 256f, chunkReader.ReadInt32() / 10.0f ) );
+              }
+              if ( chunkReader.Size - chunkReader.Position >= 1 )
+              {
+                tools.GridVisible = ( chunkReader.ReadUInt8() != 0 );
+              }
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                tools.GridSize = Math.Max( 4, Math.Min( 512, chunkReader.ReadInt32() ) );
+              }
+              if ( chunkReader.Size - chunkReader.Position >= 1 )
+              {
+                tools.SnapTextToGrid = ( chunkReader.ReadUInt8() != 0 );
               }
               OutlineToolSettings = tools;
             }

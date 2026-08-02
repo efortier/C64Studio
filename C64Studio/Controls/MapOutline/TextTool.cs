@@ -249,7 +249,17 @@ namespace RetroDevStudio.Controls
       {
         var obj = m_DraggedObjects[i];
         var oldBounds = obj.BoundsWithMargin();
-        obj.Position = new PointF( m_DragOriginals[i].X + moveX, m_DragOriginals[i].Y + moveY );
+        var newPos = new PointF( m_DragOriginals[i].X + moveX, m_DragOriginals[i].Y + moveY );
+        if ( ( Context.SnapTextToGrid )
+        &&   ( Context.GridSize >= 2 ) )
+        {
+          // Snap each object's ANCHOR (top/left) to the nearest lattice
+          // point — drag-moves only: edits, centering, spacing changes and
+          // the nudge buttons never snap.
+          newPos.X = (float)Math.Round( newPos.X / Context.GridSize ) * Context.GridSize;
+          newPos.Y = (float)Math.Round( newPos.Y / Context.GridSize ) * Context.GridSize;
+        }
+        obj.Position = newPos;
         var bothBounds = Rectangle.Union( oldBounds, obj.BoundsWithMargin() );
         invalid = invalid.IsEmpty ? bothBounds : Rectangle.Union( invalid, bothBounds );
       }
@@ -557,8 +567,12 @@ namespace RetroDevStudio.Controls
           return;
         }
 
+        // An explicit (border-dragged) width counts as a pending change:
+        // ending edit mode shrink-wraps the frame to the text (below), so
+        // the close must commit even when nothing was typed.
         bool changed = ( editedObject.Text != text )
                     || ( editedObject.Position != editPos )
+                    || ( editedObject.WrapWidth > 0f )
                     || ( editedObject.FontFamily != Context.TextFontFamily )
                     || ( editedObject.FontSize != Context.TextFontSize )
                     || ( editedObject.Bold != Context.TextFontBold )
@@ -580,14 +594,14 @@ namespace RetroDevStudio.Controls
         editedObject.CharSpacing = Context.TextCharSpacing;
         editedObject.LineSpacing = Context.TextLineSpacing;
         editedObject.Color       = Context.PrimaryColor;
-        // WrapWidth deliberately untouched — the box edits content/style;
-        // explicit width belongs to the border-drag gesture. Freeze the width
-        // the box's lines actually broke at (auto-wrapped objects only:
-        // BoxBreakWidth returned the explicit width when one is set).
-        if ( editedObject.WrapWidth <= 0f )
-        {
-          editedObject.AutoBreakWidth = frozenBreak;
-        }
+        // Ending edit mode SHRINK-WRAPS the frame to the text: the explicit
+        // width folds into the frozen break width (the exact width the box's
+        // lines broke at — the breaks are preserved verbatim), and with
+        // WrapWidth back at 0 the measured frame hugs the widest line, plus
+        // the uniform 4 px margin on all four sides (BoundsWithMargin). The
+        // border drag re-widens any time.
+        editedObject.AutoBreakWidth = frozenBreak;
+        editedObject.WrapWidth      = 0f;
         editedObject.InvalidateMeasurement();
         var newBounds = editedObject.BoundsWithMargin();
         var union = Rectangle.Union( Rectangle.Union( oldBounds, newBounds ), boxRegion );
@@ -782,6 +796,37 @@ namespace RetroDevStudio.Controls
 
 
 
+    /// <summary>
+    /// Double-click: open the editor on the object under the pointer (F2's
+    /// mouse twin). The double-click's own mouse-down already ran the normal
+    /// press path, so the armed press/resize state is disarmed here — the
+    /// trailing mouse-up then no-ops. False = a box is already open (the
+    /// second click landed in it — leave its drag/caret behavior alone),
+    /// Ctrl held (selection gesture), or nothing hit.
+    /// </summary>
+    public bool TryOpenEditorAt( OutlineToolContext Context, PointF ImagePos )
+    {
+      if ( ( m_EditPos.HasValue )
+      ||   ( ( Control.ModifierKeys & Keys.Control ) == Keys.Control ) )
+      {
+        return false;
+      }
+      var hit = HitTest( Context, ImagePos );
+      if ( hit == null )
+      {
+        return false;
+      }
+      // Nothing moved between press and double-click, so plain disarms are
+      // enough (an armed resize hasn't written any width yet).
+      DisarmPress();
+      DisarmResize();
+      Context.SetSelectedTextObject( hit );
+      OpenBoxForObject( Context, hit );
+      return true;
+    }
+
+
+
     // ---- Helpers ---------------------------------------------------------
 
     /// <summary>Topmost-first hit test (list order = z-order, last = topmost).</summary>
@@ -864,19 +909,26 @@ namespace RetroDevStudio.Controls
                                   ViewZoom, Context.TextLineSpacing, Context.PrimaryColor );
         }
 
-        // Steady caret at its BUFFER position — geometry straight from the
-        // layout (spaces, wrap and spacing all exact for any font).
-        int caret = Math.Max( 0, Math.Min( text.Length, m_CaretIndex ) );
-        int caretLine;
-        float caretXImage;
-        OutlineTextLayout.CaretPosition( layout, caret, out caretLine, out caretXImage );
-        float caretX = originView.X + caretXImage * ViewZoom;
-        float caretY = originView.Y + caretLine * layout.LineAdvance( Context.TextLineSpacing ) * ViewZoom;
-        float caretHeight = layout.LineHeight * ViewZoom;
-        using ( var caretPen = new Pen( Context.PrimaryColor.A > 0
-          ? Color.FromArgb( 255, Context.PrimaryColor ) : Color.White, Math.Max( 1.0f, ViewZoom ) ) )
+        // Blinking caret at its BUFFER position — geometry straight from the
+        // layout (spaces, wrap and spacing all exact for any font). The
+        // canvas toggles Context.CaretVisible on the OS blink cadence and
+        // resets it to visible on every keystroke. Sized for visibility
+        // against chunky pixel fonts: ~2 px wider and 2 px taller than the
+        // old 1 px hairline (it vanished next to 3 px glyph strokes).
+        if ( Context.CaretVisible )
         {
-          ViewGraphics.DrawLine( caretPen, caretX, caretY + 2, caretX, caretY + caretHeight - 2 );
+          int caret = Math.Max( 0, Math.Min( text.Length, m_CaretIndex ) );
+          int caretLine;
+          float caretXImage;
+          OutlineTextLayout.CaretPosition( layout, caret, out caretLine, out caretXImage );
+          float caretX = originView.X + caretXImage * ViewZoom;
+          float caretY = originView.Y + caretLine * layout.LineAdvance( Context.TextLineSpacing ) * ViewZoom;
+          float caretHeight = layout.LineHeight * ViewZoom;
+          using ( var caretPen = new Pen( Context.PrimaryColor.A > 0
+            ? Color.FromArgb( 255, Context.PrimaryColor ) : Color.White, Math.Max( 1.0f, ViewZoom ) + 2.0f ) )
+          {
+            ViewGraphics.DrawLine( caretPen, caretX, caretY + 1, caretX, caretY + caretHeight - 1 );
+          }
         }
       }
       ViewGraphics.TextRenderingHint = previousHint;
@@ -937,6 +989,17 @@ namespace RetroDevStudio.Controls
         // frame still hugs (Measure uses BoxWrapWidth).
         return OutlineTextLayout.LayoutWithTemporaryGraphics( font, text, BoxBreakWidth( Context ), Context.TextCharSpacing );
       }
+    }
+
+
+
+    /// <summary>
+    /// Public window onto the open edit box's image-space bounds — the
+    /// canvas' caret-blink tick invalidates exactly this region.
+    /// </summary>
+    public Rectangle EditBoxRegion( OutlineToolContext Context )
+    {
+      return EditRegion( Context );
     }
 
 
