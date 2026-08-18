@@ -181,7 +181,8 @@ namespace RetroDevStudio.Types
     // APPEND ONLY below this line — AcceleratorKey persists the numeric
     // enum value (AcceleratorKey.ToChunk), so inserting mid-enum shifts
     // every user's saved key bindings.
-    MAP_EDITOR_TOGGLE_OUTLINE
+    MAP_EDITOR_TOGGLE_OUTLINE,
+    MAP_EDITOR_TOGGLE_SCRATCH
   }
 
   public enum StudioState

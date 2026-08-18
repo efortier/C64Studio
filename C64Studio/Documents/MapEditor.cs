@@ -466,16 +466,27 @@ namespace RetroDevStudio.Documents
     /// Undo task for a map's session-only sprite instance list. Nested in
     /// MapEditor because MapSpriteInstance is private editor state — the
     /// instances aren't part of the persisted map, so UndoMapRevert can't
-    /// cover them; this grouped task rides along wherever a whole-map
-    /// mutation (crop) displaces or drops instances. CreateComplementaryTask
-    /// re-snapshots the CURRENT list at undo time, so redo re-applies the
-    /// mutated state symmetrically.
+    /// cover them. EVERY instance mutation pushes one (move/nudge, place,
+    /// paste, delete, clear-all, instantiate-from-markers) — grouped with
+    /// the marker snapshot when a move also rewrites value-linked markers —
+    /// and it rides along whole-map mutations (crop) too. Pushing one does
+    /// NOT dirty the document: the data stays session-only; the entry only
+    /// makes Ctrl+Z restore the sprites alongside whatever else the step
+    /// changed. CreateComplementaryTask re-snapshots the CURRENT list at
+    /// undo time, so redo re-applies the mutated state symmetrically.
     /// </summary>
     private class UndoMapSpriteInstancesChange : Undo.UndoTask
     {
       private MapEditor                 m_Editor;
       private Formats.MapProject.Map    m_Map;
       private List<MapSpriteInstance>   m_Snapshot;
+      // Parallel to m_Snapshot: whether that instance was in the sprite
+      // selection at capture time. Apply restores the selection from these
+      // flags while it rebuilds the list — the rebuilt objects are NEW, so
+      // references can't carry the selection across, but the flags can.
+      // No live state outside this snapshot: CreateComplementaryTask
+      // re-captures the selection of the moment, so redo is symmetric.
+      private List<bool>                m_SnapshotSelected;
 
 
 
@@ -484,6 +495,7 @@ namespace RetroDevStudio.Documents
         m_Editor = Editor;
         m_Map = Map;
         m_Snapshot = new List<MapSpriteInstance>();
+        m_SnapshotSelected = new List<bool>();
         if ( ( Map != null )
         &&   ( Editor.m_MapSpriteInstances.TryGetValue( Map, out var instances ) ) )
         {
@@ -499,6 +511,7 @@ namespace RetroDevStudio.Documents
               FramePos    = inst.FramePos,
               FrameTicks  = inst.FrameTicks
             } );
+            m_SnapshotSelected.Add( Editor.m_SelectedSprites.Contains( inst ) );
           }
         }
       }
@@ -533,10 +546,20 @@ namespace RetroDevStudio.Documents
           instances = new List<MapSpriteInstance>();
           m_Editor.m_MapSpriteInstances[m_Map] = instances;
         }
-        instances.Clear();
-        foreach ( var inst in m_Snapshot )
+        // Restore the captured selection only when the affected map is the
+        // one on screen — the live selection always refers to the DISPLAYED
+        // map's instances, so a cross-map undo must leave it alone (those
+        // references stay valid; this Apply never touches that list).
+        bool restoreSelection = ReferenceEquals( m_Map, m_Editor.m_CurrentMap );
+        if ( restoreSelection )
         {
-          instances.Add( new MapSpriteInstance()
+          m_Editor.m_SelectedSprites.Clear();
+        }
+        instances.Clear();
+        for ( int i = 0; i < m_Snapshot.Count; ++i )
+        {
+          var inst = m_Snapshot[i];
+          var rebuilt = new MapSpriteInstance()
           {
             AnimationID = inst.AnimationID,
             CharX       = inst.CharX,
@@ -545,11 +568,18 @@ namespace RetroDevStudio.Documents
             OffsetY     = inst.OffsetY,
             FramePos    = inst.FramePos,
             FrameTicks  = inst.FrameTicks
-          } );
+          };
+          instances.Add( rebuilt );
+          if ( ( restoreSelection )
+          &&   ( m_SnapshotSelected[i] ) )
+          {
+            m_Editor.m_SelectedSprites.Add( rebuilt );
+          }
         }
-        // The restored instances may differ from what the selection held.
-        m_Editor.ClearSpriteSelection();
         m_Editor.UpdateSpriteAnimTimerState();
+        // The instance list (and possibly the selection) just changed —
+        // Clear all / nudge / Create-marker enablement must follow.
+        m_Editor.UpdateSpritePanelControlsState();
         m_Editor.pictureEditor.Invalidate();
       }
     }
@@ -646,6 +676,27 @@ namespace RetroDevStudio.Documents
     private System.Drawing.Bitmap       m_OutlineStampBitmap = null;
     private readonly List<System.Drawing.Color> m_OutlineRecentColors = new List<System.Drawing.Color>();
     private const int                   MAX_OUTLINE_RECENT_COLORS = 22;
+    // =============================================================================
+
+    // ==================== Scratch map (F12 workspace) ============================
+    // Every map can have a companion SCRATCH map: an independently-sized
+    // workspace (same layer structure) for parking pieces of the owner while
+    // reorganizing it. F12 toggles owner ↔ scratch on the Map tab. Scratch
+    // maps are NOT in m_MapProject.Maps — never exported, never in comboMaps.
+    // The view swap mirrors the revision pattern: m_CurrentMap = the scratch
+    // (writable), m_LiveMap stays = the owner; m_IsViewingScratch and
+    // m_IsViewingRevision are mutually exclusive.
+    private bool                        m_IsViewingScratch = false;
+    // Materialized scratches, object-keyed by their OWNER Map (survives map
+    // delete + undo, same pattern as m_MapSpriteInstances).
+    private readonly Dictionary<Formats.MapProject.Map, Formats.MapProject.Map> m_ScratchMaps
+      = new Dictionary<Formats.MapProject.Map, Formats.MapProject.Map>();
+    // Lazy-loaded sidecar container (<projectfile>.mapscratch). Null until the
+    // first F12 this session; entry blobs stay undecoded until their owner's
+    // scratch is actually visited (keeps project load fast).
+    private Formats.MapScratchContainer m_ScratchContainer = null;
+    // The in-memory container/dict has content the sidecar FILE hasn't seen.
+    private bool                        m_ScratchContainerDirty = false;
     // =============================================================================
 
     // Bucket-toggle state for a passable-tool drag stroke. The first
@@ -752,6 +803,29 @@ namespace RetroDevStudio.Documents
     // entry exists). Intrinsic transaction state, mirrors how a paint
     // stroke tracks its first cell via m_MouseButtonReleased.
     private bool                        m_TileDragMutatedMap = false;
+    // =========================================================================
+
+    // ==================== SELECT-tool region move ============================
+    // A plain press INSIDE the selection (Ctrl adds / Shift removes via the
+    // rubber band as before) ARMS a move of the selected cells — the multi-
+    // cell sibling of the single-tile drag above. The first cell of movement
+    // LIFTS the region: one whole-map undo snapshot, then the ACTIVE layer's
+    // selected cells vacate with erase semantics and their content travels in
+    // the buffers below, drawn as a preview at the cursor offset (the model
+    // stays vacated, so the normal render shows the map-without-region).
+    // Release writes the buffers at the target and the selection mask
+    // follows; Escape snaps the preview home and the move STAYS LIVE while
+    // the button is held (same contract as the tile drag — no inert
+    // "aborted but still holding" state). Armed ⇔ m_SelMoveArmedCell.X >= 0;
+    // lifted ⇔ m_SelMoveMask != null.
+    private System.Drawing.Point        m_SelMoveArmedCell = new System.Drawing.Point( -1, -1 );
+    private bool[,]                     m_SelMoveMask = null;         // bounds-local selected cells
+    private int[,]                      m_SelMoveTiles = null;        // bounds-local carried tile indices
+    private int[,]                      m_SelMoveColors = null;       // char-local colour overrides
+    private bool[,]                     m_SelMoveBlocked = null;      // char-local blocked (Background only)
+    private System.Drawing.Rectangle    m_SelMoveBounds;              // source bounding rect (tile cells)
+    private System.Drawing.Point        m_SelMoveTargetCell;          // current bounds-top-left target
+    private int                         m_SelMoveLayerIndex = -1;     // the lifted (pinned) layer
     // =========================================================================
 
     private System.Drawing.Point        m_DragStartPos = new System.Drawing.Point();
@@ -1339,6 +1413,18 @@ namespace RetroDevStudio.Documents
         }
         return false;
       }
+      if ( Function == Function.MAP_EDITOR_TOGGLE_SCRATCH )
+      {
+        // F12: Map tab only (user decision — the same conservative gating
+        // as the painter toggle above). ToggleScratchView itself refuses
+        // the painter/revision/no-map/mid-drag states with a beep + hint.
+        if ( tabMapEditor.SelectedPage == tabEditor )
+        {
+          ToggleScratchView();
+          return true;
+        }
+        return false;
+      }
       if ( OutlineModeActive )
       {
         // Clipboard functions get their OUTLINE meaning while the paint
@@ -1446,11 +1532,13 @@ namespace RetroDevStudio.Documents
             // tool mode), so a non-empty selection means the last thing
             // clicked was a sprite. Same precedence rule as the Delete key.
             // Map-tab gated: a selection lingering while another tab is
-            // active must not hijack that tab's copy.
+            // active must not hijack that tab's copy. The focus test only
+            // defers to a text input's own clipboard — focus anywhere else
+            // (map dropdown, tab header, a button) leaves the shortcut live.
             if ( ( m_SelectedSprites.Count > 0 )
             &&   ( tabMapEditor.SelectedPage == tabEditor ) )
             {
-              if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
+              if ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) )
               {
                 CopySelectedSprites();
                 return true;
@@ -1458,7 +1546,8 @@ namespace RetroDevStudio.Documents
             }
             if ( m_ToolMode == ToolMode.SELECT )
             {
-              if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
+              if ( ( tabMapEditor.SelectedPage == tabEditor )
+              &&   ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) ) )
               {
                 CopyToClipboard();
                 return true;
@@ -1467,7 +1556,8 @@ namespace RetroDevStudio.Documents
             else if ( ( m_ToolMode == ToolMode.MARKER )
             &&        ( m_SelectedMarkers.Count > 0 ) )
             {
-              if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
+              if ( ( tabMapEditor.SelectedPage == tabEditor )
+              &&   ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) ) )
               {
                 CopySelectedMarkers();
                 return true;
@@ -1479,7 +1569,8 @@ namespace RetroDevStudio.Documents
             &&   ( m_SelectedMarkers.Count > 0 )
             &&   ( !m_IsViewingRevision ) )
             {
-              if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
+              if ( ( tabMapEditor.SelectedPage == tabEditor )
+              &&   ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) ) )
               {
                 CutSelectedMarkers();
                 return true;
@@ -1487,8 +1578,13 @@ namespace RetroDevStudio.Documents
             }
             break;
           case Function.PASTE:
-            if ( ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
-            ||   ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabTiles, FocusSupport.FocusControlReason.COPY_PASTE ) ) )
+            // Explicit page gate: paste applies while the Map or Tiles page
+            // is the visible one — exactly the pages the old focus-
+            // containment proxy could ever match — and never steals Ctrl+V
+            // from a focused text input.
+            if ( ( ( tabMapEditor.SelectedPage == tabEditor )
+            ||     ( tabMapEditor.SelectedPage == tabTiles ) )
+            &&   ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) ) )
             {
               // A sprite payload arms the click-to-place sprite paste in any
               // tool mode (sprite selection is ambient) — Map tab only. A
@@ -1528,14 +1624,15 @@ namespace RetroDevStudio.Documents
         // still defers to a focused text-input control's own copy.
         if ( OutlineModeActive )
         {
-          return !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE );
+          return !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE );
         }
         return ( ( characterEditor.EditorFocused )
-        ||       ( ( ( m_ToolMode == ToolMode.SELECT )
+        ||       ( ( tabMapEditor.SelectedPage == tabEditor )
+        &&         ( ( m_ToolMode == ToolMode.SELECT )
         ||           ( m_SelectedSprites.Count > 0 )
         ||           ( ( m_ToolMode == ToolMode.MARKER )
         &&             ( m_SelectedMarkers.Count > 0 ) ) )
-        &&         ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) ) ) );
+        &&         ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) ) ) );
       }
     }
 
@@ -1552,12 +1649,13 @@ namespace RetroDevStudio.Documents
         if ( OutlineModeActive )
         {
           return ( outlineCanvas.SelectionRect.HasValue )
-              && ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) );
+              && ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) );
         }
-        return ( ( m_ToolMode == ToolMode.MARKER )
+        return ( ( tabMapEditor.SelectedPage == tabEditor )
+        &&       ( m_ToolMode == ToolMode.MARKER )
         &&       ( m_SelectedMarkers.Count > 0 )
         &&       ( !m_IsViewingRevision )
-        &&       ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) ) );
+        &&       ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) ) );
       }
     }
 
@@ -1568,8 +1666,9 @@ namespace RetroDevStudio.Documents
       get
       {
         return ( ( characterEditor.EditorFocused )
-        ||       ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabTiles, FocusSupport.FocusControlReason.COPY_PASTE ) )
-        ||       ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) ) );
+        ||       ( ( ( tabMapEditor.SelectedPage == tabEditor )
+        ||           ( tabMapEditor.SelectedPage == tabTiles ) )
+        &&         ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) ) ) );
       }
     }
 
@@ -2022,16 +2121,21 @@ namespace RetroDevStudio.Documents
 
       // draw selection
       uint    selectionColor = Core.Settings.FGColor( ColorableElement.SELECTION_FRAME );
+      // While a region move is lifted the frames travel with the carried
+      // content: the mask itself still sits at the source (the neighbor
+      // tests below stay valid), only the drawn position shifts.
+      int selFrameDX = ( m_SelMoveMask != null ) ? m_SelMoveTargetCell.X - m_SelMoveBounds.X : 0;
+      int selFrameDY = ( m_SelMoveMask != null ) ? m_SelMoveTargetCell.Y - m_SelMoveBounds.Y : 0;
       for ( int x = 0; x < m_CurrentMap.Tiles.Width; ++x )
       {
         for ( int y = 0; y < m_CurrentMap.Tiles.Height; ++y )
         {
           if ( m_SelectedTiles[x, y] )
           {
-            int  sourceX1 = renderOffsetX + ( x - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
-            int  sourceX2 = renderOffsetX + ( x + 1 - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
-            int  sourceY1 = renderOffsetY + ( y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
-            int  sourceY2 = renderOffsetY + ( y + 1 - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
+            int  sourceX1 = renderOffsetX + ( x + selFrameDX - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
+            int  sourceX2 = renderOffsetX + ( x + selFrameDX + 1 - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
+            int  sourceY1 = renderOffsetY + ( y + selFrameDY - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
+            int  sourceY2 = renderOffsetY + ( y + selFrameDY + 1 - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
 
             int  sx1 = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX1, sourceWidth, targetWidth ) ) );
             int  sx2 = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX2, sourceWidth, targetWidth ) - 1 ) );
@@ -2637,6 +2741,15 @@ namespace RetroDevStudio.Documents
       {
         outlineCanvas.FinalizePendingEdit();
         WriteOutlineSidecarWithRetry( !Modified );
+      }
+      catch ( Exception )
+      {
+      }
+      // Final scratch sidecar write — same prune gate and failure contract
+      // as the outline write above.
+      try
+      {
+        WriteScratchSidecarWithRetry( !Modified );
       }
       catch ( Exception )
       {
@@ -4027,6 +4140,9 @@ namespace RetroDevStudio.Documents
         // Drop a carried tile FIRST — the model already holds the final
         // state unless the release happened off-map (then it snaps home).
         FinishTileDrag();
+        // Same for a carried SELECT-tool region (writes at the target,
+        // moves the mask along; no-op when idle or never moved).
+        CommitSelectionMove();
         m_MouseButtonReleased = true;
         m_LastPaintedPos = new System.Drawing.Point( -1, -1 );
         // Mouse-up ends any in-flight marker/entity drag. Cleared
@@ -4044,8 +4160,11 @@ namespace RetroDevStudio.Documents
         if ( m_SpriteDragOrigins != null )
         {
           // The drag suppressed the selection border — repaint so it
-          // reappears the moment the button is released.
+          // reappears the moment the button is released. The move may
+          // also have changed the sprite↔marker link state (a stray
+          // landing on an orphaned marker's values) — refresh the panel.
           pictureEditor.Invalidate();
+          UpdateSpritePanelControlsState();
         }
         m_SpriteDragOrigins = null;
         m_SpriteDragLinkedMarkers = null;
@@ -4405,11 +4524,16 @@ namespace RetroDevStudio.Documents
                 anyLinked = true;
               }
             }
+            // One undo step covers the entire drag stroke: the sprite
+            // POSITIONS snapshot opens the group (so Ctrl+Z moves the
+            // sprites back, not just their markers), and the marker
+            // snapshot rides in the same group when any member is value-
+            // linked. Sprite-only moves stay session-only for the MODIFIED
+            // flag (no SetModified) but are undoable view state.
+            DocumentInfo.UndoManager.AddUndoTask( new UndoMapSpriteInstancesChange( this, m_CurrentMap ) );
             if ( anyLinked )
             {
-              // One whole-list snapshot covers the entire drag stroke; pure
-              // sprite moves (no linked markers) create no undo at all.
-              DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
+              DocumentInfo.UndoManager.AddGroupedUndoTask( new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
             }
             m_SpriteDragLastPx = new System.Drawing.Point( absPxX, absPxY );
           }
@@ -4843,10 +4967,30 @@ namespace RetroDevStudio.Documents
             {
               m_MouseButtonReleased = false;
 
+              // A PLAIN press inside the selection arms a region MOVE (the
+              // multi-cell twin of the tile drag) — the lift happens on the
+              // first moved cell, so a click without movement changes
+              // nothing. Ctrl/Shift presses keep their rubber-band meaning
+              // (add / remove), which must work INSIDE the selection too.
+              if ( ( ( ModifierKeys & ( Keys.Control | Keys.Shift ) ) == Keys.None )
+              &&   ( IsMapEditable )
+              &&   ( IsCellSelected( trueX + m_CurEditorOffsetX, trueY + m_CurEditorOffsetY ) ) )
+              {
+                m_SelMoveArmedCell = new System.Drawing.Point( trueX + m_CurEditorOffsetX, trueY + m_CurEditorOffsetY );
+                break;
+              }
+
               // first point
               m_DragStartPos.X = trueX + m_CurEditorOffsetX;
               m_DragStartPos.Y = trueY + m_CurEditorOffsetY;
               m_LastDragEndPos = new System.Drawing.Point( -1, -1 );
+            }
+            // A region move owns the whole hold — the rubber band never
+            // starts during it.
+            if ( m_SelMoveArmedCell.X >= 0 )
+            {
+              UpdateSelectionMove( trueX + m_CurEditorOffsetX, trueY + m_CurEditorOffsetY );
+              break;
             }
             // draw other point
             m_DragEndPos.X = trueX + m_CurEditorOffsetX;
@@ -5786,6 +5930,47 @@ namespace RetroDevStudio.Documents
 
 
 
+    /// <summary>
+    /// Draws one tile into the DisplayPage with a CARRIED per-char colour
+    /// payload — the preview twin of DrawTile for content that is IN FLIGHT
+    /// (region move, floating paste). DrawTile's data path reads the
+    /// override layer at the DRAW position, which belongs to whatever sits
+    /// UNDER the preview — that mismatch rendered carried art in the wrong
+    /// colours (dark intrinsic instead of its own overrides). Here each
+    /// char uses CarriedColorAt(i, j) — the payload captured at lift/copy —
+    /// when it returns >= 0, else the tile's intrinsic char colour; the
+    /// map's override layer is never consulted.
+    /// </summary>
+    private void DrawTileWithCarriedColors( int trueX, int trueY, int TileIndex,
+                                            Func<int, int, int> CarriedColorAt )
+    {
+      if ( ( TileIndex < 0 )
+      ||   ( TileIndex >= m_MapProject.Tiles.Count ) )
+      {
+        return;
+      }
+      GetMapRenderOffsets( out int renderOffsetX, out int renderOffsetY );
+
+      var tile = m_MapProject.Tiles[TileIndex];
+      for ( int j = 0; j < tile.Chars.Height; ++j )
+      {
+        for ( int i = 0; i < tile.Chars.Width; ++i )
+        {
+          int carried = CarriedColorAt( i, j );
+          byte colorToUse = ( carried >= 0 )
+                            ? (byte)carried
+                            : tile.Chars[i, j].Color;
+          DrawCharImage( pictureEditor.DisplayPage,
+                         renderOffsetX + ( trueX * m_CurrentMap.TileSpacingX + i ) * 8,
+                         renderOffsetY + ( trueY * m_CurrentMap.TileSpacingY + j ) * 8,
+                         tile.Chars[i, j].Character,
+                         colorToUse );
+        }
+      }
+    }
+
+
+
     private void pictureEditor_MouseMove( object sender, MouseEventArgs e )
     {
       MouseButtons    buttons = e.Button;
@@ -6167,6 +6352,12 @@ namespace RetroDevStudio.Documents
       m_PendingSpritePlacementAnimID = null;
       m_FloatingSprites = null;
       m_FloatingSpritesLastPos = new System.Drawing.Point( -1, -1 );
+      // Scratch state belongs to the project being cleared too: the
+      // materialized workspaces and the sidecar container die with it.
+      m_IsViewingScratch = false;
+      m_ScratchMaps.Clear();
+      m_ScratchContainer = null;
+      m_ScratchContainerDirty = false;
     }
 
 
@@ -6859,6 +7050,15 @@ namespace RetroDevStudio.Documents
           // The document save itself succeeded — never fail the save over the
           // sidecar; intermediate flush points will retry.
         }
+        // Scratch workspaces ride the same contract: their edits marked the
+        // document modified, so Ctrl+S must land them on disk too.
+        try
+        {
+          WriteScratchSidecar( false );
+        }
+        catch ( Exception )
+        {
+        }
       }
 
       // Save-As / Save-Copy-As: Save() calls this with the NEW path BEFORE
@@ -6883,6 +7083,14 @@ namespace RetroDevStudio.Documents
             if ( System.IO.File.Exists( oldSidecar ) )
             {
               System.IO.File.Copy( oldSidecar, newSidecar, true );
+            }
+            // The scratch sidecar travels along the same way.
+            WriteScratchSidecar( false );
+            string oldScratch = System.IO.Path.ChangeExtension( currentPath, ".mapscratch" );
+            string newScratch = System.IO.Path.ChangeExtension( FullPath, ".mapscratch" );
+            if ( System.IO.File.Exists( oldScratch ) )
+            {
+              System.IO.File.Copy( oldScratch, newScratch, true );
             }
           }
         }
@@ -6934,6 +7142,16 @@ namespace RetroDevStudio.Documents
       {
         outlineCanvas.FinalizePendingEdit();
         WriteOutlineSidecarWithRetry( !Modified );
+      }
+      catch ( Exception )
+      {
+      }
+      // Final scratch sidecar write — must also happen while
+      // DocumentFilename still holds the path. Clear() below resets the
+      // scratch dict and container.
+      try
+      {
+        WriteScratchSidecarWithRetry( !Modified );
       }
       catch ( Exception )
       {
@@ -7006,23 +7224,54 @@ namespace RetroDevStudio.Documents
 
       if ( m_FloatingSelection != null )
       {
+        // Ghost with the COPIED per-char colours when the payload carries
+        // them (same fix as the region-move preview: DrawTile's data path
+        // reads the override layer UNDER the cursor, painting the ghost in
+        // wrong colours). Payloads predating the colour trailer fall back
+        // to the old DrawTile ghost.
+        int ghostCaptureCharW = m_FloatingSelectionSize.Width * m_FloatingSelectionSourceSpacingX;
         for ( int j = 0; j < m_FloatingSelectionSize.Height; ++j )
         {
           for ( int i = 0; i < m_FloatingSelectionSize.Width; ++i )
           {
             var selectionChar = m_FloatingSelection[i + j * m_FloatingSelectionSize.Width];
-            if ( selectionChar.first )
+            if ( !selectionChar.first )
+            {
+              continue;
+            }
+            if ( m_FloatingSelectionOverrides == null )
             {
               DrawTile( ( m_MousePos.X + i ),
                         ( m_MousePos.Y + j ),
                         selectionChar.second );
+              continue;
             }
+            int ghostCharBaseX = i * m_FloatingSelectionSourceSpacingX;
+            int ghostCharBaseY = j * m_FloatingSelectionSourceSpacingY;
+            DrawTileWithCarriedColors(
+              m_MousePos.X + i, m_MousePos.Y + j, selectionChar.second,
+              ( cx, cy ) =>
+              {
+                // Chars beyond the SOURCE spacing block (spacing mismatch,
+                // oversized tiles) carry no payload — intrinsic colour.
+                if ( ( cx >= m_FloatingSelectionSourceSpacingX )
+                ||   ( cy >= m_FloatingSelectionSourceSpacingY ) )
+                {
+                  return -1;
+                }
+                int idx = ( ghostCharBaseX + cx ) + ( ghostCharBaseY + cy ) * ghostCaptureCharW;
+                return ( idx < m_FloatingSelectionOverrides.Count )
+                       ? m_FloatingSelectionOverrides[idx] : -1;
+              } );
           }
         }
       }
       // The rectangle tool's rubber-band was likewise wiped by the m_Image
       // restore — put it back (no-op unless a rect drag is in flight).
       DrawRectangleToolPreview();
+      // A carried SELECT-tool region likewise re-renders at its current
+      // target (no-op unless a region move is lifted).
+      DrawSelectionMovePreview();
       // Sprites re-render last (on top): the restore from m_Image above wiped
       // the previous frame's sprite pixels, this puts them back at their
       // current animation frames/positions. The animation tick is exactly
@@ -7167,6 +7416,23 @@ namespace RetroDevStudio.Documents
 
     private void pictureEditor_Paint( object sender, PaintEventArgs e )
     {
+      if ( m_IsViewingScratch )
+      {
+        // Unmissable view marker (user requirement): a filled amber tag in
+        // the top-left corner, drawn OVER the blitted map buffer. Nothing
+        // is drawn on the main-map face.
+        string banner = "SCRATCH MAP — F12 returns to '"
+                      + ( ( m_LiveMap != null ) ? m_LiveMap.Name : "" ) + "'";
+        using ( var font = new System.Drawing.Font( "Segoe UI", 9.0f, System.Drawing.FontStyle.Bold ) )
+        {
+          var textSize = e.Graphics.MeasureString( banner, font );
+          using ( var back = new System.Drawing.SolidBrush( System.Drawing.Color.FromArgb( 230, 255, 176, 0 ) ) )
+          {
+            e.Graphics.FillRectangle( back, 0, 0, textSize.Width + 10.0f, textSize.Height + 6.0f );
+          }
+          e.Graphics.DrawString( banner, font, System.Drawing.Brushes.Black, 5.0f, 3.0f );
+        }
+      }
     }
 
 
@@ -7919,7 +8185,10 @@ namespace RetroDevStudio.Documents
       bool cutValid = ( m_PendingCutMarkers != null )
                    && ( m_PendingCutSourceMap != null )
                    && ( m_PendingCutPayloadId == m_FloatingMarkersPayloadId )
-                   && ( m_MapProject.Maps.Contains( m_PendingCutSourceMap ) );
+                   // A scratch workspace is a valid cut source too — cut on
+                   // the scratch, F12, paste on the main map stays a MOVE.
+                   && ( ( m_MapProject.Maps.Contains( m_PendingCutSourceMap ) )
+                   ||   ( m_ScratchMaps.ContainsValue( m_PendingCutSourceMap ) ) );
       List<Formats.MapProject.Marker> cutRefs = null;
       if ( cutValid )
       {
@@ -8079,6 +8348,8 @@ namespace RetroDevStudio.Documents
       RedrawMap();
       pictureEditor.Invalidate();
       UpdateMarkerOutOfBoundsLabel();
+      // Pasted TRIGGER_SPRITE_ANIM markers can value-link a selected sprite.
+      UpdateSpritePanelControlsState();
     }
 
     // =================== end marker copy / cut / paste ===================
@@ -8407,6 +8678,304 @@ namespace RetroDevStudio.Documents
 
 
 
+    /// <summary>True when the cell lies inside the SELECT-tool mask.</summary>
+    private bool IsCellSelected( int CellX, int CellY )
+    {
+      return ( m_SelectedTiles != null )
+          && ( CellX >= 0 )
+          && ( CellY >= 0 )
+          && ( CellX < m_SelectedTiles.GetLength( 0 ) )
+          && ( CellY < m_SelectedTiles.GetLength( 1 ) )
+          && ( m_SelectedTiles[CellX, CellY] );
+    }
+
+
+
+    /// <summary>
+    /// First cell of movement of an armed region move: ONE whole-map undo
+    /// snapshot of the active layer (whole-map for the same reason
+    /// DeleteSelectedRegion snapshots whole: oversized-tile footprints can
+    /// reach past the bounds rect), then the selected cells' content lifts
+    /// into the carry buffers and the sources vacate with the layer's ERASE
+    /// semantics (Background→tile 0, upper layers→transparent — the tile
+    /// drag's rule, not Delete's blank-stamp). Carried char payload is each
+    /// cell's spacing block of colour overrides (+ blocked on the
+    /// Background, which is whole-map).
+    /// </summary>
+    private void LiftSelectedRegion()
+    {
+      TileSelectionBounds( out int minX, out int minY, out int maxX, out int maxY );
+      m_SelMoveBounds     = new System.Drawing.Rectangle( minX, minY, maxX - minX + 1, maxY - minY + 1 );
+      m_SelMoveTargetCell = m_SelMoveBounds.Location;
+      m_SelMoveLayerIndex = ClampedActiveLayerIndex();
+
+      DocumentInfo.UndoManager.AddUndoTask(
+        new Undo.UndoMapTilesChange( this, m_CurrentMap, 0, 0,
+                                     m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height,
+                                     m_SelMoveLayerIndex ) );
+
+      var layer    = m_CurrentMap.Layers[m_SelMoveLayerIndex];
+      int spacingX = m_CurrentMap.TileSpacingX;
+      int spacingY = m_CurrentMap.TileSpacingY;
+      int eraseTile = ( m_SelMoveLayerIndex == 0 ) ? 0 : -1;
+
+      m_SelMoveMask    = new bool[m_SelMoveBounds.Width, m_SelMoveBounds.Height];
+      m_SelMoveTiles   = new int[m_SelMoveBounds.Width, m_SelMoveBounds.Height];
+      m_SelMoveColors  = new int[m_SelMoveBounds.Width * spacingX, m_SelMoveBounds.Height * spacingY];
+      m_SelMoveBlocked = new bool[m_SelMoveBounds.Width * spacingX, m_SelMoveBounds.Height * spacingY];
+
+      for ( int by = 0; by < m_SelMoveBounds.Height; ++by )
+      {
+        for ( int bx = 0; bx < m_SelMoveBounds.Width; ++bx )
+        {
+          int cellX = m_SelMoveBounds.X + bx;
+          int cellY = m_SelMoveBounds.Y + by;
+          if ( !IsCellSelected( cellX, cellY ) )
+          {
+            continue;
+          }
+          m_SelMoveMask[bx, by]  = true;
+          m_SelMoveTiles[bx, by] = layer.Tiles[cellX, cellY];
+          layer.Tiles[cellX, cellY] = eraseTile;
+
+          for ( int dy = 0; dy < spacingY; ++dy )
+          {
+            for ( int dx = 0; dx < spacingX; ++dx )
+            {
+              int cx = cellX * spacingX + dx;
+              int cy = cellY * spacingY + dy;
+              int lx = bx * spacingX + dx;
+              int ly = by * spacingY + dy;
+              if ( ( cx < layer.TileColorOverrides.Width )
+              &&   ( cy < layer.TileColorOverrides.Height ) )
+              {
+                m_SelMoveColors[lx, ly] = layer.TileColorOverrides[cx, cy];
+                layer.TileColorOverrides[cx, cy] = -1;
+              }
+              else
+              {
+                m_SelMoveColors[lx, ly] = -1;
+              }
+              if ( ( m_SelMoveLayerIndex == 0 )
+              &&   ( cx < m_CurrentMap.CharBlockedOverrides.Width )
+              &&   ( cy < m_CurrentMap.CharBlockedOverrides.Height ) )
+              {
+                m_SelMoveBlocked[lx, ly] = m_CurrentMap.CharBlockedOverrides[cx, cy];
+                m_CurrentMap.CharBlockedOverrides[cx, cy] = false;
+              }
+            }
+          }
+        }
+      }
+      // Bake the vacated state into the render cache — from here on the
+      // carried content exists only in the preview overlay.
+      RedrawMap();
+    }
+
+
+
+    /// <summary>Writes the carry buffers back into the model with the bounds' top-left at the given cell.</summary>
+    private void WriteLiftedRegionAt( int TargetCellX, int TargetCellY )
+    {
+      var layer    = m_CurrentMap.Layers[m_SelMoveLayerIndex];
+      int spacingX = m_CurrentMap.TileSpacingX;
+      int spacingY = m_CurrentMap.TileSpacingY;
+
+      for ( int by = 0; by < m_SelMoveBounds.Height; ++by )
+      {
+        for ( int bx = 0; bx < m_SelMoveBounds.Width; ++bx )
+        {
+          if ( !m_SelMoveMask[bx, by] )
+          {
+            continue;
+          }
+          int cellX = TargetCellX + bx;
+          int cellY = TargetCellY + by;
+          if ( ( cellX < 0 )
+          ||   ( cellY < 0 )
+          ||   ( cellX >= m_CurrentMap.Tiles.Width )
+          ||   ( cellY >= m_CurrentMap.Tiles.Height ) )
+          {
+            continue;   // belt — the target is group-clamped into the map
+          }
+          layer.Tiles[cellX, cellY] = m_SelMoveTiles[bx, by];
+
+          for ( int dy = 0; dy < spacingY; ++dy )
+          {
+            for ( int dx = 0; dx < spacingX; ++dx )
+            {
+              int cx = cellX * spacingX + dx;
+              int cy = cellY * spacingY + dy;
+              int lx = bx * spacingX + dx;
+              int ly = by * spacingY + dy;
+              if ( ( cx < layer.TileColorOverrides.Width )
+              &&   ( cy < layer.TileColorOverrides.Height ) )
+              {
+                layer.TileColorOverrides[cx, cy] = m_SelMoveColors[lx, ly];
+              }
+              if ( ( m_SelMoveLayerIndex == 0 )
+              &&   ( cx < m_CurrentMap.CharBlockedOverrides.Width )
+              &&   ( cy < m_CurrentMap.CharBlockedOverrides.Height ) )
+              {
+                m_CurrentMap.CharBlockedOverrides[cx, cy] = m_SelMoveBlocked[lx, ly];
+              }
+            }
+          }
+        }
+      }
+    }
+
+
+
+    /// <summary>
+    /// Per-move step of an armed region move: lifts on the first cell of
+    /// actual movement, then tracks the cursor with the bounds group-clamped
+    /// into the map (the formation sticks at the edges, like every other
+    /// group move in this editor).
+    /// </summary>
+    private void UpdateSelectionMove( int CellX, int CellY )
+    {
+      int deltaX = CellX - m_SelMoveArmedCell.X;
+      int deltaY = CellY - m_SelMoveArmedCell.Y;
+      if ( m_SelMoveMask == null )
+      {
+        if ( ( deltaX == 0 )
+        &&   ( deltaY == 0 ) )
+        {
+          return;
+        }
+        LiftSelectedRegion();
+      }
+      var target = new System.Drawing.Point(
+        Math.Max( 0, Math.Min( m_CurrentMap.Tiles.Width  - m_SelMoveBounds.Width,  m_SelMoveBounds.X + deltaX ) ),
+        Math.Max( 0, Math.Min( m_CurrentMap.Tiles.Height - m_SelMoveBounds.Height, m_SelMoveBounds.Y + deltaY ) ) );
+      if ( target == m_SelMoveTargetCell )
+      {
+        return;
+      }
+      m_SelMoveTargetCell = target;
+      // Redraw restores the vacated map from the cache and re-renders every
+      // overlay — including this move's preview (see the Redraw hook).
+      Redraw();
+    }
+
+
+
+    /// <summary>
+    /// Preview pass of a lifted region move — carried tiles drawn at the
+    /// current target. Called from Redraw() so every cache restore
+    /// re-renders it (same integration as DrawRectangleToolPreview);
+    /// no-op unless a move is lifted.
+    /// </summary>
+    private void DrawSelectionMovePreview()
+    {
+      if ( m_SelMoveMask == null )
+      {
+        return;
+      }
+      for ( int by = 0; by < m_SelMoveBounds.Height; ++by )
+      {
+        for ( int bx = 0; bx < m_SelMoveBounds.Width; ++bx )
+        {
+          if ( !m_SelMoveMask[bx, by] )
+          {
+            continue;
+          }
+          int tileIndex = m_SelMoveTiles[bx, by];
+          if ( ( tileIndex < 0 )
+          ||   ( tileIndex >= m_MapProject.Tiles.Count ) )
+          {
+            continue;   // transparent upper-layer cell — nothing to show
+          }
+          // Carried colours, not DrawTile: its data path would resolve the
+          // per-char colour from the override layer UNDER the preview.
+          int charBaseX = bx * m_CurrentMap.TileSpacingX;
+          int charBaseY = by * m_CurrentMap.TileSpacingY;
+          DrawTileWithCarriedColors(
+            m_SelMoveTargetCell.X + bx - m_CurEditorOffsetX,
+            m_SelMoveTargetCell.Y + by - m_CurEditorOffsetY,
+            tileIndex,
+            ( i, j ) =>
+            {
+              int lx = charBaseX + i;
+              int ly = charBaseY + j;
+              return ( ( lx < m_SelMoveColors.GetLength( 0 ) )
+                    && ( ly < m_SelMoveColors.GetLength( 1 ) ) )
+                    ? m_SelMoveColors[lx, ly] : -1;
+            } );
+        }
+      }
+    }
+
+
+
+    /// <summary>
+    /// Release of a region move: writes the carried content at the target,
+    /// moves the selection mask along, and clears the state. A drop exactly
+    /// at home restores the pre-lift content verbatim and skips the dirty
+    /// flag (the lift's undo entry stays as a harmless no-op pair — same as
+    /// the tile drag's snap-home). An armed-but-never-moved press is a
+    /// silent no-op, selection untouched.
+    /// </summary>
+    private void CommitSelectionMove()
+    {
+      if ( m_SelMoveArmedCell.X < 0 )
+      {
+        return;
+      }
+      if ( m_SelMoveMask != null )
+      {
+        WriteLiftedRegionAt( m_SelMoveTargetCell.X, m_SelMoveTargetCell.Y );
+        bool movedAnywhere = ( m_SelMoveTargetCell != m_SelMoveBounds.Location );
+        if ( movedAnywhere )
+        {
+          // The selection mask follows the content.
+          for ( int y = 0; y < m_SelectedTiles.GetLength( 1 ); ++y )
+          {
+            for ( int x = 0; x < m_SelectedTiles.GetLength( 0 ); ++x )
+            {
+              m_SelectedTiles[x, y] = false;
+            }
+          }
+          for ( int by = 0; by < m_SelMoveBounds.Height; ++by )
+          {
+            for ( int bx = 0; bx < m_SelMoveBounds.Width; ++bx )
+            {
+              int cellX = m_SelMoveTargetCell.X + bx;
+              int cellY = m_SelMoveTargetCell.Y + by;
+              if ( ( m_SelMoveMask[bx, by] )
+              &&   ( cellX < m_SelectedTiles.GetLength( 0 ) )
+              &&   ( cellY < m_SelectedTiles.GetLength( 1 ) ) )
+              {
+                m_SelectedTiles[cellX, cellY] = true;
+              }
+            }
+          }
+          SetModified();
+        }
+        RecalcTileUsageInCurrentMap();
+        RedrawMap();
+        pictureEditor.Invalidate();
+      }
+      ClearSelectionMoveState();
+    }
+
+
+
+    private void ClearSelectionMoveState()
+    {
+      m_SelMoveArmedCell  = new System.Drawing.Point( -1, -1 );
+      m_SelMoveMask       = null;
+      m_SelMoveTiles      = null;
+      m_SelMoveColors     = null;
+      m_SelMoveBlocked    = null;
+      m_SelMoveBounds     = System.Drawing.Rectangle.Empty;
+      m_SelMoveTargetCell = new System.Drawing.Point( -1, -1 );
+      m_SelMoveLayerIndex = -1;
+    }
+
+
+
     private void cropToSelectionToolStripMenuItem_Click( object sender, EventArgs e )
     {
       CropMapToSelection();
@@ -8472,9 +9041,11 @@ namespace RetroDevStudio.Documents
       // One full-state undo entry: size, all layers, overrides, markers,
       // entities — restored together by a single Ctrl+Z. The grouped task
       // right after covers the session-only sprite instances the snapshot
-      // can't (they aren't part of the persisted map).
-      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapRevert( this, m_LiveMap ) );
-      DocumentInfo.UndoManager.AddGroupedUndoTask( new UndoMapSpriteInstancesChange( this, m_LiveMap ) );
+      // can't (they aren't part of the persisted map). Capture the map the
+      // crop below actually mutates (m_CurrentMap) — crop is disabled in
+      // read-only views, so this is the editable map in every enabled case.
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapRevert( this, m_CurrentMap ) );
+      DocumentInfo.UndoManager.AddGroupedUndoTask( new UndoMapSpriteInstancesChange( this, m_CurrentMap ) );
 
       // Resolve sprite↔marker value links BEFORE anything shifts: the
       // TRIGGER_SPRITE_ANIM markers' Value2/3 encode the sprite's CharX/Y,
@@ -9738,6 +10309,15 @@ namespace RetroDevStudio.Documents
       // revisions list belongs to the previous map, not the new one. The
       // revisions combo will be repopulated below from the new map.
       m_IsViewingRevision = false;
+      // Scratch view likewise: a map switch (or the F12 return, which
+      // re-fires this handler) always lands on the main-map face. The
+      // scratch itself stays materialized for its owner's next F12. Re-arm
+      // the controls ApplyScratchViewEnablement locked that nothing below
+      // re-enables (the rest come back via the button-enable block and
+      // SetMapEditingControlsEnabled inside the populate).
+      m_IsViewingScratch = false;
+      comboRevisions.Enabled = true;
+      btnMapAdd.Enabled = true;
       m_LiveMap = null;
       m_CurrentMap = null;
 
@@ -9787,12 +10367,45 @@ namespace RetroDevStudio.Documents
       // The map the user just selected becomes our editable "live" map.
       // Any revision-viewing state was already cleared above.
       m_LiveMap = m_CurrentMap;
-      m_ActiveLayerIndex = m_CurrentMap.SelectedLayerIndex;
-      RefreshLayerList();
       btnCopy.Enabled = true;
 
       btnMoveMapDown.Enabled  = ( ( comboMaps.Items.Count >= 2 ) && ( comboMaps.SelectedIndex + 1 < comboMaps.Items.Count ) );
       btnMoveMapUp.Enabled    = ( ( comboMaps.Items.Count >= 2 ) && ( comboMaps.SelectedIndex > 0 ) );
+
+      PopulateEditorFromCurrentMap();
+
+      // Re-fill comboRevisions from the new map's history (we always start
+      // in "(Current)" view mode after a map switch). Deliberately outside
+      // the populate: other callers swap m_CurrentMap without changing
+      // whose revision list is showing.
+      RefreshRevisionsCombo();
+
+      if ( OutlineModeActive )
+      {
+        // "Change map → change outline picture": wrap up any pending edit
+        // (text commits, strokes cancel), flush the previous map's image
+        // to disk, then swap the decoded canvas to the new map.
+        outlineCanvas.FinalizePendingEdit();
+        WriteOutlineSidecar( false );
+        ActivateOutlineForMap( m_CurrentMap );
+      }
+    }
+
+
+
+    /// <summary>
+    /// Sync every editor-side control and cache from m_CurrentMap: layer
+    /// list, selection mask, fog-of-war, name/size/spacing boxes, color
+    /// combos, marker/entity type combos, tile usage, edit-control
+    /// enabling, scrollbars, sprite timers and the map render. Shared by
+    /// every path that changes WHICH map m_CurrentMap points at (map
+    /// combo, revision revert). Deliberately does NOT touch comboRevisions
+    /// — callers decide whether the revision list changes.
+    /// </summary>
+    private void PopulateEditorFromCurrentMap()
+    {
+      m_ActiveLayerIndex = m_CurrentMap.SelectedLayerIndex;
+      RefreshLayerList();
 
       m_SelectedTiles = new bool[m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height];
       // The fog-of-war mask is sized to the map — re-init (all opaque) on
@@ -9814,46 +10427,41 @@ namespace RetroDevStudio.Documents
       comboMapMultiColor1.SelectedIndex = m_CurrentMap.AlternativeMultiColor1 + 1;
       comboMapMultiColor2.SelectedIndex = m_CurrentMap.AlternativeMultiColor2 + 1;
       comboMapBGColor.SelectedIndex = m_CurrentMap.AlternativeBackgroundColor + 1;
-  comboMapAlternativeBGColor4.SelectedIndex = m_CurrentMap.AlternativeBGColor4 + 1;
-  comboMapAlternativeMode.SelectedIndex = (int)m_CurrentMap.AlternativeMode + 1;
-  // Value-equality guard in the handler keeps this populate clean.
-  checkMapNotExported.Checked = m_CurrentMap.NotExported;
-  
-  dimSlider.Value = m_CurrentMap.MarkerDimOpacity;
-  if ( m_MapProject.MarkerTypes.Count > 0 )
-  {
-     int index = m_MapProject.MarkerTypes.FindIndex( t => t.ID == m_CurrentMap.SelectedMarkerType );
-     if ( index != -1 )
-     {
-       comboMarkerTypes.SelectedIndex = index + 1;
-     }
-     else
-     {
-       comboMarkerTypes.SelectedIndex = 0;
-     }
-  }
-  else
-  {
-     comboMarkerTypes.SelectedIndex = 0;
-  }
-  UpdateMarkerControlsState();
+      comboMapAlternativeBGColor4.SelectedIndex = m_CurrentMap.AlternativeBGColor4 + 1;
+      comboMapAlternativeMode.SelectedIndex = (int)m_CurrentMap.AlternativeMode + 1;
+      // Value-equality guard in the handler keeps this populate clean.
+      checkMapNotExported.Checked = m_CurrentMap.NotExported;
 
-  if ( m_MapProject.EntityTypes.Count > 0 )
-  {
-    int idx = m_MapProject.EntityTypes.FindIndex( t => t.ID == m_CurrentMap.SelectedEntityType );
-    comboEntityTypes.SelectedIndex = ( idx >= 0 ) ? idx + 1 : 0;
-  }
-  else
-  {
-    comboEntityTypes.SelectedIndex = 0;
-  }
+      dimSlider.Value = m_CurrentMap.MarkerDimOpacity;
+      if ( m_MapProject.MarkerTypes.Count > 0 )
+      {
+        int index = m_MapProject.MarkerTypes.FindIndex( t => t.ID == m_CurrentMap.SelectedMarkerType );
+        if ( index != -1 )
+        {
+          comboMarkerTypes.SelectedIndex = index + 1;
+        }
+        else
+        {
+          comboMarkerTypes.SelectedIndex = 0;
+        }
+      }
+      else
+      {
+        comboMarkerTypes.SelectedIndex = 0;
+      }
+      UpdateMarkerControlsState();
+
+      if ( m_MapProject.EntityTypes.Count > 0 )
+      {
+        int idx = m_MapProject.EntityTypes.FindIndex( t => t.ID == m_CurrentMap.SelectedEntityType );
+        comboEntityTypes.SelectedIndex = ( idx >= 0 ) ? idx + 1 : 0;
+      }
+      else
+      {
+        comboEntityTypes.SelectedIndex = 0;
+      }
 
       RecalcTileUsageInCurrentMap();
-
-      // Re-fill comboRevisions from the new map's history and re-enable
-      // edit-side controls (we always start in "(Current)" view mode after
-      // a map switch).
-      RefreshRevisionsCombo();
       SetMapEditingControlsEnabled( true );
 
       AdjustScrollbars();
@@ -9867,16 +10475,286 @@ namespace RetroDevStudio.Documents
       {
         RedrawMap();
       }
+    }
 
-      if ( OutlineModeActive )
+
+
+    /// <summary>
+    /// F12: swap the editor between a map and its scratch workspace. The
+    /// scratch is a full Map of independent size that is NOT part of
+    /// m_MapProject.Maps — never exported, never in comboMaps; it persists
+    /// in the .mapscratch sidecar keyed by the owner's OutlineGuid. The
+    /// swap mirrors the revision-view pattern: m_CurrentMap points at the
+    /// scratch (writable), m_LiveMap stays the owner.
+    /// </summary>
+    private void ToggleScratchView()
+    {
+      if ( m_IsViewingScratch )
       {
-        // "Change map → change outline picture": wrap up any pending edit
-        // (text commits, strokes cancel), flush the previous map's image
-        // to disk, then swap the decoded canvas to the new map.
-        outlineCanvas.FinalizePendingEdit();
-        WriteOutlineSidecar( false );
-        ActivateOutlineForMap( m_CurrentMap );
+        // Return to the owner: the combo handler re-populates everything
+        // from the (unchanged) combo selection — full restore for free,
+        // including the view-state reset and control re-arming.
+        comboMaps_SelectedIndexChanged( null, null );
+        return;
       }
+      if ( ( m_CurrentMap == null )
+      ||   ( m_IsViewingRevision )
+      ||   ( OutlineModeActive ) )
+      {
+        // No map to pair with, or a read-only/painter face is showing —
+        // the workspace only swaps with the live MAIN map view.
+        System.Media.SystemSounds.Beep.Play();
+        labelEditInfo.Text = "Scratch map: return to the normal map view first";
+        return;
+      }
+      if ( ( m_TileDragCarriedIndex >= 0 )
+      ||   ( m_SelMoveArmedCell.X >= 0 ) )
+      {
+        // A tile drag / SELECT-tool region move owns the current mouse
+        // hold. F12 is a keyboard accelerator and CAN fire mid-hold — the
+        // release would then commit the carried cells into the swapped-in
+        // view against a freshly reallocated selection mask. Finish (or
+        // Escape-and-release) the drag first.
+        System.Media.SystemSounds.Beep.Play();
+        labelEditInfo.Text = "Scratch map: finish the current drag first";
+        return;
+      }
+
+      // Selections and armed placements belong to the outgoing view — the
+      // same trio the map combo clears before its swap. Floating pastes
+      // deliberately SURVIVE: carrying a copied region across F12 is the
+      // scratch map's core workflow.
+      ClearMarkerEntitySelection();
+      ClearSpriteSelection();
+      CancelPendingSpritePlacement();
+
+      m_IsViewingScratch = true;
+      m_CurrentMap = GetOrCreateScratchMap( m_LiveMap );
+      PopulateEditorFromCurrentMap();
+      ApplyScratchViewEnablement();
+      pictureEditor.Invalidate();
+    }
+
+
+
+    /// <summary>
+    /// The owner's scratch map, materializing it from the sidecar (or
+    /// creating a fresh one) on first visit this session.
+    /// </summary>
+    private Formats.MapProject.Map GetOrCreateScratchMap( Formats.MapProject.Map Owner )
+    {
+      Formats.MapProject.Map scratch;
+      if ( m_ScratchMaps.TryGetValue( Owner, out scratch ) )
+      {
+        return scratch;
+      }
+      scratch = TryMaterializeStoredScratch( Owner );
+      if ( scratch == null )
+      {
+        scratch = CreateFreshScratchMap( Owner );
+        m_ScratchMaps[Owner] = scratch;
+        m_ScratchContainerDirty = true;
+      }
+      return scratch;
+    }
+
+
+
+    /// <summary>
+    /// Materialize the owner's STORED scratch from the sidecar into the
+    /// dict — by guid, or by name/index adoption for a guid-less owner.
+    /// Null when the sidecar holds nothing (or a damaged blob) for this
+    /// owner; creating a fresh scratch is the caller's decision — a
+    /// global palette sweep only needs stored content.
+    /// </summary>
+    private Formats.MapProject.Map TryMaterializeStoredScratch( Formats.MapProject.Map Owner )
+    {
+      var container = EnsureScratchContainerLoaded();
+      Formats.MapScratchContainer.ScratchEntry entry = null;
+      if ( !string.IsNullOrEmpty( Owner.OutlineGuid ) )
+      {
+        entry = container.GetEntry( Owner.OutlineGuid );
+      }
+      if ( entry == null )
+      {
+        // Self-heal for "worked on a scratch, but the project (which holds
+        // the GUID) was never saved": re-adopt by the stored name/index
+        // hints. The adopted GUID rides along silently — it reaches the
+        // project file with the user's next real save (same contract as
+        // the outline sidecar's adoption).
+        var guidsInUse = new HashSet<string>();
+        foreach ( var otherMap in m_MapProject.Maps )
+        {
+          if ( ( !ReferenceEquals( otherMap, Owner ) )
+          &&   ( !string.IsNullOrEmpty( otherMap.OutlineGuid ) ) )
+          {
+            guidsInUse.Add( otherMap.OutlineGuid );
+          }
+        }
+        entry = container.FindAdoptableEntry( Owner.Name, m_MapProject.Maps.IndexOf( Owner ), guidsInUse );
+        if ( entry != null )
+        {
+          Owner.OutlineGuid = entry.OwnerGuid;
+        }
+      }
+      if ( entry == null )
+      {
+        return null;
+      }
+      var scratch = MaterializeScratchFromEntry( entry );
+      if ( scratch == null )
+      {
+        // Damaged blob: leave the entry in the container untouched
+        // (recoverable) — the visit path will hand out a fresh scratch.
+        return null;
+      }
+      m_ScratchMaps[Owner] = scratch;
+      return scratch;
+    }
+
+
+
+    /// <summary>
+    /// Force-materialize every stored scratch before a global tile-palette
+    /// mutation. A scratch still sleeping in its blob would keep the PRE-
+    /// mutation tile indices and come back corrupt on its next visit —
+    /// the lazy-load contract only holds until the first palette change.
+    /// (Unadoptable orphan entries stay stale by design — same accepted
+    /// class as revision snapshots.)
+    /// </summary>
+    private void EnsureAllScratchMapsMaterialized()
+    {
+      var container = EnsureScratchContainerLoaded();
+      if ( container.Count == 0 )
+      {
+        return;
+      }
+      foreach ( var owner in m_MapProject.Maps )
+      {
+        if ( !m_ScratchMaps.ContainsKey( owner ) )
+        {
+          TryMaterializeStoredScratch( owner );
+        }
+      }
+    }
+
+
+
+    /// <summary>
+    /// Every map a global tile-palette mutation (add/remove/move/reorder/
+    /// swap) or a type-delete cascade must sweep: the project's maps plus
+    /// every materialized scratch workspace — including scratches whose
+    /// owner is currently deleted (a delete-undo re-inserts the owner, and
+    /// its workspace must match the new palette). Public so the tile undo
+    /// tasks can snapshot the same set they restore.
+    /// </summary>
+    public IEnumerable<Formats.MapProject.Map> AllEditableMaps()
+    {
+      EnsureAllScratchMapsMaterialized();
+      foreach ( var map in m_MapProject.Maps )
+      {
+        yield return map;
+      }
+      foreach ( var scratch in m_ScratchMaps.Values )
+      {
+        yield return scratch;
+      }
+    }
+
+
+
+    /// <summary>
+    /// Decode a sidecar entry's blob (one nested MAP chunk, BuildMapChunk
+    /// format — the CloneMap mechanics) into a Map. Null on damage; the
+    /// caller falls back to a fresh scratch and the undamaged sidecar
+    /// entries stay untouched.
+    /// </summary>
+    private Formats.MapProject.Map MaterializeScratchFromEntry( Formats.MapScratchContainer.ScratchEntry Entry )
+    {
+      if ( ( Entry == null )
+      ||   ( Entry.MapData == null )
+      ||   ( Entry.MapData.Length == 0 ) )
+      {
+        return null;
+      }
+      var memReader = new GR.IO.MemoryReader( new GR.Memory.ByteBuffer( Entry.MapData ) );
+      var outerChunk = new GR.IO.FileChunk();
+      if ( ( !outerChunk.ReadFromStream( memReader ) )
+      ||   ( outerChunk.Type != FileChunkConstants.MAP ) )
+      {
+        return null;
+      }
+      var scratch = new Formats.MapProject.Map();
+      Formats.MapProject.ReadMapFromBody( outerChunk.MemoryReader(), scratch );
+      // The scratch's own OutlineGuid stays empty — it is NOT a painter
+      // identity and must never collide with (or adopt into) the
+      // .mapoutlines identity space. The OWNER's guid keys the entry.
+      scratch.OutlineGuid = "";
+      return scratch;
+    }
+
+
+
+    /// <summary>
+    /// Fresh scratch for an owner that has none yet: the owner's size,
+    /// spacing, layer names/visibility and alternative colors (so pasted
+    /// content renders identically), empty content, name-tagged.
+    /// </summary>
+    private Formats.MapProject.Map CreateFreshScratchMap( Formats.MapProject.Map Owner )
+    {
+      var scratch = new Formats.MapProject.Map();
+      int w  = Owner.Tiles.Width;
+      int h  = Owner.Tiles.Height;
+      int tw = Owner.TileSpacingX;
+      int th = Owner.TileSpacingY;
+      scratch.TileSpacingX = tw;
+      scratch.TileSpacingY = th;
+      scratch.Tiles.Resize( w, h );
+      scratch.TileColorOverrides.Resize( w * tw, h * th );
+      ResetColorOverrides( scratch.TileColorOverrides );
+      scratch.CharBlockedOverrides.Resize( w * tw, h * th );
+      // Upper layers arrive sized to the background and -1-filled.
+      scratch.EnsureDefaultLayers();
+      for ( int li = 0; li < Math.Min( scratch.Layers.Count, Owner.Layers.Count ); ++li )
+      {
+        scratch.Layers[li].Name    = Owner.Layers[li].Name;
+        scratch.Layers[li].Visible = Owner.Layers[li].Visible;
+      }
+      scratch.AlternativeMultiColor1     = Owner.AlternativeMultiColor1;
+      scratch.AlternativeMultiColor2     = Owner.AlternativeMultiColor2;
+      scratch.AlternativeBackgroundColor = Owner.AlternativeBackgroundColor;
+      scratch.AlternativeBGColor4        = Owner.AlternativeBGColor4;
+      scratch.AlternativeMode            = Owner.AlternativeMode;
+      scratch.Name = Owner.Name + " (scratch)";
+      scratch.OutlineGuid = "";
+      return scratch;
+    }
+
+
+
+    /// <summary>
+    /// Post-populate lockdown for the scratch view. The populate re-enabled
+    /// the full edit surface (the scratch IS editable — resize, rename,
+    /// clear and every tool stay live); this trims the map-LIST and
+    /// view-swap controls that don't apply to a workspace. comboMaps stays
+    /// usable — selecting a map exits the scratch view. The combo handler's
+    /// view-state reset re-arms everything locked here.
+    /// </summary>
+    private void ApplyScratchViewEnablement()
+    {
+      btnMapAdd.Enabled            = false;
+      btnMapDelete.Enabled         = false;
+      btnCopy.Enabled              = false;
+      btnMoveMapUp.Enabled         = false;
+      btnMoveMapDown.Enabled       = false;
+      btnSetStartMap.Enabled       = false;
+      // The export flag and the painter belong to the OWNER map's face.
+      checkMapNotExported.Enabled  = false;
+      btnToggleOutlineMode.Enabled = false;
+      // Revisions are the owner's history — locked while its workspace is
+      // showing (the combo still lists them; selection is refused too).
+      comboRevisions.Enabled       = false;
+      UpdateRevisionButtonsEnabled();
     }
 
 
@@ -9957,7 +10835,11 @@ namespace RetroDevStudio.Documents
 
       foreach ( var map in m_MapProject.Maps )
       {
-        bool isCurrent = ( map == m_CurrentMap );
+        // While the scratch workspace is showing, m_CurrentMap is not in
+        // Maps — count the OWNER as "current" so the column keeps meaning.
+        bool isCurrent = ( map == m_CurrentMap )
+                      || ( ( m_IsViewingScratch )
+                      &&   ( ReferenceEquals( map, m_LiveMap ) ) );
         for ( int x = 0; x < map.Tiles.Width; ++x )
         {
           for ( int y = 0; y < map.Tiles.Height; ++y )
@@ -10076,7 +10958,7 @@ namespace RetroDevStudio.Documents
       // Shift cell indices up on EVERY layer (a palette insert at TileIndex
       // pushes all references >= TileIndex up by one). Upper-layer transparent
       // cells (-1) are below any valid TileIndex so they're left untouched.
-      foreach ( var map in m_MapProject.Maps )
+      foreach ( var map in AllEditableMaps() )
       {
         foreach ( var layer in map.Layers )
         {
@@ -11265,7 +12147,7 @@ namespace RetroDevStudio.Documents
       }
 
       // remove from all maps
-      foreach ( var map in m_MapProject.Maps )
+      foreach ( var map in AllEditableMaps() )
       {
         int clrFootprintX = ( removedFootprintX > map.TileSpacingX ) ? removedFootprintX : map.TileSpacingX;
         int clrFootprintY = ( removedFootprintY > map.TileSpacingY ) ? removedFootprintY : map.TileSpacingY;
@@ -11408,6 +12290,13 @@ namespace RetroDevStudio.Documents
       {
         return;
       }
+      // Disabled on the scratch face — belt-and-suspenders: the combo
+      // selection is the OWNER, and deleting it from its own workspace
+      // view would be a surprise.
+      if ( m_IsViewingScratch )
+      {
+        return;
+      }
 
       DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapRemove( this, m_MapProject, comboMaps.SelectedIndex ) );
 
@@ -11543,34 +12432,41 @@ namespace RetroDevStudio.Documents
         m_MapProject.Tiles[i].Index = i;
       }
 
-      // update maps
-      foreach ( var map in m_MapProject.Maps )
+      // Shift cell references on EVERY layer of every map. Upper-layer
+      // transparent cells (-1) sit below all three conditions, so they
+      // stay -1 — the same invariant the add/remove/swap sweeps rely on.
+      // (This previously walked only map.Tiles, the Background proxy,
+      // silently breaking upper-layer references on a palette move.)
+      foreach ( var map in AllEditableMaps() )
       {
-        for ( int x = 0; x < map.Tiles.Width; ++x )
+        foreach ( var layer in map.Layers )
         {
-          for ( int y = 0; y < map.Tiles.Height; ++y )
+          for ( int x = 0; x < layer.Tiles.Width; ++x )
           {
-            int tileIndex = map.Tiles[x, y];
+            for ( int y = 0; y < layer.Tiles.Height; ++y )
+            {
+              int tileIndex = layer.Tiles[x, y];
 
-            if ( tileIndex == FromIndex )
-            {
-              map.Tiles[x, y] = ToIndex;
-            }
-            else if ( FromIndex < ToIndex )
-            {
-              if ( ( tileIndex > FromIndex )
-              &&   ( tileIndex <= ToIndex ) )
+              if ( tileIndex == FromIndex )
               {
-                --map.Tiles[x, y];
+                layer.Tiles[x, y] = ToIndex;
               }
-            }
-            else
-            {
-              // FromIndex > ToIndex
-              if ( ( tileIndex >= ToIndex )
-              &&   ( tileIndex < FromIndex ) )
+              else if ( FromIndex < ToIndex )
               {
-                ++map.Tiles[x, y];
+                if ( ( tileIndex > FromIndex )
+                &&   ( tileIndex <= ToIndex ) )
+                {
+                  --layer.Tiles[x, y];
+                }
+              }
+              else
+              {
+                // FromIndex > ToIndex
+                if ( ( tileIndex >= ToIndex )
+                &&   ( tileIndex < FromIndex ) )
+                {
+                  ++layer.Tiles[x, y];
+                }
               }
             }
           }
@@ -11785,7 +12681,7 @@ namespace RetroDevStudio.Documents
 
       // Remap cell references on every layer of every map. Upper-layer
       // transparent cells (-1) are below any valid index, so they stay -1.
-      foreach ( var map in m_MapProject.Maps )
+      foreach ( var map in AllEditableMaps() )
       {
         foreach ( var layer in map.Layers )
         {
@@ -12088,7 +12984,7 @@ namespace RetroDevStudio.Documents
       comboTiles.Items[Index1] = tupel1;
       comboTiles.Items[Index2] = tupel2;
 
-      foreach ( var map in m_MapProject.Maps )
+      foreach ( var map in AllEditableMaps() )
       {
         // Swap references on EVERY layer (not just Background) so upper-layer
         // tiles follow the reorder and the map stays visually identical.
@@ -12620,6 +13516,12 @@ namespace RetroDevStudio.Documents
       {
         return;
       }
+      // Disabled on the scratch face — belt-and-suspenders: duplicating
+      // would clone the WORKSPACE into the project's map list.
+      if ( m_IsViewingScratch )
+      {
+        return;
+      }
 
       // Full deep copy via the canonical serializer round-trip. This carries
       // EVERY field of the map — all tile layers (not just the Background),
@@ -12744,6 +13646,16 @@ namespace RetroDevStudio.Documents
 
     public void InvalidateCurrentMap()
     {
+      if ( m_IsViewingScratch )
+      {
+        // The combo re-fire below would drop the editor back onto the MAIN
+        // map (the scratch is not a combo item). While an undo Apply or a
+        // crop targets the scratch, resync the editor from it in place.
+        PopulateEditorFromCurrentMap();
+        ApplyScratchViewEnablement();
+        pictureEditor.Invalidate();
+        return;
+      }
       comboMaps_SelectedIndexChanged( null, null );
     }
 
@@ -12751,6 +13663,25 @@ namespace RetroDevStudio.Documents
 
     public void UpdateArea( int X, int Y, int Width, int Height )
     {
+      // Cross-map undo tasks call this with the OTHER map's bounds (e.g.
+      // undoing a size change while a different-sized map is shown) —
+      // clamp to the visible map so the per-tile loop can't index out of
+      // range. An empty intersection still refreshes: the undo DID change
+      // data somewhere, and callers rely on the repaint happening.
+      int clampRight  = Math.Min( X + Width, m_CurrentMap.Tiles.Width );
+      int clampBottom = Math.Min( Y + Height, m_CurrentMap.Tiles.Height );
+      X = Math.Max( 0, X );
+      Y = Math.Max( 0, Y );
+      Width  = clampRight - X;
+      Height = clampBottom - Y;
+      if ( ( Width <= 0 )
+      ||   ( Height <= 0 ) )
+      {
+        RedrawMap();
+        RecalcTileUsageInCurrentMap();
+        return;
+      }
+
       // DrawTile already adds renderOffset internally. The cache copy and
       // Invalidate need it too — sampling the unshifted region of
       // DisplayPage when the map is centered would copy empty background
@@ -12788,6 +13719,7 @@ namespace RetroDevStudio.Documents
       if ( ( MapIndex >= 0 )
       &&   ( MapIndex < m_MapProject.Maps.Count ) )
       {
+        var removedMap = m_MapProject.Maps[MapIndex];
         m_MapProject.Maps.RemoveAt( MapIndex );
         comboMaps.Items.RemoveAt( MapIndex );
 
@@ -12814,6 +13746,16 @@ namespace RetroDevStudio.Documents
           comboMaps.Items[i] = comboMaps.Items[i];
         }
         SetModified();
+
+        if ( ( m_IsViewingScratch )
+        &&   ( ReferenceEquals( removedMap, m_LiveMap ) ) )
+        {
+          // The scratch's OWNER just left the project (map delete, or an
+          // add-undo fired from any tab) — the workspace has nothing to
+          // return to. Land on whatever the combo now selects; a delete-
+          // undo later reunites the pair via the object-keyed dict.
+          comboMaps_SelectedIndexChanged( null, null );
+        }
       }
       else
       {
@@ -13908,13 +14850,19 @@ namespace RetroDevStudio.Documents
     /// </summary>
     private bool ExportCurrentMap()
     {
+      // Export is never bound to the scratch workspace (user decision):
+      // exporting while F12'd into a scratch exports the OWNER map. The
+      // selection mask must be swapped along with the map — it is sized to
+      // the visible (scratch) map, and a "selection only" export would
+      // index it with the owner's dimensions.
+      bool onScratch = m_IsViewingScratch;
       var exportInfo = new ExportMapInfo()
       {
         Map             = m_MapProject,
         RowByRow        = ( comboExportOrientation.SelectedIndex == 0 ),
         ExportType      = (MapExportType)comboExportData.SelectedIndex,
-        SelectedTiles   = m_SelectedTiles,
-        CurrentMap      = m_CurrentMap
+        SelectedTiles   = onScratch ? new bool[m_LiveMap.Tiles.Width, m_LiveMap.Tiles.Height] : m_SelectedTiles,
+        CurrentMap      = onScratch ? m_LiveMap : m_CurrentMap
       };
 
       editDataExport.Text = "";
@@ -14219,9 +15167,10 @@ namespace RetroDevStudio.Documents
         // (undo/redo etc.) alive.
         if ( keyData == Keys.Escape )
         {
-          // A focused sidebar combo (e.g. the tile picker) needs Escape to
-          // close its dropdown — act only when a combo is NOT the focus.
-          if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.ESCAPE ) )
+          // A focused combo (e.g. the tile picker or the map dropdown)
+          // needs Escape to close its dropdown — act only when a combo is
+          // NOT the focus.
+          if ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.ESCAPE ) )
           {
             // Escape stays an ABORT for anything in flight (stroke, shape or
             // box drag, floating paste). With an open text box and nothing
@@ -14244,10 +15193,10 @@ namespace RetroDevStudio.Documents
         if ( keyData == Keys.Delete )
         {
           // Delete erases the canvas selection — but ONLY when focus is
-          // not in a sidebar text/numeric input (COPY_PASTE exempts
-          // TextBox, e.g. the extend-step box). Otherwise Delete belongs
-          // to that control; forwarding lets it reach it.
-          if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
+          // not in a text/numeric input (COPY_PASTE covers TextBoxBase,
+          // e.g. the extend-step box). Otherwise Delete belongs to that
+          // control; falling through lets it reach it.
+          if ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) )
           {
             // With an EDIT BOX open, Delete is forward-delete at its caret.
             // Otherwise a selected text OBJECT wins over the marquee erase —
@@ -14283,10 +15232,10 @@ namespace RetroDevStudio.Documents
           // Space is the pan chord. After any toolbar click the BUTTON
           // holds keyboard focus and a bare Space would "click" it —
           // intercept here, hand focus to the canvas and arm the chord.
-          // Not while a WYSIWYG text box is open, and not while a sidebar
+          // Not while a WYSIWYG text box is open, and not while a
           // text/numeric input has focus (there Space is typing).
           if ( ( outlineCanvas.ToolHasPendingEdit )
-          ||   ( FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) ) )
+          ||   ( FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) ) )
           {
             return base.ProcessCmdKey( ref msg, keyData );
           }
@@ -14301,15 +15250,15 @@ namespace RetroDevStudio.Documents
         // branch is gated on the outline face being the visible one):
         // B = brush, S = selection rect, E = rect erase, C = center the
         // canvas. Skipped while a text box / floating paste is open
-        // (letters are input) and while a TextBox control has focus —
-        // same guard as the map face's bare 'G' (the COPY_PASTE focus
-        // check returns true exactly for TextBox).
+        // (letters are input) and while a text input has focus — same
+        // guard as the map face's bare 'G' (the COPY_PASTE focus check
+        // is true exactly for TextBoxBase-derived editors).
         if ( ( ( keyData == Keys.B )
         ||     ( keyData == Keys.S )
         ||     ( keyData == Keys.E )
         ||     ( keyData == Keys.C ) )
         &&   ( !outlineCanvas.ToolHasPendingEdit )
-        &&   ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) ) )
+        &&   ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) ) )
         {
           switch ( keyData )
           {
@@ -14352,6 +15301,15 @@ namespace RetroDevStudio.Documents
           UpdateTileDrag( m_TileDragSourcePos.X, m_TileDragSourcePos.Y );
           return true;
         }
+        if ( m_SelMoveMask != null )
+        {
+          // Same contract for a carried SELECT-tool region: snap the
+          // preview home; the move stays live while the button is held
+          // (releasing at home writes everything back verbatim).
+          m_SelMoveTargetCell = m_SelMoveBounds.Location;
+          Redraw();
+          return true;
+        }
         if ( CancelPendingSpritePlacement() )
         {
           return true;
@@ -14377,7 +15335,11 @@ namespace RetroDevStudio.Documents
           ClearSpriteSelection();
           return true;
         }
-        if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.ESCAPE ) )
+        // Map-page scope is explicit (the old focus-containment check
+        // doubled as an implicit page test); the focus test only defers
+        // to an open combo dropdown's own Escape.
+        if ( ( tabMapEditor.SelectedPage == tabEditor )
+        &&   ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.ESCAPE ) ) )
         {
           // ESC peels back one layer of editing state at a time, in order
           // from most "live" to least:
@@ -14416,12 +15378,13 @@ namespace RetroDevStudio.Documents
       }
       else if ( keyData == Keys.Delete )
       {
-        // Don't steal Delete from text editors / numeric inputs. The
-        // COPY_PASTE focus-reason returns true exactly when focus is on a
-        // TextBox child of tabEditor — i.e., somewhere we want the OS
-        // default Delete behavior. So only handle our key when that check
-        // is false.
-        if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
+        // Don't steal Delete from text editors / numeric inputs — the
+        // COPY_PASTE focus-reason is true exactly when a TextBoxBase-
+        // derived editor owns the keyboard (there we want the OS default
+        // Delete). Map-page scope is explicit (the old focus-containment
+        // check doubled as an implicit page test).
+        if ( ( tabMapEditor.SelectedPage == tabEditor )
+        &&   ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) ) )
         {
           // Order: sprite selection first — sprite selection is ambient
           // (priority hit-test, no tool mode), so a non-empty selection
@@ -14503,9 +15466,25 @@ namespace RetroDevStudio.Documents
         // works while the tile picker has focus.
         if ( ( tabMapEditor != null )
         &&   ( tabMapEditor.SelectedPage == tabEditor )
-        &&   ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) ) )
+        &&   ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) ) )
         {
           ToggleGridShortcut();
+          return true;
+        }
+      }
+      else if ( keyData == Keys.T )
+      {
+        // Toggle auto-tiling. Same scoping rules as G: Map tab only, never
+        // when a TextBox has focus. Flipping the checkbox runs its normal
+        // CheckedChanged (persist + SetModified) — same path as clicking
+        // it. Note the painter never reaches here (its key branch above
+        // returns first), so T stays free for painter use.
+        if ( ( tabMapEditor != null )
+        &&   ( tabMapEditor.SelectedPage == tabEditor )
+        &&   ( checkAutoTiling != null )
+        &&   ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) ) )
+        {
+          checkAutoTiling.Checked = !checkAutoTiling.Checked;
           return true;
         }
       }
@@ -14518,7 +15497,7 @@ namespace RetroDevStudio.Documents
         // typeahead is intentionally overridden — same as G.
         if ( ( tabMapEditor != null )
         &&   ( tabMapEditor.SelectedPage == tabEditor )
-        &&   ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) ) )
+        &&   ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) ) )
         {
           if ( ( btnToolSelect != null )
           &&   ( !btnToolSelect.Checked ) )
@@ -14539,7 +15518,7 @@ namespace RetroDevStudio.Documents
         // handling (no-op).
         if ( ( tabMapEditor != null )
         &&   ( tabMapEditor.SelectedPage == tabEditor )
-        &&   ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
+        &&   ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) )
         &&   ( !m_IsViewingRevision ) )
         {
           if ( ( btnToolPassable != null )
@@ -14565,7 +15544,7 @@ namespace RetroDevStudio.Documents
         //   Shift+[   → hue-preserving brightness down
         if ( ( tabMapEditor != null )
         &&   ( tabMapEditor.SelectedPage == tabEditor )
-        &&   ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
+        &&   ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) )
         &&   ( !m_IsViewingRevision )
         &&   ( Core?.Settings != null ) )
         {
@@ -15600,7 +16579,7 @@ namespace RetroDevStudio.Documents
     /// <summary>
     /// Commit the armed one-shot placement at the clicked absolute char cell.
     /// One click places one sprite; the arm always clears. Session-only data:
-    /// no undo entry, no modified flag.
+    /// no modified flag, but undoable like every sprite-instance mutation.
     /// </summary>
     private void PlaceArmedSprite( int CharX, int CharY )
     {
@@ -15637,6 +16616,7 @@ namespace RetroDevStudio.Documents
       {
         inst.FramePos = m_Random.Next( overlay.Frames.Count );
       }
+      DocumentInfo.UndoManager.AddUndoTask( new UndoMapSpriteInstancesChange( this, m_CurrentMap ) );
       CurrentMapSpriteInstances( true ).Add( inst );
       labelEditInfo.Text = "";
       UpdateSpriteAnimTimerState();
@@ -15866,6 +16846,12 @@ namespace RetroDevStudio.Documents
         }
         int px = AnchorPxX + floatingSprite.RelPxX;
         int py = AnchorPxY + floatingSprite.RelPxY;
+        if ( pasted.Count == 0 )
+        {
+          // Lazy: pushed right before the FIRST actual add, so an all-
+          // skipped paste never leaves a no-op undo step behind.
+          DocumentInfo.UndoManager.AddUndoTask( new UndoMapSpriteInstancesChange( this, m_CurrentMap ) );
+        }
         var inst = new MapSpriteInstance();
         inst.AnimationID = floatingSprite.AnimationID;
         inst.CharX   = px / 8;
@@ -16031,8 +17017,9 @@ namespace RetroDevStudio.Documents
     /// Move the selected sprites by (DX, DY) pixels as a rigid group: one
     /// delta, clamped so every member's absolute pixel position stays in
     /// 0..255*8+7 (positions are byte-ranged char cells + 0..7 offsets).
-    /// Value-linked markers follow the move — THAT part is undoable and
-    /// dirties the document; moving unlinked sprites is pure view state.
+    /// The move is one undo step (sprite positions + any value-linked
+    /// markers together); only the marker half dirties the document —
+    /// sprite instances stay session-only data.
     /// </summary>
     private void NudgeSelectedSprites( int DX, int DY )
     {
@@ -16080,9 +17067,13 @@ namespace RetroDevStudio.Documents
           anyLinked = true;
         }
       }
+      // One undo step per nudge: sprite positions open the group, the
+      // marker snapshot rides in it when any member is value-linked —
+      // same contract as the mouse drag.
+      DocumentInfo.UndoManager.AddUndoTask( new UndoMapSpriteInstancesChange( this, m_CurrentMap ) );
       if ( anyLinked )
       {
-        DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
+        DocumentInfo.UndoManager.AddGroupedUndoTask( new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
       }
 
       foreach ( var inst in m_SelectedSprites )
@@ -16106,6 +17097,9 @@ namespace RetroDevStudio.Documents
       }
       Redraw();
       pictureEditor.Invalidate();
+      // An unlinked sprite can land exactly on some orphaned marker's
+      // values and become linked — keep the Create-marker button honest.
+      UpdateSpritePanelControlsState();
     }
 
 
@@ -16173,8 +17167,10 @@ namespace RetroDevStudio.Documents
       {
         return;
       }
-      // Session-only data: no undo, no modified flag — and deleting a sprite
-      // never touches its linked markers.
+      // Session-only data: no modified flag — and deleting a sprite never
+      // touches its linked markers. Undoable all the same, like every
+      // other sprite-instance mutation.
+      DocumentInfo.UndoManager.AddUndoTask( new UndoMapSpriteInstancesChange( this, m_CurrentMap ) );
       foreach ( var inst in m_SelectedSprites )
       {
         instances.Remove( inst );
@@ -16196,6 +17192,7 @@ namespace RetroDevStudio.Documents
       {
         return;
       }
+      DocumentInfo.UndoManager.AddUndoTask( new UndoMapSpriteInstancesChange( this, m_CurrentMap ) );
       instances.Clear();
       ClearSpriteSelection();
       UpdateSpriteAnimTimerState();
@@ -16288,6 +17285,8 @@ namespace RetroDevStudio.Documents
       RedrawMap();
       pictureEditor.Invalidate();
       UpdateMarkerOutOfBoundsLabel();
+      // The selected sprites are linked now — grey the button immediately.
+      UpdateSpritePanelControlsState();
     }
 
 
@@ -16360,6 +17359,12 @@ namespace RetroDevStudio.Documents
         {
           inst.FramePos = m_Random.Next( overlay.Frames.Count );
         }
+        if ( created == 0 )
+        {
+          // Lazy: pushed right before the FIRST actual creation, so an
+          // all-skipped run never leaves a no-op undo step behind.
+          DocumentInfo.UndoManager.AddUndoTask( new UndoMapSpriteInstancesChange( this, m_CurrentMap ) );
+        }
         instances.Add( inst );
         ++created;
       }
@@ -16396,10 +17401,32 @@ namespace RetroDevStudio.Documents
 
 
     /// <summary>
+    /// True when at least one selected sprite has NO value-linked
+    /// TRIGGER_SPRITE_ANIM marker yet — i.e. "Create marker" would
+    /// actually create something (its dry-run skips already-linked
+    /// sprites, so all-linked means a guaranteed no-op).
+    /// </summary>
+    private bool AnySelectedSpriteWithoutLinkedMarker()
+    {
+      foreach ( var inst in m_SelectedSprites )
+      {
+        if ( FindLinkedMarkers( inst ).Count == 0 )
+        {
+          return true;
+        }
+      }
+      return false;
+    }
+
+
+
+    /// <summary>
     /// Enablement of the Sprites panel's controls, derived purely from data
     /// state (file loaded / selections / instances / revision view).
+    /// Public because marker undo/redo (UndoMapMarkersChange.Apply) changes
+    /// the sprite↔marker link state the Create-marker button reflects.
     /// </summary>
-    private void UpdateSpritePanelControlsState()
+    public void UpdateSpritePanelControlsState()
     {
       bool fileLoaded = ( m_MapSpriteProject != null );
       bool hasMap     = ( m_CurrentMap != null );
@@ -16430,7 +17457,10 @@ namespace RetroDevStudio.Documents
       }
       if ( btnSpriteCreateMarker != null )
       {
-        btnSpriteCreateMarker.Enabled = editable && hasSpriteSelection;
+        // Greyed when every selected sprite already has its marker — the
+        // click would be a guaranteed no-op (the dry-run skips them all).
+        btnSpriteCreateMarker.Enabled = editable && hasSpriteSelection
+                                     && AnySelectedSpriteWithoutLinkedMarker();
       }
       if ( btnSpriteInstantiateForMarker != null )
       {
@@ -17691,16 +18721,18 @@ namespace RetroDevStudio.Documents
        }
        if ( types.Count == 0 ) return;
 
-       // Confirm + cascade-delete any markers of these types across all maps.
+       // Confirm + cascade-delete any markers of these types across all
+       // maps — scratch workspaces included, so the count the user
+       // confirms matches what the delete below actually touches.
        int instanceCount = 0;
-       var mapsTouched = new HashSet<int>();
-       for ( int mi = 0; mi < m_MapProject.Maps.Count; ++mi )
+       var mapsTouched = new HashSet<Formats.MapProject.Map>();
+       foreach ( var countMap in AllEditableMaps() )
        {
-         int inThisMap = m_MapProject.Maps[mi].Markers.Count( mk => types.Any( t => t.ID == mk.Type ) );
+         int inThisMap = countMap.Markers.Count( mk => types.Any( t => t.ID == mk.Type ) );
          if ( inThisMap > 0 )
          {
            instanceCount += inThisMap;
-           mapsTouched.Add( mi );
+           mapsTouched.Add( countMap );
          }
        }
 
@@ -17727,7 +18759,7 @@ namespace RetroDevStudio.Documents
 
        foreach ( var type in types )
        {
-         foreach ( var m in m_MapProject.Maps )
+         foreach ( var m in AllEditableMaps() )
          {
            m.Markers.RemoveAll( mk => mk.Type == type.ID );
            if ( m.SelectedMarkerType == type.ID )
@@ -17742,6 +18774,8 @@ namespace RetroDevStudio.Documents
        RedrawMap();
        SetModified();
        UpdateMarkerOutOfBoundsLabel();
+       // Deleting the TRIGGER_SPRITE_ANIM type un-links every sprite.
+       UpdateSpritePanelControlsState();
     }
 
     private void listMarkerTypes_SelectedIndexChanged( object sender, EventArgs e )
@@ -18151,6 +19185,9 @@ namespace RetroDevStudio.Documents
       m_SelectedMarker.Value4 = newV4;
       SetModified();
       pictureEditor.Invalidate();
+      // Value edits re-target the sprite↔marker value linkage — keep the
+      // Create-marker enablement in step for a concurrently selected sprite.
+      UpdateSpritePanelControlsState();
     }
 
 
@@ -18332,6 +19369,9 @@ namespace RetroDevStudio.Documents
       RedrawMap();
       pictureEditor.Invalidate();
       UpdateMarkerOutOfBoundsLabel();
+      // A deleted TRIGGER_SPRITE_ANIM marker un-links its sprite — the
+      // Create-marker button must wake up for a still-selected sprite.
+      UpdateSpritePanelControlsState();
     }
 
 
@@ -19978,16 +21018,18 @@ namespace RetroDevStudio.Documents
       }
       if ( types.Count == 0 ) return;
 
-      // Count instances across all maps for all selected types.
+      // Count instances across all maps for all selected types — scratch
+      // workspaces included, so the count the user confirms matches what
+      // the delete below actually touches.
       int instanceCount = 0;
-      var mapsTouched = new HashSet<int>();
-      for ( int mi = 0; mi < m_MapProject.Maps.Count; ++mi )
+      var mapsTouched = new HashSet<Formats.MapProject.Map>();
+      foreach ( var countMap in AllEditableMaps() )
       {
-        int inThisMap = m_MapProject.Maps[mi].Entities.Count( en => types.Any( t => t.ID == en.Type ) );
+        int inThisMap = countMap.Entities.Count( en => types.Any( t => t.ID == en.Type ) );
         if ( inThisMap > 0 )
         {
           instanceCount += inThisMap;
-          mapsTouched.Add( mi );
+          mapsTouched.Add( countMap );
         }
       }
 
@@ -20014,7 +21056,7 @@ namespace RetroDevStudio.Documents
 
       foreach ( var type in types )
       {
-        foreach ( var m in m_MapProject.Maps )
+        foreach ( var m in AllEditableMaps() )
         {
           m.Entities.RemoveAll( en => en.Type == type.ID );
           if ( m.SelectedEntityType == type.ID )
@@ -20871,6 +21913,238 @@ namespace RetroDevStudio.Documents
         return null;
       }
       return System.IO.Path.ChangeExtension( fullPath, ".mapoutlines" );
+    }
+
+
+
+    private string ScratchSidecarPath()
+    {
+      string fullPath = DocumentInfo.FullPath;
+      if ( string.IsNullOrEmpty( fullPath ) )
+      {
+        return null;
+      }
+      return System.IO.Path.ChangeExtension( fullPath, ".mapscratch" );
+    }
+
+
+
+    private Formats.MapScratchContainer EnsureScratchContainerLoaded()
+    {
+      if ( m_ScratchContainer != null )
+      {
+        return m_ScratchContainer;
+      }
+      m_ScratchContainer = new Formats.MapScratchContainer();
+      string path = ScratchSidecarPath();
+      if ( !string.IsNullOrEmpty( path ) )
+      {
+        // Missing file = no scratch maps yet (silent). An UNREADABLE file
+        // must NOT be silent: the user would see every scratch empty, keep
+        // working, and the eventual write would supersede the sidecar —
+        // tell them up front that the original is preserved as .corrupt.
+        if ( !m_ScratchContainer.ReadFromFile( path ) )
+        {
+          System.Windows.Forms.MessageBox.Show(
+            "The scratch maps file could not be read:\n\n" + path
+            + "\n\nExisting scratch maps will appear empty. The unreadable "
+            + "file will be preserved as \"" + System.IO.Path.GetFileName( path )
+            + ".corrupt\" the next time scratch maps are saved, so the maps "
+            + "inside it may still be recoverable.",
+            "Scratch maps unreadable",
+            System.Windows.Forms.MessageBoxButtons.OK,
+            System.Windows.Forms.MessageBoxIcon.Warning );
+        }
+      }
+      return m_ScratchContainer;
+    }
+
+
+
+    /// <summary>
+    /// A scratch with no meaningful content: Background all tile 0, upper
+    /// layers all transparent (-1), no color/blocked overrides, no markers
+    /// or entities, empty memo/extra data. Empty workspaces are DROPPED
+    /// from the sidecar instead of stored (and the file itself disappears
+    /// with the last one) — a never-really-used scratch costs nothing.
+    /// </summary>
+    private static bool IsScratchEmpty( Formats.MapProject.Map Scratch )
+    {
+      if ( ( Scratch.Markers.Count > 0 )
+      ||   ( Scratch.Entities.Count > 0 )
+      ||   ( !string.IsNullOrEmpty( Scratch.MemoRTF ) )
+      ||   ( !string.IsNullOrEmpty( Scratch.ExtraDataText ) )
+      ||   ( ( Scratch.ExtraDataOld != null )
+      &&     ( Scratch.ExtraDataOld.Length > 0 ) ) )
+      {
+        return false;
+      }
+      for ( int li = 0; li < Scratch.Layers.Count; ++li )
+      {
+        var layer = Scratch.Layers[li];
+        int emptyTile = ( li == 0 ) ? 0 : -1;
+        for ( int y = 0; y < layer.Tiles.Height; ++y )
+        {
+          for ( int x = 0; x < layer.Tiles.Width; ++x )
+          {
+            if ( layer.Tiles[x, y] != emptyTile )
+            {
+              return false;
+            }
+          }
+        }
+        for ( int y = 0; y < layer.TileColorOverrides.Height; ++y )
+        {
+          for ( int x = 0; x < layer.TileColorOverrides.Width; ++x )
+          {
+            if ( layer.TileColorOverrides[x, y] != -1 )
+            {
+              return false;
+            }
+          }
+        }
+      }
+      for ( int y = 0; y < Scratch.CharBlockedOverrides.Height; ++y )
+      {
+        for ( int x = 0; x < Scratch.CharBlockedOverrides.Width; ++x )
+        {
+          if ( Scratch.CharBlockedOverrides[x, y] )
+          {
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
+
+
+    /// <summary>
+    /// Fold every materialized scratch into the container (empty ones drop
+    /// their entry) and write the sidecar. Prune semantics, the failure
+    /// contract and the terminal-flush rule mirror WriteOutlineSidecar.
+    /// </summary>
+    private bool WriteScratchSidecar( bool PruneToLiveMaps )
+    {
+      // The dict, not the container, holds the user's edits — serialize it
+      // in first. BuildMapChunk per materialized scratch is cheap (a save
+      // is user-triggered and only visited scratches are materialized).
+      if ( m_ScratchMaps.Count > 0 )
+      {
+        var container = EnsureScratchContainerLoaded();
+        foreach ( var pair in m_ScratchMaps )
+        {
+          var owner   = pair.Key;
+          var scratch = pair.Value;
+          if ( IsScratchEmpty( scratch ) )
+          {
+            if ( !string.IsNullOrEmpty( owner.OutlineGuid ) )
+            {
+              container.RemoveEntry( owner.OutlineGuid );
+            }
+            continue;
+          }
+          if ( ( string.IsNullOrEmpty( owner.OutlineGuid ) )
+          &&   ( !m_MapProject.Maps.Contains( owner ) ) )
+          {
+            // Deleted, never-keyed owner: nothing durable to key the entry
+            // by, and assigning a guid to a map outside the project would
+            // dirty the document from inside a save. The pair stays in RAM
+            // — a delete-undo revives it and the next save persists it.
+            continue;
+          }
+          string guid = EnsureOutlineGuid( owner );
+          container.SetEntry( guid,
+                              Formats.MapProject.BuildMapChunk( scratch, IncludeRevisions: false ).ToBuffer().Data(),
+                              owner.Name,
+                              m_MapProject.Maps.IndexOf( owner ) );
+        }
+        m_ScratchContainerDirty = true;
+      }
+
+      if ( m_ScratchContainer == null )
+      {
+        return true;
+      }
+      if ( ( !m_ScratchContainerDirty )
+      &&   ( !PruneToLiveMaps ) )
+      {
+        return true;
+      }
+      string path = ScratchSidecarPath();
+      if ( string.IsNullOrEmpty( path ) )
+      {
+        return true;
+      }
+      ICollection<string> liveGuids = null;
+      if ( PruneToLiveMaps )
+      {
+        var live = new HashSet<string>();
+        foreach ( var map in m_MapProject.Maps )
+        {
+          if ( !string.IsNullOrEmpty( map.OutlineGuid ) )
+          {
+            live.Add( map.OutlineGuid );
+          }
+        }
+        // Orphans that hint-match a CURRENT GUID-less map survive the
+        // prune too: a map whose scratch wasn't opened this session has
+        // not run its adoption yet — its workspace must not be eaten just
+        // because the container happened to get loaded. Adding to `live`
+        // as we go also prevents two maps claiming the same orphan.
+        foreach ( var map in m_MapProject.Maps )
+        {
+          if ( !string.IsNullOrEmpty( map.OutlineGuid ) )
+          {
+            continue;
+          }
+          var orphan = m_ScratchContainer.FindAdoptableEntry(
+            map.Name, m_MapProject.Maps.IndexOf( map ), live );
+          if ( orphan != null )
+          {
+            live.Add( orphan.OwnerGuid );
+          }
+        }
+        liveGuids = live;
+      }
+      if ( m_ScratchContainer.WriteToFile( path, liveGuids ) )
+      {
+        m_ScratchContainerDirty = false;
+        return true;
+      }
+      // Failure keeps the dirty flag so intermediate flush points self-
+      // retry. TERMINAL flush points (close) must use the WithRetry twin —
+      // there the in-memory scratches are about to be discarded and a
+      // silent false here would be unrecoverable data loss.
+      return false;
+    }
+
+
+
+    /// <summary>
+    /// Close-path sidecar write: the in-memory scratches are the ONLY copy
+    /// of any workspace not yet on disk and are about to be discarded, so
+    /// a failed write (file locked by a sync client / antivirus, disk
+    /// full) must never pass silently — the user gets a retry loop and an
+    /// explicit choice to give up.
+    /// </summary>
+    private void WriteScratchSidecarWithRetry( bool PruneToLiveMaps )
+    {
+      while ( !WriteScratchSidecar( PruneToLiveMaps ) )
+      {
+        var result = System.Windows.Forms.MessageBox.Show(
+          "The scratch maps could not be saved to:\n\n"
+          + ScratchSidecarPath()
+          + "\n\nThe file may be locked (cloud sync, antivirus) or the disk full.\n"
+          + "Retry saving? Choosing Cancel will DISCARD the unsaved scratch maps.",
+          "Scratch maps not saved",
+          System.Windows.Forms.MessageBoxButtons.RetryCancel,
+          System.Windows.Forms.MessageBoxIcon.Warning );
+        if ( result != System.Windows.Forms.DialogResult.Retry )
+        {
+          break;
+        }
+      }
     }
 
 
@@ -23559,9 +24833,11 @@ namespace RetroDevStudio.Documents
       bool haveLive = ( m_LiveMap != null );
       bool revSelected = ( comboRevisions != null )
                       && ( comboRevisions.SelectedIndex > 0 );
-      if ( btnCreateRevision != null ) btnCreateRevision.Enabled = haveLive && !m_IsViewingRevision;
-      if ( btnRevertRevision != null ) btnRevertRevision.Enabled = revSelected;
-      if ( btnDeleteRevision != null ) btnDeleteRevision.Enabled = revSelected;
+      // Revisions are the OWNER map's history — every button locks while
+      // its scratch workspace is the visible face.
+      if ( btnCreateRevision != null ) btnCreateRevision.Enabled = haveLive && !m_IsViewingRevision && !m_IsViewingScratch;
+      if ( btnRevertRevision != null ) btnRevertRevision.Enabled = revSelected && !m_IsViewingScratch;
+      if ( btnDeleteRevision != null ) btnDeleteRevision.Enabled = revSelected && !m_IsViewingScratch;
     }
 
 
@@ -23575,6 +24851,10 @@ namespace RetroDevStudio.Documents
     {
       if ( m_PopulatingRevisionsCombo ) return;
       if ( m_LiveMap == null )          return;
+      // The combo is disabled while the scratch workspace is showing —
+      // belt-and-suspenders like IsMapEditable's callers: a revision view
+      // must never stack on top of a scratch view.
+      if ( m_IsViewingScratch )         return;
 
       int idx = comboRevisions.SelectedIndex;
       if ( idx <= 0 )
@@ -23724,36 +25004,17 @@ namespace RetroDevStudio.Documents
       m_CurrentMap = m_LiveMap;
       m_IsViewingRevision = false;
 
-      // The restored snapshot may have a different SIZE than what was
-      // being shown (e.g. reverting past a crop) — resize the map-sized
-      // masks before anything repaints (see comboRevisions handler).
-      m_SelectedTiles = new bool[m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height];
-      if ( checkFOWEnabled.Checked )
-      {
-        ResetFogOfWar();
-      }
-
-      // Resync UI fields that mirror map metadata. This is the same
-      // populate sequence comboMaps_SelectedIndexChanged uses; centralising
-      // that would be nice but isn't required for v1 of this feature.
-      if ( editMapName != null )     editMapName.Text  = m_LiveMap.Name;
-      if ( editMapWidth != null )    editMapWidth.Text  = m_LiveMap.Tiles.Width.ToString();
-      if ( editMapHeight != null )   editMapHeight.Text = m_LiveMap.Tiles.Height.ToString();
-      if ( editTileSpacingW != null ) editTileSpacingW.Text = m_LiveMap.TileSpacingX.ToString();
-      if ( editTileSpacingH != null ) editTileSpacingH.Text = m_LiveMap.TileSpacingY.ToString();
-      // ExtraDataText is no longer mirrored to a UI textbox — it's
-      // visible only via the Tools → Edit extra data... dialog.
-
+      // The restored markers/entities lists were just replaced wholesale —
+      // drop any selection pointing into the old lists before the resync.
       ClearMarkerEntitySelection();
-      // Back on the live map: its sprite instances resume animating.
-      UpdateSpriteAnimTimerState();
-      UpdateSpritePanelControlsState();
-      RecalcTileUsageInCurrentMap();
-      SetMapEditingControlsEnabled( true );
-      RefreshMemoDialog();
+      // Full editor resync from the restored map. The masks are re-sized
+      // before anything repaints (the restored snapshot may have a
+      // different SIZE than what was shown, e.g. reverting past a crop),
+      // and the layer list / alt-color combos / marker+entity combos pick
+      // up the restored values — the previous hand-rolled resync here
+      // missed those and left them stale.
+      PopulateEditorFromCurrentMap();
       RefreshRevisionsCombo();   // resets dropdown to "(Current)"
-      AdjustScrollbars();
-      RedrawMap();
       pictureEditor.Invalidate();
       SetModified();
       UpdateMarkerOutOfBoundsLabel();
@@ -23819,6 +25080,8 @@ namespace RetroDevStudio.Documents
             RedrawMap();
             Modified = true;
             UpdateMarkerOutOfBoundsLabel();
+            // Every sprite is un-linked now — wake the Create-marker button.
+            UpdateSpritePanelControlsState();
         }
 
         private void clearMarkerTypeMenuItem_Click(object sender, EventArgs e)
@@ -23838,6 +25101,8 @@ namespace RetroDevStudio.Documents
             RedrawMap();
             Modified = true;
             UpdateMarkerOutOfBoundsLabel();
+            // Clearing TRIGGER_SPRITE_ANIM markers un-links their sprites.
+            UpdateSpritePanelControlsState();
         }
 
         private void createImageOfMapToolStripMenuItem_Click(object sender, EventArgs e)

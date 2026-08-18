@@ -3184,7 +3184,7 @@ namespace RetroDevStudio.Documents
           case Function.COPY:
             if ( m_ToolMode == ToolMode.SELECT )
             {
-              if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
+              if ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) )
               {
                 CopyToClipboard();
                 return true;
@@ -3192,7 +3192,7 @@ namespace RetroDevStudio.Documents
             }
             break;
           case Function.PASTE:
-            if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) )
+            if ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) )
             {
               PasteFromClipboard();
               return true;
@@ -3573,9 +3573,13 @@ namespace RetroDevStudio.Documents
     {
       get
       {
+        // Editor-page scope is explicit (the old focus-containment check
+        // doubled as an implicit page test); the focus test only defers
+        // to a text input's own clipboard.
         return ( ( charEditor.EditorFocused )
         ||       ( ( m_ToolMode == ToolMode.SELECT )
-        &&         ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) ) ) );
+        &&         ( tabCharsetEditor.SelectedTab == tabEditor )
+        &&         ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) ) ) );
       }
     }
 
@@ -3586,7 +3590,8 @@ namespace RetroDevStudio.Documents
       get
       {
         return ( ( charEditor.EditorFocused )
-        ||       ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.COPY_PASTE ) ) );
+        ||       ( ( tabCharsetEditor.SelectedTab == tabEditor )
+        &&         ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) ) ) );
       }
     }
 
@@ -3688,7 +3693,11 @@ namespace RetroDevStudio.Documents
     {
       if ( keyData == Keys.Escape )
       {
-        if ( !FocusSupport.IsFocusOnChildOfAndCouldAffectReason( tabEditor, FocusSupport.FocusControlReason.ESCAPE ) )
+        // Editor-page scope is explicit (the old focus-containment check
+        // doubled as an implicit page test); the focus test only defers
+        // to an open combo dropdown's own Escape.
+        if ( ( tabCharsetEditor.SelectedTab == tabEditor )
+        &&   ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.ESCAPE ) ) )
         {
           if ( ( m_ToolMode == ToolMode.RECTANGLE )
           ||   ( m_ToolMode == ToolMode.FILLED_RECTANGLE ) )

@@ -117,6 +117,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Formats\GraphicScreenProject.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Formats\MapOutlineContainer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Formats\MapProject.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Formats\MapScratchContainer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Formats\Media\MediaFormat.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Formats\Media\PRG.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Formats\SpriteProject.cs" />

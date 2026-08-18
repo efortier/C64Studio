@@ -98,6 +98,9 @@ namespace RetroDevStudio.Undo
       // sync even when the Map Strings tab is the active one. Cheap and
       // unconditional: the method rewrites cell text in place, no churn.
       MapEditor.RefreshMapStringUsage();
+      // They also flip the sprite↔marker value linkage the Create-marker
+      // button reflects (undo of a create re-enables it, redo re-greys).
+      MapEditor.UpdateSpritePanelControlsState();
     }
   }
 }

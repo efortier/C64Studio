@@ -628,6 +628,7 @@ namespace RetroDevStudio
       // the shared key unambiguous (same pattern as F5 = Build and Debug /
       // Debug Go).
       RegisterFunction( Function.MAP_EDITOR_TOGGLE_OUTLINE, "Toggle Map Outline Mode", FunctionStudioState.NORMAL );
+      RegisterFunction( Function.MAP_EDITOR_TOGGLE_SCRATCH, "Toggle Scratch Map", FunctionStudioState.NORMAL );
 
       // functions for running debugger
       RegisterFunction( Function.DEBUG_BREAK, "Break into Debugger", FunctionStudioState.DEBUGGER_RUNNING );
@@ -2108,7 +2109,10 @@ namespace RetroDevStudio
       SetKeyBindingKey( RetroDevStudio.Types.Function.SAVE_ALL, Keys.Control | Keys.Shift | Keys.S );
       SetKeyBindingKey( RetroDevStudio.Types.Function.PRINT, Keys.Control | Keys.P );
       SetKeyBindingKey( RetroDevStudio.Types.Function.HELP, Keys.F1 );
-      SetKeyBindingKey( RetroDevStudio.Types.Function.SAVE_DOCUMENT_AS, Keys.F12 );
+      // F12 = scratch-map toggle. The old F12 = Save As default is retired
+      // (user decision) — Save As stays reachable via the File menu and
+      // can be rebound in the key bindings dialog.
+      SetKeyBindingKey( RetroDevStudio.Types.Function.MAP_EDITOR_TOGGLE_SCRATCH, Keys.F12 );
       SetKeyBindingKey( RetroDevStudio.Types.Function.TOGGLE_BREAKPOINT, Keys.Shift | Keys.F9 );
       SetKeyBindingKey( RetroDevStudio.Types.Function.UNDO, Keys.Alt | Keys.Back, Keys.Control | Keys.Z);
       SetKeyBindingKey( RetroDevStudio.Types.Function.REDO, Keys.Shift | Keys.Alt | Keys.Back, Keys.Control | Keys.Shift | Keys.Z);
@@ -2361,7 +2365,19 @@ namespace RetroDevStudio
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.SAVE_ALL, Keys.Control | Keys.Shift | Keys.S );
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.PRINT, Keys.Control | Keys.P );
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.HELP, Keys.F1 );
-      ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.SAVE_DOCUMENT_AS, Keys.F12 );
+      // F12 belongs to the scratch-map toggle now (user decision: the old
+      // F12 = Save As default "can go"). Strip that stale default from
+      // EXISTING settings.dat — idempotent; a Save-As the user remapped to
+      // some OTHER key is deliberately left alone.
+      {
+        var staleSaveAs = Accelerators.Where( acc => ( acc.Value.Function == RetroDevStudio.Types.Function.SAVE_DOCUMENT_AS )
+                                                  && ( acc.Value.Key == Keys.F12 ) ).ToList();
+        foreach ( var acc in staleSaveAs )
+        {
+          Accelerators.Remove( acc.Key, acc.Value );
+        }
+      }
+      ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.MAP_EDITOR_TOGGLE_SCRATCH, Keys.F12 );
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.TOGGLE_BREAKPOINT, Keys.Shift | Keys.F9 );
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.UNDO, Keys.Alt | Keys.Back, Keys.Control | Keys.Z);
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.REDO, Keys.Shift | Keys.Alt | Keys.Back, Keys.Control | Keys.Shift | Keys.Z);

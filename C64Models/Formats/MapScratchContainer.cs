@@ -6,58 +6,56 @@ using System.Collections.Generic;
 namespace RetroDevStudio.Formats
 {
   /// <summary>
-  /// Sidecar container for per-map outline images (the map editor's paint
-  /// mode). Lives next to the .mapproject as "&lt;projectfile&gt;.mapoutlines"
-  /// and is written INDEPENDENTLY of the project file — drawing on an
-  /// outline never dirties the map document; the editor flushes this
-  /// container on outline-mode exit, map switch and document close.
+  /// Sidecar container for per-map SCRATCH maps (the map editor's F12
+  /// workspace: an independently-sized map for parking pieces of its owner
+  /// while reorganizing). Lives next to the .mapproject as
+  /// "&lt;projectfile&gt;.mapscratch" and is flushed together with the document
+  /// (save / close) — scratch edits dirty the document like main-map edits.
   ///
-  /// Images are keyed by Map.OutlineGuid (the only durable map identity;
-  /// list indices shift on add/delete). PNG blobs are kept UNDECODED in
-  /// memory: reading the file never decodes an image, and rewriting the
-  /// file re-emits retained blobs verbatim — only the map actually being
-  /// edited ever pays an encode/decode.
+  /// Entries are keyed by the OWNER map's OutlineGuid (the only durable
+  /// map identity; list indices shift on add/delete — the same contract as
+  /// the outline sidecar). Blobs are full nested MAP chunks (BuildMapChunk
+  /// format) kept UNDECODED in memory: reading the file never deserializes
+  /// a map, and rewriting re-emits retained blobs verbatim — only a scratch
+  /// actually visited in the session ever pays a decode, keeping project
+  /// load fast (lazy-load contract).
   ///
   /// Orphan policy: intermediate writes keep blobs whose GUID no longer
   /// matches a live map, because a map delete can be undone much later
   /// (the undo system re-inserts the same Map object, GUID intact). Only
   /// the final write on document close prunes to live GUIDs — that is the
-  /// point where "deleting a map deletes its picture" becomes permanent,
+  /// point where "deleting a map deletes its scratch" becomes permanent,
   /// and it also self-heals files that kept orphans across a crash.
   /// </summary>
-  public class MapOutlineContainer
+  public class MapScratchContainer
   {
-    public class OutlineImageEntry
+    public class ScratchEntry
     {
-      public string     Guid = "";
-      public int        Width = 0;
-      public int        Height = 0;
-      public byte[]     PNGData = null;
+      public string     OwnerGuid = "";
       // Re-association hints: the GUID's other half lives in the
       // .mapproject and only reaches disk when the USER saves — these
-      // let a map with no (persisted) GUID re-adopt its image by name /
-      // index, so drawings survive even when the project is never saved.
-      public string     MapName = "";
-      public int        MapIndex = -1;
-      // Persistent text objects of the paint mode, as an OPAQUE blob (a
-      // sequence of MAP_OUTLINE_TEXT_OBJECT chunks, encoded/decoded by
-      // OutlineTextObject in the editor layer — the container never looks
-      // inside, mirroring the undecoded-PNG policy). null = none.
-      public byte[]     TextObjectsData = null;
+      // let a map with no (persisted) GUID re-adopt its scratch by name /
+      // index, so workspaces survive even when the project is never saved.
+      public string     OwnerMapName = "";
+      public int        OwnerMapIndex = -1;
+      // The scratch map itself as an OPAQUE blob (one nested MAP chunk,
+      // encoded/decoded by MapProject.BuildMapChunk / ReadMapFromBody in
+      // the editor layer — the container never looks inside).
+      public byte[]     MapData = null;
     }
 
 
 
     private const uint CURRENT_VERSION = 1;
 
-    private Dictionary<string, OutlineImageEntry>   m_Images = new Dictionary<string, OutlineImageEntry>();
+    private Dictionary<string, ScratchEntry>    m_Entries = new Dictionary<string, ScratchEntry>();
 
     /// <summary>
     /// The last ReadFromFile found an EXISTING file it could not parse —
     /// intrinsic state of this container's contents ("incomplete view of
     /// what is on disk"). WriteToFile then preserves the unreadable
     /// original as "&lt;file&gt;.corrupt" before replacing it, so a transient
-    /// read error can never silently destroy every stored outline.
+    /// read error can never silently destroy every stored scratch map.
     /// </summary>
     public bool LoadFailed
     {
@@ -71,30 +69,30 @@ namespace RetroDevStudio.Formats
     {
       get
       {
-        return m_Images.Count;
+        return m_Entries.Count;
       }
     }
 
 
 
-    public IEnumerable<string> ImageGuids
+    public IEnumerable<string> EntryGuids
     {
       get
       {
-        return m_Images.Keys;
+        return m_Entries.Keys;
       }
     }
 
 
 
-    public OutlineImageEntry GetImage( string OutlineGuid )
+    public ScratchEntry GetEntry( string OwnerGuid )
     {
-      if ( string.IsNullOrEmpty( OutlineGuid ) )
+      if ( string.IsNullOrEmpty( OwnerGuid ) )
       {
         return null;
       }
-      OutlineImageEntry entry;
-      if ( m_Images.TryGetValue( OutlineGuid, out entry ) )
+      ScratchEntry entry;
+      if ( m_Entries.TryGetValue( OwnerGuid, out entry ) )
       {
         return entry;
       }
@@ -103,75 +101,69 @@ namespace RetroDevStudio.Formats
 
 
 
-    public bool HasImage( string OutlineGuid )
+    public bool HasEntry( string OwnerGuid )
     {
-      return GetImage( OutlineGuid ) != null;
+      return GetEntry( OwnerGuid ) != null;
     }
 
 
 
-    public void SetImage( string OutlineGuid, int Width, int Height, byte[] PNGData,
-                          string MapName = "", int MapIndex = -1,
-                          byte[] TextObjectsData = null )
+    public void SetEntry( string OwnerGuid, byte[] MapData,
+                          string OwnerMapName = "", int OwnerMapIndex = -1 )
     {
-      if ( ( string.IsNullOrEmpty( OutlineGuid ) )
-      ||   ( PNGData == null )
-      ||   ( PNGData.Length == 0 )
-      ||   ( Width <= 0 )
-      ||   ( Height <= 0 ) )
+      if ( ( string.IsNullOrEmpty( OwnerGuid ) )
+      ||   ( MapData == null )
+      ||   ( MapData.Length == 0 ) )
       {
         return;
       }
-      // SetImage recreates the entry wholesale, so the text-objects blob MUST
-      // travel through this signature — attaching it to the entry afterwards
+      // SetEntry recreates the entry wholesale, so the hints MUST travel
+      // through this signature — attaching them to the entry afterwards
       // would be silently dropped by the next flush.
-      m_Images[OutlineGuid] = new OutlineImageEntry()
+      m_Entries[OwnerGuid] = new ScratchEntry()
       {
-        Guid            = OutlineGuid,
-        Width           = Width,
-        Height          = Height,
-        PNGData         = PNGData,
-        MapName         = MapName ?? "",
-        MapIndex        = MapIndex,
-        TextObjectsData = TextObjectsData
+        OwnerGuid     = OwnerGuid,
+        OwnerMapName  = OwnerMapName ?? "",
+        OwnerMapIndex = OwnerMapIndex,
+        MapData       = MapData
       };
     }
 
 
 
     /// <summary>
-    /// Finds an image a GUID-less map can re-ADOPT — the self-heal for
+    /// Finds an entry a GUID-less map can re-ADOPT — the self-heal for
     /// the split-brain failure where the sidecar (auto-saved) has the
-    /// picture but the .mapproject (user-saved) never persisted the
+    /// scratch but the .mapproject (user-saved) never persisted the
     /// GUID. Excludes GUIDs other maps already hold. Match order: exact
-    /// name+index, then unique name, then unique index — hints are only
-    /// trusted when they identify ONE candidate.
+    /// name+index, then unique name — hints are only trusted when they
+    /// identify ONE candidate.
     /// </summary>
-    public OutlineImageEntry FindAdoptableImage( string MapName, int MapIndex, ICollection<string> GuidsInUse )
+    public ScratchEntry FindAdoptableEntry( string MapName, int MapIndex, ICollection<string> GuidsInUse )
     {
-      var candidates = new List<OutlineImageEntry>();
-      foreach ( var entry in m_Images.Values )
+      var candidates = new List<ScratchEntry>();
+      foreach ( var entry in m_Entries.Values )
       {
         if ( ( GuidsInUse != null )
-        &&   ( GuidsInUse.Contains( entry.Guid ) ) )
+        &&   ( GuidsInUse.Contains( entry.OwnerGuid ) ) )
         {
           continue;
         }
-        // Entries from files predating the hints carry ""/-1 — never
-        // adoptable (no evidence which map they belonged to).
-        if ( ( string.IsNullOrEmpty( entry.MapName ) )
-        &&   ( entry.MapIndex < 0 ) )
+        // Entries without hints carry ""/-1 — never adoptable (no
+        // evidence which map they belonged to).
+        if ( ( string.IsNullOrEmpty( entry.OwnerMapName ) )
+        &&   ( entry.OwnerMapIndex < 0 ) )
         {
           continue;
         }
         candidates.Add( entry );
       }
 
-      OutlineImageEntry match = null;
+      ScratchEntry match = null;
       foreach ( var entry in candidates )
       {
-        if ( ( entry.MapName == ( MapName ?? "" ) )
-        &&   ( entry.MapIndex == MapIndex ) )
+        if ( ( entry.OwnerMapName == ( MapName ?? "" ) )
+        &&   ( entry.OwnerMapIndex == MapIndex ) )
         {
           if ( match != null )
           {
@@ -186,8 +178,8 @@ namespace RetroDevStudio.Formats
       }
       foreach ( var entry in candidates )
       {
-        if ( ( !string.IsNullOrEmpty( entry.MapName ) )
-        &&   ( entry.MapName == MapName ) )
+        if ( ( !string.IsNullOrEmpty( entry.OwnerMapName ) )
+        &&   ( entry.OwnerMapName == MapName ) )
         {
           if ( match != null )
           {
@@ -197,7 +189,7 @@ namespace RetroDevStudio.Formats
         }
       }
       // Deliberately NO index-only tier: after a rename + reorder, a bare index
-      // match can bind ANOTHER map's drawing, which that map then overwrites —
+      // match can bind ANOTHER map's scratch, which that map then overwrites —
       // destructive. An unadopted orphan stays in the sidecar and remains
       // recoverable, so name evidence is required.
       return match;
@@ -205,56 +197,44 @@ namespace RetroDevStudio.Formats
 
 
 
-    public void RemoveImage( string OutlineGuid )
+    public void RemoveEntry( string OwnerGuid )
     {
-      if ( !string.IsNullOrEmpty( OutlineGuid ) )
+      if ( !string.IsNullOrEmpty( OwnerGuid ) )
       {
-        m_Images.Remove( OutlineGuid );
+        m_Entries.Remove( OwnerGuid );
       }
     }
 
 
 
     /// <summary>
-    /// Serializes the container. When LiveGuids is non-null, only images
+    /// Serializes the container. When LiveGuids is non-null, only entries
     /// whose GUID it contains are written (the pruning final write); null
-    /// keeps every retained image (intermediate writes — see orphan policy
+    /// keeps every retained entry (intermediate writes — see orphan policy
     /// in the class comment).
     /// </summary>
     public GR.Memory.ByteBuffer SaveToBuffer( ICollection<string> LiveGuids )
     {
       var projectFile = new GR.Memory.ByteBuffer();
 
-      var chunkInfo = new GR.IO.FileChunk( FileChunkConstants.MAP_OUTLINE_INFO );
+      var chunkInfo = new GR.IO.FileChunk( FileChunkConstants.MAP_SCRATCH_INFO );
       chunkInfo.AppendU32( CURRENT_VERSION );
       projectFile.Append( chunkInfo.ToBuffer() );
 
-      foreach ( var entry in m_Images.Values )
+      foreach ( var entry in m_Entries.Values )
       {
         if ( ( LiveGuids != null )
-        &&   ( !LiveGuids.Contains( entry.Guid ) ) )
+        &&   ( !LiveGuids.Contains( entry.OwnerGuid ) ) )
         {
           continue;
         }
-        var chunkImage = new GR.IO.FileChunk( FileChunkConstants.MAP_OUTLINE_IMAGE );
-        chunkImage.AppendString( entry.Guid );
-        chunkImage.AppendI32( entry.Width );
-        chunkImage.AppendI32( entry.Height );
-        chunkImage.AppendU32( (uint)entry.PNGData.Length );
-        chunkImage.Append( new GR.Memory.ByteBuffer( entry.PNGData ) );
-        // Appended re-association hints (see OutlineImageEntry) — older
-        // readers stop after the blob and fall through to ""/-1.
-        chunkImage.AppendString( entry.MapName ?? "" );
-        chunkImage.AppendI32( entry.MapIndex );
-        // Appended text-objects blob (opaque; may be absent). Older readers
-        // stop before it; readers without it fall through to null.
-        uint textObjectsLength = ( entry.TextObjectsData != null ) ? (uint)entry.TextObjectsData.Length : 0;
-        chunkImage.AppendU32( textObjectsLength );
-        if ( textObjectsLength > 0 )
-        {
-          chunkImage.Append( new GR.Memory.ByteBuffer( entry.TextObjectsData ) );
-        }
-        projectFile.Append( chunkImage.ToBuffer() );
+        var chunkEntry = new GR.IO.FileChunk( FileChunkConstants.MAP_SCRATCH_ENTRY );
+        chunkEntry.AppendString( entry.OwnerGuid );
+        chunkEntry.AppendString( entry.OwnerMapName ?? "" );
+        chunkEntry.AppendI32( entry.OwnerMapIndex );
+        chunkEntry.AppendU32( (uint)entry.MapData.Length );
+        chunkEntry.Append( new GR.Memory.ByteBuffer( entry.MapData ) );
+        projectFile.Append( chunkEntry.ToBuffer() );
       }
       return projectFile;
     }
@@ -263,7 +243,7 @@ namespace RetroDevStudio.Formats
 
     public bool ReadFromBuffer( GR.Memory.ByteBuffer Data )
     {
-      m_Images.Clear();
+      m_Entries.Clear();
       if ( Data == null )
       {
         return false;
@@ -288,62 +268,39 @@ namespace RetroDevStudio.Formats
           // chunk header promised more payload than the stream holds —
           // the partial read consumes the stream to its end, so WITHOUT
           // this flag a truncated tail would pass the position==length
-          // check below and masquerade as "intact minus the last image".
+          // check below and masquerade as "intact minus the last entry".
           tailDamaged = ( memReader.Position != posBeforeChunk );
           break;
         }
         var chunkReader = chunk.MemoryReader();
         switch ( chunk.Type )
         {
-          case FileChunkConstants.MAP_OUTLINE_INFO:
+          case FileChunkConstants.MAP_SCRATCH_INFO:
             // version currently unused (1); newer writers may append fields
             // after it, older readers simply ignore what they don't know.
             chunkReader.ReadUInt32();
             sawInfoChunk = true;
             break;
-          case FileChunkConstants.MAP_OUTLINE_IMAGE:
+          case FileChunkConstants.MAP_SCRATCH_ENTRY:
             {
-              string  guid   = chunkReader.ReadString();
-              int     width  = chunkReader.ReadInt32();
-              int     height = chunkReader.ReadInt32();
-              uint    length = chunkReader.ReadUInt32();
+              string  guid     = chunkReader.ReadString();
+              string  mapName  = chunkReader.ReadString();
+              int     mapIndex = chunkReader.ReadInt32();
+              uint    length   = chunkReader.ReadUInt32();
 
-              var pngData = new GR.Memory.ByteBuffer();
+              var mapData = new GR.Memory.ByteBuffer();
               if ( ( length > 0 )
-              &&   ( chunkReader.ReadBlock( pngData, length ) == length ) )
+              &&   ( chunkReader.ReadBlock( mapData, length ) == length ) )
               {
-                string mapName = "";
-                int mapIndex = -1;
-                byte[] textObjectsData = null;
-                if ( chunkReader.Size - chunkReader.Position >= 4 )
-                {
-                  mapName = chunkReader.ReadString();
-                }
-                if ( chunkReader.Size - chunkReader.Position >= 4 )
-                {
-                  mapIndex = chunkReader.ReadInt32();
-                }
-                // Appended text-objects blob — absent in older files (null).
-                if ( chunkReader.Size - chunkReader.Position >= 4 )
-                {
-                  uint textObjectsLength = chunkReader.ReadUInt32();
-                  if ( ( textObjectsLength > 0 )
-                  &&   ( chunkReader.Size - chunkReader.Position >= textObjectsLength ) )
-                  {
-                    var blob = new GR.Memory.ByteBuffer();
-                    if ( chunkReader.ReadBlock( blob, textObjectsLength ) == textObjectsLength )
-                    {
-                      textObjectsData = blob.Data();
-                    }
-                  }
-                }
-                SetImage( guid, width, height, pngData.Data(), mapName, mapIndex, textObjectsData );
+                // Fields appended after the blob by NEWER writers are
+                // simply not read here — append-tolerant by construction.
+                SetEntry( guid, mapData.Data(), mapName, mapIndex );
               }
             }
             break;
         }
       }
-      // Corruption detection: every writer emits MAP_OUTLINE_INFO first,
+      // Corruption detection: every writer emits MAP_SCRATCH_INFO first,
       // and a clean parse consumes the whole stream. Truncated garbage
       // must NOT masquerade as "valid but empty" — that would let the
       // next write clobber a possibly recoverable file (see LoadFailed).
@@ -353,7 +310,7 @@ namespace RetroDevStudio.Formats
       memReader.Close();
       if ( !intact )
       {
-        m_Images.Clear();
+        m_Entries.Clear();
       }
       return intact;
     }
@@ -362,11 +319,11 @@ namespace RetroDevStudio.Formats
 
     /// <summary>
     /// Missing file = empty container and TRUE (a project simply has no
-    /// outlines yet); unreadable/corrupt file = empty container and FALSE.
+    /// scratch maps yet); unreadable/corrupt file = empty container and FALSE.
     /// </summary>
     public bool ReadFromFile( string Filename )
     {
-      m_Images.Clear();
+      m_Entries.Clear();
       LoadFailed = false;
       if ( ( string.IsNullOrEmpty( Filename ) )
       ||   ( !System.IO.File.Exists( Filename ) ) )
@@ -391,10 +348,11 @@ namespace RetroDevStudio.Formats
 
     /// <summary>
     /// Call after renaming/moving a project file on disk: a .mapproject's
-    /// ".mapoutlines" sidecar must travel along, or every outline drawing
-    /// appears blank under the new name (the images are keyed by the sidecar
-    /// path). Best effort — the project rename itself already succeeded, and
-    /// a stranded sidecar remains recoverable by renaming it manually.
+    /// ".mapscratch" sidecar must travel along, or every scratch map
+    /// appears empty under the new name (the entries are keyed by the
+    /// sidecar path). Best effort — the project rename itself already
+    /// succeeded, and a stranded sidecar remains recoverable by renaming
+    /// it manually.
     /// </summary>
     public static void AccompanyProjectFileRename( string OldPath, string NewPath )
     {
@@ -407,8 +365,8 @@ namespace RetroDevStudio.Formats
         {
           return;
         }
-        string oldSidecar = System.IO.Path.ChangeExtension( OldPath, ".mapoutlines" );
-        string newSidecar = System.IO.Path.ChangeExtension( NewPath, ".mapoutlines" );
+        string oldSidecar = System.IO.Path.ChangeExtension( OldPath, ".mapscratch" );
+        string newSidecar = System.IO.Path.ChangeExtension( NewPath, ".mapscratch" );
         if ( ( !System.IO.File.Exists( oldSidecar ) )
         ||   ( string.Equals( oldSidecar, newSidecar, StringComparison.OrdinalIgnoreCase ) ) )
         {
@@ -432,7 +390,7 @@ namespace RetroDevStudio.Formats
 
     /// <summary>
     /// Atomic write (tmp + delete + move, same pattern the studio settings
-    /// use) so a crash mid-write can never corrupt existing outlines. When
+    /// use) so a crash mid-write can never corrupt existing scratches. When
     /// the container is empty the file is REMOVED instead — no point
     /// keeping a header-only sidecar around. LiveGuids: see SaveToBuffer.
     /// </summary>
@@ -443,13 +401,13 @@ namespace RetroDevStudio.Formats
         return false;
       }
 
-      bool hasAnyImage = false;
-      foreach ( var entry in m_Images.Values )
+      bool hasAnyEntry = false;
+      foreach ( var entry in m_Entries.Values )
       {
         if ( ( LiveGuids == null )
-        ||   ( LiveGuids.Contains( entry.Guid ) ) )
+        ||   ( LiveGuids.Contains( entry.OwnerGuid ) ) )
         {
-          hasAnyImage = true;
+          hasAnyEntry = true;
           break;
         }
       }
@@ -457,14 +415,14 @@ namespace RetroDevStudio.Formats
       try
       {
         // An unreadable original must never be silently clobbered — the
-        // user's images are (possibly recoverably) inside it. Park a copy
-        // next to it before any replace/delete below.
+        // user's scratch maps are (possibly recoverably) inside it. Park a
+        // copy next to it before any replace/delete below.
         //
         // ONE-TIME capture: LoadFailed stays true for the whole session, so
         // this guard runs on every write. Without the !Exists check the
         // SECOND write would copy the (now-good, already-replaced) Filename
         // over the backup and destroy the only recoverable copy of the
-        // originally-corrupt images. The !Exists guard makes the first
+        // originally-corrupt entries. The !Exists guard makes the first
         // backup win permanently; overwrite:false is belt-and-suspenders.
         if ( ( LoadFailed )
         &&   ( System.IO.File.Exists( Filename ) )
@@ -473,7 +431,7 @@ namespace RetroDevStudio.Formats
           System.IO.File.Copy( Filename, Filename + ".corrupt", false );
         }
 
-        if ( !hasAnyImage )
+        if ( !hasAnyEntry )
         {
           if ( System.IO.File.Exists( Filename ) )
           {

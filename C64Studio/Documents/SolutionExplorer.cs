@@ -1576,8 +1576,10 @@ namespace RetroDevStudio.Documents
         System.IO.File.Move( oldFilename, newFilename );
         // A .mapproject's outline drawings live in a ".mapoutlines" sidecar
         // keyed by path — it must travel with the rename or every sketch
-        // appears blank under the new name.
+        // appears blank under the new name. The ".mapscratch" workspace
+        // sidecar rides the same contract.
         Formats.MapOutlineContainer.AccompanyProjectFileRename( oldFilename, newFilename );
+        Formats.MapScratchContainer.AccompanyProjectFileRename( oldFilename, newFilename );
       }
       catch ( System.IO.FileNotFoundException )
       {

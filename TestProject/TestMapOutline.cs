@@ -386,6 +386,26 @@ namespace TestProject
 
 
     [TestMethod]
+    public void TestContainerTruncatedTailDetected()
+    {
+      // A stream cut inside the LAST chunk's payload consumes to the end
+      // on the partial read, so the position==length integrity check alone
+      // can't see it — the load must still fail as a whole rather than
+      // silently drop the damaged entry and report "valid".
+      var container = new MapOutlineContainer();
+      container.SetImage( "g", 10, 10, MakeFakePNG( 1, 32 ) );
+      var good = container.SaveToBuffer( null );
+
+      var truncated = good.SubBuffer( 0, (int)good.Length - 5 );
+
+      var reader = new MapOutlineContainer();
+      Assert.IsFalse( reader.ReadFromBuffer( truncated ) );
+      Assert.AreEqual( 0, reader.Count );
+    }
+
+
+
+    [TestMethod]
     public void TestContainerMissingAndCorruptFiles()
     {
       string missing = System.IO.Path.Combine( System.IO.Path.GetTempPath(),

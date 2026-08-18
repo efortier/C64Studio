@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "Z:\\RepositoriesC64\\C64Studio\\RetroDevStudio.Tablet\\RetroDevStudio.Tablet.csproj": {}
+    "Z:\\DevC64\\C64Studio\\RetroDevStudio.Tablet\\RetroDevStudio.Tablet.csproj": {}
   },
   "projects": {
-    "Z:\\RepositoriesC64\\C64Studio\\RetroDevStudio.Tablet\\RetroDevStudio.Tablet.csproj": {
+    "Z:\\DevC64\\C64Studio\\RetroDevStudio.Tablet\\RetroDevStudio.Tablet.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "Z:\\RepositoriesC64\\C64Studio\\RetroDevStudio.Tablet\\RetroDevStudio.Tablet.csproj",
+        "projectUniqueName": "Z:\\DevC64\\C64Studio\\RetroDevStudio.Tablet\\RetroDevStudio.Tablet.csproj",
         "projectName": "RetroDevStudio.Tablet",
-        "projectPath": "Z:\\RepositoriesC64\\C64Studio\\RetroDevStudio.Tablet\\RetroDevStudio.Tablet.csproj",
+        "projectPath": "Z:\\DevC64\\C64Studio\\RetroDevStudio.Tablet\\RetroDevStudio.Tablet.csproj",
         "packagesPath": "C:\\Users\\ericc\\.nuget\\packages\\",
-        "outputPath": "Z:\\RepositoriesC64\\C64Studio\\RetroDevStudio.Tablet\\obj\\",
+        "outputPath": "Z:\\DevC64\\C64Studio\\RetroDevStudio.Tablet\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

@@ -19,14 +19,25 @@ namespace RetroDevStudio.Undo
     // color overrides as part of the deletion; without these snapshots
     // an undo would leave both in their post-deletion state even after
     // the tile itself is restored.
+    //
+    // Snapshots are keyed by the Map OBJECT, not by list position: the
+    // sweep covers MapEditor.AllEditableMaps() — project maps PLUS scratch
+    // workspaces — so an index into Project.Maps would misalign, and map
+    // adds/removes between capture and undo would shift it anyway.
     private List<int>                                _EntityTypeTileIndices = new List<int>();
-    private List<GR.Game.Layer<int>>                 _ColorOverrideSnapshots = new List<GR.Game.Layer<int>>();
+    // Colour overrides are PER-LAYER (RemoveTile wipes them on every layer
+    // a removed tile occupied), so each map's snapshot is one grid per
+    // layer, index-aligned to map.Layers — the same shape
+    // UndoMapSizeChange.LayerSnap uses. Restoring by layer INDEX (not by
+    // captured layer reference) stays correct even when a revert replaced
+    // the layer objects wholesale in between.
+    private Dictionary<MapProject.Map, List<GR.Game.Layer<int>>> _ColorOverrideSnapshots = new Dictionary<MapProject.Map, List<GR.Game.Layer<int>>>();
     // Mirrors _ColorOverrideSnapshots for the per-character "blocked"
-    // override layer. RemoveTile clears blocked overrides on every map
-    // cell that used the deleted tile (so its footprint isn't left
-    // pointing at a stale tile-index after the shift), and Apply must
-    // be able to restore them.
-    private List<GR.Game.Layer<bool>>                _BlockedOverrideSnapshots = new List<GR.Game.Layer<bool>>();
+    // override layer — whole-map (a real Map field, not per-layer).
+    // RemoveTile clears blocked overrides on every map cell that used the
+    // deleted tile (so its footprint isn't left pointing at a stale
+    // tile-index after the shift), and Apply must restore them.
+    private Dictionary<MapProject.Map, GR.Game.Layer<bool>> _BlockedOverrideSnapshots = new Dictionary<MapProject.Map, GR.Game.Layer<bool>>();
 
 
 
@@ -62,31 +73,34 @@ namespace RetroDevStudio.Undo
         _EntityTypeTileIndices.Add( et.TileIndex );
       }
 
-      // Snapshot every map's color-override layer. Char-grid sized
-      // (Tiles × spacing); captured deeply (per-char copy) rather than
-      // holding a reference because the original layer keeps mutating
-      // during the delete. Loop bounds use the layer's own Width/Height
-      // so this stays correct regardless of grid dimensions.
-      foreach ( var map in Project.Maps )
+      // Snapshot every editable map's color-override layers — the same set
+      // (project maps + scratch workspaces) RemoveTile's sweep mutates,
+      // and EVERY layer of each map, because the wipe is per-layer.
+      // Char-grid sized (Tiles × spacing); captured deeply (per-char copy)
+      // rather than holding a reference because the original layer keeps
+      // mutating during the delete. Loop bounds use the layer's own
+      // Width/Height so this stays correct regardless of grid dimensions.
+      foreach ( var map in Editor.AllEditableMaps() )
       {
-        var snap = new GR.Game.Layer<int>();
-        snap.Resize( map.TileColorOverrides.Width, map.TileColorOverrides.Height );
-        for ( int j = 0; j < map.TileColorOverrides.Height; ++j )
+        var layerSnaps = new List<GR.Game.Layer<int>>();
+        foreach ( var lay in map.Layers )
         {
-          for ( int i = 0; i < map.TileColorOverrides.Width; ++i )
+          var snap = new GR.Game.Layer<int>();
+          snap.Resize( lay.TileColorOverrides.Width, lay.TileColorOverrides.Height );
+          for ( int j = 0; j < lay.TileColorOverrides.Height; ++j )
           {
-            snap[i, j] = map.TileColorOverrides[i, j];
+            for ( int i = 0; i < lay.TileColorOverrides.Width; ++i )
+            {
+              snap[i, j] = lay.TileColorOverrides[i, j];
+            }
           }
+          layerSnaps.Add( snap );
         }
-        _ColorOverrideSnapshots.Add( snap );
-      }
+        _ColorOverrideSnapshots[map] = layerSnaps;
 
-      // Snapshot every map's blocked-override layer too — same shape,
-      // same lifecycle as the color overrides. RemoveTile wipes these
-      // for the deleted tile's footprint; Apply restores them in lock
-      // step with the color layer.
-      foreach ( var map in Project.Maps )
-      {
+        // Blocked-override layer too — whole-map, same lifecycle.
+        // RemoveTile wipes these for the deleted tile's footprint; Apply
+        // restores them in lock step with the color layers.
         var blkSnap = new GR.Game.Layer<bool>();
         blkSnap.Resize( map.CharBlockedOverrides.Width, map.CharBlockedOverrides.Height );
         for ( int j = 0; j < map.CharBlockedOverrides.Height; ++j )
@@ -96,7 +110,7 @@ namespace RetroDevStudio.Undo
             blkSnap[i, j] = map.CharBlockedOverrides[i, j];
           }
         }
-        _BlockedOverrideSnapshots.Add( blkSnap );
+        _BlockedOverrideSnapshots[map] = blkSnap;
       }
     }
 
@@ -135,35 +149,42 @@ namespace RetroDevStudio.Undo
         _MapProject.EntityTypes[i].TileIndex = _EntityTypeTileIndices[i];
       }
 
-      // Restore per-map color overrides. We deep-copy back into the
-      // existing layer rather than swapping references so anyone holding
-      // a reference to map.TileColorOverrides keeps seeing the right
-      // data.
-      int mapCount = System.Math.Min( _ColorOverrideSnapshots.Count, _MapProject.Maps.Count );
-      for ( int m = 0; m < mapCount; ++m )
+      // Restore per-map, per-LAYER color overrides. We deep-copy back into
+      // the existing layers rather than swapping references so anyone
+      // holding a reference keeps seeing the right data. Each snapshot
+      // restores into the exact Map object it was captured from — a map
+      // (or scratch) that has since been deleted still gets its data back
+      // through the held reference, ready for the delete's own undo. The
+      // count guard mirrors UndoMapSizeChange: layer counts are fixed, but
+      // guard defensively anyway.
+      foreach ( var pair in _ColorOverrideSnapshots )
       {
-        var map = _MapProject.Maps[m];
-        var snap = _ColorOverrideSnapshots[m];
-        if ( ( map.TileColorOverrides.Width != snap.Width )
-        ||   ( map.TileColorOverrides.Height != snap.Height ) )
+        var map = pair.Key;
+        var layerSnaps = pair.Value;
+        for ( int k = 0; ( k < layerSnaps.Count ) && ( k < map.Layers.Count ); ++k )
         {
-          map.TileColorOverrides.Resize( snap.Width, snap.Height );
-        }
-        for ( int j = 0; j < snap.Height; ++j )
-        {
-          for ( int i = 0; i < snap.Width; ++i )
+          var snap = layerSnaps[k];
+          var lay  = map.Layers[k];
+          if ( ( lay.TileColorOverrides.Width != snap.Width )
+          ||   ( lay.TileColorOverrides.Height != snap.Height ) )
           {
-            map.TileColorOverrides[i, j] = snap[i, j];
+            lay.TileColorOverrides.Resize( snap.Width, snap.Height );
+          }
+          for ( int j = 0; j < snap.Height; ++j )
+          {
+            for ( int i = 0; i < snap.Width; ++i )
+            {
+              lay.TileColorOverrides[i, j] = snap[i, j];
+            }
           }
         }
       }
 
       // Restore per-map blocked overrides — same deep-copy approach.
-      int blkMapCount = System.Math.Min( _BlockedOverrideSnapshots.Count, _MapProject.Maps.Count );
-      for ( int m = 0; m < blkMapCount; ++m )
+      foreach ( var pair in _BlockedOverrideSnapshots )
       {
-        var map = _MapProject.Maps[m];
-        var blkSnap = _BlockedOverrideSnapshots[m];
+        var map = pair.Key;
+        var blkSnap = pair.Value;
         if ( ( map.CharBlockedOverrides.Width != blkSnap.Width )
         ||   ( map.CharBlockedOverrides.Height != blkSnap.Height ) )
         {

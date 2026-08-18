@@ -98,6 +98,15 @@
     // chunks inside an opaque blob appended to its MAP_OUTLINE_IMAGE entry
     // (the container never decodes it). Append-tolerant per object.
     public const ushort    MAP_OUTLINE_TEXT_OBJECT        = 0x133B;
+    // Scratch-map sidecar ("<projectfile>.mapscratch"): one per-map
+    // WORKSPACE map of independent size, keyed by the owner map's
+    // OutlineGuid. MAP_SCRATCH_INFO: [u32 version]. MAP_SCRATCH_ENTRY
+    // (one per owner map): [string ownerGuid][string ownerMapName]
+    // [i32 ownerMapIndex][u32 blobLen][blob = one nested MAP chunk in
+    // BuildMapChunk format]. Append-tolerant; the container never
+    // decodes the blob (mirrors the outline sidecar's undecoded policy).
+    public const ushort    MAP_SCRATCH_INFO               = 0x133C;
+    public const ushort    MAP_SCRATCH_ENTRY              = 0x133D;
 
     public const ushort    CHARSET_PROJECT                = 0x1340;
     public const ushort    CHARSET_INFO                   = 0x1341;
