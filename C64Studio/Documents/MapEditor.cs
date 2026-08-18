@@ -9593,6 +9593,9 @@ namespace RetroDevStudio.Documents
     /// markers, entities) WRAPS modulo the map dimensions instead — what
     /// leaves one edge re-enters the opposite edge. Roll mode is
     /// triggered by holding Shift while clicking the Shift Map buttons.
+    /// The sprite SPAWN coordinates encoded in TRIGGER_SPRITE_ANIM marker
+    /// values (and the live instances spawned from them) ride the shift
+    /// too — see the sprite pass below for their edge rules.
     ///
     /// Implementation uses temp buffers (one per layer) so the
     /// destination writes don't trample source values mid-copy. This
@@ -9622,6 +9625,9 @@ namespace RetroDevStudio.Documents
       }
       DocumentInfo.UndoManager.AddGroupedUndoTask( new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
       DocumentInfo.UndoManager.AddGroupedUndoTask( new Undo.UndoMapEntitiesChange( this, m_CurrentMap ) );
+      // Live sprite instances shift along with the marker spawn values
+      // below — same undo group, so one Ctrl+Z rewinds the whole shift.
+      DocumentInfo.UndoManager.AddGroupedUndoTask( new UndoMapSpriteInstancesChange( this, m_CurrentMap ) );
 
       int    w = m_CurrentMap.Tiles.Width;
       int    h = m_CurrentMap.Tiles.Height;
@@ -9828,8 +9834,77 @@ namespace RetroDevStudio.Documents
       m_CurrentMap.Entities = shiftedEntities;
       UpdateEntityCountLabel();
 
+      // TRIGGER_SPRITE_ANIM markers carry a sprite SPAWN position in their
+      // values (Value2/3 = char cell, Value4 = sub-char pixel offsets) —
+      // that coordinate is map content and must ride the shift just like
+      // the cells themselves, independent of where the marker CELL sits.
+      // Whole-char move: the packed pixel offsets never change. A spawn
+      // parked OUTSIDE the map's char area stays put (mirrors the off-map
+      // meta-marker rule above); ShiftSpriteChar handles the edge rules.
+      // Runs after the marker drop/wrap pass so only survivors are touched.
+      var spriteMarkerType = TriggerSpriteAnimMarkerType();
+      if ( spriteMarkerType != null )
+      {
+        foreach ( var marker in m_CurrentMap.Markers )
+        {
+          if ( marker.Type != spriteMarkerType.ID )
+          {
+            continue;
+          }
+          if ( ( marker.Value2 >= charW )
+          ||   ( marker.Value3 >= charH ) )
+          {
+            continue;
+          }
+          marker.Value2 = (byte)ShiftSpriteChar( marker.Value2, charDX, charW, Roll );
+          marker.Value3 = (byte)ShiftSpriteChar( marker.Value3, charDY, charH, Roll );
+        }
+      }
+
+      // Live sprite instances ride along through the IDENTICAL arithmetic,
+      // so a value-linked marker/instance pair stays linked — including at
+      // the clamp edge. Unlinked instances follow the map content they
+      // decorate; in-place mutation keeps the selection references valid.
+      if ( m_MapSpriteInstances.TryGetValue( m_CurrentMap, out var shiftSprites ) )
+      {
+        foreach ( var inst in shiftSprites )
+        {
+          if ( ( inst.CharX >= charW )
+          ||   ( inst.CharY >= charH ) )
+          {
+            continue;
+          }
+          inst.CharX = ShiftSpriteChar( inst.CharX, charDX, charW, Roll );
+          inst.CharY = ShiftSpriteChar( inst.CharY, charDY, charH, Roll );
+        }
+      }
+      // Link states are preserved by construction, but a shifted UNLINKED
+      // sprite can land exactly on an orphaned marker's values — keep the
+      // Create-marker enablement honest.
+      UpdateSpritePanelControlsState();
+
       SetModified();
       RedrawMap();
+    }
+
+
+
+    /// <summary>
+    /// One axis of the whole-char sprite-coordinate shift ShiftMap applies
+    /// to TRIGGER_SPRITE_ANIM spawn values and live instances. Roll wraps
+    /// modulo the map's char dimension (capped at 255 afterwards for maps
+    /// wider than 256 chars — the byte-ranged sprite space cannot express
+    /// more); a plain shift STICKS at the 0..255 addressable edge, the
+    /// same edge rule the sprite nudge and drag apply (never a drop).
+    /// </summary>
+    private static int ShiftSpriteChar( int CharPos, int CharDelta, int MapCharSize, bool Roll )
+    {
+      int shifted = CharPos + CharDelta;
+      if ( Roll )
+      {
+        shifted = ( ( shifted % MapCharSize ) + MapCharSize ) % MapCharSize;
+      }
+      return Math.Max( 0, Math.Min( 255, shifted ) );
     }
 
 
