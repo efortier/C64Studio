@@ -8976,6 +8976,125 @@ namespace RetroDevStudio.Documents
 
 
 
+    /// <summary>
+    /// ALT+arrow on the Map tab: shift the SELECT-tool region's content by
+    /// one tile cell in the arrow direction — the keyboard twin of the
+    /// drag region move, plus the sprite payload the drag doesn't carry:
+    /// TRIGGER_SPRITE_ANIM spawn values (Value2/3; a whole-char move, the
+    /// packed pixel offsets never change) and live instances whose
+    /// position sits inside the selected cells ride along by the char
+    /// equivalent (cells × spacing). Marker CELLS stay put — only the
+    /// spawn coordinate is region content (the ShiftMap rule). Drives the
+    /// drag's own lift/commit machinery synthetically, so the vacate /
+    /// write / mask-follow / edge-clamp semantics are identical, and the
+    /// marker + instance snapshots join the lift's undo group — one
+    /// Ctrl+Z rewinds tiles, spawn values and sprites together.
+    /// </summary>
+    private bool TryShiftSelectedRegionByAltArrow( Keys keyData )
+    {
+      if ( ( tabMapEditor == null )
+      ||   ( tabMapEditor.SelectedPage != tabEditor )
+      ||   ( !IsMapEditable )
+      ||   ( m_ToolMode != ToolMode.SELECT )
+      ||   ( m_FloatingSelection != null )     // a paste ghost owns the flow
+      ||   ( m_SelMoveArmedCell.X >= 0 )       // mouse region move in flight
+      ||   ( m_TileDragCarriedIndex >= 0 ) )   // tile drag in flight
+      {
+        return false;
+      }
+      if ( !TileSelectionBounds( out int minX, out int minY, out int maxX, out int maxY ) )
+      {
+        return false;
+      }
+      int dx = ( keyData == ( Keys.Alt | Keys.Left ) ) ? -1 : ( keyData == ( Keys.Alt | Keys.Right ) ) ? 1 : 0;
+      int dy = ( keyData == ( Keys.Alt | Keys.Up ) )   ? -1 : ( keyData == ( Keys.Alt | Keys.Down ) )  ? 1 : 0;
+
+      int boundsW = maxX - minX + 1;
+      int boundsH = maxY - minY + 1;
+      // Same group-clamp as the drag: the formation sticks at the map edge.
+      int targetX = Math.Max( 0, Math.Min( m_CurrentMap.Tiles.Width  - boundsW, minX + dx ) );
+      int targetY = Math.Max( 0, Math.Min( m_CurrentMap.Tiles.Height - boundsH, minY + dy ) );
+      if ( ( targetX == minX )
+      &&   ( targetY == minY ) )
+      {
+        return true;   // clamped into a no-op — swallowed, no undo entry
+      }
+
+      int spacingX = m_CurrentMap.TileSpacingX;
+      int spacingY = m_CurrentMap.TileSpacingY;
+      // Post-clamp delta: the sprites move exactly as far as the tiles do.
+      int charDX = ( targetX - minX ) * spacingX;
+      int charDY = ( targetY - minY ) * spacingY;
+      int charW = m_CurrentMap.Tiles.Width * spacingX;
+      int charH = m_CurrentMap.Tiles.Height * spacingY;
+
+      // Resolve the sprite payload against the PRE-shift selection: spawn
+      // values / instances whose char position falls in a selected cell
+      // (IsCellSelected bounds-guards, so off-map coordinates test false).
+      var affectedMarkers = new List<Formats.MapProject.Marker>();
+      var spriteMarkerType = TriggerSpriteAnimMarkerType();
+      if ( spriteMarkerType != null )
+      {
+        foreach ( var marker in m_CurrentMap.Markers )
+        {
+          if ( ( marker.Type == spriteMarkerType.ID )
+          &&   ( IsCellSelected( marker.Value2 / spacingX, marker.Value3 / spacingY ) ) )
+          {
+            affectedMarkers.Add( marker );
+          }
+        }
+      }
+      var affectedSprites = new List<MapSpriteInstance>();
+      if ( m_MapSpriteInstances.TryGetValue( m_CurrentMap, out var regionInstances ) )
+      {
+        foreach ( var inst in regionInstances )
+        {
+          if ( IsCellSelected( inst.CharX / spacingX, inst.CharY / spacingY ) )
+          {
+            affectedSprites.Add( inst );
+          }
+        }
+      }
+
+      // The lift opens the undo group (whole-map tiles snapshot on the
+      // active layer); the marker / instance snapshots join it BEFORE
+      // their data shifts, so they capture the pre-shift state.
+      m_SelMoveArmedCell = new System.Drawing.Point( minX, minY );
+      LiftSelectedRegion();
+      if ( affectedMarkers.Count > 0 )
+      {
+        DocumentInfo.UndoManager.AddGroupedUndoTask( new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
+      }
+      if ( affectedSprites.Count > 0 )
+      {
+        DocumentInfo.UndoManager.AddGroupedUndoTask( new UndoMapSpriteInstancesChange( this, m_CurrentMap ) );
+      }
+
+      // Identical arithmetic on both sides keeps value-linked pairs linked
+      // (ShiftSpriteChar sticks at the byte-addressable 0..255 edge).
+      foreach ( var marker in affectedMarkers )
+      {
+        marker.Value2 = (byte)ShiftSpriteChar( marker.Value2, charDX, charW, false );
+        marker.Value3 = (byte)ShiftSpriteChar( marker.Value3, charDY, charH, false );
+      }
+      foreach ( var inst in affectedSprites )
+      {
+        inst.CharX = ShiftSpriteChar( inst.CharX, charDX, charW, false );
+        inst.CharY = ShiftSpriteChar( inst.CharY, charDY, charH, false );
+      }
+
+      m_SelMoveTargetCell = new System.Drawing.Point( targetX, targetY );
+      // Writes the carried cells at the target, moves the selection mask
+      // along (repeated presses keep working), SetModified + redraw.
+      CommitSelectionMove();
+      // Link states are preserved by construction, but a shifted UNLINKED
+      // sprite can land exactly on an orphaned marker's values.
+      UpdateSpritePanelControlsState();
+      return true;
+    }
+
+
+
     private void cropToSelectionToolStripMenuItem_Click( object sender, EventArgs e )
     {
       CropMapToSelection();
@@ -15659,14 +15778,17 @@ namespace RetroDevStudio.Documents
       ||        ( keyData == ( Keys.Alt | Keys.Up ) )
       ||        ( keyData == ( Keys.Alt | Keys.Down ) ) )
       {
-        // ALT+arrow reorders the selected character(s) within the
-        // character sheet — same effect as the four Move-character arrows
-        // on the Character set tab. (NOT pixel-shift; that's a different
-        // pair of buttons elsewhere in the editor.) Strict scope:
-        //  - Character set tab must be the active page; same shortcut on
-        //    other tabs would clash with arrow-key navigation there.
-        //  - At least one character must be selected — otherwise
-        //    SwapCharacter is a no-op and we'd needlessly swallow the key.
+        // ALT+arrow is page-scoped: on the MAP tab it shifts the SELECT-
+        // tool region (content + sprite spawn payload) by one cell; on
+        // the CHARACTER SET tab it reorders the selected character(s) —
+        // same effect as the four Move-character arrows there. The two
+        // handlers gate on disjoint pages, so at most one can claim the
+        // key; both decline (fall through to base) when their page or
+        // preconditions don't hold.
+        if ( TryShiftSelectedRegionByAltArrow( keyData ) )
+        {
+          return true;
+        }
         if ( TryMoveCharacterByAltArrow( keyData ) )
         {
           return true;

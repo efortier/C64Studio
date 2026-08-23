@@ -2365,6 +2365,22 @@ namespace RetroDevStudio.Controls
       int   totalHeight = m_EditorHeightInChars * 8;
       Tupel<ColorType, byte>[,]  fullBuffer = new Tupel<ColorType, byte>[totalWidth,totalHeight];
 
+      // A block anchored near the end of the set can extend past the last
+      // character (e.g. 2x2 on the last picker row) — pass 1 skips those
+      // chars, so their buffer region would stay null and the mirrored
+      // read below would hand SetPixel a null. Seed everything as
+      // BACKGROUND first — the same "outside is empty" convention
+      // GraphicTile.GetPixel uses for out-of-range pixels. Sharing one
+      // instance is safe: SetPixel only reads the tuple, never stores it.
+      var missingCell = new Tupel<ColorType, byte>( ColorType.BACKGROUND, 0 );
+      for ( int y = 0; y < totalHeight; ++y )
+      {
+        for ( int x = 0; x < totalWidth; ++x )
+        {
+          fullBuffer[x, y] = missingCell;
+        }
+      }
+
       var affectedChars = new List<int>();
 
       // 1. Read entire block into buffer
@@ -2665,6 +2681,19 @@ namespace RetroDevStudio.Controls
       int   totalWidth = m_EditorWidthInChars * 8;
       int   totalHeight = m_EditorHeightInChars * 8;
       Tupel<ColorType, byte>[,]  fullBuffer = new Tupel<ColorType, byte>[totalWidth,totalHeight];
+
+      // Same partial-block seeding as MirrorBlock: a block anchored near
+      // the end of the set skips its nonexistent chars in pass 1, and the
+      // wrap-around read below would pull nulls out of their region.
+      // BACKGROUND = the GetPixel out-of-range convention.
+      var missingCell = new Tupel<ColorType, byte>( ColorType.BACKGROUND, 0 );
+      for ( int y = 0; y < totalHeight; ++y )
+      {
+        for ( int x = 0; x < totalWidth; ++x )
+        {
+          fullBuffer[x, y] = missingCell;
+        }
+      }
 
       var affectedChars = new List<int>();
 
