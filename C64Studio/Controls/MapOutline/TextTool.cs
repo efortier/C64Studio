@@ -425,6 +425,12 @@ namespace RetroDevStudio.Controls
       int caretLine;
       float caretX;
       OutlineTextLayout.CaretPosition( layout, caret, out caretLine, out caretX );
+      // Up/Down keep the caret's VISUAL x: with center/right justification
+      // each line starts at its own offset inside the frame, so the
+      // line-relative x converts through the frame before the target line's
+      // nearest index is looked up.
+      float frameWidth = OutlineTextLayout.Measure( layout, BoxWrapWidth(), Context.TextLineSpacing ).Width;
+      float visualX = OutlineTextLayout.LineOffsetX( layout.Lines[caretLine], frameWidth, Context.TextAlignment ) + caretX;
 
       switch ( Key )
       {
@@ -443,13 +449,17 @@ namespace RetroDevStudio.Controls
         case Keys.Up:
           if ( caretLine > 0 )
           {
-            caret = OutlineTextLayout.IndexAt( layout, caretLine - 1, caretX );
+            var targetLine = layout.Lines[caretLine - 1];
+            caret = OutlineTextLayout.IndexAt( layout, caretLine - 1,
+              visualX - OutlineTextLayout.LineOffsetX( targetLine, frameWidth, Context.TextAlignment ) );
           }
           break;
         case Keys.Down:
           if ( caretLine < layout.Lines.Count - 1 )
           {
-            caret = OutlineTextLayout.IndexAt( layout, caretLine + 1, caretX );
+            var targetLine = layout.Lines[caretLine + 1];
+            caret = OutlineTextLayout.IndexAt( layout, caretLine + 1,
+              visualX - OutlineTextLayout.LineOffsetX( targetLine, frameWidth, Context.TextAlignment ) );
           }
           break;
         case Keys.Delete:
@@ -579,6 +589,7 @@ namespace RetroDevStudio.Controls
                     || ( editedObject.Italic != Context.TextFontItalic )
                     || ( editedObject.CharSpacing != Context.TextCharSpacing )
                     || ( editedObject.LineSpacing != Context.TextLineSpacing )
+                    || ( editedObject.Alignment != Context.TextAlignment )
                     || ( editedObject.Color.ToArgb() != Context.PrimaryColor.ToArgb() );
         if ( !changed )
         {
@@ -593,6 +604,9 @@ namespace RetroDevStudio.Controls
         editedObject.Italic      = Context.TextFontItalic;
         editedObject.CharSpacing = Context.TextCharSpacing;
         editedObject.LineSpacing = Context.TextLineSpacing;
+        // The box previewed the canvas' live alignment (the toolbar buttons
+        // act on it while editing) — the commit writes what was shown.
+        editedObject.Alignment   = Context.TextAlignment;
         editedObject.Color       = Context.PrimaryColor;
         // Ending edit mode SHRINK-WRAPS the frame to the text: the explicit
         // width folds into the frozen break width (the exact width the box's
@@ -627,6 +641,7 @@ namespace RetroDevStudio.Controls
         Italic        = Context.TextFontItalic,
         CharSpacing   = Context.TextCharSpacing,
         LineSpacing   = Context.TextLineSpacing,
+        Alignment     = Context.TextAlignment,
         Color         = Context.PrimaryColor,
         // Freeze the width the box's lines broke at — the committed object
         // keeps these exact breaks (zero-jump WYSIWYG match) until re-edited.
@@ -919,12 +934,14 @@ namespace RetroDevStudio.Controls
         if ( text.Length > 0 )
         {
           OutlineTextLayout.Draw( ViewGraphics, layout, text, font, originView,
-                                  ViewZoom, Context.TextLineSpacing, Context.PrimaryColor );
+                                  ViewZoom, Context.TextLineSpacing, Context.PrimaryColor,
+                                  sizeImage.Width, Context.TextAlignment );
         }
 
         // Blinking caret at its BUFFER position — geometry straight from the
-        // layout (spaces, wrap and spacing all exact for any font). The
-        // canvas toggles Context.CaretVisible on the OS blink cadence and
+        // layout (spaces, wrap and spacing all exact for any font), shifted
+        // by the caret line's justification offset so it sits on the glyphs.
+        // The canvas toggles Context.CaretVisible on the OS blink cadence and
         // resets it to visible on every keystroke. Sized for visibility
         // against chunky pixel fonts: ~2 px wider and 2 px taller than the
         // old 1 px hairline (it vanished next to 3 px glyph strokes).
@@ -934,7 +951,8 @@ namespace RetroDevStudio.Controls
           int caretLine;
           float caretXImage;
           OutlineTextLayout.CaretPosition( layout, caret, out caretLine, out caretXImage );
-          float caretX = originView.X + caretXImage * ViewZoom;
+          float caretLineOffset = OutlineTextLayout.LineOffsetX( layout.Lines[caretLine], sizeImage.Width, Context.TextAlignment );
+          float caretX = originView.X + ( caretLineOffset + caretXImage ) * ViewZoom;
           float caretY = originView.Y + caretLine * layout.LineAdvance( Context.TextLineSpacing ) * ViewZoom;
           float caretHeight = layout.LineHeight * ViewZoom;
           using ( var caretPen = new Pen( Context.PrimaryColor.A > 0

@@ -29,6 +29,19 @@ namespace RetroDevStudio.Controls
 
 
 
+  /// <summary>
+  /// Horizontal justification of a text object's lines inside its frame
+  /// (persisted as a byte — append-only values).
+  /// </summary>
+  public enum OutlineTextAlignment
+  {
+    Left   = 0,
+    Center = 1,
+    Right  = 2
+  }
+
+
+
   /// <summary>The complete cached layout of a text object / edit buffer.</summary>
   public class OutlineTextLayoutData
   {
@@ -217,14 +230,40 @@ namespace RetroDevStudio.Controls
 
 
     /// <summary>
+    /// Image-space x offset of one line inside its frame for the given
+    /// alignment: 0 for Left, half / all of the slack (frame width − line
+    /// width) for Center / Right. FrameWidth is what Measure reports (the
+    /// widest line, or the explicit wrap width when set) — the frame never
+    /// changes with alignment; only the lines shift inside it. Whole-pixel
+    /// rounded so glyphs stay as crisp as a left-aligned bake.
+    /// </summary>
+    public static float LineOffsetX( OutlineTextLine Line, float FrameWidth, OutlineTextAlignment Alignment )
+    {
+      float slack = Math.Max( 0f, FrameWidth - Line.Width );
+      switch ( Alignment )
+      {
+        case OutlineTextAlignment.Center:
+          return (float)Math.Round( slack * 0.5f );
+        case OutlineTextAlignment.Right:
+          return (float)Math.Round( slack );
+        default:
+          return 0f;
+      }
+    }
+
+
+
+    /// <summary>
     /// Draws a layout. Positions are the layout's IMAGE-space numbers scaled
     /// by ViewZoom (pass 1.0 with an image-space font to bake), so view and
-    /// bake render the exact same arrangement. The caller sets the
+    /// bake render the exact same arrangement. Lines are justified inside
+    /// FrameWidth per Alignment (see LineOffsetX). The caller sets the
     /// TextRenderingHint.
     /// </summary>
     public static void Draw( Graphics TargetGraphics, OutlineTextLayoutData Data, string Text,
                              Font TargetFont, PointF Origin, float ViewZoom,
-                             float LineSpacing, Color Color )
+                             float LineSpacing, Color Color,
+                             float FrameWidth, OutlineTextAlignment Alignment )
     {
       if ( Color.A == 0 )
       {
@@ -237,6 +276,7 @@ namespace RetroDevStudio.Controls
         {
           var line = Data.Lines[lineIndex];
           float y = Origin.Y + lineIndex * Data.LineAdvance( LineSpacing ) * ViewZoom;
+          float lineOffset = LineOffsetX( line, FrameWidth, Alignment );
           for ( int i = 0; i < line.Length; ++i )
           {
             char c = Text[line.Start + i];
@@ -244,7 +284,7 @@ namespace RetroDevStudio.Controls
             {
               continue;
             }
-            float x = Origin.X + line.CumulativeX[i] * ViewZoom;
+            float x = Origin.X + ( lineOffset + line.CumulativeX[i] ) * ViewZoom;
             TargetGraphics.DrawString( c.ToString(), TargetFont, brush, x, y, format );
           }
         }

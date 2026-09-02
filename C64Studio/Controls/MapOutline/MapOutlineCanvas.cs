@@ -132,6 +132,13 @@ namespace RetroDevStudio.Controls
     /// <summary>Extra pixels between lines for new/edited text (image space).</summary>
     public float TextLineSpacing { get; set; } = 0f;
 
+    /// <summary>
+    /// Line justification for the open edit box and new text objects. The
+    /// editor mirrors the selected object's alignment here (object→toolbar
+    /// binding), and the alignment buttons write it (toolbar→object).
+    /// </summary>
+    public OutlineTextAlignment TextAlignment { get; set; } = OutlineTextAlignment.Left;
+
     // ---- Layout grid: image-space lattice anchored at the picture's
     // TOP-LEFT (0,0). Extending the canvas rebuilds the image with a new
     // origin, so the anchoring realigns automatically. ----
@@ -1023,6 +1030,62 @@ namespace RetroDevStudio.Controls
 
 
 
+    /// <summary>
+    /// Toolbar→object half of the alignment binding: writes the line
+    /// justification into every selected TEXT object (images have none) as
+    /// ONE undo step. Deliberately separate from RestyleSelectedTextObject
+    /// — alignment is layout, not style: a font change must never unify a
+    /// mixed selection's alignment, nor an alignment click its fonts. No-op
+    /// (no undo entry) when nothing would change, and while an edit box is
+    /// open — the box previews the canvas' TextAlignment live and its
+    /// commit writes it into the object.
+    /// </summary>
+    public void SetSelectedTextObjectsAlignment( OutlineTextAlignment Alignment )
+    {
+      if ( ( m_TextObjects == null )
+      ||   ( m_SelectedTextObjects.Count == 0 )
+      ||   ( m_EditingTextObject != null )
+      ||   ( m_ToolStrokeInFlight )
+      ||   ( m_Image == null ) )
+      {
+        return;
+      }
+      bool anyChange = false;
+      foreach ( var obj in m_SelectedTextObjects )
+      {
+        if ( ( !obj.IsImage )
+        &&   ( obj.Alignment != Alignment ) )
+        {
+          anyChange = true;
+          break;
+        }
+      }
+      if ( !anyChange )
+      {
+        return;
+      }
+      var before = OutlineTextObject.CloneList( m_TextObjects );
+      var union = Rectangle.Empty;
+      foreach ( var obj in m_SelectedTextObjects )
+      {
+        if ( obj.IsImage )
+        {
+          continue;
+        }
+        obj.Alignment = Alignment;
+        // The frame is alignment-independent — the lines shift inside it,
+        // so the object's own bounds are the exact repaint region.
+        var bounds = TextObjectBounds( obj );
+        union = union.IsEmpty ? bounds : Rectangle.Union( union, bounds );
+      }
+      Invalidate();
+      RaiseTextObjectsChangeCommitted(
+        Rectangle.Intersect( union, new Rectangle( 0, 0, m_Image.Width, m_Image.Height ) ),
+        before, "Align text" );
+    }
+
+
+
     private void RaiseTextObjectsChangeCommitted( Rectangle Region,
         List<OutlineTextObject> ObjectsBefore, string Description )
     {
@@ -1792,6 +1855,7 @@ namespace RetroDevStudio.Controls
       m_ToolContext.TextFontItalic = TextFontItalic;
       m_ToolContext.TextCharSpacing = TextCharSpacing;
       m_ToolContext.TextLineSpacing = TextLineSpacing;
+      m_ToolContext.TextAlignment = TextAlignment;
       m_ToolContext.StampImage = m_StampImage;
       m_ToolContext.StampScale = StampScale;
       m_ToolContext.PenActive = m_StrokeIsPen;

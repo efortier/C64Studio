@@ -50,6 +50,65 @@ namespace RetroDevStudio.Controls
 
 
 
+    /// <summary>
+    /// The classic justification glyph: four text lines of alternating
+    /// length (long, short, long, short) anchored per alignment — flush
+    /// left, centered, or flush right — inside the 16 px cell.
+    /// </summary>
+    private static Bitmap AlignGlyph( OutlineTextAlignment Alignment )
+    {
+      var icon = NewIcon( out Graphics g );
+      using ( g )
+      using ( var pen = new Pen( INK, 1.6f ) )
+      {
+        const float left = 2f;
+        const float right = 14f;
+        float[] lengths = { 12f, 7f, 12f, 7f };
+        float[] rows = { 3f, 6.5f, 10f, 13.5f };
+        for ( int i = 0; i < 4; ++i )
+        {
+          float x0;
+          switch ( Alignment )
+          {
+            case OutlineTextAlignment.Center:
+              x0 = ( left + right - lengths[i] ) / 2f;
+              break;
+            case OutlineTextAlignment.Right:
+              x0 = right - lengths[i];
+              break;
+            default:
+              x0 = left;
+              break;
+          }
+          g.DrawLine( pen, x0, rows[i], x0 + lengths[i], rows[i] );
+        }
+      }
+      return icon;
+    }
+
+
+
+    public static Bitmap AlignLeft()
+    {
+      return AlignGlyph( OutlineTextAlignment.Left );
+    }
+
+
+
+    public static Bitmap AlignCenter()
+    {
+      return AlignGlyph( OutlineTextAlignment.Center );
+    }
+
+
+
+    public static Bitmap AlignRight()
+    {
+      return AlignGlyph( OutlineTextAlignment.Right );
+    }
+
+
+
     public static Bitmap FlattenText()
     {
       var icon = NewIcon( out Graphics g );

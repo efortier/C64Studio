@@ -3,6 +3,8 @@ extern alias studio;
 using System.Collections.Generic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OutlineTextObject = studio::RetroDevStudio.Controls.OutlineTextObject;
+using OutlineTextAlignment = studio::RetroDevStudio.Controls.OutlineTextAlignment;
+using OutlineTextLayout = studio::RetroDevStudio.Controls.OutlineTextLayout;
 
 
 
@@ -319,6 +321,66 @@ namespace TestProject
       Assert.AreEqual( 1, reloaded.Count );
       Assert.IsFalse( reloaded[0].IsImage );
       Assert.AreEqual( "Survivor", reloaded[0].Text );
+    }
+
+
+
+    // ================================================================
+    // Line justification — a per-object LAYOUT attribute: persisted as an
+    // appended byte (older blobs read as Left), never changes the frame.
+    // ================================================================
+
+    [TestMethod]
+    public void TestAlignmentBlobRoundTripAndDefault()
+    {
+      var objects = new List<OutlineTextObject>()
+      {
+        MakeObject( "left", 0f, 0f ),
+        MakeObject( "center", 10f, 10f ),
+        MakeObject( "right", 20f, 20f )
+      };
+      Assert.AreEqual( OutlineTextAlignment.Left, objects[0].Alignment, "new objects default to Left" );
+      objects[1].Alignment = OutlineTextAlignment.Center;
+      objects[2].Alignment = OutlineTextAlignment.Right;
+
+      var reloaded = OutlineTextObject.ReadListFromBuffer( OutlineTextObject.SaveListToBuffer( objects ) );
+      Assert.AreEqual( 3, reloaded.Count );
+      Assert.AreEqual( OutlineTextAlignment.Left, reloaded[0].Alignment );
+      Assert.AreEqual( OutlineTextAlignment.Center, reloaded[1].Alignment );
+      Assert.AreEqual( OutlineTextAlignment.Right, reloaded[2].Alignment );
+
+      // Clones carry it (undo snapshots would otherwise silently reset it).
+      Assert.AreEqual( OutlineTextAlignment.Right, objects[2].Clone().Alignment );
+    }
+
+
+
+    [TestMethod]
+    public void TestAlignmentOffsetsAndFrameIndependence()
+    {
+      // Two lines of clearly different widths; the frame is the widest line.
+      var obj = MakeObject( "WWWWWWWW\nW", 0f, 0f );
+      obj.Bold = false;
+      obj.Italic = false;
+      var frame = obj.MeasuredSize();
+      var layout = obj.GetLayout();
+      Assert.AreEqual( 2, layout.Lines.Count );
+      var shortLine = layout.Lines[1];
+      float slack = frame.Width - shortLine.Width;
+      Assert.IsTrue( slack > 4f, "test needs a visibly shorter second line" );
+
+      Assert.AreEqual( 0f, OutlineTextLayout.LineOffsetX( shortLine, frame.Width, OutlineTextAlignment.Left ), 0.0001f );
+      Assert.AreEqual( System.Math.Round( slack * 0.5f ),
+                       OutlineTextLayout.LineOffsetX( shortLine, frame.Width, OutlineTextAlignment.Center ), 0.0001f );
+      Assert.AreEqual( System.Math.Round( slack ),
+                       OutlineTextLayout.LineOffsetX( shortLine, frame.Width, OutlineTextAlignment.Right ), 0.0001f );
+      // The widest line never shifts, whatever the alignment.
+      Assert.AreEqual( 0f, OutlineTextLayout.LineOffsetX( layout.Lines[0], frame.Width, OutlineTextAlignment.Right ), 0.0001f );
+
+      // Alignment is layout, not size: the frame and bounds are unchanged.
+      obj.Alignment = OutlineTextAlignment.Right;
+      Assert.AreEqual( frame.Width, obj.MeasuredSize().Width, 0.0001f );
+      Assert.AreEqual( frame.Height, obj.MeasuredSize().Height, 0.0001f );
     }
 
 

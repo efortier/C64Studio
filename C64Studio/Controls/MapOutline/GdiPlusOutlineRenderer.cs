@@ -199,7 +199,8 @@ namespace RetroDevStudio.Controls
       using ( var font = CreateFont( Obj.FontFamily, Obj.FontSize, Obj.Bold, Obj.Italic ) )
       {
         OutlineTextLayout.Draw( m_Graphics, Obj.GetLayout(), Obj.Text, font,
-                                Obj.Position, 1.0f, Obj.LineSpacing, Obj.Color );
+                                Obj.Position, 1.0f, Obj.LineSpacing, Obj.Color,
+                                Obj.MeasuredSize().Width, Obj.Alignment );
       }
       m_Graphics.TextRenderingHint = previousHint;
     }
@@ -244,7 +245,8 @@ namespace RetroDevStudio.Controls
       using ( var font = CreateFont( Obj.FontFamily, viewFontSize, Obj.Bold, Obj.Italic ) )
       {
         OutlineTextLayout.Draw( ViewGraphics, Obj.GetLayout(), Obj.Text, font,
-                                ViewOrigin, ViewZoom, Obj.LineSpacing, Obj.Color );
+                                ViewOrigin, ViewZoom, Obj.LineSpacing, Obj.Color,
+                                Obj.MeasuredSize().Width, Obj.Alignment );
       }
       ViewGraphics.TextRenderingHint = previousHint;
     }

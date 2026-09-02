@@ -22443,6 +22443,12 @@ namespace RetroDevStudio.Documents
       btnOutlineToolStamp.Values.Text = "";
       btnOutlineToolSelect.Values.Image = RetroDevStudio.Controls.OutlineToolIcons.MarqueeSelect();
       btnOutlineToolSelect.Values.Text = "";
+      btnOutlineAlignLeft.Values.Image = RetroDevStudio.Controls.OutlineToolIcons.AlignLeft();
+      btnOutlineAlignLeft.Values.Text = "";
+      btnOutlineAlignCenter.Values.Image = RetroDevStudio.Controls.OutlineToolIcons.AlignCenter();
+      btnOutlineAlignCenter.Values.Text = "";
+      btnOutlineAlignRight.Values.Image = RetroDevStudio.Controls.OutlineToolIcons.AlignRight();
+      btnOutlineAlignRight.Values.Text = "";
       // Flatten/Center keep their text (wide action buttons) — icon on the left.
       btnOutlineFlattenText.Values.Image = RetroDevStudio.Controls.OutlineToolIcons.FlattenText();
       btnOutlineCenterText.Values.Image = RetroDevStudio.Controls.OutlineToolIcons.CenterTextHorizontally();
@@ -22856,6 +22862,106 @@ namespace RetroDevStudio.Documents
         m_MapProject.OutlineToolSettings.TextFontBold = btnOutlineTextBold.Checked;
         m_MapProject.OutlineToolSettings.TextFontItalic = btnOutlineTextItalic.Checked;
         SetModified();
+      }
+    }
+
+
+
+    /// <summary>
+    /// Shared handler of the three text-alignment buttons — a radio group:
+    /// checking one unchecks the others (handlers detached during the
+    /// rollback — no recursion, no suppression flags); unchecking the active
+    /// one re-checks it (an alignment is always in effect). The chosen
+    /// alignment becomes the canvas' current one (live in an open edit box,
+    /// inherited by new boxes) and is written into every selected text
+    /// object as ONE undo step ("Align text").
+    /// </summary>
+    private void btnOutlineAlign_CheckedChanged( object sender, EventArgs e )
+    {
+      var button = (Krypton.Toolkit.KryptonCheckButton)sender;
+      var group = new[] { btnOutlineAlignLeft, btnOutlineAlignCenter, btnOutlineAlignRight };
+      if ( !button.Checked )
+      {
+        foreach ( var other in group )
+        {
+          if ( other.Checked )
+          {
+            return;   // another alignment took over — its event applies it
+          }
+        }
+        button.CheckedChanged -= btnOutlineAlign_CheckedChanged;
+        button.Checked = true;
+        button.CheckedChanged += btnOutlineAlign_CheckedChanged;
+        return;
+      }
+      foreach ( var other in group )
+      {
+        if ( ( other != button )
+        &&   ( other.Checked ) )
+        {
+          other.CheckedChanged -= btnOutlineAlign_CheckedChanged;
+          other.Checked = false;
+          other.CheckedChanged += btnOutlineAlign_CheckedChanged;
+        }
+      }
+      var alignment = ( button == btnOutlineAlignCenter ) ? RetroDevStudio.Controls.OutlineTextAlignment.Center
+                    : ( button == btnOutlineAlignRight )  ? RetroDevStudio.Controls.OutlineTextAlignment.Right
+                    : RetroDevStudio.Controls.OutlineTextAlignment.Left;
+      outlineCanvas.TextAlignment = alignment;
+      // An open edit box previews the canvas alignment live (its commit
+      // writes it); committed selections are rewritten right here.
+      outlineCanvas.Invalidate();
+      outlineCanvas.SetSelectedTextObjectsAlignment( alignment );
+    }
+
+
+
+    /// <summary>
+    /// Object→toolbar half of the alignment binding, plus enablement: the
+    /// three buttons are live only while the selection holds at least one
+    /// TEXT object (images have no alignment; nothing selected = nothing to
+    /// align), and they reflect the PRIMARY selected text object's
+    /// alignment — mirrored into the canvas too, so an edit box opened on
+    /// that object (and any new box after it) previews the same alignment.
+    /// Handlers detached around the mirror: a programmatic sync must never
+    /// write back into the objects or push history.
+    /// </summary>
+    private void UpdateOutlineAlignButtons()
+    {
+      bool anyText = false;
+      foreach ( var obj in outlineCanvas.SelectedTextObjects )
+      {
+        if ( !obj.IsImage )
+        {
+          anyText = true;
+          break;
+        }
+      }
+      btnOutlineAlignLeft.Enabled   = anyText;
+      btnOutlineAlignCenter.Enabled = anyText;
+      btnOutlineAlignRight.Enabled  = anyText;
+
+      var primary = outlineCanvas.SelectedTextObject;
+      if ( ( primary == null )
+      ||   ( primary.IsImage ) )
+      {
+        return;
+      }
+      outlineCanvas.TextAlignment = primary.Alignment;
+      btnOutlineAlignLeft.CheckedChanged   -= btnOutlineAlign_CheckedChanged;
+      btnOutlineAlignCenter.CheckedChanged -= btnOutlineAlign_CheckedChanged;
+      btnOutlineAlignRight.CheckedChanged  -= btnOutlineAlign_CheckedChanged;
+      try
+      {
+        btnOutlineAlignLeft.Checked   = ( primary.Alignment == RetroDevStudio.Controls.OutlineTextAlignment.Left );
+        btnOutlineAlignCenter.Checked = ( primary.Alignment == RetroDevStudio.Controls.OutlineTextAlignment.Center );
+        btnOutlineAlignRight.Checked  = ( primary.Alignment == RetroDevStudio.Controls.OutlineTextAlignment.Right );
+      }
+      finally
+      {
+        btnOutlineAlignLeft.CheckedChanged   += btnOutlineAlign_CheckedChanged;
+        btnOutlineAlignCenter.CheckedChanged += btnOutlineAlign_CheckedChanged;
+        btnOutlineAlignRight.CheckedChanged  += btnOutlineAlign_CheckedChanged;
       }
     }
 
@@ -24151,6 +24257,10 @@ namespace RetroDevStudio.Documents
 
     private void outlineCanvas_SelectedTextObjectChanged( object sender, EventArgs e )
     {
+      // Alignment buttons follow the selection in both directions (enabled
+      // state + mirrored value) — including the "nothing selected" case.
+      UpdateOutlineAlignButtons();
+
       var selected = outlineCanvas.SelectedTextObject;
       if ( selected == null )
       {

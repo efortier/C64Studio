@@ -351,6 +351,9 @@
             checkOutlineSnapGrid = new Krypton.Toolkit.KryptonCheckBox();
             btnOutlineTextBold = new Krypton.Toolkit.KryptonCheckButton();
             btnOutlineTextItalic = new Krypton.Toolkit.KryptonCheckButton();
+            btnOutlineAlignLeft = new Krypton.Toolkit.KryptonCheckButton();
+            btnOutlineAlignCenter = new Krypton.Toolkit.KryptonCheckButton();
+            btnOutlineAlignRight = new Krypton.Toolkit.KryptonCheckButton();
             labelOutlineBorderSize = new System.Windows.Forms.Label();
             editOutlineBorderSize = new System.Windows.Forms.NumericUpDown();
             labelOutlineExtend = new System.Windows.Forms.Label();
@@ -4042,6 +4045,9 @@
             flowOutlineOptions.Controls.Add(editOutlineFontSize);
             flowOutlineOptions.Controls.Add(btnOutlineTextBold);
             flowOutlineOptions.Controls.Add(btnOutlineTextItalic);
+            flowOutlineOptions.Controls.Add(btnOutlineAlignLeft);
+            flowOutlineOptions.Controls.Add(btnOutlineAlignCenter);
+            flowOutlineOptions.Controls.Add(btnOutlineAlignRight);
             flowOutlineOptions.Controls.Add(labelOutlineCharSpacing);
             flowOutlineOptions.Controls.Add(editOutlineCharSpacing);
             flowOutlineOptions.Controls.Add(labelOutlineLineSpacing);
@@ -4141,6 +4147,43 @@
             btnOutlineTextItalic.Values.DropDownArrowColor = System.Drawing.Color.Empty;
             btnOutlineTextItalic.Values.Text = "I";
             btnOutlineTextItalic.CheckedChanged += btnOutlineTextStyle_CheckedChanged;
+            //
+            // btnOutlineAlignLeft
+            //
+            btnOutlineAlignLeft.Checked = true;
+            btnOutlineAlignLeft.Enabled = false;
+            btnOutlineAlignLeft.Location = new System.Drawing.Point(869, 3);
+            btnOutlineAlignLeft.Name = "btnOutlineAlignLeft";
+            btnOutlineAlignLeft.Size = new System.Drawing.Size(24, 24);
+            btnOutlineAlignLeft.TabIndex = 14;
+            toolTip1.SetToolTip(btnOutlineAlignLeft, "Align the selected text's lines to the LEFT of its frame");
+            btnOutlineAlignLeft.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineAlignLeft.Values.Text = "L";
+            btnOutlineAlignLeft.CheckedChanged += btnOutlineAlign_CheckedChanged;
+            //
+            // btnOutlineAlignCenter
+            //
+            btnOutlineAlignCenter.Enabled = false;
+            btnOutlineAlignCenter.Location = new System.Drawing.Point(899, 3);
+            btnOutlineAlignCenter.Name = "btnOutlineAlignCenter";
+            btnOutlineAlignCenter.Size = new System.Drawing.Size(24, 24);
+            btnOutlineAlignCenter.TabIndex = 15;
+            toolTip1.SetToolTip(btnOutlineAlignCenter, "CENTER the selected text's lines in its frame");
+            btnOutlineAlignCenter.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineAlignCenter.Values.Text = "C";
+            btnOutlineAlignCenter.CheckedChanged += btnOutlineAlign_CheckedChanged;
+            //
+            // btnOutlineAlignRight
+            //
+            btnOutlineAlignRight.Enabled = false;
+            btnOutlineAlignRight.Location = new System.Drawing.Point(929, 3);
+            btnOutlineAlignRight.Name = "btnOutlineAlignRight";
+            btnOutlineAlignRight.Size = new System.Drawing.Size(24, 24);
+            btnOutlineAlignRight.TabIndex = 16;
+            toolTip1.SetToolTip(btnOutlineAlignRight, "Align the selected text's lines to the RIGHT of its frame");
+            btnOutlineAlignRight.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnOutlineAlignRight.Values.Text = "R";
+            btnOutlineAlignRight.CheckedChanged += btnOutlineAlign_CheckedChanged;
             //
             // labelOutlineExtend
             //
@@ -5915,6 +5958,9 @@
         private System.Windows.Forms.NumericUpDown editOutlineFontSize;
         private Krypton.Toolkit.KryptonCheckButton btnOutlineTextBold;
         private Krypton.Toolkit.KryptonCheckButton btnOutlineTextItalic;
+        private Krypton.Toolkit.KryptonCheckButton btnOutlineAlignLeft;
+        private Krypton.Toolkit.KryptonCheckButton btnOutlineAlignCenter;
+        private Krypton.Toolkit.KryptonCheckButton btnOutlineAlignRight;
         private System.Windows.Forms.Label label19;
         private System.Windows.Forms.Label label25;
         private Krypton.Toolkit.KryptonTrackBar dimSlider;

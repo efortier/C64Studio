@@ -52,6 +52,13 @@ namespace RetroDevStudio.Controls
     public float      CharSpacing = 0f;
     /// <summary>Extra image-space pixels between lines (may be negative).</summary>
     public float      LineSpacing = 0f;
+    /// <summary>
+    /// Justification of the lines inside the frame. Layout, not style: the
+    /// frame (MeasuredSize/bounds) never changes with it, only where each
+    /// line sits inside — so hit-testing, undo regions and the flatten
+    /// region are all alignment-independent.
+    /// </summary>
+    public OutlineTextAlignment Alignment = OutlineTextAlignment.Left;
 
     /// <summary>
     /// Non-null = this object is a pasted IMAGE, not text: the PNG bytes are
@@ -135,6 +142,7 @@ namespace RetroDevStudio.Controls
         AutoBreakWidth = AutoBreakWidth,
         CharSpacing    = CharSpacing,
         LineSpacing    = LineSpacing,
+        Alignment      = Alignment,
         ImagePNGData   = ImagePNGData,         // immutable payload — shared
         m_CachedImage  = m_CachedImage,        // decoded once, shared like the layout
         m_CachedLayout = m_CachedLayout,       // immutable once built — safe to share
@@ -317,6 +325,8 @@ namespace RetroDevStudio.Controls
         // Appended later still: the frozen auto-wrap width. Clamped — the -1
         // "unmigrated" sentinel is a LOAD-side state and must never persist.
         chunk.AppendF32( Math.Max( 0f, obj.AutoBreakWidth ) );
+        // Appended after that: line justification (guarded read → Left).
+        chunk.AppendU8( (byte)obj.Alignment );
         buffer.Append( chunk.ToBuffer() );
       }
       return buffer.Data();
@@ -418,6 +428,14 @@ namespace RetroDevStudio.Controls
         {
           float autoBreak = reader.ReadF32();
           obj.AutoBreakWidth = float.IsFinite( autoBreak ) ? Math.Max( 0f, Math.Min( 65536f, autoBreak ) ) : 0f;
+        }
+        // Line justification — absent in older blobs (Left); an unknown
+        // value from a newer/corrupt blob degrades to Left too.
+        if ( reader.Size - reader.Position >= 1 )
+        {
+          byte alignment = reader.ReadUInt8();
+          obj.Alignment = ( alignment <= (byte)OutlineTextAlignment.Right )
+            ? (OutlineTextAlignment)alignment : OutlineTextAlignment.Left;
         }
         objects.Add( obj );
       }

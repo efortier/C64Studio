@@ -33,6 +33,8 @@ namespace RetroDevStudio.Controls
     public bool                         TextFontItalic;
     public float                        TextCharSpacing;
     public float                        TextLineSpacing;
+    /// <summary>Line justification for the open edit box / new text objects.</summary>
+    public OutlineTextAlignment         TextAlignment;
     // Tile stamp: the pre-rendered tile bitmap (owned by the editor; may
     // be null = nothing armed) and its integer magnification (1× = native
     // tile pixels, 2× doubles, ...).
