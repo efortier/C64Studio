@@ -887,6 +887,8 @@ namespace RetroDevStudio.Controls
     public bool BeginEditSelectedTextObject()
     {
       if ( ( m_SelectedTextObjects.Count != 1 )
+      // An image object has no text editor — F2 keeps the selection as-is.
+      ||   ( m_SelectedTextObjects[0].IsImage )
       ||   ( m_EditingTextObject != null )
       ||   ( m_ToolStrokeInFlight )
       ||   ( m_Image == null ) )
@@ -968,10 +970,15 @@ namespace RetroDevStudio.Controls
         return;
       }
       // No-change guard across the WHOLE selection, so populate-time
-      // mirroring can never push phantom history.
+      // mirroring can never push phantom history. Image objects have no
+      // text style — they neither trigger nor receive a restyle.
       bool anyChange = false;
       foreach ( var obj in m_SelectedTextObjects )
       {
+        if ( obj.IsImage )
+        {
+          continue;
+        }
         if ( ( obj.FontFamily != TextFontFamily )
         ||   ( obj.FontSize != TextFontSize )
         ||   ( obj.Bold != TextFontBold )
@@ -992,6 +999,10 @@ namespace RetroDevStudio.Controls
       var union = Rectangle.Empty;
       foreach ( var obj in m_SelectedTextObjects )
       {
+        if ( obj.IsImage )
+        {
+          continue;
+        }
         var oldBounds = TextObjectBounds( obj );
         obj.FontFamily  = TextFontFamily;
         obj.FontSize    = TextFontSize;
@@ -1077,30 +1088,52 @@ namespace RetroDevStudio.Controls
 
 
 
+    /// <summary>
+    /// Raised right after a floating paste lands as an image OBJECT (already
+    /// added to the list, selected, and committed through the object undo
+    /// pipeline) — the editor switches to the Text/object tool so the fresh
+    /// object is immediately movable.
+    /// </summary>
+    public event EventHandler ImageObjectPlaced;
+
+
+
     private void StampFloatingPaste( PointF ImagePos )
     {
+      // The pasted image becomes a persistent OBJECT — selectable, movable,
+      // re-copyable and deletable exactly like a text object; nothing is
+      // baked into the raster (the Flatten action bakes, same as text).
       var dest = FloatingPasteRect( ImagePos );
       var region = Rectangle.Intersect(
         Rectangle.FromLTRB( (int)dest.Left, (int)dest.Top, (int)Math.Ceiling( dest.Right ), (int)Math.Ceiling( dest.Bottom ) ),
         new Rectangle( 0, 0, m_Image.Width, m_Image.Height ) );
-      if ( ( region.Width < 1 )
-      ||   ( region.Height < 1 ) )
+      if ( ( ( region.Width < 1 )
+      ||     ( region.Height < 1 ) )
+      // No object list to hold it (no active map) — same outcome as an
+      // off-picture drop: the paste is simply discarded.
+      ||   ( m_TextObjects == null ) )
       {
-        // Dropped entirely off the picture — nothing to stamp.
         CancelFloatingPaste();
         return;
       }
-      var beforeCrop = m_Image.Clone( region, m_Image.PixelFormat );
-      using ( var g = Graphics.FromImage( m_Image ) )
+      byte[] pngData;
+      using ( var pngStream = new System.IO.MemoryStream() )
       {
-        g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
-        g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
-        g.DrawImage( m_FloatingPasteImage, dest.X, dest.Y,
-                     m_FloatingPasteImage.Width, m_FloatingPasteImage.Height );
+        m_FloatingPasteImage.Save( pngStream, System.Drawing.Imaging.ImageFormat.Png );
+        pngData = pngStream.ToArray();
       }
-      InvalidateImageRegion( region );
-      RaiseChangeCommitted( region, beforeCrop, "Paste" );
+      var before = OutlineTextObject.CloneList( m_TextObjects );
+      var created = new OutlineTextObject()
+      {
+        Position     = new PointF( dest.X, dest.Y ),
+        ImagePNGData = pngData
+      };
+      m_TextObjects.Add( created );    // appended = topmost
+      SetSelectedTextObject( created );
+      InvalidateImageRegion( created.BoundsWithMargin() );
+      RaiseTextObjectsChangeCommitted( region, before, "Paste image" );
       CancelFloatingPaste();
+      ImageObjectPlaced?.Invoke( this, EventArgs.Empty );
     }
 
 
@@ -2351,13 +2384,17 @@ namespace RetroDevStudio.Controls
             var frame = ViewBoundsOfTextObject( selectedObj );
             DrawMarquee( g, frame );
             // Right-edge resize handle: drag it to set the wrap width.
-            float handleY = frame.Y + frame.Height / 2;
-            var handleRect = new RectangleF( frame.Right - 3, handleY - 3, 6, 6 );
-            using ( var handleFill = new SolidBrush( Color.White ) )
-            using ( var handlePen = new Pen( Color.Black ) )
+            // Image objects keep their pixel size — no handle to show.
+            if ( !selectedObj.IsImage )
             {
-              g.FillRectangle( handleFill, handleRect.X, handleRect.Y, handleRect.Width, handleRect.Height );
-              g.DrawRectangle( handlePen, handleRect.X, handleRect.Y, handleRect.Width, handleRect.Height );
+              float handleY = frame.Y + frame.Height / 2;
+              var handleRect = new RectangleF( frame.Right - 3, handleY - 3, 6, 6 );
+              using ( var handleFill = new SolidBrush( Color.White ) )
+              using ( var handlePen = new Pen( Color.Black ) )
+              {
+                g.FillRectangle( handleFill, handleRect.X, handleRect.Y, handleRect.Width, handleRect.Height );
+                g.DrawRectangle( handlePen, handleRect.X, handleRect.Y, handleRect.Width, handleRect.Height );
+              }
             }
           }
         }

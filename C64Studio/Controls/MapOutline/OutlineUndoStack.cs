@@ -294,7 +294,11 @@ namespace RetroDevStudio.Controls
 
     /// <summary>
     /// Honest (if approximate) heap cost of an object snapshot — proportional
-    /// to text length so a pasted novel can't hide from the byte budget.
+    /// to text length so a pasted novel can't hide from the byte budget, and
+    /// to the PNG payload of image objects likewise. (Clones SHARE the PNG
+    /// buffer, so counting it per snapshot over-charges — deliberately, like
+    /// the shared text strings: conservative accounting evicts early rather
+    /// than letting real memory hide from the budget.)
     /// </summary>
     private static long ObjectPayloadBytes( List<OutlineTextObject> Objects )
     {
@@ -305,7 +309,8 @@ namespace RetroDevStudio.Controls
       long bytes = 64;
       foreach ( var obj in Objects )
       {
-        bytes += 96 + 2L * ( obj.Text != null ? obj.Text.Length : 0 );
+        bytes += 96 + 2L * ( obj.Text != null ? obj.Text.Length : 0 )
+               + ( obj.ImagePNGData != null ? obj.ImagePNGData.Length : 0 );
       }
       return bytes;
     }

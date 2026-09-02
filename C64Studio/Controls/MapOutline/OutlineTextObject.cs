@@ -7,8 +7,12 @@ using System.Drawing;
 namespace RetroDevStudio.Controls
 {
   /// <summary>
-  /// One persistent text object of the outline painter: selectable, editable
-  /// and movable until explicitly flattened to pixels. Lives in a per-map
+  /// One persistent object of the outline painter: selectable and movable
+  /// until explicitly flattened to pixels. An object is EITHER text
+  /// (editable, styleable) OR a pasted IMAGE (ImagePNGData != null — the
+  /// text/font fields are ignored then); both kinds share the list, the
+  /// selection, the move/delete/undo pipeline and the sidecar blob, so
+  /// every list-level operation treats them uniformly. Lives in a per-map
   /// list owned by the editor (single-active-map lifecycle, like the outline
   /// bitmap) and persists as an opaque blob inside the map's sidecar entry.
   ///
@@ -49,6 +53,19 @@ namespace RetroDevStudio.Controls
     /// <summary>Extra image-space pixels between lines (may be negative).</summary>
     public float      LineSpacing = 0f;
 
+    /// <summary>
+    /// Non-null = this object is a pasted IMAGE, not text: the PNG bytes are
+    /// the authoritative payload (persisted undecoded, exactly like the
+    /// sidecar's canvas PNGs); Text and every font/style/wrap field are
+    /// ignored. Treated as IMMUTABLE once assigned — clones and undo
+    /// snapshots share the reference, like the layout cache below.
+    /// </summary>
+    public byte[]     ImagePNGData = null;
+    // Decoded lazily on first measure/draw, then shared by clones (same
+    // immutable-share contract as m_CachedLayout — never disposed
+    // explicitly; the GDI+ finalizer reclaims it).
+    private Bitmap    m_CachedImage = null;
+
     // Layout cache (line breaks + per-char advances, image space); null =
     // stale. Invalidated on text/font/style/wrap/spacing changes; the cached
     // break width additionally re-lays-out when it changes, so a MOVE (which
@@ -56,6 +73,50 @@ namespace RetroDevStudio.Controls
     // caller having to invalidate.
     private OutlineTextLayoutData m_CachedLayout = null;
     private float                 m_CachedBreakWidth = float.NaN;
+
+
+
+    /// <summary>True for a pasted-image object; false for a text object.</summary>
+    public bool IsImage
+    {
+      get
+      {
+        return ImagePNGData != null;
+      }
+    }
+
+
+
+    /// <summary>
+    /// The decoded image (image objects only) — decoded once from the PNG
+    /// payload, cached and shared by clones. A corrupt payload yields a
+    /// small magenta placeholder so bounds/draw/hit-test never see null.
+    /// </summary>
+    public Bitmap GetImage()
+    {
+      if ( m_CachedImage != null )
+      {
+        return m_CachedImage;
+      }
+      try
+      {
+        using ( var stream = new System.IO.MemoryStream( ImagePNGData ) )
+        using ( var decoded = System.Drawing.Image.FromStream( stream ) )
+        {
+          m_CachedImage = new Bitmap( decoded );
+        }
+      }
+      catch ( Exception )
+      {
+        var placeholder = new Bitmap( 16, 16, System.Drawing.Imaging.PixelFormat.Format32bppArgb );
+        using ( var g = Graphics.FromImage( placeholder ) )
+        {
+          g.Clear( System.Drawing.Color.Magenta );
+        }
+        m_CachedImage = placeholder;
+      }
+      return m_CachedImage;
+    }
 
 
 
@@ -74,6 +135,8 @@ namespace RetroDevStudio.Controls
         AutoBreakWidth = AutoBreakWidth,
         CharSpacing    = CharSpacing,
         LineSpacing    = LineSpacing,
+        ImagePNGData   = ImagePNGData,         // immutable payload — shared
+        m_CachedImage  = m_CachedImage,        // decoded once, shared like the layout
         m_CachedLayout = m_CachedLayout,       // immutable once built — safe to share
         m_CachedBreakWidth = m_CachedBreakWidth
       };
@@ -133,21 +196,32 @@ namespace RetroDevStudio.Controls
 
 
 
-    /// <summary>Exact image-space content size (typographic — no MeasureString padding).</summary>
+    /// <summary>Exact image-space content size (typographic — no MeasureString
+    /// padding; an image object's size is its decoded pixel size).</summary>
     public SizeF MeasuredSize()
     {
+      if ( IsImage )
+      {
+        var image = GetImage();
+        return new SizeF( image.Width, image.Height );
+      }
       return OutlineTextLayout.Measure( GetLayout(), WrapWidth, LineSpacing );
     }
 
 
 
     /// <summary>
-    /// The TEXT's width — the widest laid-out line, ignoring any wider frame
-    /// (an explicit WrapWidth widens MeasuredSize but not this). Centering
-    /// aligns on this so a wide box never drags its text off-center.
+    /// The CONTENT's width — the widest laid-out line, ignoring any wider
+    /// frame (an explicit WrapWidth widens MeasuredSize but not this); for an
+    /// image object simply its pixel width. Centering aligns on this so a
+    /// wide box never drags its text off-center.
     /// </summary>
     public float ContentWidth()
     {
+      if ( IsImage )
+      {
+        return Math.Max( 1f, GetImage().Width );
+      }
       float widest = 0f;
       foreach ( var line in GetLayout().Lines )
       {
@@ -208,6 +282,22 @@ namespace RetroDevStudio.Controls
       var buffer = new GR.Memory.ByteBuffer();
       foreach ( var obj in Objects )
       {
+        if ( obj.IsImage )
+        {
+          // Image objects get their own chunk type in the SAME blob (list
+          // order = z-order round-trips). Readers skip unknown chunk types,
+          // so pre-feature builds load the texts and drop the images.
+          var imageChunk = new GR.IO.FileChunk( RetroDevStudio.FileChunkConstants.MAP_OUTLINE_IMAGE_OBJECT );
+          imageChunk.AppendF32( obj.Position.X );
+          imageChunk.AppendF32( obj.Position.Y );
+          imageChunk.AppendU32( (uint)obj.ImagePNGData.Length );
+          if ( obj.ImagePNGData.Length > 0 )
+          {
+            imageChunk.Append( new GR.Memory.ByteBuffer( obj.ImagePNGData ) );
+          }
+          buffer.Append( imageChunk.ToBuffer() );
+          continue;
+        }
         var chunk = new GR.IO.FileChunk( RetroDevStudio.FileChunkConstants.MAP_OUTLINE_TEXT_OBJECT );
         // Text and FontFamily as length-prefixed UTF-8 — NOT AppendString,
         // which truncates every UTF-16 code unit above U+00FF to its low
@@ -251,6 +341,31 @@ namespace RetroDevStudio.Controls
       var chunk = new GR.IO.FileChunk();
       while ( chunk.ReadFromStream( memReader ) )
       {
+        if ( chunk.Type == RetroDevStudio.FileChunkConstants.MAP_OUTLINE_IMAGE_OBJECT )
+        {
+          var imageReader = chunk.MemoryReader();
+          float imageX = imageReader.ReadF32();
+          float imageY = imageReader.ReadF32();
+          uint pngLength = imageReader.ReadUInt32();
+          if ( ( pngLength == 0 )
+          ||   ( imageReader.Size - imageReader.Position < pngLength ) )
+          {
+            continue;   // truncated/empty payload — drop, don't crash
+          }
+          var pngBlock = new GR.Memory.ByteBuffer();
+          if ( imageReader.ReadBlock( pngBlock, pngLength ) != pngLength )
+          {
+            continue;
+          }
+          objects.Add( new OutlineTextObject()
+          {
+            Position = new PointF(
+              float.IsFinite( imageX ) ? Math.Max( -65536f, Math.Min( 65536f, imageX ) ) : 0f,
+              float.IsFinite( imageY ) ? Math.Max( -65536f, Math.Min( 65536f, imageY ) ) : 0f ),
+            ImagePNGData = pngBlock.Data()
+          } );
+          continue;
+        }
         if ( chunk.Type != RetroDevStudio.FileChunkConstants.MAP_OUTLINE_TEXT_OBJECT )
         {
           continue;

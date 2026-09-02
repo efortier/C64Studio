@@ -107,6 +107,12 @@
     // decodes the blob (mirrors the outline sidecar's undecoded policy).
     public const ushort    MAP_SCRATCH_INFO               = 0x133C;
     public const ushort    MAP_SCRATCH_ENTRY              = 0x133D;
+    // One persistent outline IMAGE object (a pasted clipboard image that
+    // stays selectable/movable like a text object): [f32 x][f32 y]
+    // [u32 pngLen][png bytes]. Lives in the SAME opaque objects blob as
+    // MAP_OUTLINE_TEXT_OBJECT (list order = z-order); readers skip unknown
+    // chunk types, so pre-feature builds simply don't show pasted images.
+    public const ushort    MAP_OUTLINE_IMAGE_OBJECT       = 0x133E;
 
     public const ushort    CHARSET_PROJECT                = 0x1340;
     public const ushort    CHARSET_INFO                   = 0x1341;

@@ -220,5 +220,126 @@ namespace TestProject
       cloned[0].Text = "ListChanged";
       Assert.AreEqual( "Original", original.Text, "CloneList must deep-copy" );
     }
+
+
+
+    // ================================================================
+    // Pasted-image objects — they share the list/blob with text objects;
+    // kind and z-order must round-trip, payload byte-exact.
+    // ================================================================
+
+    private static byte[] MakeFakePng( byte Seed, int Length )
+    {
+      // The blob layer never decodes — any payload exercises the round-trip.
+      var data = new byte[Length];
+      for ( int i = 0; i < Length; ++i )
+      {
+        data[i] = (byte)( Seed + i );
+      }
+      return data;
+    }
+
+
+
+    [TestMethod]
+    public void TestImageObjectBlobRoundTripMixedList()
+    {
+      var payload = MakeFakePng( 7, 777 );
+      var objects = new List<OutlineTextObject>()
+      {
+        MakeObject( "Below", 5f, 6f ),
+        new OutlineTextObject()
+        {
+          Position     = new System.Drawing.PointF( 100.5f, -20.25f ),
+          ImagePNGData = payload
+        },
+        MakeObject( "Above", 300f, 40f )
+      };
+
+      var blob = OutlineTextObject.SaveListToBuffer( objects );
+      Assert.IsNotNull( blob );
+      var reloaded = OutlineTextObject.ReadListFromBuffer( blob );
+
+      // Kind AND z-order (list order) must survive — the image sits between
+      // the two texts exactly as saved.
+      Assert.AreEqual( 3, reloaded.Count );
+      Assert.IsFalse( reloaded[0].IsImage );
+      Assert.IsTrue( reloaded[1].IsImage );
+      Assert.IsFalse( reloaded[2].IsImage );
+      Assert.AreEqual( "Below", reloaded[0].Text );
+      Assert.AreEqual( "Above", reloaded[2].Text );
+      Assert.AreEqual( 100.5f, reloaded[1].Position.X, 0.0001f );
+      Assert.AreEqual( -20.25f, reloaded[1].Position.Y, 0.0001f );
+      CollectionAssert.AreEqual( payload, reloaded[1].ImagePNGData );
+    }
+
+
+
+    [TestMethod]
+    public void TestImageObjectCloneSharesImmutablePayload()
+    {
+      var payload = MakeFakePng( 3, 64 );
+      var original = new OutlineTextObject()
+      {
+        Position     = new System.Drawing.PointF( 10f, 20f ),
+        ImagePNGData = payload
+      };
+      var clone = original.Clone();
+
+      Assert.IsTrue( clone.IsImage );
+      // The payload is immutable-by-contract — clones SHARE the reference
+      // (undo snapshots would otherwise duplicate every pasted screenshot).
+      Assert.AreSame( original.ImagePNGData, clone.ImagePNGData );
+      clone.Position = new System.Drawing.PointF( 99f, 99f );
+      Assert.AreEqual( 10f, original.Position.X, "position must be per-clone" );
+    }
+
+
+
+    [TestMethod]
+    public void TestImageObjectTruncatedBlobKeepsPriorObjects()
+    {
+      var objects = new List<OutlineTextObject>()
+      {
+        MakeObject( "Survivor", 1f, 2f ),
+        new OutlineTextObject()
+        {
+          Position     = new System.Drawing.PointF( 50f, 60f ),
+          ImagePNGData = MakeFakePng( 9, 256 )
+        }
+      };
+      var blob = OutlineTextObject.SaveListToBuffer( objects );
+
+      // Clip into the image chunk's payload: the damaged trailing chunk is
+      // dropped, everything before it still loads (tolerant-reader contract).
+      var truncated = new byte[blob.Length - 5];
+      System.Array.Copy( blob, truncated, truncated.Length );
+      var reloaded = OutlineTextObject.ReadListFromBuffer( truncated );
+
+      Assert.AreEqual( 1, reloaded.Count );
+      Assert.IsFalse( reloaded[0].IsImage );
+      Assert.AreEqual( "Survivor", reloaded[0].Text );
+    }
+
+
+
+    [TestMethod]
+    public void TestImageObjectCorruptPayloadYieldsPlaceholder()
+    {
+      // Garbage bytes that aren't a decodable PNG: measurement/draw must get
+      // a placeholder (16x16), never a null or an exception.
+      var broken = new OutlineTextObject()
+      {
+        Position     = new System.Drawing.PointF( 0f, 0f ),
+        ImagePNGData = MakeFakePng( 1, 32 )
+      };
+      var image = broken.GetImage();
+      Assert.IsNotNull( image );
+      Assert.AreEqual( 16, image.Width );
+      Assert.AreEqual( 16, image.Height );
+      var size = broken.MeasuredSize();
+      Assert.AreEqual( 16f, size.Width, 0.0001f );
+      Assert.AreEqual( 16f, size.Height, 0.0001f );
+    }
   }
 }

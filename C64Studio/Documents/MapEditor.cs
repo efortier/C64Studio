@@ -1429,11 +1429,18 @@ namespace RetroDevStudio.Documents
       {
         // Clipboard functions get their OUTLINE meaning while the paint
         // face is showing — and must never fall through to the hidden
-        // map's marker/tile handlers. With a selection active they act on
-        // the SELECTION; without one, on the whole canvas.
+        // map's marker/tile handlers. Copy priority: a selected IMAGE
+        // object copies ITSELF (so Ctrl+C → Ctrl+V duplicates the object);
+        // else an active raster selection copies its region; else the
+        // whole canvas. Object and raster selections are tool-exclusive,
+        // so the first two can never both apply.
         switch ( Function )
         {
           case Function.COPY:
+            if ( CopySelectedOutlineImageObject() )
+            {
+              return true;
+            }
             if ( outlineCanvas.SelectionRect.HasValue )
             {
               CopyOutlineSelectionToClipboard();
@@ -22591,6 +22598,7 @@ namespace RetroDevStudio.Documents
       outlineCanvas.ChangeCommitted += outlineCanvas_ChangeCommitted;
       outlineCanvas.TextObjectsChangeCommitted += outlineCanvas_TextObjectsChangeCommitted;
       outlineCanvas.SelectedTextObjectChanged += outlineCanvas_SelectedTextObjectChanged;
+      outlineCanvas.ImageObjectPlaced += outlineCanvas_ImageObjectPlaced;
       outlineCanvas.ColorPicked += outlineCanvas_ColorPicked;
       outlineCanvas.PenSampleChanged += outlineCanvas_PenSampleChanged;
       InitPenSettingsControls();
@@ -23426,6 +23434,31 @@ namespace RetroDevStudio.Documents
 
 
 
+    /// <summary>
+    /// Ctrl+C with a pasted-image OBJECT selected: its PNG payload goes to
+    /// the clipboard (PNG + bitmap formats — the same pair every other
+    /// outline copy emits), so Ctrl+V pastes a fresh copy of the object.
+    /// False = the primary selected object isn't an image (text objects
+    /// keep the whole-canvas copy behavior).
+    /// </summary>
+    private bool CopySelectedOutlineImageObject()
+    {
+      var selected = outlineCanvas.SelectedTextObject;
+      if ( ( selected == null )
+      ||   ( !selected.IsImage ) )
+      {
+        return false;
+      }
+      var data = new DataObject();
+      var pngStream = new System.IO.MemoryStream( selected.ImagePNGData );
+      data.SetData( "PNG", false, pngStream );
+      data.SetImage( selected.GetImage() );
+      Clipboard.SetDataObject( data, true );
+      return true;
+    }
+
+
+
     /// <summary>Selection copy: just the marquee region, PNG + bitmap formats.</summary>
     private void CopyOutlineSelectionToClipboard()
     {
@@ -24099,10 +24132,33 @@ namespace RetroDevStudio.Documents
     /// canvas properties set directly — programmatic sync must never persist
     /// project defaults or SetModified (the attached handlers do both).
     /// </summary>
+    /// <summary>
+    /// A pasted image just landed as an object (already selected by the
+    /// canvas): activate the Text/object tool so the fresh object is
+    /// immediately draggable — switching TO the text tool keeps the
+    /// selection (only switching AWAY clears it).
+    /// </summary>
+    private void outlineCanvas_ImageObjectPlaced( object sender, EventArgs e )
+    {
+      if ( ( btnOutlineToolText != null )
+      &&   ( !btnOutlineToolText.Checked ) )
+      {
+        btnOutlineToolText.Checked = true;
+      }
+    }
+
+
+
     private void outlineCanvas_SelectedTextObjectChanged( object sender, EventArgs e )
     {
       var selected = outlineCanvas.SelectedTextObject;
       if ( selected == null )
+      {
+        return;
+      }
+      // An image object carries no text style — mirroring its (meaningless)
+      // font defaults into the toolbar would stomp the user's current style.
+      if ( selected.IsImage )
       {
         return;
       }

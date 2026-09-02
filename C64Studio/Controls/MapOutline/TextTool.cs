@@ -755,6 +755,11 @@ namespace RetroDevStudio.Controls
       float zone = Math.Max( 3f, 5f / Math.Max( 0.1f, ViewZoom ) );
       for ( int i = Selected.Count - 1; i >= 0; --i )
       {
+        // Image objects keep their pixel size — no wrap-width border to drag.
+        if ( Selected[i].IsImage )
+        {
+          continue;
+        }
         var bounds = Selected[i].BoundsWithMargin();
         if ( ( Math.Abs( ImagePos.X - bounds.Right ) <= zone )
         &&   ( ImagePos.Y >= bounds.Top )
@@ -787,7 +792,9 @@ namespace RetroDevStudio.Controls
     public void OpenEditorOnObject( OutlineToolContext Context, OutlineTextObject Obj )
     {
       if ( ( m_EditPos.HasValue )
-      ||   ( Obj == null ) )
+      ||   ( Obj == null )
+      // An image object has no text to edit.
+      ||   ( Obj.IsImage ) )
       {
         return;
       }
@@ -821,6 +828,12 @@ namespace RetroDevStudio.Controls
       DisarmPress();
       DisarmResize();
       Context.SetSelectedTextObject( hit );
+      if ( hit.IsImage )
+      {
+        // No text editor for a pasted image — the double-click just
+        // (re)selects it; the trailing mouse-up no-ops on the disarmed state.
+        return true;
+      }
       OpenBoxForObject( Context, hit );
       return true;
     }

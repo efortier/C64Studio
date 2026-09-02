@@ -171,14 +171,25 @@ namespace RetroDevStudio.Controls
 
 
     /// <summary>
-    /// Bakes a text object at 1:1 through the shared layout engine — the
-    /// exact arrangement (wrap, char/line spacing, typographic advances) the
-    /// canvas overlay shows.
+    /// Bakes an object at 1:1: a text object through the shared layout
+    /// engine — the exact arrangement (wrap, char/line spacing, typographic
+    /// advances) the canvas overlay shows — and an image object as a
+    /// pixel-exact nearest-neighbor stamp of its decoded payload.
     /// </summary>
     public void DrawTextObject( OutlineTextObject Obj )
     {
-      if ( ( Obj == null )
-      ||   ( string.IsNullOrEmpty( Obj.Text ) )
+      if ( Obj == null )
+      {
+        return;
+      }
+      if ( Obj.IsImage )
+      {
+        var image = Obj.GetImage();
+        DrawImageNearest( image,
+          new RectangleF( Obj.Position.X, Obj.Position.Y, image.Width, image.Height ) );
+        return;
+      }
+      if ( ( string.IsNullOrEmpty( Obj.Text ) )
       ||   ( Obj.Color.A == 0 ) )
       {
         return;
@@ -196,15 +207,33 @@ namespace RetroDevStudio.Controls
 
 
     /// <summary>
-    /// Draws a text object in VIEW space: the layout's image-space positions
-    /// scaled by the zoom, glyphs drawn with a zoom-scaled font — identical
-    /// arrangement to the 1:1 bake, crisp at any zoom.
+    /// Draws an object in VIEW space: text via the layout's image-space
+    /// positions scaled by the zoom (glyphs drawn with a zoom-scaled font —
+    /// identical arrangement to the 1:1 bake, crisp at any zoom); an image
+    /// object as a nearest-neighbor stamp scaled by the zoom, matching how
+    /// the canvas presents its backing raster.
     /// </summary>
     public static void DrawTextObjectView( Graphics ViewGraphics, OutlineTextObject Obj,
                                            PointF ViewOrigin, float ViewZoom )
     {
-      if ( ( Obj == null )
-      ||   ( string.IsNullOrEmpty( Obj.Text ) )
+      if ( Obj == null )
+      {
+        return;
+      }
+      if ( Obj.IsImage )
+      {
+        var image = Obj.GetImage();
+        var previousInterpolation = ViewGraphics.InterpolationMode;
+        var previousOffset = ViewGraphics.PixelOffsetMode;
+        ViewGraphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+        ViewGraphics.PixelOffsetMode = PixelOffsetMode.Half;
+        ViewGraphics.DrawImage( image,
+          new RectangleF( ViewOrigin.X, ViewOrigin.Y, image.Width * ViewZoom, image.Height * ViewZoom ) );
+        ViewGraphics.InterpolationMode = previousInterpolation;
+        ViewGraphics.PixelOffsetMode = previousOffset;
+        return;
+      }
+      if ( ( string.IsNullOrEmpty( Obj.Text ) )
       ||   ( Obj.Color.A == 0 ) )
       {
         return;
