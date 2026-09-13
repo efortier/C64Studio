@@ -183,10 +183,27 @@ namespace RetroDevStudio.Controls
     void OnDeactivate( OutlineToolContext Context );
 
     /// <summary>
-    /// View-space overlay pass, drawn over the blitted image every paint:
-    /// in-flight shape previews, brush-size ghost at the pointer, etc.
+    /// View-space RASTER preview pass, drawn right over the blitted image and
+    /// UNDER the grid and the persistent text/image objects — for previews
+    /// that stand in for pixels the tool is about to commit to the raster (a
+    /// shape being dragged out, a selection move's vacated source + floating
+    /// pixels). The objects float above the raster before and after every
+    /// commit, so a stand-in for raster pixels must sit below them too; drawn
+    /// in the overlay pass instead, an opaque preview hides every object it
+    /// covers until release ("the pasted picture vanishes while I move the
+    /// selection"). Draw nothing here when the tool has no such preview.
     /// PointerImagePos is the last known pointer position in image space
     /// (NaN/NaN when the pointer left the canvas).
+    /// </summary>
+    void OnPaintRasterPreview( OutlineToolContext Context, Graphics ViewGraphics,
+                               Func<PointF, PointF> ImageToView, float ViewZoom, PointF PointerImagePos );
+
+    /// <summary>
+    /// View-space OVERLAY pass, drawn above the objects every paint: the
+    /// brush-size ghost at the pointer, marquees, the text tool's edit box —
+    /// anything that must stay readable on top of the content. A preview
+    /// that stands in for raster pixels belongs in OnPaintRasterPreview.
+    /// PointerImagePos as above.
     /// </summary>
     void OnPaintPreview( OutlineToolContext Context, Graphics ViewGraphics,
                          Func<PointF, PointF> ImageToView, float ViewZoom, PointF PointerImagePos );

@@ -22605,8 +22605,11 @@ namespace RetroDevStudio.Documents
       outlineCanvas.TextObjectsChangeCommitted += outlineCanvas_TextObjectsChangeCommitted;
       outlineCanvas.SelectedTextObjectChanged += outlineCanvas_SelectedTextObjectChanged;
       outlineCanvas.ImageObjectPlaced += outlineCanvas_ImageObjectPlaced;
+      outlineCanvas.TextToolRequested += outlineCanvas_TextToolRequested;
       outlineCanvas.ColorPicked += outlineCanvas_ColorPicked;
       outlineCanvas.PenSampleChanged += outlineCanvas_PenSampleChanged;
+      outlineCanvas.BrushSizeNudged += outlineCanvas_BrushSizeNudged;
+      outlineCanvas.EraserSizeNudged += outlineCanvas_EraserSizeNudged;
       InitPenSettingsControls();
       outlineCanvas.BrushSize = (float)editOutlineBrushSize.Value;
       outlineCanvas.EraserSize = (float)editOutlineEraserSize.Value;
@@ -23045,6 +23048,29 @@ namespace RetroDevStudio.Documents
         m_MapProject.OutlineToolSettings.EraserSize = size;
         SetModified();
       }
+    }
+
+
+
+    // Mouse-wheel size nudges from the painter canvas. The spinner stays the
+    // single owner of the value: routing the nudge THROUGH it reuses its
+    // min/max clamping, its write-back to the canvas, the project persistence
+    // and the modified flag — a wheel tick and a typed value are the same edit.
+    // (The Shift chord's temporary eraser size never arrives here; the canvas
+    // keeps that one to itself.)
+
+    private void outlineCanvas_BrushSizeNudged( int Steps )
+    {
+      editOutlineBrushSize.Value = ClampToNumeric( editOutlineBrushSize,
+                                                   (int)editOutlineBrushSize.Value + Steps );
+    }
+
+
+
+    private void outlineCanvas_EraserSizeNudged( int Steps )
+    {
+      editOutlineEraserSize.Value = ClampToNumeric( editOutlineEraserSize,
+                                                    (int)editOutlineEraserSize.Value + Steps );
     }
 
 
@@ -24239,18 +24265,41 @@ namespace RetroDevStudio.Documents
     /// project defaults or SetModified (the attached handlers do both).
     /// </summary>
     /// <summary>
-    /// A pasted image just landed as an object (already selected by the
-    /// canvas): activate the Text/object tool so the fresh object is
-    /// immediately draggable — switching TO the text tool keeps the
-    /// selection (only switching AWAY clears it).
+    /// Activates the Text (object) tool through its toolbar button, so the
+    /// button and the canvas' ActiveTool stay in sync (the registry handler
+    /// does the switch). Switching TO the text tool keeps an existing object
+    /// selection — only switching AWAY clears it.
     /// </summary>
-    private void outlineCanvas_ImageObjectPlaced( object sender, EventArgs e )
+    private void ActivateOutlineTextTool()
     {
       if ( ( btnOutlineToolText != null )
       &&   ( !btnOutlineToolText.Checked ) )
       {
         btnOutlineToolText.Checked = true;
       }
+    }
+
+
+
+    /// <summary>
+    /// A pasted image just landed as an object (already selected by the
+    /// canvas): the text tool makes it immediately draggable.
+    /// </summary>
+    private void outlineCanvas_ImageObjectPlaced( object sender, EventArgs e )
+    {
+      ActivateOutlineTextTool();
+    }
+
+
+
+    /// <summary>
+    /// A plain CLICK landed on a text/image object while another tool was
+    /// active — the user meant to edit it, not paint over it. The canvas
+    /// replays the click through the text tool right after this returns.
+    /// </summary>
+    private void outlineCanvas_TextToolRequested( object sender, EventArgs e )
+    {
+      ActivateOutlineTextTool();
     }
 
 

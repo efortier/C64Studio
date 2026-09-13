@@ -449,17 +449,74 @@ namespace RetroDevStudio.Controls
       btnCreateMultipleTiles.Enabled = is1x1 && anySelected;
     }
 
+    /// <summary>
+    /// Fills the whole playground with the SELECTED character in the SELECTED
+    /// color — the same cell value a click on the playground would place, so
+    /// the multicolor color rule applies here too. One undo step for the whole
+    /// clear (per-cell tasks grouped exactly like a paint stroke); cells that
+    /// already hold that value are left alone so an idle clear records nothing.
+    /// </summary>
     private void btnClearPlayground_Click( DecentForms.ControlBase Sender )
     {
-      for ( int i = 0; i < m_Project.PlaygroundChars.Count; ++i )
+      if ( m_CurrentChar >= m_Project.Characters.Count )
       {
-        // Default to char 0 (usually space/empty) and color 1 (default fg?) or just keep color?
-        // Usually space is 0x20. Reverting to 0x20 and color m_CurrentColor or 1?
-        // Constructor uses: 0x10000 | 0x20 => Color 1, Char 0x20 (32) which is space in C64
-        m_Project.PlaygroundChars[i] = 0x10000 | 0x20;
+        return;
+      }
+      uint fillValue = PlaygroundCellValue( m_CurrentChar, m_CurrentColor );
+      bool firstChange = true;
+      for ( int y = 0; y < m_Project.PlaygroundHeight; ++y )
+      {
+        for ( int x = 0; x < m_Project.PlaygroundWidth; ++x )
+        {
+          int index = x + y * m_Project.PlaygroundWidth;
+          if ( m_Project.PlaygroundChars[index] == fillValue )
+          {
+            continue;
+          }
+          var undoTask = new Undo.UndoCharacterEditorPlaygroundCharChange( this, m_Project, x, y );
+          if ( firstChange )
+          {
+            UndoManager.AddUndoTask( undoTask );
+            firstChange = false;
+          }
+          else
+          {
+            UndoManager.AddGroupedUndoTask( undoTask );
+          }
+          m_Project.PlaygroundChars[index] = fillValue;
+        }
+      }
+      if ( firstChange )
+      {
+        // Already uniformly that character/color — nothing changed.
+        return;
       }
       RebuildPlaygroundImage();
       RaiseModifiedEvent( new List<int>() );
+    }
+
+
+
+    /// <summary>
+    /// The playground cell value for a character in a color: char index in the
+    /// low word, color in the high word. Multicolor characters need the
+    /// multicolor flag (color ≥ 8) or they would render as hires, so a color
+    /// below 8 is raised into the multicolor range for them — the single rule
+    /// shared by clicking a character onto the playground and clearing it.
+    /// </summary>
+    private uint PlaygroundCellValue( int CharIndex, int Color )
+    {
+      int effectiveColor = Color;
+      var charMode = m_Project.Characters[CharIndex].Tile.Mode;
+      if ( ( charMode == GraphicTileMode.COMMODORE_MULTICOLOR_CHARACTERS )
+      ||   ( charMode == GraphicTileMode.COMMODORE_MULTICOLOR_CHARACTERS_8X16 ) )
+      {
+        if ( effectiveColor < 8 )
+        {
+          effectiveColor += 8;
+        }
+      }
+      return (uint)( CharIndex | ( effectiveColor << 16 ) );
     }
 
     private void checkShowPlaygroundGrid_CheckedChanged( object sender, EventArgs e )
@@ -2280,19 +2337,9 @@ namespace RetroDevStudio.Controls
             }
 
             int destIndex = destX + destY * m_Project.PlaygroundWidth;
-            int effectiveColor = m_CurrentColor;
-
-            var charMode = m_Project.Characters[sourceCharIndex].Tile.Mode;
-            if ( ( charMode == GraphicTileMode.COMMODORE_MULTICOLOR_CHARACTERS )
-            ||   ( charMode == GraphicTileMode.COMMODORE_MULTICOLOR_CHARACTERS_8X16 ) )
-            {
-              if ( effectiveColor < 8 )
-              {
-                effectiveColor += 8;
-              }
-            }
-
-            uint newValue = (uint)( sourceCharIndex | ( effectiveColor << 16 ) );
+            // Same cell value (and multicolor color rule) as Clear playground.
+            uint newValue = PlaygroundCellValue( sourceCharIndex, m_CurrentColor );
+            int effectiveColor = (int)( newValue >> 16 );
 
             if ( m_Project.PlaygroundChars[destIndex] != newValue )
             {

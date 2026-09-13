@@ -228,15 +228,19 @@ namespace RetroDevStudio.Controls
 
 
 
-    public void OnPaintPreview( OutlineToolContext Context, Graphics ViewGraphics,
-                                Func<PointF, PointF> ImageToView, float ViewZoom, PointF PointerImagePos )
+    public void OnPaintRasterPreview( OutlineToolContext Context, Graphics ViewGraphics,
+                                      Func<PointF, PointF> ImageToView, float ViewZoom, PointF PointerImagePos )
     {
       if ( m_MoveLifted != null )
       {
         // Move preview: vacate the source to the opaque background, then float
         // the lifted pixels at the destination (nearest-neighbor, crisp at any
-        // zoom). The marquee at the destination is drawn by the canvas, which
-        // owns the committed-selection marquee.
+        // zoom). This stands in for the RASTER, so it paints in the raster
+        // pass — under the text/image objects, which the move never touches
+        // and which must stay visible over both the vacated source and the
+        // floating pixels, exactly as they will be once the move commits. The
+        // marquee at the destination is drawn by the canvas, which owns the
+        // committed-selection marquee.
         var srcTopLeft = ImageToView( new PointF( m_MoveSourceRect.X, m_MoveSourceRect.Y ) );
         var srcView = new RectangleF( srcTopLeft.X, srcTopLeft.Y,
                                       m_MoveSourceRect.Width * ViewZoom, m_MoveSourceRect.Height * ViewZoom );
@@ -257,14 +261,21 @@ namespace RetroDevStudio.Controls
           0, 0, m_MoveLifted.Width, m_MoveLifted.Height, GraphicsUnit.Pixel );
         ViewGraphics.InterpolationMode = previousInterpolation;
         ViewGraphics.PixelOffsetMode = previousOffset;
-        return;
       }
+    }
+
+
+
+    public void OnPaintPreview( OutlineToolContext Context, Graphics ViewGraphics,
+                                Func<PointF, PointF> ImageToView, float ViewZoom, PointF PointerImagePos )
+    {
       if ( !m_AnchorPos.HasValue )
       {
         return;
       }
       // In-flight marquee: same black+white double-dash the committed
-      // selection uses, so the look doesn't change on release.
+      // selection uses, so the look doesn't change on release. An overlay —
+      // it must read on top of whatever it is being dragged across.
       var a = ImageToView( m_AnchorPos.Value );
       var b = ImageToView( m_CurrentPos );
       var rect = RectangleF.FromLTRB( Math.Min( a.X, b.X ), Math.Min( a.Y, b.Y ),

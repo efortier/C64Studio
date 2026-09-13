@@ -141,6 +141,14 @@ namespace RetroDevStudio.Controls
 
 
 
+    public void OnPaintRasterPreview( OutlineToolContext Context, Graphics ViewGraphics,
+                                      Func<PointF, PointF> ImageToView, float ViewZoom, PointF PointerImagePos )
+    {
+      // The translucent wipe hint is an overlay (objects stay readable through it).
+    }
+
+
+
     public void OnPaintPreview( OutlineToolContext Context, Graphics ViewGraphics,
                                 Func<PointF, PointF> ImageToView, float ViewZoom, PointF PointerImagePos )
     {

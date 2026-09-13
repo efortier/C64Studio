@@ -328,6 +328,14 @@ namespace RetroDevStudio.Controls
 
 
 
+    public void OnPaintRasterPreview( OutlineToolContext Context, Graphics ViewGraphics,
+                                      Func<PointF, PointF> ImageToView, float ViewZoom, PointF PointerImagePos )
+    {
+      // The ghost ring is an overlay; the stroke itself is already IN the raster.
+    }
+
+
+
     public void OnPaintPreview( OutlineToolContext Context, Graphics ViewGraphics,
                                 Func<PointF, PointF> ImageToView, float ViewZoom, PointF PointerImagePos )
     {

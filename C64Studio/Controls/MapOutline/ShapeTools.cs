@@ -8,8 +8,10 @@ namespace RetroDevStudio.Controls
 {
   /// <summary>
   /// Shared drag-a-shape mechanics: anchor on pointer-down, live preview
-  /// in the overlay pass (nothing touches the image until release), Shift
-  /// constrains to square/circle. Outline uses the primary color at the
+  /// in the RASTER preview pass (nothing touches the image until release;
+  /// the preview stands in for raster pixels, so it renders under the
+  /// text/image objects just as the finished shape will), Shift constrains
+  /// to square/circle. Outline uses the primary color at the
   /// shape border size, fill uses the secondary color — either can carry
   /// alpha, and alpha 0 (or border 0) simply omits that part. In-flight
   /// state is the anchor (null = idle).
@@ -144,8 +146,8 @@ namespace RetroDevStudio.Controls
 
 
 
-    public void OnPaintPreview( OutlineToolContext Context, Graphics ViewGraphics,
-                                Func<PointF, PointF> ImageToView, float ViewZoom, PointF PointerImagePos )
+    public void OnPaintRasterPreview( OutlineToolContext Context, Graphics ViewGraphics,
+                                      Func<PointF, PointF> ImageToView, float ViewZoom, PointF PointerImagePos )
     {
       if ( !m_AnchorPos.HasValue )
       {
@@ -160,6 +162,14 @@ namespace RetroDevStudio.Controls
       DrawPreview( ViewGraphics, viewRect, Context.SecondaryColor, Context.PrimaryColor,
                    Math.Max( 1.0f, Context.ShapeBorderSize * ViewZoom ) );
       ViewGraphics.SmoothingMode = previous;
+    }
+
+
+
+    public void OnPaintPreview( OutlineToolContext Context, Graphics ViewGraphics,
+                                Func<PointF, PointF> ImageToView, float ViewZoom, PointF PointerImagePos )
+    {
+      // The shape preview is raster-level (above) — nothing to overlay.
     }
 
 

@@ -857,8 +857,12 @@ namespace RetroDevStudio.Controls
 
     // ---- Helpers ---------------------------------------------------------
 
-    /// <summary>Topmost-first hit test (list order = z-order, last = topmost).</summary>
-    private static OutlineTextObject HitTest( OutlineToolContext Context, PointF ImagePos )
+    /// <summary>
+    /// Topmost-first hit test (list order = z-order, last = topmost). Shared
+    /// with the canvas' click-on-object handoff (a press on an object while
+    /// another tool is active), so both agree on what counts as "on text".
+    /// </summary>
+    internal static OutlineTextObject HitTest( OutlineToolContext Context, PointF ImagePos )
     {
       if ( Context.TextObjects == null )
       {
@@ -896,6 +900,14 @@ namespace RetroDevStudio.Controls
       var clamped = Rectangle.Intersect( Region,
         new Rectangle( 0, 0, Context.Image.Width, Context.Image.Height ) );
       Context.CommitTextObjectsChange( clamped, Before, Description );
+    }
+
+
+
+    public void OnPaintRasterPreview( OutlineToolContext Context, Graphics ViewGraphics,
+                                      Func<PointF, PointF> ImageToView, float ViewZoom, PointF PointerImagePos )
+    {
+      // Everything the text tool previews is object-level — overlay only.
     }
 
 

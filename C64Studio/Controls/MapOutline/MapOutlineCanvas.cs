@@ -72,14 +72,49 @@ namespace RetroDevStudio.Controls
     // captured at pointer-down from the message source + proximity; drives
     // whether pressure is applied for this stroke.
     private bool          m_StrokeIsPen = false;
-    // The tool handling the CURRENT stroke — differs from m_ActiveTool when the
-    // pen is flipped to its eraser end (whole-stroke routing). null when idle.
+    // The tool handling the CURRENT stroke — differs from m_ActiveTool while an
+    // erase CHORD stands in for the selected tool (whole-stroke routing). null
+    // when idle.
     private IOutlineTool  m_StrokeTool = null;
-    private readonly EraserTool m_PenEraser = new EraserTool();
+    // The eraser that stands in for the selected tool while an erase chord is
+    // held: the pen flipped to its eraser end, or Shift with the brush. It only
+    // ever RECEIVES strokes — m_ActiveTool is never reassigned, so the toolbar
+    // selection (and everything the ActiveTool setter would tear down) survives
+    // the chord untouched. One instance serves both chords: only one stroke can
+    // be in flight at a time.
+    private readonly EraserTool m_ChordEraser = new EraserTool();
+    // Wheel-adjusted eraser size for the CURRENT Shift chord; null = paint at
+    // the configured EraserSize. Deliberately canvas-local and unpersisted (the
+    // user's rule: a Shift-invoked eraser's size is temporary), and discarded by
+    // RefreshToolContext the moment the chord ends.
+    private float?        m_ShiftEraserSize = null;
+    // Bounds for that temporary size — mirrors the Designer range of the
+    // toolbar's eraser-size spinner, which owns the persisted value.
+    private const float   CHORD_SIZE_MIN = 1.0f;
+    private const float   CHORD_SIZE_MAX = 128.0f;
     // Last pointer position in image space (NaN when outside the canvas) —
     // feeds tool previews like the brush-size ghost.
     private PointF        m_PointerImagePos = new PointF( float.NaN, float.NaN );
     private RectangleF    m_LastGhostViewRect = RectangleF.Empty;
+
+    // ---- Deferred press on an object while a NON-text tool is active. The
+    // press is held back until it resolves: release within the click
+    // threshold = a CLICK → the editor activates the Text (object) tool and
+    // the click replays through it (selects the object — "I clicked on the
+    // text to edit it"); movement past the threshold = a DRAG → the original
+    // tool receives the press it was owed, at the ORIGINAL point, and the
+    // stroke proceeds untouched (painting OVER text keeps working). Nothing is
+    // painted for a click, so nothing ever has to be reverted. Intrinsic state
+    // of the current press, like m_ToolStrokeInFlight. ----
+    private bool          m_DeferredPressActive = false;
+    private PointF        m_DeferredPressImagePos;
+    private Point         m_DeferredPressViewPos;
+    private bool          m_DeferredPressIsPen = false;
+    // The tool the press would have gone to (pen-flip eraser or the active
+    // tool); null = no tool selected, a drag then simply does nothing.
+    private IOutlineTool  m_DeferredPressTool = null;
+    /// <summary>Click-vs-drag threshold in VIEW pixels (zoom-independent).</summary>
+    private const float   CLICK_DRAG_THRESHOLD_VIEW = 4.0f;
 
 
 
@@ -98,8 +133,31 @@ namespace RetroDevStudio.Controls
     /// <summary>Right-click eyedropper result.</summary>
     public event Action<Color> ColorPicked;
 
+    /// <summary>
+    /// A CLICK landed on a text/image object while another tool (or none) was
+    /// active: the editor should activate the Text (object) tool — the
+    /// canvas then replays the click through it. Synchronous by contract
+    /// (the replay happens right after the handler returns).
+    /// </summary>
+    public event EventHandler TextToolRequested;
+
     /// <summary>Raised when the rectangular selection changes (incl. cleared).</summary>
     public event EventHandler SelectionChanged;
+
+    /// <summary>
+    /// The mouse wheel asked to resize the brush by this many pixels (+1 per
+    /// notch up). The PERSISTED sizes belong to the editor's toolbar spinner
+    /// (clamping, project settings, modified flag), so the canvas only reports
+    /// the request and reads the result back through BrushSize.
+    /// </summary>
+    public event Action<int> BrushSizeNudged;
+
+    /// <summary>
+    /// Wheel resize request for the eraser TOOL, same contract as
+    /// <see cref="BrushSizeNudged"/>. The Shift chord's eraser never comes
+    /// through here — its size is temporary and stays inside the canvas.
+    /// </summary>
+    public event Action<int> EraserSizeNudged;
 
 
 
@@ -353,6 +411,56 @@ namespace RetroDevStudio.Controls
         UpdateCursor();
         Invalidate();
       }
+    }
+
+
+
+    /// <summary>
+    /// True while Shift stands in for the eraser. Read LIVE from the keyboard
+    /// on every use instead of being latched into a field on key events, so it
+    /// can never get stuck (a key-up lost to a focus change, an Alt+Tab with
+    /// Shift held) and it works even when the canvas never saw the key-down.
+    ///
+    /// The chord is BRUSH-ONLY on purpose: the shape tools already read Shift
+    /// as "constrain to a square/circle", the text and selection tools have
+    /// their own meanings for it, and the eraser needs no stand-in — which is
+    /// also what makes the wheel unambiguous (on the eraser TOOL the wheel
+    /// resizes the persisted size; under the chord it resizes a temporary one).
+    /// </summary>
+    private bool ShiftEraseEngaged
+    {
+      get
+      {
+        if ( ( ModifierKeys & Keys.Shift ) != Keys.Shift )
+        {
+          return false;
+        }
+        return ( m_ActiveTool is BrushTool )
+            && ( !( m_ActiveTool is EraserTool ) );
+      }
+    }
+
+
+
+    /// <summary>
+    /// The tool a press would go to while merely HOVERING: the eraser stand-in
+    /// whenever an erase chord is held (pen flipped to its eraser end, or
+    /// Shift), else the selected tool. Both the ghost's invalidation region and
+    /// the ghost actually drawn come from here, so they cannot drift apart.
+    /// The pen flip yields to a LIVE pending edit — an open text box must stay
+    /// visible while a flipped pen hovers over it.
+    /// </summary>
+    private IOutlineTool HoverTool()
+    {
+      bool flipHover = ( m_Pen.Current.InProximity && m_Pen.Current.IsEraser && PenFlipEraser )
+                    && ( ( m_ActiveTool == null )
+                    ||   ( !m_ActiveTool.HasPendingEdit ) );
+      if ( ( flipHover )
+      ||   ( ShiftEraseEngaged ) )
+      {
+        return m_ChordEraser;
+      }
+      return m_ActiveTool;
     }
 
 
@@ -1625,6 +1733,17 @@ namespace RetroDevStudio.Controls
         e.Handled = true;
         return;
       }
+      if ( e.KeyCode == Keys.ShiftKey )
+      {
+        // Shift is the erase chord (see ShiftEraseEngaged), but nothing here
+        // TRACKS it — the chord reads the live keyboard. This only swaps the
+        // ghost ring to the eraser's footprint right away instead of at the
+        // next mouse move, so the key is deliberately left unhandled and keeps
+        // flowing to everything else that reads it.
+        RefreshPointerGhost();
+        base.OnKeyDown( e );
+        return;
+      }
       if ( e.KeyCode == Keys.Space )
       {
         // With an open text box (or any pending edit), Space is INPUT for
@@ -1650,6 +1769,14 @@ namespace RetroDevStudio.Controls
 
     protected override void OnKeyUp( KeyEventArgs e )
     {
+      if ( e.KeyCode == Keys.ShiftKey )
+      {
+        // Chord released: back to the selected tool's ring (and the temporary
+        // eraser size is dropped by the next RefreshToolContext).
+        RefreshPointerGhost();
+        base.OnKeyUp( e );
+        return;
+      }
       if ( e.KeyCode == Keys.Space )
       {
         m_SpaceIsDown = false;
@@ -1847,7 +1974,19 @@ namespace RetroDevStudio.Controls
       m_ToolContext.SecondaryColor = SecondaryColor;
       m_ToolContext.EraseColor = EraseColor;
       m_ToolContext.BrushSize = BrushSize;
-      m_ToolContext.EraserSize = EraserSize;
+      // The Shift chord's wheel-adjusted eraser size lives exactly as long as
+      // the chord: dropped here the moment Shift is no longer standing in for
+      // the eraser, so it can never leak into the eraser TOOL or the project's
+      // persisted size. The stroke it started keeps it to the end though —
+      // releasing Shift mid-erase must not resize the stroke being drawn (the
+      // brush re-renders its whole accumulated path at the current width).
+      if ( ( m_ShiftEraserSize.HasValue )
+      &&   ( !ShiftEraseEngaged )
+      &&   ( m_StrokeTool != m_ChordEraser ) )
+      {
+        m_ShiftEraserSize = null;
+      }
+      m_ToolContext.EraserSize = m_ShiftEraserSize ?? EraserSize;
       m_ToolContext.ShapeBorderSize = ShapeBorderSize;
       m_ToolContext.TextFontFamily = TextFontFamily;
       m_ToolContext.TextFontSize = TextFontSize;
@@ -1908,6 +2047,8 @@ namespace RetroDevStudio.Controls
       // A floating paste is the most "in flight" state of all — Escape
       // (and every other cancel route) throws it away first.
       CancelFloatingPaste();
+      // A held-back press resolves to nothing on any cancel route.
+      ClearDeferredPress();
       var strokeTool = m_StrokeTool ?? m_ActiveTool;
       if ( ( strokeTool != null )
       &&   ( m_Image != null ) )
@@ -1968,7 +2109,7 @@ namespace RetroDevStudio.Controls
       get
       {
         // Must include the STROKE tool: during a pen flip-erase the in-flight
-        // tool is m_PenEraser (≠ m_ActiveTool), so checking only m_ActiveTool
+        // tool is m_ChordEraser (≠ m_ActiveTool), so checking only m_ActiveTool
         // would report "no pending edit" mid-erase and let Ctrl+Z pop the
         // committed undo stack into the live bitmap.
         return ( m_FloatingPasteImage != null )
@@ -1992,6 +2133,7 @@ namespace RetroDevStudio.Controls
       // A floating paste has no position until the user clicks — there is
       // nothing to commit at a flush point, so it discards.
       CancelFloatingPaste();
+      ClearDeferredPress();
       var pendingTool = m_StrokeTool ?? m_ActiveTool;
       if ( ( pendingTool != null )
       &&   ( m_Image != null )
@@ -2038,6 +2180,8 @@ namespace RetroDevStudio.Controls
           m_IsPanning = false;
           UpdateCursor();
         }
+        // A held-back press with no release in sight resolves to nothing.
+        ClearDeferredPress();
         if ( m_ToolStrokeInFlight )
         {
           // LAND the stroke (as the proximity-out path does) rather than
@@ -2095,18 +2239,10 @@ namespace RetroDevStudio.Controls
       }
       else
       {
-        // During a stroke use the stroke tool; while merely hovering, preview
-        // the eraser footprint if a flipped pen is in range, else the active
-        // tool — mirroring OnPaint's selection exactly (incl. the pending-edit
-        // exception) so the invalidated region always matches what is drawn.
-        var ghostTool = m_StrokeTool;
-        if ( ghostTool == null )
-        {
-          bool flipHover = ( m_Pen.Current.InProximity && m_Pen.Current.IsEraser && PenFlipEraser )
-                        && ( ( m_ActiveTool == null )
-                        ||   ( !m_ActiveTool.HasPendingEdit ) );
-          ghostTool = flipHover ? (IOutlineTool)m_PenEraser : m_ActiveTool;
-        }
+        // During a stroke use the stroke tool; while merely hovering, whatever
+        // HoverTool says a press would go to (the same call OnPaint makes, so
+        // the invalidated region always matches the ghost actually drawn).
+        var ghostTool = m_StrokeTool ?? HoverTool();
         if ( ghostTool != null )
         {
           extent = ghostTool.PointerGhostExtent( RefreshToolContext() );
@@ -2139,6 +2275,27 @@ namespace RetroDevStudio.Controls
         union.Inflate( 2, 2 );
         Invalidate( Rectangle.Ceiling( union ) );
       }
+    }
+
+
+
+    /// <summary>
+    /// Re-measures the pointer ghost and repaints it where it stands — for the
+    /// times its footprint changes WITHOUT the mouse moving: the Shift erase
+    /// chord swapping the brush ring for the eraser's, and the wheel resizing
+    /// either. A no-op when the ring is unchanged, so Shift auto-repeat and
+    /// wheel ticks at the size limits cost nothing.
+    /// </summary>
+    private void RefreshPointerGhost()
+    {
+      var newGhost = GhostViewRect( m_PointerImagePos );
+      if ( newGhost == m_LastGhostViewRect )
+      {
+        return;
+      }
+      var oldGhost = m_LastGhostViewRect;
+      m_LastGhostViewRect = newGhost;
+      InvalidateGhost( oldGhost, newGhost );
     }
 
 
@@ -2210,9 +2367,9 @@ namespace RetroDevStudio.Controls
       }
       if ( ( e.Button == MouseButtons.Left )
       &&   ( !m_ToolStrokeInFlight )
-      &&   ( m_ActiveTool != null )
       &&   ( m_Image != null ) )
       {
+        var imagePos = ViewToImage( e.Location );
         // Fix the stroke's input source at pointer-down: it is a PEN stroke iff
         // a pen is in range AND actually touching (tip bit / nonzero pressure in
         // the latest packet). We do NOT test the OS pen-message signature: WinTab
@@ -2222,21 +2379,58 @@ namespace RetroDevStudio.Controls
         // hover range from hijacking a physical-mouse click into a zero-pressure
         // (near-invisible, or flip-erasing) pen stroke; if a genuine pen tap
         // ever races its contact packet, it degrades to a constant-width stroke.
-        m_StrokeIsPen = ( m_Pen.Current.InProximity )
-                     && ( ( ( m_Pen.Current.Buttons & 1 ) != 0 )
-                     ||   ( m_Pen.Current.Pressure > 0f ) );
-        // Pen flipped to its eraser end erases regardless of the selected tool
-        // — route the WHOLE stroke through an internal eraser, leaving the
-        // user's active tool untouched (restored automatically on flip-back).
-        bool flipErase = ( m_StrokeIsPen && m_Pen.Current.IsEraser && PenFlipEraser );
-        m_StrokeTool = flipErase ? (IOutlineTool)m_PenEraser : m_ActiveTool;
-        m_ToolStrokeInFlight = true;
-        Capture = true;
-        m_PointerImagePos = ViewToImage( e.Location );
-        m_StrokeTool.OnPointerDown( RefreshToolContext(), m_PointerImagePos );
-        return;
+        bool strokeIsPen = ( m_Pen.Current.InProximity )
+                        && ( ( ( m_Pen.Current.Buttons & 1 ) != 0 )
+                        ||   ( m_Pen.Current.Pressure > 0f ) );
+        // An erase chord erases regardless of the selected tool — the pen
+        // flipped to its eraser end, or Shift held with the brush. Route the
+        // WHOLE stroke through the internal eraser, leaving the user's active
+        // tool untouched (it simply resumes when the chord is released). The
+        // chord is latched HERE, at pointer-down: releasing Shift mid-stroke
+        // finishes the erase rather than turning it into a brush stroke.
+        bool flipErase = ( strokeIsPen && m_Pen.Current.IsEraser && PenFlipEraser );
+        IOutlineTool strokeTool = ( m_ActiveTool == null )
+          ? null
+          : ( ( flipErase || ShiftEraseEngaged ) ? (IOutlineTool)m_ChordEraser : m_ActiveTool );
+
+        // Click-vs-drag disambiguation on objects: with any tool but the text
+        // tool (or none) active, a press ON a text/image object is held back
+        // — see the deferred-press fields. The text tool itself handles its
+        // own presses (select / drag / edit) as before.
+        if ( ( !( m_ActiveTool is TextTool ) )
+        &&   ( TextTool.HitTest( RefreshToolContext(), imagePos ) != null ) )
+        {
+          m_DeferredPressActive   = true;
+          m_DeferredPressImagePos = imagePos;
+          m_DeferredPressViewPos  = e.Location;
+          m_DeferredPressIsPen    = strokeIsPen;
+          m_DeferredPressTool     = strokeTool;
+          m_PointerImagePos       = imagePos;
+          Capture = true;
+          return;
+        }
+
+        if ( strokeTool != null )
+        {
+          m_StrokeIsPen = strokeIsPen;
+          m_StrokeTool = strokeTool;
+          m_ToolStrokeInFlight = true;
+          Capture = true;
+          m_PointerImagePos = imagePos;
+          m_StrokeTool.OnPointerDown( RefreshToolContext(), m_PointerImagePos );
+          return;
+        }
       }
       base.OnMouseDown( e );
+    }
+
+
+
+    private void ClearDeferredPress()
+    {
+      m_DeferredPressActive = false;
+      m_DeferredPressTool = null;
+      m_DeferredPressIsPen = false;
     }
 
 
@@ -2262,6 +2456,33 @@ namespace RetroDevStudio.Controls
       ||   ( m_ActiveTool is SelectionTool ) )
       {
         UpdateCursor();
+      }
+
+      if ( m_DeferredPressActive )
+      {
+        int dx = e.X - m_DeferredPressViewPos.X;
+        int dy = e.Y - m_DeferredPressViewPos.Y;
+        if ( dx * dx + dy * dy > CLICK_DRAG_THRESHOLD_VIEW * CLICK_DRAG_THRESHOLD_VIEW )
+        {
+          // A DRAG after all: the original tool gets the press it was owed,
+          // at the ORIGINAL point, and the move below continues the stroke
+          // exactly as if it had never been held back.
+          var tool = m_DeferredPressTool;
+          bool isPen = m_DeferredPressIsPen;
+          var pressPos = m_DeferredPressImagePos;
+          ClearDeferredPress();
+          if ( tool != null )
+          {
+            m_StrokeIsPen = isPen;
+            m_StrokeTool = tool;
+            m_ToolStrokeInFlight = true;
+            m_StrokeTool.OnPointerDown( RefreshToolContext(), pressPos );
+          }
+          else
+          {
+            ReleaseStrokeCapture();
+          }
+        }
       }
 
       if ( m_ToolStrokeInFlight )
@@ -2301,6 +2522,28 @@ namespace RetroDevStudio.Controls
         m_IsPanning = false;
         Capture = false;
         UpdateCursor();
+        return;
+      }
+      if ( ( m_DeferredPressActive )
+      &&   ( e.Button == MouseButtons.Left ) )
+      {
+        // Released within the threshold: a CLICK on an object. Hand over to
+        // the text tool (the editor flips its toolbar button, which sets
+        // ActiveTool synchronously) and replay the click through it — the
+        // object gets selected exactly as a text-tool click selects it.
+        var pressPos = m_DeferredPressImagePos;
+        ClearDeferredPress();
+        Capture = false;
+        TextToolRequested?.Invoke( this, EventArgs.Empty );
+        var textTool = m_ActiveTool as TextTool;
+        if ( ( textTool != null )
+        &&   ( m_Image != null ) )
+        {
+          textTool.OnPointerDown( RefreshToolContext(), pressPos );
+          textTool.OnPointerUp( RefreshToolContext(), pressPos );
+          UpdateCursor();
+          Invalidate();
+        }
         return;
       }
       if ( ( m_ToolStrokeInFlight )
@@ -2347,6 +2590,39 @@ namespace RetroDevStudio.Controls
       if ( ( ModifierKeys & Keys.Control ) == Keys.Control )
       {
         ZoomStep( e.Delta > 0 ? 1 : -1, e.Location );
+        return;
+      }
+      // A bare wheel resizes the round footprint under the pointer by one pixel
+      // per notch — the same one-step-per-event convention as the zoom above.
+      int step = ( e.Delta > 0 ) ? 1 : -1;
+      if ( ShiftEraseEngaged )
+      {
+        // Chord eraser: TEMPORARY size. It is not written to the toolbar and
+        // not persisted — it dies with the chord, leaving the eraser tool's own
+        // size untouched.
+        float current = m_ShiftEraserSize ?? EraserSize;
+        float resized = Math.Max( CHORD_SIZE_MIN, Math.Min( CHORD_SIZE_MAX, current + step ) );
+        if ( resized != current )
+        {
+          m_ShiftEraserSize = resized;
+          RefreshPointerGhost();
+        }
+        return;
+      }
+      // The eraser derives FROM the brush, so it must be tested first. Both
+      // sizes belong to the toolbar spinners: the handler writes the clamped
+      // value back into BrushSize/EraserSize before returning, so re-measuring
+      // the ghost afterwards shows the new footprint immediately.
+      if ( m_ActiveTool is EraserTool )
+      {
+        EraserSizeNudged?.Invoke( step );
+        RefreshPointerGhost();
+        return;
+      }
+      if ( m_ActiveTool is BrushTool )
+      {
+        BrushSizeNudged?.Invoke( step );
+        RefreshPointerGhost();
         return;
       }
       base.OnMouseWheel( e );
@@ -2396,6 +2672,24 @@ namespace RetroDevStudio.Controls
       {
         g.DrawRectangle( borderPen, destRect.X - 1, destRect.Y - 1,
                          destRect.Width + 1, destRect.Height + 1 );
+      }
+
+      // The tool drawing this paint's previews: the stroke tool mid-stroke,
+      // else whatever a press would go to (see HoverTool). Chosen ONCE so the
+      // raster pass below and the overlay pass further down agree — and the
+      // same call GhostViewRect makes, so the invalidated region always
+      // matches what is drawn.
+      var previewTool = m_StrokeTool ?? HoverTool();
+
+      // Raster preview pass — previews that stand in for pixels about to land
+      // in the raster (a selection move's vacated source + floating pixels, a
+      // shape being dragged out). Drawn HERE, under the grid and the objects,
+      // because that is where the committed pixels will be: the objects float
+      // above the raster before and after every edit, so an opaque stand-in
+      // painted over them would hide them for the length of the drag.
+      if ( previewTool != null )
+      {
+        previewTool.OnPaintRasterPreview( RefreshToolContext(), g, ImageToView, m_Zoom, m_PointerImagePos );
       }
 
       // Layout grid — an image-space lattice anchored at the picture's
@@ -2464,22 +2758,11 @@ namespace RetroDevStudio.Controls
         }
       }
 
-      // Tool overlay pass — in-flight shape previews, brush-size ghost. During
-      // a flip-erase stroke this is the eraser; while merely HOVERING with a
-      // flipped pen, preview the eraser too so the ghost matches what a press
-      // will do (mirrors GhostViewRect's selection so the invalidation region
-      // and the drawn ghost agree).
-      var previewTool = m_StrokeTool;
-      if ( previewTool == null )
-      {
-        // Hovering with a flipped pen previews the eraser footprint — but never
-        // at the cost of hiding an active tool's LIVE pending edit (an open
-        // text box must stay visible while the pen hovers).
-        bool flipHover = ( m_Pen.Current.InProximity && m_Pen.Current.IsEraser && PenFlipEraser )
-                      && ( ( m_ActiveTool == null )
-                      ||   ( !m_ActiveTool.HasPendingEdit ) );
-        previewTool = flipHover ? (IOutlineTool)m_PenEraser : m_ActiveTool;
-      }
+      // Tool overlay pass — brush-size ghost, in-flight marquee, the text
+      // tool's edit box: whatever must read on TOP of the content. During an
+      // erase-chord stroke this is the eraser; while merely HOVERING with the
+      // chord held (flipped pen or Shift), the eraser too, so the ring matches
+      // what a press will do. (Same tool as the raster pass above.)
       if ( previewTool != null )
       {
         previewTool.OnPaintPreview( RefreshToolContext(), g, ImageToView, m_Zoom, m_PointerImagePos );
