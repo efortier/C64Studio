@@ -154,6 +154,12 @@ namespace RetroDevStudio.Formats
       public int        TileIndex = 0;
       public int        ID = 0;
       public int        TagID = 0;
+      /// <summary>
+      /// Editor-only: which charset's tile library the Entities tab shows
+      /// this type's TileIndex with. Persisted, NEVER exported — the runtime
+      /// reads TileIndex in each map's own charset.
+      /// </summary>
+      public int        PreviewCharsetIndex = 0;
     };
 
     /// <summary>
@@ -264,6 +270,101 @@ namespace RetroDevStudio.Formats
       public Tile()
       {
         Chars.InvalidTile = new TileChar();
+      }
+    };
+
+    /// <summary>
+    /// One character set of the project together with the TILE LIBRARY built
+    /// on it. A map picks a charset by index (Map.CharsetIndex) and its cell
+    /// values are positions in THAT charset's Tiles list. Index 0 always
+    /// exists: files from before multiple charsets load into it, and it keeps
+    /// living in the legacy MAP_CHARSET / MAP_TILE chunks so older builds
+    /// still open the file (they simply never see charsets >= 1).
+    /// </summary>
+    public class MapCharset
+    {
+      public CharsetProject   Charset = new CharsetProject();
+      public List<Tile>       Tiles = new List<Tile>();
+      /// <summary>Editor-only label; "" = the editor shows "Charset N".</summary>
+      public string           DisplayName = "";
+      /// <summary>File name of this charset's exported file (map exports).</summary>
+      public string           ExportName = "";
+      /// <summary>
+      /// Unchecked = dropped from the game-binary export; later exported
+      /// charsets shift down (see ExportedCharsets / ExportCharsetIndex).
+      /// </summary>
+      public bool             ExportEnabled = true;
+      // Tile-NAME settings that used to be project-wide: tile names are per
+      // tile library now, so the settings follow the library. Stored by name
+      // (not index) because tile indices shift when the list is rearranged.
+      /// <summary>Tile dropped by a right-click on the map; "" = default behavior.</summary>
+      public string           RightClickAction = "";
+      /// <summary>Tile dropped by shift+left-click; "" = the editor falls back to tile 0.</summary>
+      public string           ShiftClickBlankTile = "";
+
+      public MapCharset()
+      {
+        SeedDefaultCharacters( Charset );
+      }
+
+      /// <summary>
+      /// The C64 upper-case ROM font with CustomColor 1 — what every fresh
+      /// charset starts from (this used to live in the MapProject ctor).
+      /// </summary>
+      public static void SeedDefaultCharacters( CharsetProject Charset )
+      {
+        for ( int i = 0; i < 256; ++i )
+        {
+          for ( int j = 0; j < 8; ++j )
+          {
+            Charset.Characters[i].Tile.CustomColor = 1;
+            Charset.Characters[i].Tile.Data.SetU8At( j, ConstantData.UpperCaseCharsetC64.ByteAt( i * 8 + j ) );
+          }
+        }
+      }
+
+      /// <summary>Rebuilds the cached Tile.Index positions (never persisted).</summary>
+      public void ReindexTiles()
+      {
+        for ( int i = 0; i < Tiles.Count; ++i )
+        {
+          Tiles[i].Index = i;
+        }
+      }
+
+      /// <summary>
+      /// Deep copy. The art/palette/playground round-trips through the
+      /// charset's own serializer and the tiles through the MAP_TILE chunk
+      /// helpers — robust by construction, like CloneMap.
+      /// </summary>
+      public MapCharset Clone()
+      {
+        var copy = new MapCharset();
+        copy.Charset.ReadFromBuffer( Charset.SaveToBuffer() );
+        foreach ( var tile in Tiles )
+        {
+          copy.Tiles.Add( CloneTile( tile ) );
+        }
+        copy.ReindexTiles();
+        copy.DisplayName         = DisplayName;
+        copy.ExportName          = ExportName;
+        copy.ExportEnabled       = ExportEnabled;
+        copy.RightClickAction    = RightClickAction;
+        copy.ShiftClickBlankTile = ShiftClickBlankTile;
+        return copy;
+      }
+
+      /// <summary>Same mechanics as CloneMap: serialize the tile, read it back.</summary>
+      public static Tile CloneTile( Tile Source )
+      {
+        var chunk = new GR.IO.FileChunk();
+        if ( !chunk.ReadFromStream( new GR.IO.MemoryReader( BuildTileChunk( Source ).ToBuffer() ) ) )
+        {
+          return new Tile();
+        }
+        var tile = ReadTileChunk( chunk.MemoryReader() );
+        tile.Index = Source.Index;
+        return tile;
       }
     };
 
@@ -423,6 +524,16 @@ namespace RetroDevStudio.Formats
       /// explicit single-map exports are unaffected.
       /// </summary>
       public bool               NotExported = false;
+
+      /// <summary>
+      /// Index into MapProject.Charsets of the character set (and tile
+      /// library) this map is painted with. Tile indices in the layers are
+      /// positions in THAT charset's tile list. Switching a map to another
+      /// charset keeps the indices; cells beyond the new charset's tile count
+      /// render as empty and export as the empty tile. Persisted as one byte
+      /// appended to MAP_INFO; rides revisions, scratch blobs and CloneMap.
+      /// </summary>
+      public int                CharsetIndex = 0;
 
       /// <summary>
       /// overrides Project.Mode when set (e.g. display MC instead of hires)
@@ -585,6 +696,18 @@ namespace RetroDevStudio.Formats
         // Only applied when OverrideLoadAddress is true and the hex is valid.
         public bool   OverrideLoadAddress = false;
         public string OverrideLoadAddressHex = "";
+        // v29: charset-labels + map-labels sidecars. Both land in the CHARSET
+        // export directory (CharsetExportDirectory), so they carry no
+        // directory field. The ExportCharset / CharsetExportFilename fields
+        // above are DEAD since v29 (the per-charset ExportEnabled/ExportName
+        // replaced them) but keep being written and read so the chunk's
+        // sequential layout stays stable — and they seed the migration once.
+        public bool   ExportCharsetLabels = true;
+        public string CharsetLabelsFilename = "map_charsets.asm";
+        public string CharsetLabelsPrefix = "";
+        public bool   ExportMapLabels = true;
+        public string MapLabelsFilename = "map_names.asm";
+        public string MapLabelsPrefix = "";
       }
 
       public class TargetSettings
@@ -605,7 +728,14 @@ namespace RetroDevStudio.Formats
     };
 
 
-    public List<Tile>                   Tiles = new List<Tile>();
+    /// <summary>
+    /// The project's character sets, each with its own tile library. Never
+    /// empty — index 0 is the default set every map starts on. Add/remove
+    /// ONLY through AddCharset / DuplicateCharset / InsertCharset /
+    /// RemoveCharset so every index reference (maps, revision snapshots,
+    /// entity previews, the tab selection) is shifted along.
+    /// </summary>
+    public List<MapCharset>             Charsets = new List<MapCharset>() { new MapCharset() };
     public List<MarkerType>             MarkerTypes = new List<MarkerType>();
     public List<EntityType>             EntityTypes = new List<EntityType>();
     public List<MapString>              MapStrings = new List<MapString>();
@@ -616,15 +746,6 @@ namespace RetroDevStudio.Formats
     public int                          MultiColor1 = 0;
     public int                          MultiColor2 = 0;
     public int                          BGColor4 = 0;
-    public string                       RightClickAction = "";
-    /// <summary>
-    /// Name of the tile to drop when the user shift+left-clicks on the map.
-    /// Empty string = "no shift-click behavior configured" — the editor
-    /// should fall back to writing tile index 0 in that case. Stored by
-    /// name (not index) for the same reason RightClickAction is: tile
-    /// indices shift around when the user rearranges the tile list.
-    /// </summary>
-    public string                       ShiftClickBlankTile = "";
     /// <summary>
     /// C64 palette index (0..15) written into TileColorOverrides[x,y] when
     /// shift+left-clicking. -1 has been reserved as "no override" elsewhere
@@ -652,7 +773,6 @@ namespace RetroDevStudio.Formats
     /// This mode is used to display/build the tiles
     /// </summary>
     public TextMode                     Mode = TextMode.COMMODORE_40_X_25_HIRES;
-    public CharsetProject               Charset = new Formats.CharsetProject();
     public bool                         ShowGrid = false;
     /// <summary>
     /// State of the Auto-tiling toggle on the Map tab. When true, the
@@ -812,6 +932,17 @@ namespace RetroDevStudio.Formats
     /// </summary>
     public int                          StartMapIndex = 0;
     /// <summary>
+    /// Index into <see cref="Charsets"/> of the character set selected on the
+    /// editor's Character Set tab. Persisted like CurrentMapIndex; clamped on
+    /// load. Editor view state — changing it never dirties the document.
+    /// </summary>
+    public int                          CurrentCharsetIndex = 0;
+    /// <summary>
+    /// "Show charset for selected map": when true the Character Set tab
+    /// re-selects the current map's charset each time the tab is opened.
+    /// </summary>
+    public bool                         CharsetTabFollowsMap = true;
+    /// <summary>
     /// Vestigial. The map editor's "Keep map character aspect ratio" toggle
     /// was removed once rendering switched to integer-scale (which preserves
     /// aspect by construction), so nothing reads this anymore. The field and
@@ -830,25 +961,17 @@ namespace RetroDevStudio.Formats
 
     public MapProject()
     {
-      for ( int i = 0; i < 256; ++i )
-      {
-        for ( int j = 0; j < 8; ++j )
-        {
-          Charset.Characters[i].Tile.CustomColor = 1;
-          Charset.Characters[i].Tile.Data.SetU8At( j, ConstantData.UpperCaseCharsetC64.ByteAt( i * 8 + j ) );
-        }
-      }
+      // Charset 0 seeds itself with the default font (MapCharset ctor).
     }
 
 
 
     public void Clear()
     {
-      Tiles.Clear();
+      ResetCharsetsToSingleDefault();
       Maps.Clear();
       MapStrings.Clear();
       ExternalCharset = "";
-      RightClickAction = "";
       CharactersPerRow = 16;
       CharacterEditorMode = 1;
       SpriteProjectFilename = "";
@@ -865,6 +988,458 @@ namespace RetroDevStudio.Formats
 
 
 
+    // ---- Multiple character sets -----------------------------------------
+
+    /// <summary>
+    /// Back to exactly one default charset slot, KEEPING slot 0's objects:
+    /// the editor binds Charsets[0].Charset (characterEditor.CharsetUpdated)
+    /// and the legacy MAP_CHARSET read replaces that object's content in
+    /// place, exactly as the single-charset code did. The tile list is
+    /// emptied too, so a reused instance never concatenates MAP_TILE chunks
+    /// onto stale tiles.
+    /// </summary>
+    private void ResetCharsetsToSingleDefault()
+    {
+      if ( Charsets.Count == 0 )
+      {
+        Charsets.Add( new MapCharset() );
+      }
+      if ( Charsets.Count > 1 )
+      {
+        Charsets.RemoveRange( 1, Charsets.Count - 1 );
+      }
+      var first = Charsets[0];
+      first.Tiles.Clear();
+      first.DisplayName = "";
+      first.ExportName = "";
+      first.ExportEnabled = true;
+      first.RightClickAction = "";
+      first.ShiftClickBlankTile = "";
+      // first.Charset is deliberately untouched: a file without MAP_CHARSET
+      // keeps the previous art, exactly as before this change.
+      CurrentCharsetIndex = 0;
+      CharsetTabFollowsMap = true;
+    }
+
+
+
+    /// <summary>
+    /// Grows the list with default slots so META / ENTRY chunks may arrive in
+    /// any order. Index 0 always exists.
+    /// </summary>
+    private MapCharset EnsureCharsetSlot( int Index )
+    {
+      while ( Charsets.Count <= Index )
+      {
+        Charsets.Add( new MapCharset() );
+      }
+      return Charsets[Index];
+    }
+
+
+
+    /// <summary>
+    /// Pulls every charset reference back into range after a load (stale
+    /// files, charsets dropped by an older build).
+    /// </summary>
+    private void ClampCharsetReferences()
+    {
+      int max = Charsets.Count - 1;
+      CurrentCharsetIndex = Math.Max( 0, Math.Min( max, CurrentCharsetIndex ) );
+      foreach ( var map in Maps )
+      {
+        map.CharsetIndex = Math.Max( 0, Math.Min( max, map.CharsetIndex ) );
+        foreach ( var revision in map.Revisions )
+        {
+          if ( revision.Snapshot != null )
+          {
+            revision.Snapshot.CharsetIndex = Math.Max( 0, Math.Min( max, revision.Snapshot.CharsetIndex ) );
+          }
+        }
+      }
+      foreach ( var entityType in EntityTypes )
+      {
+        entityType.PreviewCharsetIndex = Math.Max( 0, Math.Min( max, entityType.PreviewCharsetIndex ) );
+      }
+    }
+
+
+
+    /// <summary>
+    /// Out-of-range indexes (stale files, removed charsets) fall back to
+    /// charset 0 — never throws.
+    /// </summary>
+    public MapCharset CharsetAt( int Index )
+    {
+      if ( ( Index < 0 )
+      ||   ( Index >= Charsets.Count ) )
+      {
+        return Charsets[0];
+      }
+      return Charsets[Index];
+    }
+
+
+
+    /// <summary>The charset (and tile library) a map is painted with; null → charset 0.</summary>
+    public MapCharset CharsetOf( Map map )
+    {
+      return CharsetAt( ( map == null ) ? 0 : map.CharsetIndex );
+    }
+
+
+
+    /// <summary>
+    /// Live maps (the Maps list) bound to the charset. Revision snapshots and
+    /// the editor's scratch maps are not included. A map whose index is out
+    /// of range counts as bound to charset 0, matching CharsetOf.
+    /// </summary>
+    public List<Map> MapsUsingCharset( int Index )
+    {
+      var result = new List<Map>();
+      if ( ( Index < 0 )
+      ||   ( Index >= Charsets.Count ) )
+      {
+        return result;
+      }
+      foreach ( var map in Maps )
+      {
+        if ( CharsetOf( map ) == Charsets[Index] )
+        {
+          result.Add( map );
+        }
+      }
+      return result;
+    }
+
+
+
+    /// <summary>
+    /// False when it is the last charset or a live map uses it; Users then
+    /// lists those maps' names. Revision snapshots and scratch maps never
+    /// block (their references fall back to charset 0 on removal).
+    /// </summary>
+    public bool CanRemoveCharset( int Index, out List<string> Users )
+    {
+      Users = new List<string>();
+      if ( ( Index < 0 )
+      ||   ( Index >= Charsets.Count )
+      ||   ( Charsets.Count <= 1 ) )
+      {
+        return false;
+      }
+      foreach ( var map in MapsUsingCharset( Index ) )
+      {
+        Users.Add( map.Name );
+      }
+      return ( Users.Count == 0 );
+    }
+
+
+
+    /// <summary>
+    /// Appends a fresh charset (default font, empty tile list) whose mode,
+    /// colors and palettes are copied from charset 0. Returns the new index,
+    /// or -1 when 256 charsets exist (CharsetIndex is one byte on the wire).
+    /// </summary>
+    public int AddCharset()
+    {
+      if ( Charsets.Count >= 256 )
+      {
+        return -1;
+      }
+      var cs = new MapCharset();
+      CopyModeAndColors( Charsets[0].Charset, cs.Charset );
+      Charsets.Add( cs );
+      return Charsets.Count - 1;
+    }
+
+
+
+    /// <summary>
+    /// Deep copy of Charsets[Index] appended at the END (no index churn for
+    /// existing maps). DisplayName gets " (copy)"; ExportName is cleared so
+    /// two charsets never default to the same output file. -1 when full or
+    /// out of range.
+    /// </summary>
+    public int DuplicateCharset( int Index )
+    {
+      if ( ( Index < 0 )
+      ||   ( Index >= Charsets.Count )
+      ||   ( Charsets.Count >= 256 ) )
+      {
+        return -1;
+      }
+      var copy = Charsets[Index].Clone();
+      copy.DisplayName = ( string.IsNullOrEmpty( copy.DisplayName ) ? ( "Charset " + Index ) : copy.DisplayName ) + " (copy)";
+      copy.ExportName = "";
+      Charsets.Add( copy );
+      return Charsets.Count - 1;
+    }
+
+
+
+    /// <summary>
+    /// Removes the charset and shifts every reference above it down by one.
+    /// References that pointed AT it (only possible for revision snapshots,
+    /// scratch maps and entity previews — live maps are refused) fall back
+    /// to 0. CurrentCharsetIndex shifts like the rest; if it pointed at the
+    /// removed charset it lands on the slot now occupying that position (or
+    /// the last one). AdditionalMaps = maps living outside Maps (the editor's
+    /// scratch workspaces). False when refused (see CanRemoveCharset).
+    /// </summary>
+    public bool RemoveCharset( int Index, IEnumerable<Map> AdditionalMaps = null )
+    {
+      List<string> users;
+      if ( !CanRemoveCharset( Index, out users ) )
+      {
+        return false;
+      }
+      Charsets.RemoveAt( Index );
+      foreach ( var map in Maps )
+      {
+        RemapCharsetIndexAfterRemoval( map, Index );
+      }
+      if ( AdditionalMaps != null )
+      {
+        foreach ( var map in AdditionalMaps )
+        {
+          RemapCharsetIndexAfterRemoval( map, Index );
+        }
+      }
+      foreach ( var entityType in EntityTypes )
+      {
+        entityType.PreviewCharsetIndex = ShiftIndexAfterRemoval( entityType.PreviewCharsetIndex, Index );
+      }
+      if ( CurrentCharsetIndex > Index )
+      {
+        --CurrentCharsetIndex;
+      }
+      else if ( CurrentCharsetIndex == Index )
+      {
+        CurrentCharsetIndex = Math.Min( Index, Charsets.Count - 1 );
+      }
+      return true;
+    }
+
+
+
+    /// <summary>
+    /// Inverse of RemoveCharset (for undo): inserts the charset at Index and
+    /// shifts every reference >= Index up by one. Restoring the tab selection
+    /// exactly is the caller's job (it may have pointed at the removed slot).
+    /// </summary>
+    public void InsertCharset( int Index, MapCharset Charset, IEnumerable<Map> AdditionalMaps = null )
+    {
+      Index = Math.Max( 0, Math.Min( Charsets.Count, Index ) );
+      Charsets.Insert( Index, Charset );
+      foreach ( var map in Maps )
+      {
+        RemapCharsetIndexAfterInsert( map, Index );
+      }
+      if ( AdditionalMaps != null )
+      {
+        foreach ( var map in AdditionalMaps )
+        {
+          RemapCharsetIndexAfterInsert( map, Index );
+        }
+      }
+      foreach ( var entityType in EntityTypes )
+      {
+        entityType.PreviewCharsetIndex = ShiftIndexAfterInsert( entityType.PreviewCharsetIndex, Index );
+      }
+      if ( CurrentCharsetIndex >= Index )
+      {
+        ++CurrentCharsetIndex;
+      }
+    }
+
+
+
+    /// <summary>The per-map removal rule (map + its revision snapshots), public for maps the editor owns privately.</summary>
+    public static void RemapCharsetIndexAfterRemoval( Map map, int RemovedIndex )
+    {
+      map.CharsetIndex = ShiftIndexAfterRemoval( map.CharsetIndex, RemovedIndex );
+      foreach ( var revision in map.Revisions )
+      {
+        if ( revision.Snapshot != null )
+        {
+          revision.Snapshot.CharsetIndex = ShiftIndexAfterRemoval( revision.Snapshot.CharsetIndex, RemovedIndex );
+        }
+      }
+    }
+
+
+
+    /// <summary>The per-map insertion rule (map + its revision snapshots).</summary>
+    public static void RemapCharsetIndexAfterInsert( Map map, int InsertedIndex )
+    {
+      map.CharsetIndex = ShiftIndexAfterInsert( map.CharsetIndex, InsertedIndex );
+      foreach ( var revision in map.Revisions )
+      {
+        if ( revision.Snapshot != null )
+        {
+          revision.Snapshot.CharsetIndex = ShiftIndexAfterInsert( revision.Snapshot.CharsetIndex, InsertedIndex );
+        }
+      }
+    }
+
+
+
+    private static int ShiftIndexAfterRemoval( int Value, int RemovedIndex )
+    {
+      if ( Value == RemovedIndex )
+      {
+        return 0;
+      }
+      if ( Value > RemovedIndex )
+      {
+        return Value - 1;
+      }
+      return Value;
+    }
+
+
+
+    private static int ShiftIndexAfterInsert( int Value, int InsertedIndex )
+    {
+      return ( Value >= InsertedIndex ) ? Value + 1 : Value;
+    }
+
+
+
+    /// <summary>
+    /// Deep-copies mode, the colors and every palette (no shared Palette
+    /// objects — the editor replaces Palettes[0] wholesale per charset).
+    /// </summary>
+    private static void CopyModeAndColors( CharsetProject From, CharsetProject To )
+    {
+      To.Mode = From.Mode;
+      To.Colors.BackgroundColor = From.Colors.BackgroundColor;
+      To.Colors.MultiColor1     = From.Colors.MultiColor1;
+      To.Colors.MultiColor2     = From.Colors.MultiColor2;
+      To.Colors.BGColor4        = From.Colors.BGColor4;
+      To.Colors.CustomColor     = From.Colors.CustomColor;
+      To.Colors.Palettes.Clear();
+      foreach ( var palette in From.Colors.Palettes )
+      {
+        To.Colors.Palettes.Add( new Palette( palette ) );
+      }
+      To.Colors.ActivePalette = From.Colors.ActivePalette;
+      To.Colors.PaletteOffset = From.Colors.PaletteOffset;
+      To.Colors.PaletteIndexMapping = new List<List<int>>();
+      foreach ( var mapping in From.Colors.PaletteIndexMapping )
+      {
+        To.Colors.PaletteIndexMapping.Add( new List<int>( mapping ) );
+      }
+      To.Colors.PaletteMappingIndex = From.Colors.PaletteMappingIndex;
+    }
+
+
+
+    /// <summary>
+    /// Load-time fan-out — exactly what the single-charset loader did
+    /// (MC1/MC2/BGColor4 only; BackgroundColor and Mode are owned by each
+    /// charset's own nested chunks), now for every charset.
+    /// </summary>
+    public void SyncCharsetColorsFromProject()
+    {
+      foreach ( var cs in Charsets )
+      {
+        cs.Charset.Colors.MultiColor1 = MultiColor1;
+        cs.Charset.Colors.MultiColor2 = MultiColor2;
+        cs.Charset.Colors.BGColor4    = BGColor4;
+      }
+    }
+
+
+
+    /// <summary>Sets the project background color and mirrors it into every charset.</summary>
+    public void SetAllCharsetsBackgroundColor( int Color )
+    {
+      BackgroundColor = Color;
+      foreach ( var cs in Charsets )
+      {
+        cs.Charset.Colors.BackgroundColor = Color;
+      }
+    }
+
+
+
+    /// <summary>Mirrors a text-char mode into every charset.</summary>
+    public void SetAllCharsetsMode( TextCharMode CharMode )
+    {
+      foreach ( var cs in Charsets )
+      {
+        cs.Charset.Mode = CharMode;
+      }
+    }
+
+
+
+    // ---- MAP_TILE chunk helpers, shared by charset 0 (inside MAP_PROJECT_DATA),
+    // charsets >= 1 (inside their MAP_CHARSET_ENTRY) and MapCharset.CloneTile.
+    // Layout (unchanged): [string Name][i32 W][i32 H][(u8 char,u8 color) x W*H]
+    // [u8 Passable][u8 NotExportedOnMap][i32 GroupId] — the last three are
+    // read guarded (older files stop after the characters).
+    private static GR.IO.FileChunk BuildTileChunk( Tile tile )
+    {
+      GR.IO.FileChunk chunkTile = new GR.IO.FileChunk( FileChunkConstants.MAP_TILE );
+
+      chunkTile.AppendString( tile.Name );
+      chunkTile.AppendI32( tile.Chars.Width );
+      chunkTile.AppendI32( tile.Chars.Height );
+      for ( int j = 0; j < tile.Chars.Height; ++j )
+      {
+        for ( int i = 0; i < tile.Chars.Width; ++i )
+        {
+          TileChar    tChar = tile.Chars[i, j];
+          chunkTile.AppendU8( tChar.Character );
+          chunkTile.AppendU8( tChar.Color );
+        }
+      }
+      chunkTile.AppendU8( tile.Passable ? (byte)1 : (byte)0 );
+      chunkTile.AppendU8( tile.NotExportedOnMap ? (byte)1 : (byte)0 );
+      chunkTile.AppendI32( tile.GroupId );
+      return chunkTile;
+    }
+
+
+
+    private static Tile ReadTileChunk( GR.IO.MemoryReader Reader )
+    {
+      Tile tile = new Tile();
+      tile.Name = Reader.ReadString();
+
+      int w = Reader.ReadInt32();
+      int h = Reader.ReadInt32();
+
+      tile.Chars.Resize( w, h );
+      for ( int j = 0; j < tile.Chars.Height; ++j )
+      {
+        for ( int i = 0; i < tile.Chars.Width; ++i )
+        {
+          tile.Chars[i, j].Character = Reader.ReadUInt8();
+          tile.Chars[i, j].Color = Reader.ReadUInt8();
+        }
+      }
+      if ( Reader.Position < Reader.Size )
+      {
+        tile.Passable = ( Reader.ReadUInt8() != 0 );
+      }
+      if ( Reader.Position < Reader.Size )
+      {
+        tile.NotExportedOnMap = ( Reader.ReadUInt8() != 0 );
+      }
+      if ( Reader.Position < Reader.Size )
+      {
+        tile.GroupId = Reader.ReadInt32();
+      }
+      return tile;
+    }
+
+
+
     public GR.Memory.ByteBuffer SaveToBuffer()
     {
       GR.Memory.ByteBuffer projectFile = new GR.Memory.ByteBuffer();
@@ -874,7 +1449,9 @@ namespace RetroDevStudio.Formats
       chunkProjectInfo.AppendU32( 6 );
       chunkProjectInfo.AppendString( ExternalCharset );
       chunkProjectInfo.AppendI32( ShowGrid ? 1 : 0 );
-      chunkProjectInfo.AppendString( RightClickAction );
+      // Charset 0's right-click tile name in its historical slot (old builds
+      // keep reading it here; new builds prefer MAP_CHARSET_META).
+      chunkProjectInfo.AppendString( Charsets[0].RightClickAction ?? "" );
       chunkProjectInfo.AppendI32( KeepCharacterAspectRatio ? 1 : 0 );
       chunkProjectInfo.AppendI32( CharactersPerRow );
       chunkProjectInfo.AppendI32( CharacterEditorMode );
@@ -885,7 +1462,7 @@ namespace RetroDevStudio.Formats
       // side at the bottom of MAP_PROJECT_INFO's case.
       chunkProjectInfo.AppendI32( CurrentMapIndex );
       // Shift-click "blank" tile + color, also appended.
-      chunkProjectInfo.AppendString( ShiftClickBlankTile ?? "" );
+      chunkProjectInfo.AppendString( Charsets[0].ShiftClickBlankTile ?? "" );
       chunkProjectInfo.AppendI32( ShiftClickBlankColor );
       // Grid opacity (0..100). Append-only.
       chunkProjectInfo.AppendI32( GridOpacity );
@@ -936,6 +1513,10 @@ namespace RetroDevStudio.Formats
       chunkProjectInfo.AppendI32( MemoFontSize );
       // Map memo popup window geometry. Append-only.
       chunkProjectInfo.AppendString( MemoWindowPlacement ?? "" );
+      // Character Set tab selection + "follow the current map" toggle.
+      // Append-only; old files keep the defaults (0 / true).
+      chunkProjectInfo.AppendI32( CurrentCharsetIndex );
+      chunkProjectInfo.AppendU8( CharsetTabFollowsMap ? (byte)1 : (byte)0 );
       projectFile.Append( chunkProjectInfo.ToBuffer() );
 
       // Per-project CRT display filters. Written only once the editor has
@@ -999,9 +1580,27 @@ namespace RetroDevStudio.Formats
         projectFile.Append( chunkOutlineTools.ToBuffer() );
       }
 
+      // Charset 0 stays in the legacy MAP_CHARSET chunk (byte-identical to
+      // single-charset files); its tiles stay inside MAP_PROJECT_DATA below.
       GR.IO.FileChunk chunkCharset = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET );
-      chunkCharset.Append( Charset.SaveToBuffer() );
+      chunkCharset.Append( Charsets[0].Charset.SaveToBuffer() );
       projectFile.Append( chunkCharset.ToBuffer() );
+
+      // Per-charset metadata, one chunk per charset INCLUDING index 0. Old
+      // builds skip the unknown chunk; a file without META for index 0 is a
+      // legacy file and migrates the project-level fields on load.
+      for ( int ci = 0; ci < Charsets.Count; ++ci )
+      {
+        var cs = Charsets[ci];
+        GR.IO.FileChunk chunkMeta = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET_META );
+        chunkMeta.AppendI32( ci );
+        chunkMeta.AppendString( cs.DisplayName ?? "" );
+        chunkMeta.AppendString( cs.ExportName ?? "" );
+        chunkMeta.AppendU8( cs.ExportEnabled ? (byte)1 : (byte)0 );
+        chunkMeta.AppendString( cs.RightClickAction ?? "" );
+        chunkMeta.AppendString( cs.ShiftClickBlankTile ?? "" );
+        projectFile.Append( chunkMeta.ToBuffer() );
+      }
 
       GR.IO.FileChunk chunkProjectData = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_DATA );
 
@@ -1035,6 +1634,9 @@ namespace RetroDevStudio.Formats
         chunkEntityType.AppendString( entityType.ExportSymbol ?? "" );
         chunkEntityType.AppendI32( entityType.TileIndex );
         chunkEntityType.AppendU8( (byte)entityType.TagID );
+        // Appended for PreviewCharsetIndex — editor preview only, never
+        // exported. Older readers stop after TagID and keep the default 0.
+        chunkEntityType.AppendU8( (byte)Math.Max( 0, Math.Min( 255, entityType.PreviewCharsetIndex ) ) );
         chunkProjectData.Append( chunkEntityType.ToBuffer() );
       }
 
@@ -1072,26 +1674,10 @@ namespace RetroDevStudio.Formats
         chunkProjectData.Append( chunkMapString.ToBuffer() );
       }
 
-      foreach ( Tile tile in Tiles )
+      // Charset 0's tiles keep their historical place inside MAP_PROJECT_DATA.
+      foreach ( Tile tile in Charsets[0].Tiles )
       {
-        GR.IO.FileChunk chunkTile = new GR.IO.FileChunk( FileChunkConstants.MAP_TILE );
-
-        chunkTile.AppendString( tile.Name );
-        chunkTile.AppendI32( tile.Chars.Width );
-        chunkTile.AppendI32( tile.Chars.Height );
-        for ( int j = 0; j < tile.Chars.Height; ++j )
-        {
-          for ( int i = 0; i < tile.Chars.Width; ++i )
-          {
-            TileChar    tChar = tile.Chars[i, j];
-            chunkTile.AppendU8( tChar.Character );
-            chunkTile.AppendU8( tChar.Color );
-          }
-        }
-        chunkTile.AppendU8( tile.Passable ? (byte)1 : (byte)0 );
-        chunkTile.AppendU8( tile.NotExportedOnMap ? (byte)1 : (byte)0 );
-        chunkTile.AppendI32( tile.GroupId );
-        chunkProjectData.Append( chunkTile.ToBuffer() );
+        chunkProjectData.Append( BuildTileChunk( tile ).ToBuffer() );
       }
       foreach ( Map map in Maps )
       {
@@ -1103,8 +1689,27 @@ namespace RetroDevStudio.Formats
 
       projectFile.Append( chunkProjectData.ToBuffer() );
 
+      // Charsets 1..N-1: one container each with its index, its nested
+      // charset image and its tiles (same MAP_TILE layout as charset 0's).
+      for ( int ci = 1; ci < Charsets.Count; ++ci )
+      {
+        var cs = Charsets[ci];
+        GR.IO.FileChunk chunkEntry = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET_ENTRY );
+        GR.IO.FileChunk chunkEntryInfo = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET_ENTRY_INFO );
+        chunkEntryInfo.AppendI32( ci );
+        chunkEntry.Append( chunkEntryInfo.ToBuffer() );
+        GR.IO.FileChunk chunkEntryData = new GR.IO.FileChunk( FileChunkConstants.MAP_CHARSET_ENTRY_DATA );
+        chunkEntryData.Append( cs.Charset.SaveToBuffer() );
+        chunkEntry.Append( chunkEntryData.ToBuffer() );
+        foreach ( Tile tile in cs.Tiles )
+        {
+          chunkEntry.Append( BuildTileChunk( tile ).ToBuffer() );
+        }
+        projectFile.Append( chunkEntry.ToBuffer() );
+      }
+
       GR.IO.FileChunk chunkExportSettings = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_EXPORT_SETTINGS );
-      chunkExportSettings.AppendU32( 28 );
+      chunkExportSettings.AppendU32( 29 );
       chunkExportSettings.AppendI32(Settings.ExportDataIndex );
       chunkExportSettings.AppendI32(Settings.ExportOrientationIndex );
       chunkExportSettings.AppendI32( Settings.ExportMethodIndex );
@@ -1209,6 +1814,13 @@ namespace RetroDevStudio.Formats
       // version 28: override compressed-map load address (--relocate-origin)
       chunkExportSettings.AppendI32( Settings.GameBinary.OverrideLoadAddress ? 1 : 0 );
       chunkExportSettings.AppendString( Settings.GameBinary.OverrideLoadAddressHex ?? "" );
+      // version 29: charset-labels and map-labels sidecars
+      chunkExportSettings.AppendI32( Settings.GameBinary.ExportCharsetLabels ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.GameBinary.CharsetLabelsFilename ?? "" );
+      chunkExportSettings.AppendString( Settings.GameBinary.CharsetLabelsPrefix ?? "" );
+      chunkExportSettings.AppendI32( Settings.GameBinary.ExportMapLabels ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.GameBinary.MapLabelsFilename ?? "" );
+      chunkExportSettings.AppendString( Settings.GameBinary.MapLabelsPrefix ?? "" );
       projectFile.Append( chunkExportSettings.ToBuffer() );
       return projectFile;
     }
@@ -1221,6 +1833,14 @@ namespace RetroDevStudio.Formats
       {
         return false;
       }
+
+      // Always start from exactly one default charset slot (keeping slot 0's
+      // objects alive — the editor binds them), so a reused instance can
+      // never concatenate tiles or keep charsets from a previous file.
+      ResetCharsetsToSingleDefault();
+      string legacyRightClickAction    = "";
+      string legacyShiftClickBlankTile = "";
+      var    charsetMetaSeen           = new HashSet<int>();
 
       GR.IO.MemoryReader    memReader = new GR.IO.MemoryReader( ProjectFile );
 
@@ -1240,7 +1860,7 @@ namespace RetroDevStudio.Formats
               ShowGrid = ( chunkReader.ReadInt32() == 1 );
               if ( version >= 1 )
               {
-                RightClickAction = chunkReader.ReadString();
+                legacyRightClickAction = chunkReader.ReadString();
               }
               if ( version >= 2 )
               {
@@ -1280,7 +1900,7 @@ namespace RetroDevStudio.Formats
               // optional appendages; if either is missing, defaults stick.
               if ( chunkReader.Size - chunkReader.Position >= 4 )
               {
-                ShiftClickBlankTile = chunkReader.ReadString();
+                legacyShiftClickBlankTile = chunkReader.ReadString();
               }
               if ( chunkReader.Size - chunkReader.Position >= 4 )
               {
@@ -1404,6 +2024,16 @@ namespace RetroDevStudio.Formats
               {
                 MemoWindowPlacement = chunkReader.ReadString();
               }
+              // Character Set tab selection + follow toggle (append-only; the
+              // index is clamped in the post-pass once all charsets are known).
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                CurrentCharsetIndex = Math.Max( 0, chunkReader.ReadInt32() );
+              }
+              if ( chunkReader.Size - chunkReader.Position >= 1 )
+              {
+                CharsetTabFollowsMap = ( chunkReader.ReadUInt8() != 0 );
+              }
             }
             break;
           case FileChunkConstants.MAP_DISPLAY_FILTERS:
@@ -1513,7 +2143,93 @@ namespace RetroDevStudio.Formats
               GR.Memory.ByteBuffer    data = new GR.Memory.ByteBuffer();
               chunkReader.ReadBlock( data, (uint)( chunkReader.Size - chunkReader.Position ) );
 
-              Charset.ReadFromBuffer( data );
+              Charsets[0].Charset.ReadFromBuffer( data );
+            }
+            break;
+          case FileChunkConstants.MAP_CHARSET_META:
+            {
+              int index = chunkReader.ReadInt32();
+              if ( ( index < 0 )
+              ||   ( index > 255 ) )
+              {
+                // Corrupt — never grow the list from garbage.
+                break;
+              }
+              var cs = EnsureCharsetSlot( index );
+              charsetMetaSeen.Add( index );
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                cs.DisplayName = chunkReader.ReadString();
+              }
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                cs.ExportName = chunkReader.ReadString();
+              }
+              if ( chunkReader.Size - chunkReader.Position >= 1 )
+              {
+                cs.ExportEnabled = ( chunkReader.ReadUInt8() != 0 );
+              }
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                cs.RightClickAction = chunkReader.ReadString();
+              }
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                cs.ShiftClickBlankTile = chunkReader.ReadString();
+              }
+            }
+            break;
+          case FileChunkConstants.MAP_CHARSET_ENTRY:
+            {
+              // Read every sub-chunk first so the slot index (ENTRY_INFO) may
+              // sit anywhere in the container — order independence.
+              var entryChunks = new List<GR.IO.FileChunk>();
+              while ( true )
+              {
+                var sub = new GR.IO.FileChunk();
+                if ( !sub.ReadFromStream( chunkReader ) )
+                {
+                  break;
+                }
+                entryChunks.Add( sub );
+              }
+              int entryIndex = -1;
+              foreach ( var sub in entryChunks )
+              {
+                if ( sub.Type == FileChunkConstants.MAP_CHARSET_ENTRY_INFO )
+                {
+                  entryIndex = sub.MemoryReader().ReadInt32();
+                  break;
+                }
+              }
+              if ( ( entryIndex < 1 )
+              ||   ( entryIndex > 255 ) )
+              {
+                // Index 0 lives in the legacy chunks; anything else is corrupt.
+                break;
+              }
+              var target = EnsureCharsetSlot( entryIndex );
+              foreach ( var sub in entryChunks )
+              {
+                GR.IO.MemoryReader entryReader = sub.MemoryReader();
+                switch ( sub.Type )
+                {
+                  case FileChunkConstants.MAP_CHARSET_ENTRY_DATA:
+                    {
+                      GR.Memory.ByteBuffer data = new GR.Memory.ByteBuffer();
+                      entryReader.ReadBlock( data, (uint)( entryReader.Size - entryReader.Position ) );
+                      target.Charset.ReadFromBuffer( data );
+                    }
+                    break;
+                  case FileChunkConstants.MAP_TILE:
+                    {
+                      Tile tile = ReadTileChunk( entryReader );
+                      target.Tiles.Add( tile );
+                      tile.Index = target.Tiles.Count - 1;
+                    }
+                    break;
+                }
+              }
             }
             break;
           case FileChunkConstants.MAP_PROJECT_DATA:
@@ -1569,6 +2285,10 @@ namespace RetroDevStudio.Formats
                       if ( subChunkReader.Position < subChunkReader.Size )
                       {
                         eType.TagID = subChunkReader.ReadUInt8();
+                      }
+                      if ( subChunkReader.Position < subChunkReader.Size )
+                      {
+                        eType.PreviewCharsetIndex = subChunkReader.ReadUInt8();
                       }
                       EntityTypes.Add( eType );
                     }
@@ -1663,35 +2383,11 @@ namespace RetroDevStudio.Formats
                     break;
                   case FileChunkConstants.MAP_TILE:
                     {
-                      Tile tile = new Tile();
-                      tile.Name = subChunkReader.ReadString();
- 
-                      int w = subChunkReader.ReadInt32();
-                      int h = subChunkReader.ReadInt32();
- 
-                      tile.Chars.Resize( w, h );
-                      for ( int j = 0; j < tile.Chars.Height; ++j )
-                      {
-                        for ( int i = 0; i < tile.Chars.Width; ++i )
-                        {
-                          tile.Chars[i, j].Character = subChunkReader.ReadUInt8();
-                          tile.Chars[i, j].Color = subChunkReader.ReadUInt8();
-                        }
-                      }
-                      if ( subChunkReader.Position < subChunkReader.Size )
-                      {
-                        tile.Passable = ( subChunkReader.ReadUInt8() != 0 );
-                      }
-                      if ( subChunkReader.Position < subChunkReader.Size )
-                      {
-                        tile.NotExportedOnMap = ( subChunkReader.ReadUInt8() != 0 );
-                      }
-                      if ( subChunkReader.Position < subChunkReader.Size )
-                      {
-                        tile.GroupId = subChunkReader.ReadInt32();
-                      }
-                      Tiles.Add( tile );
-                      tile.Index = Tiles.Count - 1;
+                      // Charset 0's tiles (charsets >= 1 carry theirs inside
+                      // their MAP_CHARSET_ENTRY).
+                      Tile tile = ReadTileChunk( subChunkReader );
+                      Charsets[0].Tiles.Add( tile );
+                      tile.Index = Charsets[0].Tiles.Count - 1;
                     }
                     break;
                   case FileChunkConstants.MAP:
@@ -1870,6 +2566,25 @@ namespace RetroDevStudio.Formats
                 Settings.GameBinary.OverrideLoadAddress = ( chunkReader.ReadInt32() != 0 );
                 Settings.GameBinary.OverrideLoadAddressHex = chunkReader.ReadString();
               }
+              // version 29: charset-labels and map-labels sidecars (blank
+              // file names fall back to the defaults, like the other sidecars).
+              if ( version >= 29 )
+              {
+                Settings.GameBinary.ExportCharsetLabels = ( chunkReader.ReadInt32() != 0 );
+                Settings.GameBinary.CharsetLabelsFilename = chunkReader.ReadString();
+                if ( string.IsNullOrEmpty( Settings.GameBinary.CharsetLabelsFilename ) )
+                {
+                  Settings.GameBinary.CharsetLabelsFilename = "map_charsets.asm";
+                }
+                Settings.GameBinary.CharsetLabelsPrefix = chunkReader.ReadString();
+                Settings.GameBinary.ExportMapLabels = ( chunkReader.ReadInt32() != 0 );
+                Settings.GameBinary.MapLabelsFilename = chunkReader.ReadString();
+                if ( string.IsNullOrEmpty( Settings.GameBinary.MapLabelsFilename ) )
+                {
+                  Settings.GameBinary.MapLabelsFilename = "map_names.asm";
+                }
+                Settings.GameBinary.MapLabelsPrefix = chunkReader.ReadString();
+              }
             }
             break;
         }
@@ -1897,23 +2612,54 @@ namespace RetroDevStudio.Formats
         }
       }
 
-      Charset.Colors.MultiColor1 = MultiColor1;
-      Charset.Colors.MultiColor2 = MultiColor2;
-      Charset.Colors.BGColor4    = BGColor4;
+      // ---- Multiple charsets post-pass (chunk order independent) ----
+      if ( !charsetMetaSeen.Contains( 0 ) )
+      {
+        // Legacy file (or one written by a build without META): charset 0's
+        // per-charset metadata comes from the project-level fields it
+        // replaced. ExportEnabled is TRUE regardless of the old ExportCharset
+        // flags — they only meant "also write the .chr file"; mapping them
+        // here would drop charset 0 (and its tile tables) from every
+        // single-charset project that never ticked the box. The export NAME
+        // follows the flag that was set, so a project that never wrote a
+        // charset file keeps not writing one.
+        Charsets[0].RightClickAction    = legacyRightClickAction ?? "";
+        Charsets[0].ShiftClickBlankTile = legacyShiftClickBlankTile ?? "";
+        Charsets[0].ExportEnabled       = true;
+        if ( ( Settings.GameBinary.ExportCharset )
+        &&   ( !string.IsNullOrEmpty( Settings.GameBinary.CharsetExportFilename ) ) )
+        {
+          Charsets[0].ExportName = Settings.GameBinary.CharsetExportFilename;
+        }
+        else if ( ( Settings.Assembly.ExportCharset )
+        &&        ( !string.IsNullOrEmpty( Settings.Assembly.CharsetExportFilename ) ) )
+        {
+          Charsets[0].ExportName = Settings.Assembly.CharsetExportFilename;
+        }
+        else
+        {
+          Charsets[0].ExportName = "";
+        }
+      }
+      ClampCharsetReferences();
+      SyncCharsetColorsFromProject();
       return true;
     }
 
 
 
-    public GR.Memory.ByteBuffer ExportAsTiles()
+    public GR.Memory.ByteBuffer ExportAsTiles( int CharsetIndex = 0 )
     {
+      // Tile library of ONE charset (default: charset 0). Map-based exports
+      // resolve tiles per map through CharsetOf( map ) instead.
+      var tiles = CharsetAt( CharsetIndex ).Tiles;
       GR.Memory.ByteBuffer    tileData = new GR.Memory.ByteBuffer();
 
       // find max tile size
       int     tileW = 1;
       int     tileH = 1;
 
-      foreach ( var tile in Tiles )
+      foreach ( var tile in tiles )
       {
         if ( tile.Chars.Width > tileW )
         {
@@ -1929,7 +2675,7 @@ namespace RetroDevStudio.Formats
       {
         for ( int i = 0; i < tileW; ++i )
         {
-          foreach ( Formats.MapProject.Tile tile in Tiles )
+          foreach ( Formats.MapProject.Tile tile in tiles )
           {
             if ( ( i < tile.Chars.Width )
             &&   ( j < tile.Chars.Height ) )
@@ -2000,7 +2746,7 @@ namespace RetroDevStudio.Formats
         {
           for ( int x = 0; x < Map.Tiles.Width; ++x )
           {
-            mapDataBuffer.SetU8At( x + y * Map.Tiles.Width, (byte)GetExportTileIndex( Map.Tiles[x, y] ) );
+            mapDataBuffer.SetU8At( x + y * Map.Tiles.Width, (byte)GetExportTileIndex( Map, Map.Tiles[x, y] ) );
           }
         }
       }
@@ -2010,7 +2756,7 @@ namespace RetroDevStudio.Formats
         {
           for ( int y = 0; y < Map.Tiles.Height; ++y )          
           {
-            mapDataBuffer.SetU8At( x + y * Map.Tiles.Width, (byte)GetExportTileIndex( Map.Tiles[x, y] ) );
+            mapDataBuffer.SetU8At( x + y * Map.Tiles.Width, (byte)GetExportTileIndex( Map, Map.Tiles[x, y] ) );
           }
         }
       }
@@ -2019,8 +2765,11 @@ namespace RetroDevStudio.Formats
 
 
 
-    public bool ExportTilesAsElements( out string TileData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective )
+    public bool ExportTilesAsElements( out string TileData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective, int CharsetIndex = 0 )
     {
+      // Tile library of ONE charset (default: charset 0). Map-based exports
+      // resolve tiles per map through CharsetOf( map ) instead.
+      var tiles = CharsetAt( CharsetIndex ).Tiles;
       GR.Memory.ByteBuffer tileDataW = new GR.Memory.ByteBuffer();
       GR.Memory.ByteBuffer tileDataH = new GR.Memory.ByteBuffer();
 
@@ -2036,7 +2785,7 @@ namespace RetroDevStudio.Formats
 
       var usedLabels = new Dictionary<string, int>();
 
-      foreach ( Formats.MapProject.Tile tile in Tiles )
+      foreach ( Formats.MapProject.Tile tile in tiles )
       {
         tileDataW.AppendU8( (byte)tile.Chars.Width );
         tileDataH.AppendU8( (byte)tile.Chars.Height );
@@ -2090,7 +2839,7 @@ namespace RetroDevStudio.Formats
         sbTileColors.AppendLine( Util.ToASMData( tileColorData, WrapData, WrapByteCount, DataByteDirective ) );
 
       }
-      TileData = LabelPrefix + "NUM_TILES = " + Tiles.Count + System.Environment.NewLine
+      TileData = LabelPrefix + "NUM_TILES = " + tiles.Count + System.Environment.NewLine
                 + LabelPrefix + "TILE_WIDTH" + System.Environment.NewLine + Util.ToASMData( tileDataW, WrapData, WrapByteCount, DataByteDirective ) + System.Environment.NewLine
                 + LabelPrefix + "TILE_HEIGHT" + System.Environment.NewLine + Util.ToASMData( tileDataH, WrapData, WrapByteCount, DataByteDirective ) + System.Environment.NewLine
                 + LabelPrefix + "TILE_CHARS_LO" + System.Environment.NewLine
@@ -2108,11 +2857,14 @@ namespace RetroDevStudio.Formats
 
 
 
-    public bool ExportTilesAsAssembly( out string TileData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective )
+    public bool ExportTilesAsAssembly( out string TileData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective, int CharsetIndex = 0 )
     {
+      // Tile library of ONE charset (default: charset 0). Map-based exports
+      // resolve tiles per map through CharsetOf( map ) instead.
+      var tiles = CharsetAt( CharsetIndex ).Tiles;
       int   maxTileWidth = 0;
       int   maxTileHeight = 0;
-      foreach ( var tile in Tiles )
+      foreach ( var tile in tiles )
       {
         if ( tile.Chars.Width > maxTileWidth )
         {
@@ -2130,8 +2882,8 @@ namespace RetroDevStudio.Formats
       {
         for ( int i = 0; i < maxTileWidth; ++i )
         {
-          tileCharData[i + j * maxTileWidth] = new GR.Memory.ByteBuffer( (uint)Tiles.Count );
-          tileColorData[i + j * maxTileWidth] = new GR.Memory.ByteBuffer( (uint)Tiles.Count );
+          tileCharData[i + j * maxTileWidth] = new GR.Memory.ByteBuffer( (uint)tiles.Count );
+          tileColorData[i + j * maxTileWidth] = new GR.Memory.ByteBuffer( (uint)tiles.Count );
         }
       }
 
@@ -2143,7 +2895,7 @@ namespace RetroDevStudio.Formats
         for ( int i = 0; i < maxTileWidth; ++i )
         {
           tileIndex = 0;
-          foreach ( var tile in Tiles )
+          foreach ( var tile in tiles )
           {
             if ( ( i < tile.Chars.Width )
             &&   ( j < tile.Chars.Height ) )
@@ -2158,13 +2910,13 @@ namespace RetroDevStudio.Formats
 
       StringBuilder sb = new StringBuilder();
 
-      sb.AppendLine( LabelPrefix + "NUM_TILES = " + Tiles.Count );
+      sb.AppendLine( LabelPrefix + "NUM_TILES = " + tiles.Count );
       sb.AppendLine();
       if ( ( Settings.Assembly.MapSizeCommentEnabled ) && ( !string.IsNullOrEmpty( Settings.Assembly.CommentChars ) ) )
       {
-        for ( int i = 0; i < Tiles.Count; ++i )
+        for ( int i = 0; i < tiles.Count; ++i )
         {
-          sb.AppendLine( Settings.Assembly.CommentChars + " " + i.ToString( "D2" ) + ": " + Tiles[i].Name );
+          sb.AppendLine( Settings.Assembly.CommentChars + " " + i.ToString( "D2" ) + ": " + tiles[i].Name );
         }
       }
 
@@ -2202,8 +2954,11 @@ namespace RetroDevStudio.Formats
 
 
 
-    public bool ExportTileNamesAsAssembly( out string TileData, string LabelPrefix )
+    public bool ExportTileNamesAsAssembly( out string TileData, string LabelPrefix, int CharsetIndex = 0 )
     {
+      // Tile library of ONE charset (default: charset 0). Map-based exports
+      // resolve tiles per map through CharsetOf( map ) instead.
+      var tiles = CharsetAt( CharsetIndex ).Tiles;
       TileData = "";
 
       var sb = new StringBuilder();
@@ -2211,12 +2966,12 @@ namespace RetroDevStudio.Formats
       var usedLabels = new Dictionary<string, int>();
 
       string  prefix = NormalizeAsLabel( LabelPrefix );
-      for ( int i = 0; i < Tiles.Count; ++i )
+      for ( int i = 0; i < tiles.Count; ++i )
       {
         sb.Append( prefix );
         sb.Append( "TILE_NAME_" );
 
-        string    normalizedLabel = NormalizeAsLabel( Tiles[i].Name ).ToUpper();
+        string    normalizedLabel = NormalizeAsLabel( tiles[i].Name ).ToUpper();
         if ( usedLabels.ContainsKey( normalizedLabel ) )
         {
           int   subIndex = usedLabels[normalizedLabel] + 1;
@@ -2240,13 +2995,16 @@ namespace RetroDevStudio.Formats
 
 
 
-    public bool ExportTileDataAsAssembly( out string TileData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective )
+    public bool ExportTileDataAsAssembly( out string TileData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective, int CharsetIndex = 0 )
     {
+      // Tile library of ONE charset (default: charset 0). Map-based exports
+      // resolve tiles per map through CharsetOf( map ) instead.
+      var tiles = CharsetAt( CharsetIndex ).Tiles;
       var sbTileChars = new StringBuilder();
       var sbTileColors = new StringBuilder();
 
       int tileIndex = 0;
-      foreach ( var tile in Tiles )
+      foreach ( var tile in tiles )
       {
         sbTileChars.Append( LabelPrefix );
         sbTileChars.Append( '_' );
@@ -2418,11 +3176,11 @@ namespace RetroDevStudio.Formats
           {
             for ( int x = 0; x < map.Tiles.Width; ++x )
             {
-              int tileIndex = GetExportTileIndex( map.Tiles[x, y] );
+              int tileIndex = GetExportTileIndex( map, map.Tiles[x, y] );
               if ( ( tileIndex >= 0 )
-              &&   ( tileIndex < Tiles.Count ) )
+              &&   ( tileIndex < CharsetOf( map ).Tiles.Count ) )
               {
-                var tile = Tiles[tileIndex];
+                var tile = CharsetOf( map ).Tiles[tileIndex];
                 if ( x * map.TileSpacingX + tile.Chars.Width > exportWidth )
                 {
                   exportWidth = x * map.TileSpacingX + tile.Chars.Width;
@@ -2451,12 +3209,12 @@ namespace RetroDevStudio.Formats
           {
             for ( int x = 0; x < map.Tiles.Width; ++x )
             {
-              int tileIndex = GetExportTileIndex( map.Tiles[x, y] );
+              int tileIndex = GetExportTileIndex( map, map.Tiles[x, y] );
               if ( ( tileIndex >= 0 )
-              &&   ( tileIndex < Tiles.Count )
+              &&   ( tileIndex < CharsetOf( map ).Tiles.Count )
               &&   ( tileIndex != Settings.Assembly.EmptyTileIndex ) )
               {
-                var tile = Tiles[tileIndex];
+                var tile = CharsetOf( map ).Tiles[tileIndex];
                 for ( int ty = 0; ty < tile.Chars.Height; ++ty )
                 {
                   for ( int tx = 0; tx < tile.Chars.Width; ++tx )
@@ -2498,7 +3256,7 @@ namespace RetroDevStudio.Formats
             {
               for ( int x = 0; x < map.Tiles.Width; ++x )
               {
-                mapDataBuffer.SetU8At( x * map.Tiles.Height + y, (byte)GetExportTileIndex( map.Tiles[x, y] ) );
+                mapDataBuffer.SetU8At( x * map.Tiles.Height + y, (byte)GetExportTileIndex( map, map.Tiles[x, y] ) );
               }
             }
           }
@@ -2508,7 +3266,7 @@ namespace RetroDevStudio.Formats
             {
               for ( int x = 0; x < map.Tiles.Width; ++x )
               {
-                mapDataBuffer.SetU8At( x + y * map.Tiles.Width, (byte)GetExportTileIndex( map.Tiles[x, y] ) );
+                mapDataBuffer.SetU8At( x + y * map.Tiles.Width, (byte)GetExportTileIndex( map, map.Tiles[x, y] ) );
               }
             }
           }
@@ -2557,12 +3315,12 @@ namespace RetroDevStudio.Formats
            {
              for ( int tx = 0; tx < map.Tiles.Width; ++tx )
              {
-               int tileIndex = GetExportTileIndex( map.Tiles[tx, ty] );
+               int tileIndex = GetExportTileIndex( map, map.Tiles[tx, ty] );
                if ( ( tileIndex >= 0 )
-               &&   ( tileIndex < Tiles.Count )
-               &&   ( !Tiles[tileIndex].Passable ) )
+               &&   ( tileIndex < CharsetOf( map ).Tiles.Count )
+               &&   ( !CharsetOf( map ).Tiles[tileIndex].Passable ) )
                {
-                 var tile = Tiles[tileIndex];
+                 var tile = CharsetOf( map ).Tiles[tileIndex];
                  for ( int cy = 0; cy < tile.Chars.Height; ++cy )
                  {
                    for ( int cx = 0; cx < tile.Chars.Width; ++cx )
@@ -2791,11 +3549,14 @@ namespace RetroDevStudio.Formats
 
 
 
-    internal void ExportTilesAsBuffer( bool RowByRow, out GR.Memory.ByteBuffer TileData )
+    internal void ExportTilesAsBuffer( bool RowByRow, out GR.Memory.ByteBuffer TileData, int CharsetIndex = 0 )
     {
+      // Tile library of ONE charset (default: charset 0). Map-based exports
+      // resolve tiles per map through CharsetOf( map ) instead.
+      var tiles = CharsetAt( CharsetIndex ).Tiles;
       TileData = new GR.Memory.ByteBuffer();
 
-      foreach ( Formats.MapProject.Tile tile in Tiles )
+      foreach ( Formats.MapProject.Tile tile in tiles )
       {
         if ( RowByRow )
         {
@@ -2963,8 +3724,554 @@ namespace RetroDevStudio.Formats
 
 
 
+    /// <summary>
+    /// The charsets every all-charsets export enumerates: list order, minus
+    /// the ones without ExportEnabled. Exported (compacted) charset indices
+    /// are positions in THIS list — same rule as ExportedMaps().
+    /// </summary>
+    public List<MapCharset> ExportedCharsets()
+    {
+      var result = new List<MapCharset>();
+      foreach ( var cs in Charsets )
+      {
+        if ( cs.ExportEnabled )
+        {
+          result.Add( cs );
+        }
+      }
+      return result;
+    }
+
+
+
+    /// <summary>Compacted export index of a charset, or -1 when out of range or not exported.</summary>
+    public int ExportCharsetIndex( int CharsetIndex )
+    {
+      if ( ( CharsetIndex < 0 )
+      ||   ( CharsetIndex >= Charsets.Count ) )
+      {
+        return -1;
+      }
+      return ExportedCharsets().IndexOf( Charsets[CharsetIndex] );
+    }
+
+
+
+    /// <summary>Compacted index of the map's charset, or -1 when that charset is not exported.</summary>
+    public int ExportedCharsetIndex( Map map )
+    {
+      return ExportedCharsets().IndexOf( CharsetOf( map ) );
+    }
+
+
+
+    // ---- Multi-charset game-binary export helpers ---------------------------
+
+    /// <summary>File-relative pointers of one charset's tile section in the game binary.</summary>
+    private struct TileSectionPointers
+    {
+      public int    TileCount;
+      public ushort TilesWidth;
+      public ushort TilesHeight;
+      public ushort TilesFlags;
+      public ushort TileCharOffLo;
+      public ushort TileCharOffHi;
+      public ushort TileColorOffLo;
+      public ushort TileColorOffHi;
+    }
+
+
+
+    /// <summary>
+    /// Appends one charset's tile section (widths, heights, flags, the four
+    /// lo/hi offset tables, then the char and color blobs) and returns where
+    /// everything landed. Static on purpose: it depends only on the tile list,
+    /// and it runs once per exported charset.
+    /// </summary>
+    private static TileSectionPointers WriteTileSection( GR.Memory.ByteBuffer buf, List<Tile> tiles )
+    {
+      var p = new TileSectionPointers();
+      p.TileCount = tiles.Count;
+
+      p.TilesWidth = (ushort)buf.Length;
+      for ( int t = 0; t < tiles.Count; ++t )
+      {
+        buf.AppendU8( (byte)tiles[t].Chars.Width );
+      }
+      p.TilesHeight = (ushort)buf.Length;
+      for ( int t = 0; t < tiles.Count; ++t )
+      {
+        buf.AppendU8( (byte)tiles[t].Chars.Height );
+      }
+      // Only bit 0 (passable) is used; NotExportedOnMap and GroupId stay editor-side.
+      p.TilesFlags = (ushort)buf.Length;
+      for ( int t = 0; t < tiles.Count; ++t )
+      {
+        buf.AppendU8( (byte)( tiles[t].Passable ? 1 : 0 ) );
+      }
+
+      var charBlobs = new List<GR.Memory.ByteBuffer>();
+      var colorBlobs = new List<GR.Memory.ByteBuffer>();
+      for ( int t = 0; t < tiles.Count; ++t )
+      {
+        var tile = tiles[t];
+        var charBlob = new GR.Memory.ByteBuffer();
+        var colorBlob = new GR.Memory.ByteBuffer();
+        for ( int y = 0; y < tile.Chars.Height; ++y )
+        {
+          for ( int x = 0; x < tile.Chars.Width; ++x )
+          {
+            charBlob.AppendU8( tile.Chars[x, y].Character );
+            colorBlob.AppendU8( tile.Chars[x, y].Color );
+          }
+        }
+        charBlobs.Add( charBlob );
+        colorBlobs.Add( colorBlob );
+      }
+
+      // Offset tables — placeholders patched once the data positions are known.
+      int charLoPos = (int)buf.Length;
+      p.TileCharOffLo = (ushort)charLoPos;
+      for ( int t = 0; t < tiles.Count; ++t )
+      {
+        buf.AppendU8( 0 );
+      }
+      int charHiPos = (int)buf.Length;
+      p.TileCharOffHi = (ushort)charHiPos;
+      for ( int t = 0; t < tiles.Count; ++t )
+      {
+        buf.AppendU8( 0 );
+      }
+      int colorLoPos = (int)buf.Length;
+      p.TileColorOffLo = (ushort)colorLoPos;
+      for ( int t = 0; t < tiles.Count; ++t )
+      {
+        buf.AppendU8( 0 );
+      }
+      int colorHiPos = (int)buf.Length;
+      p.TileColorOffHi = (ushort)colorHiPos;
+      for ( int t = 0; t < tiles.Count; ++t )
+      {
+        buf.AppendU8( 0 );
+      }
+
+      // Char data (concatenated); every table entry is a file-relative offset.
+      int charDataStart = (int)buf.Length;
+      int running = 0;
+      for ( int t = 0; t < tiles.Count; ++t )
+      {
+        int absAddr = charDataStart + running;
+        buf.SetU8At( charLoPos + t, (byte)( absAddr & 0xFF ) );
+        buf.SetU8At( charHiPos + t, (byte)( ( absAddr >> 8 ) & 0xFF ) );
+        running += (int)charBlobs[t].Length;
+      }
+      for ( int t = 0; t < tiles.Count; ++t )
+      {
+        buf.Append( charBlobs[t] );
+      }
+
+      // Color data (concatenated).
+      int colorDataStart = (int)buf.Length;
+      running = 0;
+      for ( int t = 0; t < tiles.Count; ++t )
+      {
+        int absAddr = colorDataStart + running;
+        buf.SetU8At( colorLoPos + t, (byte)( absAddr & 0xFF ) );
+        buf.SetU8At( colorHiPos + t, (byte)( ( absAddr >> 8 ) & 0xFF ) );
+        running += (int)colorBlobs[t].Length;
+      }
+      for ( int t = 0; t < tiles.Count; ++t )
+      {
+        buf.Append( colorBlobs[t] );
+      }
+      return p;
+    }
+
+
+
+    /// <summary>Display name for messages and combos: DisplayName, else "Charset N".</summary>
+    public string CharsetDisplayNameOf( MapCharset Charset )
+    {
+      if ( ( Charset != null )
+      &&   ( !string.IsNullOrEmpty( Charset.DisplayName ) ) )
+      {
+        return Charset.DisplayName;
+      }
+      int index = Charsets.IndexOf( Charset );
+      return "Charset " + ( ( index < 0 ) ? "?" : index.ToString() );
+    }
+
+
+
+    /// <summary>Display name of the charset at Index ("Charset N" when unnamed or out of range).</summary>
+    public string CharsetDisplayNameAt( int Index )
+    {
+      if ( ( Index < 0 )
+      ||   ( Index >= Charsets.Count ) )
+      {
+        return "Charset " + Index;
+      }
+      return CharsetDisplayNameOf( Charsets[Index] );
+    }
+
+
+
+    /// <summary>One charset file the map export writes.</summary>
+    public class CharsetExportFile
+    {
+      /// <summary>Index in Charsets (editor order).</summary>
+      public int                  CharsetIndex = 0;
+      /// <summary>Compacted index (= position in ExportedCharsets()).</summary>
+      public int                  ExportIndex = 0;
+      /// <summary>ExportName verbatim, no directory.</summary>
+      public string               FileName = "";
+      /// <summary>CharacterData() [+ the 2-byte load address when requested].</summary>
+      public GR.Memory.ByteBuffer Data = null;
+    }
+
+
+
+    /// <summary>
+    /// One entry per ENABLED charset with a non-empty ExportName, in compacted
+    /// order. Data honours CharsetProject.ExportNumCharacters (CharacterData).
+    /// Duplicate names are NOT collapsed (GetCharsetFileWarnings reports them;
+    /// the last writer wins on disk). The export forms only write the files.
+    /// </summary>
+    public List<CharsetExportFile> BuildCharsetExportFiles( bool PrefixLoadAddress, ushort LoadAddress )
+    {
+      var result = new List<CharsetExportFile>();
+      var exported = ExportedCharsets();
+      for ( int e = 0; e < exported.Count; ++e )
+      {
+        var cs = exported[e];
+        if ( string.IsNullOrWhiteSpace( cs.ExportName ) )
+        {
+          continue;
+        }
+        var data = cs.Charset.CharacterData();
+        if ( PrefixLoadAddress )
+        {
+          var prefixed = new GR.Memory.ByteBuffer();
+          prefixed.AppendU16( LoadAddress );
+          prefixed.Append( data );
+          data = prefixed;
+        }
+        result.Add( new CharsetExportFile()
+        {
+          CharsetIndex = Charsets.IndexOf( cs ),
+          ExportIndex  = e,
+          FileName     = cs.ExportName,
+          Data         = data
+        } );
+      }
+      return result;
+    }
+
+
+
+    /// <summary>
+    /// File-name problems only (shared by every form that writes charset
+    /// files): two enabled charsets exporting to the same file name
+    /// (case-insensitive — Windows). An enabled charset WITHOUT a name is not
+    /// a warning: it simply writes no file (an export-log line), so a legacy
+    /// project that never wrote a charset file is not nagged on every export.
+    /// </summary>
+    public List<string> GetCharsetFileWarnings()
+    {
+      var warnings = new List<string>();
+      var exported = ExportedCharsets();
+      for ( int a = 0; a < exported.Count; ++a )
+      {
+        if ( string.IsNullOrWhiteSpace( exported[a].ExportName ) )
+        {
+          continue;
+        }
+        for ( int b = a + 1; b < exported.Count; ++b )
+        {
+          if ( string.Equals( exported[a].ExportName.Trim(), ( exported[b].ExportName ?? "" ).Trim(), StringComparison.OrdinalIgnoreCase ) )
+          {
+            warnings.Add( "character sets '" + CharsetDisplayNameOf( exported[a] ) + "' and '" + CharsetDisplayNameOf( exported[b] )
+                        + "' both export to '" + exported[a].ExportName + "' — the second overwrites the first" );
+          }
+        }
+      }
+      return warnings;
+    }
+
+
+
+    /// <summary>
+    /// Warnings for the game-binary pre-export prompt (the export continues
+    /// on Yes): the file-name warnings, no charset enabled at all, and maps
+    /// bound to a charset that is not exported (they get charset index 0).
+    /// </summary>
+    public List<string> GetCharsetExportWarnings()
+    {
+      var warnings = GetCharsetFileWarnings();
+      var exported = ExportedCharsets();
+      if ( exported.Count == 0 )
+      {
+        warnings.Add( "no character set is enabled for export — the binary will contain no tile tables (charset_count = 0)" );
+      }
+      foreach ( var map in ExportedMaps() )
+      {
+        var cs = CharsetOf( map );
+        if ( !exported.Contains( cs ) )
+        {
+          warnings.Add( "map " + ( Maps.IndexOf( map ) + 1 ) + " (" + map.Name + ") uses character set '" + CharsetDisplayNameOf( cs )
+                      + "' which is not enabled for export — it will be written with charset index 0" );
+        }
+      }
+      return warnings;
+    }
+
+
+
+    /// <summary>
+    /// Hard errors — what the byte layout cannot represent; the export aborts.
+    /// (Before multiple charsets these counts wrapped silently to a byte.)
+    /// </summary>
+    public List<string> GetGameBinaryExportErrors()
+    {
+      var errors = new List<string>();
+      var exported = ExportedCharsets();
+      foreach ( var cs in exported )
+      {
+        if ( cs.Tiles.Count > 255 )
+        {
+          errors.Add( "character set '" + CharsetDisplayNameOf( cs ) + "' has " + cs.Tiles.Count + " tiles; tile counts are one byte (max 255)" );
+        }
+      }
+      if ( exported.Count > 255 )
+      {
+        errors.Add( exported.Count + " character sets are enabled for export (max 255)" );
+      }
+      int mapCount = ExportedMaps().Count;
+      if ( mapCount > 255 )
+      {
+        errors.Add( mapCount + " maps are exported (max 255)" );
+      }
+      return errors;
+    }
+
+
+
+    /// <summary>
+    /// The "CHARSET DIRECTORY" block of the .def export log: one line per
+    /// exported charset, read back from the binary itself.
+    /// </summary>
+    public static string DescribeGameBinaryCharsets( GR.Memory.ByteBuffer buf, MapProject project )
+    {
+      const int HDR_CHARSET_COUNT     = 0x3E;
+      const int HDR_CHARSET_DIRECTORY = 0x3F;
+      const int RECORD_SIZE           = 15;
+      var sb = new StringBuilder();
+      int count = buf.ByteAt( HDR_CHARSET_COUNT );
+      int directory = buf.UInt16At( HDR_CHARSET_DIRECTORY );
+      var exported = project.ExportedCharsets();
+      sb.AppendLine( "--- CHARSET DIRECTORY (" + count + " character set(s), " + RECORD_SIZE + " bytes per record, at $" + directory.ToString( "X4" ) + ") ---" );
+      for ( int c = 0; c < count; ++c )
+      {
+        int rec = directory + c * RECORD_SIZE;
+        string name = ( c < exported.Count )
+          ? ( string.IsNullOrWhiteSpace( exported[c].ExportName ) ? "(no export name)" : exported[c].ExportName )
+          : "?";
+        sb.Append( "$" + rec.ToString( "X4" ) + ": charset " + c + " '" + name + "' tile_count=" + buf.ByteAt( rec ) );
+        sb.Append( " width->$" + buf.UInt16At( rec + 1 ).ToString( "X4" ) );
+        sb.Append( " height->$" + buf.UInt16At( rec + 3 ).ToString( "X4" ) );
+        sb.Append( " flags->$" + buf.UInt16At( rec + 5 ).ToString( "X4" ) );
+        sb.Append( " char_lo->$" + buf.UInt16At( rec + 7 ).ToString( "X4" ) );
+        sb.Append( " char_hi->$" + buf.UInt16At( rec + 9 ).ToString( "X4" ) );
+        sb.Append( " color_lo->$" + buf.UInt16At( rec + 11 ).ToString( "X4" ) );
+        sb.Append( " color_hi->$" + buf.UInt16At( rec + 13 ).ToString( "X4" ) );
+        if ( c == 0 )
+        {
+          sb.Append( "  (mirrored by the legacy header fields $01 / $04..$10)" );
+        }
+        sb.AppendLine();
+      }
+      return sb.ToString();
+    }
+
+
+
+    private static void AppendSidecarPrefix( StringBuilder sb, string UserPrefix )
+    {
+      if ( !string.IsNullOrEmpty( UserPrefix ) )
+      {
+        sb.AppendLine( UserPrefix );
+        if ( !UserPrefix.EndsWith( "\n" ) )
+        {
+          sb.AppendLine();
+        }
+      }
+    }
+
+
+
+    /// <summary>De-duplicates a label with _2, _3 ... and registers the result too.</summary>
+    private static string UniqueLabel( Dictionary<string, int> UsedLabels, string Label )
+    {
+      if ( UsedLabels.ContainsKey( Label ) )
+      {
+        int subIndex = UsedLabels[Label] + 1;
+        UsedLabels[Label] = subIndex;
+        Label += "_" + subIndex;
+      }
+      if ( !UsedLabels.ContainsKey( Label ) )
+      {
+        UsedLabels.Add( Label, 1 );
+      }
+      return Label;
+    }
+
+
+
+    private static string ExportNameWithoutExtension( string ExportName )
+    {
+      if ( string.IsNullOrWhiteSpace( ExportName ) )
+      {
+        return "";
+      }
+      try
+      {
+        return System.IO.Path.GetFileNameWithoutExtension( ExportName.Trim() );
+      }
+      catch ( Exception )
+      {
+        return ExportName.Trim();
+      }
+    }
+
+
+
+    /// <summary>
+    /// KickAssembler constants mapping each exported charset's export name to
+    /// its COMPACTED index (the value in map_charset_index[] and the charset
+    /// directory). Labels are CHARSET_INDEX_&lt;name without extension&gt;, sanitized
+    /// like every other exported label and de-duplicated with _2, _3 ...
+    /// (CHARSET_ alone would clash with nothing today, but MAP_ does — see
+    /// GenerateMapLabelsAsm — so both sidecars share the _INDEX_ form.)
+    /// </summary>
+    public string GenerateCharsetLabelsAsm( string UserPrefix = null )
+    {
+      var sb = new StringBuilder();
+      AppendSidecarPrefix( sb, UserPrefix );
+      sb.AppendLine( "// Auto-generated by C64Studio on game-binary export." );
+      sb.AppendLine( "// Maps character-set export names to their compacted charset indices" );
+      sb.AppendLine( "// (the values in map_charset_index[] and the charset directory)." );
+      sb.AppendLine( "// Do not edit by hand — regenerated on every export." );
+      sb.AppendLine();
+      var exported = ExportedCharsets();
+      if ( exported.Count == 0 )
+      {
+        sb.AppendLine( "// (no character set is enabled for export)" );
+      }
+      var usedLabels = new Dictionary<string, int>();
+      for ( int i = 0; i < exported.Count; ++i )
+      {
+        var cs = exported[i];
+        string baseName = ExportNameWithoutExtension( cs.ExportName );
+        if ( string.IsNullOrEmpty( baseName ) )
+        {
+          sb.AppendLine( "// index " + i + ": '" + CharsetDisplayNameOf( cs ) + "' has no export name — reference it by raw index." );
+          continue;
+        }
+        string label = UniqueLabel( usedLabels, NormalizeAsLabel( baseName ).ToUpper() );
+        sb.AppendLine( ".const CHARSET_INDEX_" + label.PadRight( 32 ) + " = " + i + "  // " + CharsetDisplayNameOf( cs ) );
+      }
+      bool anyDisabled = false;
+      foreach ( var cs in Charsets )
+      {
+        if ( !cs.ExportEnabled )
+        {
+          if ( !anyDisabled )
+          {
+            sb.AppendLine();
+            sb.AppendLine( "// Character sets not exported (enable 'Export character set' on the Character Set tab):" );
+            anyDisabled = true;
+          }
+          sb.AppendLine( "// " + CharsetDisplayNameOf( cs ) );
+        }
+      }
+      return sb.ToString();
+    }
+
+
+
+    /// <summary>
+    /// KickAssembler constants mapping each exported map's name to its
+    /// COMPACTED export index (maps flagged "not exported" shift the later
+    /// ones down). Labels are MAP_INDEX_&lt;name&gt; — not MAP_&lt;name&gt;, which the
+    /// assembly map export already uses for its data labels.
+    /// </summary>
+    public string GenerateMapLabelsAsm( string UserPrefix = null )
+    {
+      var sb = new StringBuilder();
+      AppendSidecarPrefix( sb, UserPrefix );
+      sb.AppendLine( "// Auto-generated by C64Studio on game-binary export." );
+      sb.AppendLine( "// Maps map names to their exported (compacted) map indices —" );
+      sb.AppendLine( "// the ordinals used by every per-map table in the game binary." );
+      sb.AppendLine( "// Do not edit by hand — regenerated on every export." );
+      sb.AppendLine();
+      var exported = ExportedMaps();
+      if ( exported.Count == 0 )
+      {
+        sb.AppendLine( "// (no map is exported)" );
+      }
+      var usedLabels = new Dictionary<string, int>();
+      for ( int i = 0; i < exported.Count; ++i )
+      {
+        var map = exported[i];
+        string label = NormalizeAsLabel( map.Name ?? "" ).ToUpper();
+        if ( string.IsNullOrEmpty( label ) )
+        {
+          sb.AppendLine( "// index " + i + ": (no map name) — reference it by raw index." );
+          continue;
+        }
+        label = UniqueLabel( usedLabels, label );
+        sb.AppendLine( ".const MAP_INDEX_" + label.PadRight( 32 ) + " = " + i + "  // " + map.Name );
+      }
+      bool anyExcluded = false;
+      foreach ( var map in Maps )
+      {
+        if ( map.NotExported )
+        {
+          if ( !anyExcluded )
+          {
+            sb.AppendLine();
+            sb.AppendLine( "// Maps not exported (flagged 'Map not exported'):" );
+            anyExcluded = true;
+          }
+          sb.AppendLine( "// " + map.Name );
+        }
+      }
+      return sb.ToString();
+    }
+
+
+
     public GR.Memory.ByteBuffer ExportAsGameBinary( bool ExportMarkers, bool ExportColors, bool ExportPassable )
     {
+      List<string> ignored;
+      return ExportAsGameBinary( ExportMarkers, ExportColors, ExportPassable, out ignored );
+    }
+
+
+
+    /// <summary>
+    /// Returns null when a HARD error makes the binary unrepresentable
+    /// (Errors lists them: a tile count, charset count or map count over 255,
+    /// or a file over 65535 bytes — every pointer is 16-bit). Warnings never
+    /// stop the export — see GetCharsetExportWarnings.
+    /// </summary>
+    public GR.Memory.ByteBuffer ExportAsGameBinary( bool ExportMarkers, bool ExportColors, bool ExportPassable, out List<string> Errors )
+    {
+      Errors = GetGameBinaryExportErrors();
+      if ( Errors.Count > 0 )
+      {
+        return null;
+      }
       var buf = new GR.Memory.ByteBuffer();
 
       // Every pointer written below is a FILE-RELATIVE OFFSET — the distance in
@@ -2992,9 +4299,9 @@ namespace RetroDevStudio.Formats
         }
       }
 
-      // ========== HEADER (60 bytes, 0x3C) ==========
+      // ========== HEADER (65 bytes, 0x41) ==========
       buf.AppendU8( 11 );   // +$00 marker_stride (bytes per marker record: tag, x, y, value1, value2, flags, group_id, link_to_id, link_id, value3, value4) — flags is a bitfield: bit0 = Enabled, bit1 = Triggered, bit2 = AutoDisableGroupAfterTrigger; value3/value4 are appended last (offsets $09, $0A)
-      buf.AppendU8( (byte)Tiles.Count );  // +$01
+      buf.AppendU8( 0 );    // +$01 tile_count of COMPACTED charset 0 (patched below)
       buf.AppendU8( (byte)exportMaps.Count );   // +$02
       // Starting-map index — points runtime code at the map the level
       // begins on. Inserted here (not appended at the end) so it sits
@@ -3017,6 +4324,15 @@ namespace RetroDevStudio.Formats
       buf.AppendU16( 0 );       // +$36 offset_map_string_lo (patched below)
       buf.AppendU16( 0 );       // +$38 offset_map_string_hi (patched below)
       buf.AppendU16( 0 );       // +$3A offset_map_string_id (patched below)
+      // Multiple character sets (v29). APPENDED so every earlier offset stays
+      // put: a per-map table of compacted charset indices, the number of
+      // exported charsets, and the charset directory (one 15-byte record per
+      // exported charset with its tile count and its seven tile-table
+      // pointers). The legacy tile fields above keep describing compacted
+      // charset 0, so single-charset code keeps working.
+      buf.AppendU16( 0 );       // +$3C offset_map_charset_index (patched below)
+      buf.AppendU8( 0 );        // +$3E charset_count (patched below)
+      buf.AppendU16( 0 );       // +$3F offset_charset_directory (patched below)
 
       // Header offset positions (byte offset within header for each pointer)
       const int HDR_TILES_WIDTH       = 0x04;
@@ -3047,93 +4363,50 @@ namespace RetroDevStudio.Formats
       const int HDR_MAP_STRING_LO     = 0x36;
       const int HDR_MAP_STRING_HI     = 0x38;
       const int HDR_MAP_STRING_ID     = 0x3A;
+      const int HDR_TILE_COUNT        = 0x01;
+      const int HDR_MAP_CHARSET_INDEX = 0x3C;
+      const int HDR_CHARSET_COUNT     = 0x3E;
+      const int HDR_CHARSET_DIRECTORY = 0x3F;
+      const int CHARSET_RECORD_SIZE   = 15;
 
-      // ========== TILE ARRAYS ==========
-
-      // tiles_width[]
-      buf.SetU16At( HDR_TILES_WIDTH, (ushort)( buf.Length ) );
-      for ( int t = 0; t < Tiles.Count; ++t )
-        buf.AppendU8( (byte)Tiles[t].Chars.Width );
-
-      // tiles_height[]
-      buf.SetU16At( HDR_TILES_HEIGHT, (ushort)( buf.Length ) );
-      for ( int t = 0; t < Tiles.Count; ++t )
-        buf.AppendU8( (byte)Tiles[t].Chars.Height );
-
-      // tiles_flags[]
-      buf.SetU16At( HDR_TILES_FLAGS, (ushort)( buf.Length ) );
-      for ( int t = 0; t < Tiles.Count; ++t )
-        buf.AppendU8( (byte)( Tiles[t].Passable ? 1 : 0 ) );
-
-      // Build tile char and color blobs
-      var tileCharBlobs = new List<GR.Memory.ByteBuffer>();
-      var tileColorBlobs = new List<GR.Memory.ByteBuffer>();
-      for ( int t = 0; t < Tiles.Count; ++t )
+      // ========== TILE SECTIONS — one per exported charset, compacted order ==========
+      var exportCharsets = ExportedCharsets();
+      var sections = new List<TileSectionPointers>( exportCharsets.Count );
+      foreach ( var cs in exportCharsets )
       {
-        var tile = Tiles[t];
-        var charBlob = new GR.Memory.ByteBuffer();
-        var colorBlob = new GR.Memory.ByteBuffer();
-        for ( int y = 0; y < tile.Chars.Height; ++y )
-        {
-          for ( int x = 0; x < tile.Chars.Width; ++x )
-          {
-            charBlob.AppendU8( tile.Chars[x, y].Character );
-            colorBlob.AppendU8( tile.Chars[x, y].Color );
-          }
-        }
-        tileCharBlobs.Add( charBlob );
-        tileColorBlobs.Add( colorBlob );
+        sections.Add( WriteTileSection( buf, cs.Tiles ) );
+      }
+      // The legacy header fields describe compacted charset 0 (= directory
+      // entry 0) so single-charset consumers keep working without reading
+      // the directory. Nothing exported: they stay 0 = "section absent".
+      if ( sections.Count > 0 )
+      {
+        buf.SetU8At( HDR_TILE_COUNT, (byte)sections[0].TileCount );
+        buf.SetU16At( HDR_TILES_WIDTH, sections[0].TilesWidth );
+        buf.SetU16At( HDR_TILES_HEIGHT, sections[0].TilesHeight );
+        buf.SetU16At( HDR_TILES_FLAGS, sections[0].TilesFlags );
+        buf.SetU16At( HDR_TILE_CHAR_OFF_LO, sections[0].TileCharOffLo );
+        buf.SetU16At( HDR_TILE_CHAR_OFF_HI, sections[0].TileCharOffHi );
+        buf.SetU16At( HDR_TILE_COLOR_OFF_LO, sections[0].TileColorOffLo );
+        buf.SetU16At( HDR_TILE_COLOR_OFF_HI, sections[0].TileColorOffHi );
       }
 
-      // tile_char_offset_lo[] — placeholders, will patch with file-relative offsets
-      int tileCharOffLoPos = (int)buf.Length;
-      buf.SetU16At( HDR_TILE_CHAR_OFF_LO, (ushort)( buf.Length ) );
-      for ( int t = 0; t < Tiles.Count; ++t )
-        buf.AppendU8( 0 );
-
-      // tile_char_offset_hi[]
-      int tileCharOffHiPos = (int)buf.Length;
-      buf.SetU16At( HDR_TILE_CHAR_OFF_HI, (ushort)( buf.Length ) );
-      for ( int t = 0; t < Tiles.Count; ++t )
-        buf.AppendU8( 0 );
-
-      // tile_color_offset_lo[]
-      int tileColorOffLoPos = (int)buf.Length;
-      buf.SetU16At( HDR_TILE_COLOR_OFF_LO, (ushort)( buf.Length ) );
-      for ( int t = 0; t < Tiles.Count; ++t )
-        buf.AppendU8( 0 );
-
-      // tile_color_offset_hi[]
-      int tileColorOffHiPos = (int)buf.Length;
-      buf.SetU16At( HDR_TILE_COLOR_OFF_HI, (ushort)( buf.Length ) );
-      for ( int t = 0; t < Tiles.Count; ++t )
-        buf.AppendU8( 0 );
-
-      // Tile char data (concatenated) — patch offset tables
-      int tileCharDataStart = (int)buf.Length;
-      int runningOffset = 0;
-      for ( int t = 0; t < Tiles.Count; ++t )
+      // ========== CHARSET DIRECTORY ==========
+      // Every value is already known — no patch pass.
+      buf.SetU8At( HDR_CHARSET_COUNT, (byte)sections.Count );
+      buf.SetU16At( HDR_CHARSET_DIRECTORY, (ushort)( buf.Length ) );
+      foreach ( var section in sections )
       {
-        int absAddr = tileCharDataStart + runningOffset;
-        buf.SetU8At( tileCharOffLoPos + t, (byte)( absAddr & 0xFF ) );
-        buf.SetU8At( tileCharOffHiPos + t, (byte)( ( absAddr >> 8 ) & 0xFF ) );
-        runningOffset += (int)tileCharBlobs[t].Length;
+        buf.AppendU8( (byte)section.TileCount );
+        buf.AppendU16( section.TilesWidth );
+        buf.AppendU16( section.TilesHeight );
+        buf.AppendU16( section.TilesFlags );
+        buf.AppendU16( section.TileCharOffLo );
+        buf.AppendU16( section.TileCharOffHi );
+        buf.AppendU16( section.TileColorOffLo );
+        buf.AppendU16( section.TileColorOffHi );
       }
-      for ( int t = 0; t < Tiles.Count; ++t )
-        buf.Append( tileCharBlobs[t] );
-
-      // Tile color data (concatenated) — patch offset tables
-      int tileColorDataStart = (int)buf.Length;
-      runningOffset = 0;
-      for ( int t = 0; t < Tiles.Count; ++t )
-      {
-        int absAddr = tileColorDataStart + runningOffset;
-        buf.SetU8At( tileColorOffLoPos + t, (byte)( absAddr & 0xFF ) );
-        buf.SetU8At( tileColorOffHiPos + t, (byte)( ( absAddr >> 8 ) & 0xFF ) );
-        runningOffset += (int)tileColorBlobs[t].Length;
-      }
-      for ( int t = 0; t < Tiles.Count; ++t )
-        buf.Append( tileColorBlobs[t] );
+      System.Diagnostics.Debug.Assert( CHARSET_RECORD_SIZE == 15 );
 
       // ========== MAP METADATA ARRAYS ==========
 
@@ -3159,16 +4432,18 @@ namespace RetroDevStudio.Formats
       for ( int m = 0; m < exportMaps.Count; ++m )
       {
         var map = exportMaps[m];
+        var mapCharset = CharsetOf( map );
+        var tiles = mapCharset.Tiles;
         int ew = map.Tiles.Width * map.TileSpacingX;
         int eh = map.Tiles.Height * map.TileSpacingY;
         for ( int ty = 0; ty < map.Tiles.Height; ++ty )
         {
           for ( int tx = 0; tx < map.Tiles.Width; ++tx )
           {
-            int tileIndex = GetExportTileIndex( flatTilesPerMap[m][tx, ty] );
-            if ( ( tileIndex >= 0 ) && ( tileIndex < Tiles.Count ) )
+            int tileIndex = GetExportTileIndex( mapCharset, flatTilesPerMap[m][tx, ty] );
+            if ( ( tileIndex >= 0 ) && ( tileIndex < tiles.Count ) )
             {
-              var tile = Tiles[tileIndex];
+              var tile = tiles[tileIndex];
               int w = tx * map.TileSpacingX + tile.Chars.Width;
               int h = ty * map.TileSpacingY + tile.Chars.Height;
               if ( w > ew ) ew = w;
@@ -3217,6 +4492,17 @@ namespace RetroDevStudio.Formats
       for ( int m = 0; m < exportMaps.Count; ++m )
         buf.AppendU8( (byte)entityCounts[m] );
 
+      // map_charset_index[] — the COMPACTED index of each exported map's
+      // charset. A map whose charset is not exported gets 0;
+      // GetCharsetExportWarnings() told the user before we got here (warn,
+      // never block).
+      buf.SetU16At( HDR_MAP_CHARSET_INDEX, (ushort)( buf.Length ) );
+      for ( int m = 0; m < exportMaps.Count; ++m )
+      {
+        int ci = exportCharsets.IndexOf( CharsetOf( exportMaps[m] ) );
+        buf.AppendU8( (byte)( ( ci < 0 ) ? 0 : ci ) );
+      }
+
       // ========== MAP DATA LOOKUP TABLES (placeholders) ==========
 
       int mapCharGridLoPos = (int)buf.Length;
@@ -3259,6 +4545,8 @@ namespace RetroDevStudio.Formats
       for ( int m = 0; m < exportMaps.Count; ++m )
       {
         var map = exportMaps[m];
+        var mapCharset = CharsetOf( map );
+        var tiles = mapCharset.Tiles;
         int ew = exportWidths[m];
         int eh = exportHeights[m];
 
@@ -3269,12 +4557,12 @@ namespace RetroDevStudio.Formats
         {
           for ( int tx = 0; tx < map.Tiles.Width; ++tx )
           {
-            int tileIndex = GetExportTileIndex( flatTilesPerMap[m][tx, ty] );
+            int tileIndex = GetExportTileIndex( mapCharset, flatTilesPerMap[m][tx, ty] );
             if ( ( tileIndex >= 0 )
-            &&   ( tileIndex < Tiles.Count )
+            &&   ( tileIndex < tiles.Count )
             &&   ( tileIndex != Settings.Assembly.EmptyTileIndex || !Settings.Assembly.EmptyTileCompressionEnabled ) )
             {
-              var tile = Tiles[tileIndex];
+              var tile = tiles[tileIndex];
               // Per-CHARACTER color override: each char of the tile
               // placement has its own slot in TileColorOverrides indexed
               // by character coords. -1 means "use the tile's intrinsic
@@ -3338,10 +4626,10 @@ namespace RetroDevStudio.Formats
           {
             for ( int tx = 0; tx < map.Tiles.Width; ++tx )
             {
-              int tileIndex = GetExportTileIndex( flatTilesPerMap[m][tx, ty] );
-              if ( ( tileIndex >= 0 ) && ( tileIndex < Tiles.Count ) && ( !Tiles[tileIndex].Passable ) )
+              int tileIndex = GetExportTileIndex( mapCharset, flatTilesPerMap[m][tx, ty] );
+              if ( ( tileIndex >= 0 ) && ( tileIndex < tiles.Count ) && ( !tiles[tileIndex].Passable ) )
               {
-                var tile = Tiles[tileIndex];
+                var tile = tiles[tileIndex];
                 for ( int cy = 0; cy < tile.Chars.Height; ++cy )
                 {
                   for ( int cx = 0; cx < tile.Chars.Width; ++cx )
@@ -3574,6 +4862,14 @@ namespace RetroDevStudio.Formats
         buf.SetU8At( HDR_MAP_STRING_COUNT, (byte)count );
       }
 
+      // Every pointer in the file is 16-bit; a bigger binary would have wrapped
+      // silently. (The form's optional 2-byte load address is added afterwards
+      // and is not part of the file-relative offsets.)
+      if ( buf.Length > 0xFFFF )
+      {
+        Errors.Add( "the game binary is " + buf.Length + " bytes; every pointer in it is 16-bit, so it cannot exceed 65535 bytes" );
+        return null;
+      }
       return buf;
     }
 
@@ -3612,12 +4908,12 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( "// address the file was loaded to before dereferencing any pointer, at" );
       sb.AppendLine( "// both indirection levels. This is what lets the map be relocated in" );
       sb.AppendLine( "// memory. A pointer of 0 means 'section absent' (the header occupies" );
-      sb.AppendLine( "// offsets 0..$3B, so no real section can start at offset 0)." );
+      sb.AppendLine( "// offsets 0..$40, so no real section can start at offset 0)." );
       sb.AppendLine();
-      sb.AppendLine( "// ====== Game binary header (60 bytes) ======" );
+      sb.AppendLine( "// ====== Game binary header (65 bytes) ======" );
       sb.AppendLine( "// Direct byte values at the start of the header:" );
       sb.AppendLine( ".const MAP_HEADER_MARKER_STRIDE                  = $00  // byte: marker record size" );
-      sb.AppendLine( ".const MAP_HEADER_TILECOUNT                      = $01  // byte: number of tiles" );
+      sb.AppendLine( ".const MAP_HEADER_TILECOUNT                      = $01  // byte: number of tiles in compacted charset 0 (see the charset directory)" );
       sb.AppendLine( ".const MAP_HEADER_MAPCOUNT                       = $02  // byte: number of maps" );
       sb.AppendLine( ".const MAP_HEADER_START_MAP_INDEX                = $03  // byte: index of starting map" );
       sb.AppendLine();
@@ -3663,7 +4959,34 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_STRING_LO           = $36" );
       sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_STRING_HI           = $38" );
       sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_STRING_ID           = $3A" );
-      sb.AppendLine( ".const MAP_HEADER_SIZE                           = $3C  // total header length" );
+      sb.AppendLine();
+      sb.AppendLine( "// Character sets (v29): a map project can hold several character sets," );
+      sb.AppendLine( "// each with its own tile library. MAP_CHARSET_INDEX points at a byte" );
+      sb.AppendLine( "// table (one entry per map) holding the COMPACTED index of the map's" );
+      sb.AppendLine( "// character set; the charset directory has one MAP_CHARSET_SIZE record" );
+      sb.AppendLine( "// per exported character set (see the record layout below). The legacy" );
+      sb.AppendLine( "// TILECOUNT / TILES_* / TILE_*_OFFSET_* fields above mirror directory" );
+      sb.AppendLine( "// entry 0 (the FIRST ENABLED set), so single-charset code keeps working" );
+      sb.AppendLine( "// without reading the directory. See map_charsets.asm for the named" );
+      sb.AppendLine( "// charset indices and map_names.asm for the named map indices." );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_MAP_CHARSET_INDEX       = $3C" );
+      sb.AppendLine( ".const MAP_HEADER_CHARSET_COUNT                  = $3E  // byte: number of exported character sets" );
+      sb.AppendLine( ".const MAP_HEADER_OFFSET_CHARSET_DIRECTORY       = $3F" );
+      sb.AppendLine( ".const MAP_HEADER_SIZE                           = $41  // total header length" );
+      sb.AppendLine();
+      sb.AppendLine( "// ====== Charset directory record layout (15 bytes per character set) ======" );
+      sb.AppendLine( "// Byte offsets within one record; record N starts at" );
+      sb.AppendLine( "// MAP_HEADER_OFFSET_CHARSET_DIRECTORY + N * MAP_CHARSET_SIZE. Every pointer" );
+      sb.AppendLine( "// is file-relative, like the header's." );
+      sb.AppendLine( ".const MAP_CHARSET_TILECOUNT                     = $00  // byte: number of tiles in this set" );
+      sb.AppendLine( ".const MAP_CHARSET_OFFSET_TILES_WIDTH            = $01" );
+      sb.AppendLine( ".const MAP_CHARSET_OFFSET_TILES_HEIGHT           = $03" );
+      sb.AppendLine( ".const MAP_CHARSET_OFFSET_TILES_FLAGS            = $05" );
+      sb.AppendLine( ".const MAP_CHARSET_OFFSET_TILE_CHAR_OFFSET_LO    = $07" );
+      sb.AppendLine( ".const MAP_CHARSET_OFFSET_TILE_CHAR_OFFSET_HI    = $09" );
+      sb.AppendLine( ".const MAP_CHARSET_OFFSET_TILE_COLOR_OFFSET_LO   = $0B" );
+      sb.AppendLine( ".const MAP_CHARSET_OFFSET_TILE_COLOR_OFFSET_HI   = $0D" );
+      sb.AppendLine( ".const MAP_CHARSET_SIZE                          = $0F  // bytes per directory record" );
       sb.AppendLine();
       sb.AppendLine( "// ====== Marker record layout (11 bytes per marker) ======" );
       sb.AppendLine( "// Byte offsets within a single marker record." );
@@ -3698,7 +5021,7 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( ".const MAP_ENTITY_TAG                            = $01" );
       sb.AppendLine( ".const MAP_ENTITY_X                              = $02" );
       sb.AppendLine( ".const MAP_ENTITY_Y                              = $03" );
-      sb.AppendLine( ".const MAP_ENTITY_TILE                           = $04" );
+      sb.AppendLine( ".const MAP_ENTITY_TILE                           = $04  // index into the tile tables of the map's character set" );
       sb.AppendLine( ".const MAP_ENTITY_VALUE1                         = $05" );
       sb.AppendLine( ".const MAP_ENTITY_VALUE2                         = $06" );
       sb.AppendLine( ".const MAP_ENTITY_ENABLED                        = $07" );
@@ -4231,8 +5554,12 @@ namespace RetroDevStudio.Formats
 
 
     [System.Obsolete( "Superseded by ExportAsGameBinary; will be removed." )]
-    public bool ExportSparseTileAndMapData( bool Vertical, out string ExportData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective, bool EmptyTileCompression, int EmptyTileIndex, bool AddFilenamespace, string Filenamespace, bool WrapMapData )
+    public bool ExportSparseTileAndMapData( bool Vertical, out string ExportData, string LabelPrefix, bool WrapData, int WrapByteCount, string DataByteDirective, bool EmptyTileCompression, int EmptyTileIndex, bool AddFilenamespace, string Filenamespace, bool WrapMapData, int CharsetIndex = 0 )
     {
+      // The single TILESET block describes ONE charset (default: charset 0);
+      // maps bound to another charset reference tiles outside it — the
+      // per-map blocks below resolve each map's own charset.
+      var tiles = CharsetAt( CharsetIndex ).Tiles;
       // Maps flagged "not exported" are skipped — same rule as the game binary.
       var exportMaps = ExportedMaps();
       StringBuilder sb = new StringBuilder();
@@ -4259,7 +5586,7 @@ namespace RetroDevStudio.Formats
         labelSuffix = ":";
       }
 
-      // Tiles Data
+      // tiles Data
       string[] colorNames = new string[] {
         "black", "white", "red", "cyan", "purple", "green", "blue", "yellow",
         "orange", "brown", "light red", "dark grey", "grey", "light green", "light blue", "light grey"
@@ -4295,7 +5622,7 @@ namespace RetroDevStudio.Formats
         sb.AppendLine();
       }
 
-      sb.AppendLine( "TILE_COUNT" + labelSuffix + " " + DataByteDirective + " $" + Tiles.Count.ToString( "X2" ) );
+      sb.AppendLine( "TILE_COUNT" + labelSuffix + " " + DataByteDirective + " $" + tiles.Count.ToString( "X2" ) );
       sb.AppendLine( "MAP_COUNT" + labelSuffix + " " + DataByteDirective + " $" + exportMaps.Count.ToString( "X2" ) );
       sb.AppendLine();
 
@@ -4346,7 +5673,7 @@ namespace RetroDevStudio.Formats
         for ( int i = 0; i < exportMaps.Count; ++i )
         {
           int effectiveMC1 = exportMaps[i].AlternativeMultiColor1;
-          if ( effectiveMC1 == -1 ) effectiveMC1 = Charset.Colors.MultiColor1;
+          if ( effectiveMC1 == -1 ) effectiveMC1 = Charsets[0].Charset.Colors.MultiColor1;
           mapMC1Colors.AppendU8( (byte)( effectiveMC1 & 0x0f ) );
         }
         sb.AppendLine( Util.ToASMData( mapMC1Colors, WrapData, WrapByteCount, DataByteDirective ) );
@@ -4358,7 +5685,7 @@ namespace RetroDevStudio.Formats
         for ( int i = 0; i < exportMaps.Count; ++i )
         {
           int effectiveMC2 = exportMaps[i].AlternativeMultiColor2;
-          if ( effectiveMC2 == -1 ) effectiveMC2 = Charset.Colors.MultiColor2;
+          if ( effectiveMC2 == -1 ) effectiveMC2 = Charsets[0].Charset.Colors.MultiColor2;
           mapMC2Colors.AppendU8( (byte)( effectiveMC2 & 0x0f ) );
         }
         sb.AppendLine( Util.ToASMData( mapMC2Colors, WrapData, WrapByteCount, DataByteDirective ) );
@@ -4367,9 +5694,9 @@ namespace RetroDevStudio.Formats
 
       if ( ( Settings.Assembly.MapSizeCommentEnabled ) && ( !string.IsNullOrEmpty( Settings.Assembly.CommentChars ) ) )
       {
-        for ( int i = 0; i < Tiles.Count; ++i )
+        for ( int i = 0; i < tiles.Count; ++i )
         {
-          sb.AppendLine( Settings.Assembly.CommentChars + " " + i.ToString( "D2" ) + ": " + Tiles[i].Name );
+          sb.AppendLine( Settings.Assembly.CommentChars + " " + i.ToString( "D2" ) + ": " + tiles[i].Name );
         }
         sb.AppendLine();
       }
@@ -4377,7 +5704,7 @@ namespace RetroDevStudio.Formats
       GR.Memory.ByteBuffer tileWidths = new GR.Memory.ByteBuffer();
       GR.Memory.ByteBuffer tileHeights = new GR.Memory.ByteBuffer();
 
-      foreach ( var tile in Tiles )
+      foreach ( var tile in tiles )
       {
         tileWidths.AppendU8( (byte)tile.Chars.Width );
         tileHeights.AppendU8( (byte)tile.Chars.Height );
@@ -4393,7 +5720,7 @@ namespace RetroDevStudio.Formats
 
       sb.AppendLine( LabelPrefix + "TILES_FLAGS" + labelSuffix );
       GR.Memory.ByteBuffer tileFlags = new GR.Memory.ByteBuffer();
-      foreach ( var tile in Tiles )
+      foreach ( var tile in tiles )
       {
         tileFlags.AppendU8( (byte)( tile.Passable ? 1 : 0 ) );
       }
@@ -4401,9 +5728,9 @@ namespace RetroDevStudio.Formats
       sb.AppendLine();
 
       sb.AppendLine( LabelPrefix + "TILES_CHAR_DATA" + labelSuffix );
-      for ( int i = 0; i < Tiles.Count; ++i )
+      for ( int i = 0; i < tiles.Count; ++i )
       {
-        var tile = Tiles[i];
+        var tile = tiles[i];
         sb.Append( LabelPrefix + "TILE_CHAR_" + i.ToString( "D2" ) + labelSuffix + " " );
         
         GR.Memory.ByteBuffer charData = new GR.Memory.ByteBuffer();
@@ -4427,7 +5754,7 @@ namespace RetroDevStudio.Formats
       GR.Memory.ByteBuffer tableLow = new GR.Memory.ByteBuffer();
       StringBuilder sbTable = new StringBuilder();
       sbTable.Append( DataByteDirective + " " );
-      for ( int i = 0; i < Tiles.Count; ++i )
+      for ( int i = 0; i < tiles.Count; ++i )
       {
         if ( i > 0 ) sbTable.Append( ", " );
         sbTable.Append( "<" + LabelPrefix + "TILE_CHAR_" + i.ToString( "D2" ) );
@@ -4438,7 +5765,7 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( LabelPrefix + "TILES_CHAR_TABLE_HIGH" + labelSuffix );
       sbTable = new StringBuilder();
       sbTable.Append( DataByteDirective + " " );
-      for ( int i = 0; i < Tiles.Count; ++i )
+      for ( int i = 0; i < tiles.Count; ++i )
       {
         if ( i > 0 ) sbTable.Append( ", " );
         sbTable.Append( ">" + LabelPrefix + "TILE_CHAR_" + i.ToString( "D2" ) );
@@ -4447,9 +5774,9 @@ namespace RetroDevStudio.Formats
       sb.AppendLine();
 
       sb.AppendLine( LabelPrefix + "TILES_COLOR_DATA" + labelSuffix );
-      for ( int i = 0; i < Tiles.Count; ++i )
+      for ( int i = 0; i < tiles.Count; ++i )
       {
-        var tile = Tiles[i];
+        var tile = tiles[i];
         sb.Append( LabelPrefix + "TILE_COLOR_" + i.ToString( "D2" ) + labelSuffix + " " );
 
         GR.Memory.ByteBuffer colorData = new GR.Memory.ByteBuffer();
@@ -4467,7 +5794,7 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( LabelPrefix + "TILES_COLOR_TABLE_LOW" + labelSuffix );
       sbTable = new StringBuilder();
       sbTable.Append( DataByteDirective + " " );
-      for ( int i = 0; i < Tiles.Count; ++i )
+      for ( int i = 0; i < tiles.Count; ++i )
       {
         if ( i > 0 ) sbTable.Append( ", " );
         sbTable.Append( "<" + LabelPrefix + "TILE_COLOR_" + i.ToString( "D2" ) );
@@ -4478,7 +5805,7 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( LabelPrefix + "TILES_COLOR_TABLE_HIGH" + labelSuffix );
       sbTable = new StringBuilder();
       sbTable.Append( DataByteDirective + " " );
-      for ( int i = 0; i < Tiles.Count; ++i )
+      for ( int i = 0; i < tiles.Count; ++i )
       {
         if ( i > 0 ) sbTable.Append( ", " );
         sbTable.Append( ">" + LabelPrefix + "TILE_COLOR_" + i.ToString( "D2" ) );
@@ -4586,11 +5913,11 @@ namespace RetroDevStudio.Formats
           {
             for ( int x = 0; x < map.Tiles.Width; ++x )
             {
-              int tileIndex = GetExportTileIndex( map.Tiles[x, y] );
+              int tileIndex = GetExportTileIndex( map, map.Tiles[x, y] );
               if ( ( tileIndex >= 0 )
-              &&   ( tileIndex < Tiles.Count ) )
+              &&   ( tileIndex < CharsetOf( map ).Tiles.Count ) )
               {
-                var tile = Tiles[tileIndex];
+                var tile = CharsetOf( map ).Tiles[tileIndex];
                 if ( x * map.TileSpacingX + tile.Chars.Width > exportWidth )
                 {
                    exportWidth = x * map.TileSpacingX + tile.Chars.Width;
@@ -4620,12 +5947,12 @@ namespace RetroDevStudio.Formats
           {
             for ( int x = 0; x < map.Tiles.Width; ++x )
             {
-              int tileIndex = GetExportTileIndex( map.Tiles[x, y] );
+              int tileIndex = GetExportTileIndex( map, map.Tiles[x, y] );
               if ( ( tileIndex >= 0 )
-              &&   ( tileIndex < Tiles.Count )
+              &&   ( tileIndex < CharsetOf( map ).Tiles.Count )
               &&   ( tileIndex != Settings.Assembly.EmptyTileIndex ) )
               {
-                var tile = Tiles[tileIndex];
+                var tile = CharsetOf( map ).Tiles[tileIndex];
                 for ( int ty = 0; ty < tile.Chars.Height; ++ty )
                 {
                   for ( int tx = 0; tx < tile.Chars.Width; ++tx )
@@ -4672,7 +5999,7 @@ namespace RetroDevStudio.Formats
             {
               for ( int x = 0; x < map.Tiles.Width; ++x )
               {
-                mapTiles.AppendU8( (byte)GetExportTileIndex( map.Tiles[x, y] ) );
+                mapTiles.AppendU8( (byte)GetExportTileIndex( map, map.Tiles[x, y] ) );
               }
             }
             sb.AppendLine( Util.ToASMData( mapTiles, WrapData, WrapByteCount, DataByteDirective ) );
@@ -4723,11 +6050,11 @@ namespace RetroDevStudio.Formats
            {
              for ( int tx = 0; tx < map.Tiles.Width; ++tx )
              {
-               int tileIndex = GetExportTileIndex( map.Tiles[tx, ty] );
+               int tileIndex = GetExportTileIndex( map, map.Tiles[tx, ty] );
                if ( ( tileIndex >= 0 )
-               &&   ( tileIndex < Tiles.Count ) )
+               &&   ( tileIndex < CharsetOf( map ).Tiles.Count ) )
                {
-                 var tile = Tiles[tileIndex];
+                 var tile = CharsetOf( map ).Tiles[tileIndex];
                  int w = tx * map.TileSpacingX + tile.Chars.Width;
                  int h = ty * map.TileSpacingY + tile.Chars.Height;
                  if ( w > passableWidth )
@@ -4751,12 +6078,12 @@ namespace RetroDevStudio.Formats
            {
              for ( int tx = 0; tx < map.Tiles.Width; ++tx )
              {
-               int tileIndex = GetExportTileIndex( map.Tiles[tx, ty] );
+               int tileIndex = GetExportTileIndex( map, map.Tiles[tx, ty] );
                if ( ( tileIndex >= 0 )
-               &&   ( tileIndex < Tiles.Count )
-               &&   ( !Tiles[tileIndex].Passable ) )
+               &&   ( tileIndex < CharsetOf( map ).Tiles.Count )
+               &&   ( !CharsetOf( map ).Tiles[tileIndex].Passable ) )
                {
-                 var tile = Tiles[tileIndex];
+                 var tile = CharsetOf( map ).Tiles[tileIndex];
                  for ( int cy = 0; cy < tile.Chars.Height; ++cy )
                  {
                    for ( int cx = 0; cx < tile.Chars.Width; ++cx )
@@ -4848,19 +6175,35 @@ namespace RetroDevStudio.Formats
     }
 
 
-    private int GetExportTileIndex( int TileIndex )
+    /// <summary>
+    /// THE funnel from a map cell's raw tile index to the index an export
+    /// writes. -1 (a flattened empty cell) passes through untouched — callers
+    /// gate on >= 0. An index beyond the charset's tile count (a map switched
+    /// to a smaller charset) and a NotExportedOnMap tile both become the
+    /// project-wide EmptyTileIndex.
+    /// </summary>
+    public int GetExportTileIndex( MapCharset Charset, int TileIndex )
     {
-      if ( ( TileIndex < 0 ) 
-      ||   ( TileIndex >= Tiles.Count ) )
+      if ( TileIndex < 0 )
       {
         return TileIndex;
       }
-      if ( Tiles[TileIndex].NotExportedOnMap )
+      if ( ( TileIndex >= Charset.Tiles.Count )
+      ||   ( Charset.Tiles[TileIndex].NotExportedOnMap ) )
       {
         return Settings.Assembly.EmptyTileIndex;
       }
       return TileIndex;
     }
+
+
+
+    public int GetExportTileIndex( Map map, int TileIndex )
+    {
+      return GetExportTileIndex( CharsetOf( map ), TileIndex );
+    }
+
+
 
     private void AppendMarkerGlobalTables( StringBuilder sb, string LabelPrefix, string DataByteDirective, bool HexFormat )
     {
@@ -5080,6 +6423,10 @@ namespace RetroDevStudio.Formats
       // Appended for NotExported — the "Map not exported" checkbox. Older
       // readers stop before it and keep the default of false (exported).
       chunkMapInfo.AppendU8( map.NotExported ? (byte)1 : (byte)0 );
+      // Appended for CharsetIndex — which of the project's character sets
+      // (and tile libraries) this map is painted with. Older readers stop
+      // before it and keep the default of 0 (the only charset they know).
+      chunkMapInfo.AppendU8( (byte)Math.Max( 0, Math.Min( 255, map.CharsetIndex ) ) );
       chunkMap.Append( chunkMapInfo.ToBuffer() );
 
       GR.IO.FileChunk chunkMapData = new GR.IO.FileChunk( FileChunkConstants.MAP_DATA );
@@ -5421,6 +6768,10 @@ namespace RetroDevStudio.Formats
             if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
             {
               map.NotExported = ( mapChunkReader.ReadUInt8() != 0 );
+            }
+            if ( mapChunkReader.Size - mapChunkReader.Position >= 1 )
+            {
+              map.CharsetIndex = mapChunkReader.ReadUInt8();
             }
             break;
           case FileChunkConstants.MAP_DATA:

@@ -1586,19 +1586,21 @@ namespace RetroDevStudio.Parser
           }
 
           if ( ( startIndex < 0 )
-          ||   ( startIndex >= map.Charset.TotalNumberOfCharacters ) )
+          // Single-charset by design: the pseudo-op always reads charset 0 of a
+          // multi-charset map project (there is no syntax to pick another one).
+          ||   ( startIndex >= map.Charsets[0].Charset.TotalNumberOfCharacters ) )
           {
             AddError( lineIndex, Types.ErrorCode.E1009_INVALID_VALUE, "Invalid start index " + startIndex );
             return false;
           }
           if ( ( numChars <= 0 )
-          ||   ( ( startIndex + numChars ) > map.Charset.TotalNumberOfCharacters ) )
+          ||   ( ( startIndex + numChars ) > map.Charsets[0].Charset.TotalNumberOfCharacters ) )
           {
             AddError( lineIndex, Types.ErrorCode.E1009_INVALID_VALUE, "Invalid char count " + numChars );
             return false;
           }
 
-          dataToInclude = map.Charset.CharacterData( startIndex, numChars );
+          dataToInclude = map.Charsets[0].Charset.CharacterData( startIndex, numChars );
         }
         else if ( method == "MAPTILE" )
         {

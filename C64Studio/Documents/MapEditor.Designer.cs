@@ -124,9 +124,11 @@
             editEntityTagID = new System.Windows.Forms.NumericUpDown();
             btnFindNextEntityTagID = new DecentForms.Button();
             labelEntityTagID = new System.Windows.Forms.Label();
-            editEntityTileIndex = new System.Windows.Forms.NumericUpDown();
+            comboEntityPreviewCharset = new Krypton.Toolkit.KryptonComboBox();
+            comboEntityTile = new Krypton.Toolkit.KryptonComboBox();
             btnEntityTileFromSelection = new DecentForms.Button();
-            labelEntityTileIndex = new System.Windows.Forms.Label();
+            labelEntityPreviewCharset = new System.Windows.Forms.Label();
+            labelEntityTile = new System.Windows.Forms.Label();
             editEntityName = new System.Windows.Forms.TextBox();
             labelEntityName = new System.Windows.Forms.Label();
             listEntityTypes = new RetroDevStudio.Controls.CSListView();
@@ -188,6 +190,8 @@
             comboMapAlternativeMode = new Krypton.Toolkit.KryptonComboBox();
             comboMapProjectMode = new Krypton.Toolkit.KryptonComboBox();
             checkMapNotExported = new Krypton.Toolkit.KryptonCheckBox();
+            labelMapCharset = new System.Windows.Forms.Label();
+            comboMapCharset = new Krypton.Toolkit.KryptonComboBox();
             label1 = new System.Windows.Forms.Label();
             comboMapAlternativeBGColor4 = new Krypton.Toolkit.KryptonComboBox();
             label25 = new System.Windows.Forms.Label();
@@ -454,6 +458,18 @@
             pictureTileDisplay = new GR.Forms.FastPictureBox();
             tabCharset = new Krypton.Navigator.KryptonPage();
             characterEditor = new RetroDevStudio.Controls.CharacterEditor();
+            panelCharsetTools = new System.Windows.Forms.Panel();
+            labelCharset = new System.Windows.Forms.Label();
+            comboCharsets = new Krypton.Toolkit.KryptonComboBox();
+            btnCharsetAdd = new DecentForms.Button();
+            btnCharsetDuplicate = new DecentForms.Button();
+            btnCharsetRemove = new DecentForms.Button();
+            checkCharsetFollowMap = new Krypton.Toolkit.KryptonCheckBox();
+            labelCharsetDisplayName = new System.Windows.Forms.Label();
+            editCharsetDisplayName = new Krypton.Toolkit.KryptonTextBox();
+            labelCharsetExportName = new System.Windows.Forms.Label();
+            editCharsetExportName = new Krypton.Toolkit.KryptonTextBox();
+            checkCharsetExport = new Krypton.Toolkit.KryptonCheckBox();
             tabExport = new Krypton.Navigator.KryptonPage();
             label5 = new System.Windows.Forms.Label();
             comboExportOrientation = new System.Windows.Forms.ComboBox();
@@ -498,7 +514,8 @@
             ((System.ComponentModel.ISupportInitialize)tabEntities).BeginInit();
             tabEntities.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)editEntityTagID).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)editEntityTileIndex).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)comboEntityPreviewCharset).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)comboEntityTile).BeginInit();
             menuStrip1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)tabEditor).BeginInit();
             tabEditor.SuspendLayout();
@@ -524,6 +541,7 @@
             collapsiblePanel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)comboMapAlternativeMode).BeginInit();
             ((System.ComponentModel.ISupportInitialize)comboMapProjectMode).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)comboMapCharset).BeginInit();
             ((System.ComponentModel.ISupportInitialize)comboMapAlternativeBGColor4).BeginInit();
             ((System.ComponentModel.ISupportInitialize)comboMapMultiColor2).BeginInit();
             ((System.ComponentModel.ISupportInitialize)comboMapBGColor).BeginInit();
@@ -549,6 +567,8 @@
             ((System.ComponentModel.ISupportInitialize)pictureTileDisplay).BeginInit();
             ((System.ComponentModel.ISupportInitialize)tabCharset).BeginInit();
             tabCharset.SuspendLayout();
+            panelCharsetTools.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)comboCharsets).BeginInit();
             ((System.ComponentModel.ISupportInitialize)tabExport).BeginInit();
             tabExport.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)tabImport).BeginInit();
@@ -1463,9 +1483,11 @@
             tabEntities.Controls.Add(editEntityTagID);
             tabEntities.Controls.Add(btnFindNextEntityTagID);
             tabEntities.Controls.Add(labelEntityTagID);
-            tabEntities.Controls.Add(editEntityTileIndex);
+            tabEntities.Controls.Add(comboEntityTile);
+            tabEntities.Controls.Add(comboEntityPreviewCharset);
             tabEntities.Controls.Add(btnEntityTileFromSelection);
-            tabEntities.Controls.Add(labelEntityTileIndex);
+            tabEntities.Controls.Add(labelEntityTile);
+            tabEntities.Controls.Add(labelEntityPreviewCharset);
             tabEntities.Controls.Add(editEntityName);
             tabEntities.Controls.Add(labelEntityName);
             tabEntities.Controls.Add(listEntityTypes);
@@ -1487,7 +1509,7 @@
             btnDeleteEntityType.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnDeleteEntityType.Enabled = false;
             btnDeleteEntityType.Image = null;
-            btnDeleteEntityType.Location = new System.Drawing.Point(558, 126);
+            btnDeleteEntityType.Location = new System.Drawing.Point(558, 154);
             btnDeleteEntityType.Name = "btnDeleteEntityType";
             btnDeleteEntityType.Size = new System.Drawing.Size(80, 23);
             btnDeleteEntityType.TabIndex = 9;
@@ -1502,7 +1524,7 @@
             btnUpdateEntityType.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnUpdateEntityType.Enabled = false;
             btnUpdateEntityType.Image = null;
-            btnUpdateEntityType.Location = new System.Drawing.Point(472, 126);
+            btnUpdateEntityType.Location = new System.Drawing.Point(472, 154);
             btnUpdateEntityType.Name = "btnUpdateEntityType";
             btnUpdateEntityType.Size = new System.Drawing.Size(75, 23);
             btnUpdateEntityType.TabIndex = 8;
@@ -1516,7 +1538,7 @@
             btnAddEntityType.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             btnAddEntityType.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnAddEntityType.Image = null;
-            btnAddEntityType.Location = new System.Drawing.Point(386, 126);
+            btnAddEntityType.Location = new System.Drawing.Point(386, 154);
             btnAddEntityType.Name = "btnAddEntityType";
             btnAddEntityType.Size = new System.Drawing.Size(75, 23);
             btnAddEntityType.TabIndex = 7;
@@ -1525,7 +1547,7 @@
             // 
             // editEntityExportSymbol
             // 
-            editEntityExportSymbol.Location = new System.Drawing.Point(472, 68);
+            editEntityExportSymbol.Location = new System.Drawing.Point(472, 96);
             editEntityExportSymbol.Name = "editEntityExportSymbol";
             editEntityExportSymbol.Size = new System.Drawing.Size(120, 20);
             editEntityExportSymbol.TabIndex = 6;
@@ -1534,7 +1556,7 @@
             // labelEntityExportSymbol
             // 
             labelEntityExportSymbol.AutoSize = true;
-            labelEntityExportSymbol.Location = new System.Drawing.Point(386, 70);
+            labelEntityExportSymbol.Location = new System.Drawing.Point(386, 98);
             labelEntityExportSymbol.Name = "labelEntityExportSymbol";
             labelEntityExportSymbol.Size = new System.Drawing.Size(77, 13);
             labelEntityExportSymbol.TabIndex = 5;
@@ -1542,7 +1564,7 @@
             // 
             // editEntityTagID
             // 
-            editEntityTagID.Location = new System.Drawing.Point(472, 96);
+            editEntityTagID.Location = new System.Drawing.Point(472, 124);
             editEntityTagID.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
             editEntityTagID.Name = "editEntityTagID";
             editEntityTagID.Size = new System.Drawing.Size(120, 20);
@@ -1555,7 +1577,7 @@
             btnFindNextEntityTagID.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             btnFindNextEntityTagID.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnFindNextEntityTagID.Image = null;
-            btnFindNextEntityTagID.Location = new System.Drawing.Point(598, 94);
+            btnFindNextEntityTagID.Location = new System.Drawing.Point(598, 122);
             btnFindNextEntityTagID.Name = "btnFindNextEntityTagID";
             btnFindNextEntityTagID.Size = new System.Drawing.Size(24, 23);
             btnFindNextEntityTagID.TabIndex = 13;
@@ -1566,19 +1588,34 @@
             // labelEntityTagID
             // 
             labelEntityTagID.AutoSize = true;
-            labelEntityTagID.Location = new System.Drawing.Point(386, 98);
+            labelEntityTagID.Location = new System.Drawing.Point(386, 126);
             labelEntityTagID.Name = "labelEntityTagID";
             labelEntityTagID.Size = new System.Drawing.Size(43, 13);
             labelEntityTagID.TabIndex = 11;
             labelEntityTagID.Text = "Tag ID:";
-            // 
-            // editEntityTileIndex
-            // 
-            editEntityTileIndex.Location = new System.Drawing.Point(472, 38);
-            editEntityTileIndex.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
-            editEntityTileIndex.Name = "editEntityTileIndex";
-            editEntityTileIndex.Size = new System.Drawing.Size(120, 20);
-            editEntityTileIndex.TabIndex = 4;
+            //
+            // comboEntityPreviewCharset
+            //
+            comboEntityPreviewCharset.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            comboEntityPreviewCharset.DropDownWidth = 120;
+            comboEntityPreviewCharset.FormattingEnabled = true;
+            comboEntityPreviewCharset.Location = new System.Drawing.Point(472, 36);
+            comboEntityPreviewCharset.Name = "comboEntityPreviewCharset";
+            comboEntityPreviewCharset.Size = new System.Drawing.Size(120, 22);
+            comboEntityPreviewCharset.TabIndex = 4;
+            toolTip1.SetToolTip(comboEntityPreviewCharset, "Character set used to pick and preview the tile below. Saved in the project, never exported - the exported tile index is read in each map's own character set.");
+            comboEntityPreviewCharset.SelectedIndexChanged += comboEntityPreviewCharset_SelectedIndexChanged;
+            //
+            // comboEntityTile
+            //
+            comboEntityTile.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            comboEntityTile.DropDownWidth = 200;
+            comboEntityTile.FormattingEnabled = true;
+            comboEntityTile.Location = new System.Drawing.Point(472, 64);
+            comboEntityTile.Name = "comboEntityTile";
+            comboEntityTile.Size = new System.Drawing.Size(120, 22);
+            comboEntityTile.TabIndex = 5;
+            toolTip1.SetToolTip(comboEntityTile, "Tile this entity type is drawn with (index: name in the preview character set). Update commits it.");
             //
             // btnEntityTileFromSelection
             //
@@ -1587,22 +1624,31 @@
             btnEntityTileFromSelection.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             btnEntityTileFromSelection.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnEntityTileFromSelection.Image = null;
-            btnEntityTileFromSelection.Location = new System.Drawing.Point(598, 36);
+            btnEntityTileFromSelection.Location = new System.Drawing.Point(598, 64);
             btnEntityTileFromSelection.Name = "btnEntityTileFromSelection";
             btnEntityTileFromSelection.Size = new System.Drawing.Size(90, 23);
             btnEntityTileFromSelection.TabIndex = 12;
             btnEntityTileFromSelection.Text = "Selected tile";
-            toolTip1.SetToolTip(btnEntityTileFromSelection, "Assign the tile currently selected on the Tiles tab to the Tile Index spinner - Update commits it. Does nothing when no tile is selected.");
+            toolTip1.SetToolTip(btnEntityTileFromSelection, "Pick the tile currently selected on the Tiles tab (switches the preview character set to the current map's) - Update commits it. Does nothing when no tile is selected.");
             btnEntityTileFromSelection.Click += btnEntityTileFromSelection_Click;
             //
-            // labelEntityTileIndex
-            // 
-            labelEntityTileIndex.AutoSize = true;
-            labelEntityTileIndex.Location = new System.Drawing.Point(386, 40);
-            labelEntityTileIndex.Name = "labelEntityTileIndex";
-            labelEntityTileIndex.Size = new System.Drawing.Size(56, 13);
-            labelEntityTileIndex.TabIndex = 3;
-            labelEntityTileIndex.Text = "Tile Index:";
+            // labelEntityPreviewCharset
+            //
+            labelEntityPreviewCharset.AutoSize = true;
+            labelEntityPreviewCharset.Location = new System.Drawing.Point(386, 40);
+            labelEntityPreviewCharset.Name = "labelEntityPreviewCharset";
+            labelEntityPreviewCharset.Size = new System.Drawing.Size(47, 13);
+            labelEntityPreviewCharset.TabIndex = 3;
+            labelEntityPreviewCharset.Text = "Charset:";
+            //
+            // labelEntityTile
+            //
+            labelEntityTile.AutoSize = true;
+            labelEntityTile.Location = new System.Drawing.Point(386, 68);
+            labelEntityTile.Name = "labelEntityTile";
+            labelEntityTile.Size = new System.Drawing.Size(27, 13);
+            labelEntityTile.TabIndex = 14;
+            labelEntityTile.Text = "Tile:";
             // 
             // editEntityName
             // 
@@ -2216,6 +2262,8 @@
             // collapsiblePanel1
             // 
             collapsiblePanel1.Collapsed = true;
+            collapsiblePanel1.Controls.Add(comboMapCharset);
+            collapsiblePanel1.Controls.Add(labelMapCharset);
             collapsiblePanel1.Controls.Add(comboMapAlternativeMode);
             collapsiblePanel1.Controls.Add(comboMapProjectMode);
             collapsiblePanel1.Controls.Add(checkMapNotExported);
@@ -2245,7 +2293,7 @@
             collapsiblePanel1.Controls.Add(label23);
             collapsiblePanel1.Controls.Add(label14);
             collapsiblePanel1.Controls.Add(label22);
-            collapsiblePanel1.ExpandedHeight = 256;
+            collapsiblePanel1.ExpandedHeight = 284;
             collapsiblePanel1.Location = new System.Drawing.Point(3, 65);
             collapsiblePanel1.MinimumSize = new System.Drawing.Size(40, 56);
             collapsiblePanel1.Name = "collapsiblePanel1";
@@ -2285,6 +2333,27 @@
             toolTip1.SetToolTip(checkMapNotExported, "Skip this map in every all-maps export (game binary, assembly, raw buffer). Later maps' export indices shift down; the start map is remapped automatically.");
             checkMapNotExported.Values.Text = "Map not exported";
             checkMapNotExported.CheckedChanged += checkMapNotExported_CheckedChanged;
+            //
+            // labelMapCharset
+            //
+            labelMapCharset.AutoSize = true;
+            labelMapCharset.Location = new System.Drawing.Point(15, 256);
+            labelMapCharset.Name = "labelMapCharset";
+            labelMapCharset.Size = new System.Drawing.Size(47, 13);
+            labelMapCharset.TabIndex = 29;
+            labelMapCharset.Text = "Charset:";
+            //
+            // comboMapCharset
+            //
+            comboMapCharset.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            comboMapCharset.DropDownWidth = 246;
+            comboMapCharset.FormattingEnabled = true;
+            comboMapCharset.Location = new System.Drawing.Point(69, 253);
+            comboMapCharset.Name = "comboMapCharset";
+            comboMapCharset.Size = new System.Drawing.Size(246, 22);
+            comboMapCharset.TabIndex = 28;
+            toolTip1.SetToolTip(comboMapCharset, "The character set (and tile library) this map is painted with. Switching keeps the tile indices; cells beyond the new library render and export as empty.");
+            comboMapCharset.SelectedIndexChanged += comboMapCharset_SelectedIndexChanged;
             // 
             // label1
             // 
@@ -5277,6 +5346,7 @@
             // 
             tabCharset.AutoHiddenSlideSize = new System.Drawing.Size(200, 200);
             tabCharset.Controls.Add(characterEditor);
+            tabCharset.Controls.Add(panelCharsetTools);
             tabCharset.Flags = 65534;
             tabCharset.LastVisibleSet = true;
             tabCharset.MinimumSize = new System.Drawing.Size(150, 50);
@@ -5303,6 +5373,154 @@
             characterEditor.Modified += characterEditor_Modified;
             characterEditor.CharactersShifted += characterEditor_CharactersShifted;
             characterEditor.Load += characterEditor_Load;
+            //
+            // panelCharsetTools
+            //
+            panelCharsetTools.Controls.Add(checkCharsetExport);
+            panelCharsetTools.Controls.Add(editCharsetExportName);
+            panelCharsetTools.Controls.Add(labelCharsetExportName);
+            panelCharsetTools.Controls.Add(editCharsetDisplayName);
+            panelCharsetTools.Controls.Add(labelCharsetDisplayName);
+            panelCharsetTools.Controls.Add(checkCharsetFollowMap);
+            panelCharsetTools.Controls.Add(btnCharsetRemove);
+            panelCharsetTools.Controls.Add(btnCharsetDuplicate);
+            panelCharsetTools.Controls.Add(btnCharsetAdd);
+            panelCharsetTools.Controls.Add(comboCharsets);
+            panelCharsetTools.Controls.Add(labelCharset);
+            panelCharsetTools.Dock = System.Windows.Forms.DockStyle.Top;
+            panelCharsetTools.Location = new System.Drawing.Point(0, 0);
+            panelCharsetTools.Name = "panelCharsetTools";
+            panelCharsetTools.Size = new System.Drawing.Size(192, 60);
+            panelCharsetTools.TabIndex = 1;
+            //
+            // labelCharset
+            //
+            labelCharset.AutoSize = true;
+            labelCharset.Location = new System.Drawing.Point(6, 8);
+            labelCharset.Name = "labelCharset";
+            labelCharset.Size = new System.Drawing.Size(47, 13);
+            labelCharset.TabIndex = 0;
+            labelCharset.Text = "Charset:";
+            //
+            // comboCharsets
+            //
+            comboCharsets.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            comboCharsets.DropDownWidth = 220;
+            comboCharsets.FormattingEnabled = true;
+            comboCharsets.Location = new System.Drawing.Point(58, 4);
+            comboCharsets.Name = "comboCharsets";
+            comboCharsets.Size = new System.Drawing.Size(220, 22);
+            comboCharsets.TabIndex = 1;
+            toolTip1.SetToolTip(comboCharsets, "The character set edited on this tab. Each character set owns its own tile library; every map picks one on the Map tab.");
+            comboCharsets.SelectedIndexChanged += comboCharsets_SelectedIndexChanged;
+            //
+            // btnCharsetAdd
+            //
+            btnCharsetAdd.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnCharsetAdd.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnCharsetAdd.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnCharsetAdd.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnCharsetAdd.Image = null;
+            btnCharsetAdd.Location = new System.Drawing.Point(284, 3);
+            btnCharsetAdd.Name = "btnCharsetAdd";
+            btnCharsetAdd.Size = new System.Drawing.Size(60, 23);
+            btnCharsetAdd.TabIndex = 2;
+            btnCharsetAdd.Text = "Add";
+            toolTip1.SetToolTip(btnCharsetAdd, "Add a new character set (default font, empty tile library, the project's colors and mode).");
+            btnCharsetAdd.Click += btnCharsetAdd_Click;
+            //
+            // btnCharsetDuplicate
+            //
+            btnCharsetDuplicate.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnCharsetDuplicate.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnCharsetDuplicate.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnCharsetDuplicate.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnCharsetDuplicate.Image = null;
+            btnCharsetDuplicate.Location = new System.Drawing.Point(350, 3);
+            btnCharsetDuplicate.Name = "btnCharsetDuplicate";
+            btnCharsetDuplicate.Size = new System.Drawing.Size(70, 23);
+            btnCharsetDuplicate.TabIndex = 3;
+            btnCharsetDuplicate.Text = "Duplicate";
+            toolTip1.SetToolTip(btnCharsetDuplicate, "Append a deep copy of this character set, tiles included (the export name is cleared).");
+            btnCharsetDuplicate.Click += btnCharsetDuplicate_Click;
+            //
+            // btnCharsetRemove
+            //
+            btnCharsetRemove.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnCharsetRemove.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnCharsetRemove.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnCharsetRemove.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnCharsetRemove.Enabled = false;
+            btnCharsetRemove.Image = null;
+            btnCharsetRemove.Location = new System.Drawing.Point(426, 3);
+            btnCharsetRemove.Name = "btnCharsetRemove";
+            btnCharsetRemove.Size = new System.Drawing.Size(65, 23);
+            btnCharsetRemove.TabIndex = 4;
+            btnCharsetRemove.Text = "Remove";
+            toolTip1.SetToolTip(btnCharsetRemove, "Remove this character set. Refused while any map, scratch workspace or entity-type preview still uses it; character set 0 can never be removed.");
+            btnCharsetRemove.Click += btnCharsetRemove_Click;
+            //
+            // checkCharsetFollowMap
+            //
+            checkCharsetFollowMap.Checked = true;
+            checkCharsetFollowMap.CheckState = System.Windows.Forms.CheckState.Checked;
+            checkCharsetFollowMap.Location = new System.Drawing.Point(500, 5);
+            checkCharsetFollowMap.Name = "checkCharsetFollowMap";
+            checkCharsetFollowMap.Size = new System.Drawing.Size(200, 20);
+            checkCharsetFollowMap.TabIndex = 5;
+            toolTip1.SetToolTip(checkCharsetFollowMap, "On: selecting this tab shows the current map's character set. Off: the tab keeps the character set picked here.");
+            checkCharsetFollowMap.Values.Text = "Show charset for selected map";
+            checkCharsetFollowMap.CheckedChanged += checkCharsetFollowMap_CheckedChanged;
+            //
+            // labelCharsetDisplayName
+            //
+            labelCharsetDisplayName.AutoSize = true;
+            labelCharsetDisplayName.Location = new System.Drawing.Point(6, 36);
+            labelCharsetDisplayName.Name = "labelCharsetDisplayName";
+            labelCharsetDisplayName.Size = new System.Drawing.Size(38, 13);
+            labelCharsetDisplayName.TabIndex = 6;
+            labelCharsetDisplayName.Text = "Name:";
+            //
+            // editCharsetDisplayName
+            //
+            editCharsetDisplayName.Location = new System.Drawing.Point(58, 32);
+            editCharsetDisplayName.Name = "editCharsetDisplayName";
+            editCharsetDisplayName.Size = new System.Drawing.Size(220, 23);
+            editCharsetDisplayName.TabIndex = 7;
+            toolTip1.SetToolTip(editCharsetDisplayName, "Display name, shown in the editor only (never exported). Committed on Enter or when leaving the field.");
+            editCharsetDisplayName.KeyDown += editCharsetDisplayName_KeyDown;
+            editCharsetDisplayName.Leave += editCharsetDisplayName_Leave;
+            //
+            // labelCharsetExportName
+            //
+            labelCharsetExportName.AutoSize = true;
+            labelCharsetExportName.Location = new System.Drawing.Point(284, 36);
+            labelCharsetExportName.Name = "labelCharsetExportName";
+            labelCharsetExportName.Size = new System.Drawing.Size(72, 13);
+            labelCharsetExportName.TabIndex = 8;
+            labelCharsetExportName.Text = "Export name:";
+            //
+            // editCharsetExportName
+            //
+            editCharsetExportName.Location = new System.Drawing.Point(362, 32);
+            editCharsetExportName.Name = "editCharsetExportName";
+            editCharsetExportName.Size = new System.Drawing.Size(129, 23);
+            editCharsetExportName.TabIndex = 9;
+            toolTip1.SetToolTip(editCharsetExportName, "File name of this character set's exported file (map exports write it into the charset export directory). Committed on Enter or when leaving the field.");
+            editCharsetExportName.KeyDown += editCharsetExportName_KeyDown;
+            editCharsetExportName.Leave += editCharsetExportName_Leave;
+            //
+            // checkCharsetExport
+            //
+            checkCharsetExport.Checked = true;
+            checkCharsetExport.CheckState = System.Windows.Forms.CheckState.Checked;
+            checkCharsetExport.Location = new System.Drawing.Point(500, 34);
+            checkCharsetExport.Name = "checkCharsetExport";
+            checkCharsetExport.Size = new System.Drawing.Size(150, 20);
+            checkCharsetExport.TabIndex = 10;
+            toolTip1.SetToolTip(checkCharsetExport, "Unchecked: this character set (and its tile tables) is dropped from the game-binary export; later character sets shift down.");
+            checkCharsetExport.Values.Text = "Export character set";
+            checkCharsetExport.CheckedChanged += checkCharsetExport_CheckedChanged;
             // 
             // tabExport
             // 
@@ -5641,7 +5859,8 @@
             tabEntities.ResumeLayout(false);
             tabEntities.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)editEntityTagID).EndInit();
-            ((System.ComponentModel.ISupportInitialize)editEntityTileIndex).EndInit();
+            ((System.ComponentModel.ISupportInitialize)comboEntityPreviewCharset).EndInit();
+            ((System.ComponentModel.ISupportInitialize)comboEntityTile).EndInit();
             menuStrip1.ResumeLayout(false);
             menuStrip1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)tabEditor).EndInit();
@@ -5657,6 +5876,7 @@
             collapsiblePanel1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)comboMapAlternativeMode).EndInit();
             ((System.ComponentModel.ISupportInitialize)comboMapProjectMode).EndInit();
+            ((System.ComponentModel.ISupportInitialize)comboMapCharset).EndInit();
             ((System.ComponentModel.ISupportInitialize)comboMapAlternativeBGColor4).EndInit();
             ((System.ComponentModel.ISupportInitialize)comboMapMultiColor2).EndInit();
             ((System.ComponentModel.ISupportInitialize)comboMapBGColor).EndInit();
@@ -5704,6 +5924,9 @@
             ((System.ComponentModel.ISupportInitialize)pictureTileDisplay).EndInit();
             ((System.ComponentModel.ISupportInitialize)tabCharset).EndInit();
             tabCharset.ResumeLayout(false);
+            panelCharsetTools.ResumeLayout(false);
+            panelCharsetTools.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)comboCharsets).EndInit();
             ((System.ComponentModel.ISupportInitialize)tabExport).EndInit();
             tabExport.ResumeLayout(false);
             tabExport.PerformLayout();
@@ -5854,6 +6077,18 @@
     private DecentForms.Button btnTileClone;
         private Krypton.Navigator.KryptonPage tabCharset;
     private Controls.CharacterEditor characterEditor;
+        private System.Windows.Forms.Panel panelCharsetTools;
+        private System.Windows.Forms.Label labelCharset;
+        private Krypton.Toolkit.KryptonComboBox comboCharsets;
+        private DecentForms.Button btnCharsetAdd;
+        private DecentForms.Button btnCharsetDuplicate;
+        private DecentForms.Button btnCharsetRemove;
+        private Krypton.Toolkit.KryptonCheckBox checkCharsetFollowMap;
+        private System.Windows.Forms.Label labelCharsetDisplayName;
+        private Krypton.Toolkit.KryptonTextBox editCharsetDisplayName;
+        private System.Windows.Forms.Label labelCharsetExportName;
+        private Krypton.Toolkit.KryptonTextBox editCharsetExportName;
+        private Krypton.Toolkit.KryptonCheckBox checkCharsetExport;
     private Krypton.Toolkit.KryptonButton btnShiftLeft;
     private Krypton.Toolkit.KryptonButton btnShiftUp;
     private Krypton.Toolkit.KryptonButton btnShiftDown;
@@ -6005,6 +6240,8 @@
         private Krypton.Toolkit.KryptonComboBox comboMaps;
         private Krypton.Toolkit.KryptonComboBox comboMapProjectMode;
         private Krypton.Toolkit.KryptonCheckBox checkMapNotExported;
+        private System.Windows.Forms.Label labelMapCharset;
+        private Krypton.Toolkit.KryptonComboBox comboMapCharset;
         private System.Windows.Forms.ToolStripMenuItem editExtraDataToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem mapMemoToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem cropToSelectionToolStripMenuItem;
@@ -6073,9 +6310,11 @@
         private System.Windows.Forms.Label labelEntityExportSymbol;
         private System.Windows.Forms.NumericUpDown editEntityTagID;
         private DecentForms.Button btnFindNextEntityTagID;
-        private System.Windows.Forms.NumericUpDown editEntityTileIndex;
+        private Krypton.Toolkit.KryptonComboBox comboEntityPreviewCharset;
+        private Krypton.Toolkit.KryptonComboBox comboEntityTile;
         private DecentForms.Button btnEntityTileFromSelection;
-        private System.Windows.Forms.Label labelEntityTileIndex;
+        private System.Windows.Forms.Label labelEntityPreviewCharset;
+        private System.Windows.Forms.Label labelEntityTile;
         private System.Windows.Forms.TextBox editEntityName;
         private System.Windows.Forms.Label labelEntityName;
         private System.Windows.Forms.Label labelEntityTagID;

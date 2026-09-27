@@ -85,44 +85,9 @@ namespace RetroDevStudio.Controls
       }
       else
       {
-        checkAlwaysOverwrite.Enabled = checkExportCharset.Checked;
-      }
-
-      if (!m_ApplyingSettings)
-      {
-        RaiseSettingsChanged();
-      }
-    }
-
-    private void checkExportCharset_CheckedChanged(object sender, EventArgs e)
-    {
-      editCharsetExportDirectory.Enabled = checkExportCharset.Checked;
-      btnBrowseCharsetExportDirectory.Enabled = checkExportCharset.Checked;
-      editCharsetExportFilename.Enabled = checkExportCharset.Checked;
-      if ( checkExportCharset.Checked )
-      {
+        // Charset files are always written (per-charset "Export" on the
+        // Character Set tab), so the overwrite choice always matters.
         checkAlwaysOverwrite.Enabled = true;
-      }
-      else
-      {
-        checkAlwaysOverwrite.Enabled = checkSaveOnExport.Checked;
-      }
-
-      if ( ( checkExportCharset.Checked )
-      &&   ( string.IsNullOrEmpty( editCharsetExportDirectory.Text ) ) )
-      {
-        if ( Core.MainForm.ActiveDocument != null )
-        {
-          editCharsetExportDirectory.Text = System.IO.Path.GetDirectoryName( Core.MainForm.ActiveDocument.DocumentInfo.DocumentFilename );
-        }
-      }
-      if ( ( checkExportCharset.Checked )
-      &&   ( string.IsNullOrEmpty( editCharsetExportFilename.Text ) ) )
-      {
-        if ( Core.MainForm.ActiveDocument != null )
-        {
-          editCharsetExportFilename.Text = System.IO.Path.GetFileNameWithoutExtension( Core.MainForm.ActiveDocument.DocumentInfo.DocumentFilename ) + ".bin";
-        }
       }
 
       if (!m_ApplyingSettings)
@@ -217,12 +182,12 @@ namespace RetroDevStudio.Controls
 
       if ( Info.ExportType == MapExportType.TILE_DATA_AS_ELEMENTS )
       {
-        Info.Map.ExportTilesAsElements( out tileData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix );
+        Info.Map.ExportTilesAsElements( out tileData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix, EditorCharsetIndex( Info ) );
       }
       if ( ( Info.ExportType == MapExportType.TILE_DATA )
       ||   ( Info.ExportType == MapExportType.TILE_AND_MAP_DATA ) )
       {
-        Info.Map.ExportTilesAsAssembly( out tileData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix );
+        Info.Map.ExportTilesAsAssembly( out tileData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix, EditorCharsetIndex( Info ) );
       }
       if ( Info.ExportType == MapExportType.MAP_DATA_SELECTION )
       {
@@ -294,68 +259,35 @@ namespace RetroDevStudio.Controls
       }
       if ( Info.ExportType == MapExportType.SPARSE_TILE_AND_MAP_DATA )
       {
-        Info.Map.ExportSparseTileAndMapData( !Info.RowByRow, out mapData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix, checkEmptyTile.Checked, GR.Convert.ToI32( editEmptyTileIndex.Text ), checkAddFilenamespace.Checked, editFilenamespace.Text, checkWrapMapData.Checked );
+        Info.Map.ExportSparseTileAndMapData( !Info.RowByRow, out mapData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix, checkEmptyTile.Checked, GR.Convert.ToI32( editEmptyTileIndex.Text ), checkAddFilenamespace.Checked, editFilenamespace.Text, checkWrapMapData.Checked, EditorCharsetIndex( Info ) );
       }
-      if ( checkExportCharset.Checked )
+      // Character set files — one per set with "Export character set" enabled
+      // on the Character Set tab, named by each set's export name.
       {
-        GR.Memory.ByteBuffer charData = Info.Map.Charset.CharacterData();
-        if ( checkCharsetPrefixLoadAddress.Checked )
+        var fileWarnings = Info.Map.GetCharsetFileWarnings();
+        if ( fileWarnings.Count > 0 )
         {
-          if ( ( editCharsetPrefixLoadAddress.Text.Length == 4 )
-          &&   ( GR.Convert.ToI32( editCharsetPrefixLoadAddress.Text, 16 ) >= 0 ) )
+          var sb = new System.Text.StringBuilder();
+          sb.AppendLine( "Character set export warnings:" );
+          sb.AppendLine();
+          foreach ( var w in fileWarnings )
           {
-             int loadAddress = GR.Convert.ToI32( editCharsetPrefixLoadAddress.Text, 16 );
-             GR.Memory.ByteBuffer  newCharData = new GR.Memory.ByteBuffer();
-             newCharData.AppendU16( (ushort)loadAddress );
-             newCharData.Append( charData );
-             charData = newCharData;
+            sb.AppendLine( "  " + w );
+          }
+          sb.AppendLine();
+          sb.AppendLine( "Continue anyway?" );
+          if ( System.Windows.Forms.MessageBox.Show( sb.ToString(), "Character set export warnings",
+                 System.Windows.Forms.MessageBoxButtons.YesNo, System.Windows.Forms.MessageBoxIcon.Warning,
+                 System.Windows.Forms.MessageBoxDefaultButton.Button2 ) != System.Windows.Forms.DialogResult.Yes )
+          {
+            return false;
           }
         }
-        
-        if ( !string.IsNullOrEmpty( editCharsetExportFilename.Text ) )
-        {
-          byte[] rawData = new byte[charData.Length];
-          for ( int i = 0; i < charData.Length; ++i )
-          {
-            rawData[i] = charData.ByteAt( i );
-          }
-
-          string    fullPath = editCharsetExportFilename.Text;
-          string    exportDirectory = editCharsetExportDirectory.Text;
-          
-          if ( string.IsNullOrEmpty( exportDirectory ) )
-          {
-            fullPath = System.IO.Path.Combine( System.IO.Path.GetDirectoryName( DocInfo.FullPath ), editCharsetExportFilename.Text );
-          }
-          else
-          {
-            try
-            {
-               fullPath = System.IO.Path.Combine( exportDirectory, editCharsetExportFilename.Text );
-            }
-            catch ( Exception )
-            {
-              // invalid path combination?
-              fullPath = editCharsetExportFilename.Text;
-            }
-          }
-          if ( System.IO.File.Exists( fullPath ) )
-          {
-            if ( ( !checkAlwaysOverwrite.Checked )
-            &&   ( System.Windows.Forms.MessageBox.Show( "The file " + fullPath + " already exists.\r\nOverwrite?", "File already exists", System.Windows.Forms.MessageBoxButtons.YesNo ) == System.Windows.Forms.DialogResult.No ) )
-            {
-              return true;
-            }
-          }
-          try
-          {
-            System.IO.File.WriteAllBytes( fullPath, rawData );
-          }
-          catch ( Exception ex )
-          {
-            Core.Notification.MessageBox( "Error saving file", "Could not save exported char set file:\r\n" + ex.Message );
-          }
-        }
+        ushort charsetLoadAddress = 0;
+        bool   charsetPrefix = checkCharsetPrefixLoadAddress.Checked
+                            && TryParseCharsetLoadAddress( editCharsetPrefixLoadAddress.Text, out charsetLoadAddress );
+        string charsetDir = ResolveCharsetExportDirectory( editCharsetExportDirectory.Text, DocInfo, DocInfo.FullPath );
+        WriteCharsetExportFiles( Info.Map, charsetDir, charsetPrefix, charsetLoadAddress, !checkAlwaysOverwrite.Checked );
       }
 
       string resultText = "";
@@ -518,17 +450,17 @@ namespace RetroDevStudio.Controls
         editFilenamespace.Enabled = checkAddFilenamespace.Checked;
         checkWrapMapData.Checked = assemblySettings.WrapMapData;
 
-        checkExportCharset.Checked = assemblySettings.ExportCharset;
         editCharsetExportDirectory.Text = assemblySettings.CharsetExportDirectory;
-        editCharsetExportFilename.Text = assemblySettings.CharsetExportFilename;
 
         checkCharsetPrefixLoadAddress.Checked = Settings.CharsetBinary.PrefixLoadAddress;
         editCharsetPrefixLoadAddress.Text = Settings.CharsetBinary.PrefixLoadAddressHex;
         
-        editCharsetExportDirectory.Enabled = checkExportCharset.Checked;
-        btnBrowseCharsetExportDirectory.Enabled = checkExportCharset.Checked;
-        editCharsetExportFilename.Enabled = checkExportCharset.Checked;
+        editCharsetExportDirectory.Enabled = true;
+        btnBrowseCharsetExportDirectory.Enabled = true;
         editCharsetPrefixLoadAddress.Enabled = checkCharsetPrefixLoadAddress.Checked;
+        // CheckedChanged does not fire when the same value is re-assigned, so
+        // the overwrite toggle's enabled state is set explicitly here.
+        checkAlwaysOverwrite.Enabled = true;
 
         checkAlwaysOverwrite.Checked = assemblySettings.AlwaysOverwrite;
         checkExportMapAsCharAndColors.Checked = assemblySettings.ExportMapAsCharAndColors;
@@ -574,16 +506,14 @@ namespace RetroDevStudio.Controls
       assemblySettings.ExportDirectory = editExportDirectory.Text;
       assemblySettings.ExportFilename = editExportFilename.Text;
       assemblySettings.WrapMapData = checkWrapMapData.Checked;
-      assemblySettings.ExportCharset = checkExportCharset.Checked;
+      // ExportCharset / CharsetExportFilename are dead since the per-charset
+      // export name + checkbox moved to the Character Set tab; they keep their
+      // loaded values so the settings chunk layout stays stable.
       assemblySettings.CharsetExportDirectory = editCharsetExportDirectory.Text;
-      assemblySettings.CharsetExportDirectory = editCharsetExportDirectory.Text;
-      assemblySettings.CharsetExportFilename = editCharsetExportFilename.Text;
       
       Settings.CharsetBinary.PrefixLoadAddress = checkCharsetPrefixLoadAddress.Checked;
       Settings.CharsetBinary.PrefixLoadAddressHex = editCharsetPrefixLoadAddress.Text;
 
-      assemblySettings.CharsetExportFilename = editCharsetExportFilename.Text;
-      assemblySettings.AlwaysOverwrite = checkAlwaysOverwrite.Checked;
       assemblySettings.AlwaysOverwrite = checkAlwaysOverwrite.Checked;
       assemblySettings.ExportMapAsCharAndColors = checkExportMapAsCharAndColors.Checked;
       assemblySettings.ExportPassableBitfields = checkExportPassableBitfields.Checked;

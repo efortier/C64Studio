@@ -8,25 +8,27 @@ namespace RetroDevStudio.Undo
 {
   public class UndoMapCharsetChange : UndoTask
   {
-    public MapProject             Project = null;
+    // The charset slot the import changed (its CharsetProject is written
+    // back in place, so the editor's bindings stay valid).
+    public MapProject.MapCharset  Charset = null;
     public MapEditor              Editor = null;
 
 
     public List<CharData>         CharsetData = null;
 
 
-    public UndoMapCharsetChange( MapProject Project, MapEditor Editor )
+    public UndoMapCharsetChange( MapProject.MapCharset Charset, MapEditor Editor )
     {
-      this.Project = Project;
+      this.Charset = Charset;
       this.Editor = Editor;
 
       CharsetData = new List<CharData>();
-      for ( int i = 0; i < Project.Charset.ExportNumCharacters; ++i )
+      for ( int i = 0; i < Charset.Charset.ExportNumCharacters; ++i )
       {
         var Char = new CharData();
-        Char.Tile.Data        = new GR.Memory.ByteBuffer( Project.Charset.Characters[i].Tile.Data );
-        Char.Tile.CustomColor = Project.Charset.Characters[i].Tile.CustomColor;
-        Char.Category         = Project.Charset.Characters[i].Category;
+        Char.Tile.Data        = new GR.Memory.ByteBuffer( Charset.Charset.Characters[i].Tile.Data );
+        Char.Tile.CustomColor = Charset.Charset.Characters[i].Tile.CustomColor;
+        Char.Category         = Charset.Charset.Characters[i].Category;
         Char.Index            = i;
 
         CharsetData.Add( Char );
@@ -48,7 +50,7 @@ namespace RetroDevStudio.Undo
 
     public override UndoTask CreateComplementaryTask()
     {
-      return new UndoMapCharsetChange( Project, Editor );
+      return new UndoMapCharsetChange( Charset, Editor );
     }
 
 
@@ -57,11 +59,11 @@ namespace RetroDevStudio.Undo
     {
       foreach ( var singleChar in CharsetData )
       {
-        singleChar.Tile.Data.CopyTo( Project.Charset.Characters[singleChar.Index].Tile.Data );
-        Project.Charset.Characters[singleChar.Index].Tile.CustomColor = singleChar.Tile.CustomColor;
-        Project.Charset.Characters[singleChar.Index].Category = singleChar.Category;
+        singleChar.Tile.Data.CopyTo( Charset.Charset.Characters[singleChar.Index].Tile.Data );
+        Charset.Charset.Characters[singleChar.Index].Tile.CustomColor = singleChar.Tile.CustomColor;
+        Charset.Charset.Characters[singleChar.Index].Category = singleChar.Category;
       }
-      Editor.CharsetChanged();
+      Editor.CharsetChanged( Charset );
       Editor.SetModified();
     }
   }

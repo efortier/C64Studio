@@ -114,6 +114,24 @@
     // chunk types, so pre-feature builds simply don't show pasted images.
     public const ushort    MAP_OUTLINE_IMAGE_OBJECT       = 0x133E;
 
+    // Multiple character sets per map project. Charset 0 keeps living in the
+    // legacy MAP_CHARSET + MAP_TILE chunks (byte-identical to older builds,
+    // which therefore still open the file and simply see one charset).
+    // Charsets 1..N-1 each get one MAP_CHARSET_ENTRY container holding
+    //   MAP_CHARSET_ENTRY_INFO  [i32 Index]                (index >= 1)
+    //   MAP_CHARSET_ENTRY_DATA  [nested CharsetProject.SaveToBuffer image]
+    //   MAP_TILE x N            (identical layout to the legacy tile chunk)
+    // MAP_CHARSET_META (one per charset, INCLUDING index 0) carries the
+    // editor/export metadata: [i32 Index][string DisplayName][string ExportName]
+    // [u8 ExportEnabled][string RightClickAction][string ShiftClickBlankTile],
+    // append-only with guarded reads. The reader is order-independent (slots
+    // are grown on demand); a file without META for index 0 is a legacy file
+    // and migrates the project-level settings (see MapProject.ReadFromBuffer).
+    public const ushort    MAP_CHARSET_ENTRY              = 0x1350;
+    public const ushort    MAP_CHARSET_ENTRY_INFO         = 0x1351;
+    public const ushort    MAP_CHARSET_ENTRY_DATA         = 0x1352;
+    public const ushort    MAP_CHARSET_META               = 0x1353;
+
     public const ushort    CHARSET_PROJECT                = 0x1340;
     public const ushort    CHARSET_INFO                   = 0x1341;
     public const ushort    CHARSET_CHAR                   = 0x1342;

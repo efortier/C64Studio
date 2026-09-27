@@ -41,8 +41,11 @@ namespace RetroDevStudio.Controls
       checkExportColors.CheckedChanged += HandleSettingsChanged;
       checkExportPassable.CheckedChanged += HandleSettingsChanged;
       editCharsetExportDirectory.TextChanged += HandleSettingsChanged;
-      editCharsetExportFilename.TextChanged += HandleSettingsChanged;
       editCharsetPrefixLoadAddress.TextChanged += HandleSettingsChanged;
+      editCharsetLabelsFilename.TextChanged += HandleSettingsChanged;
+      editCharsetLabelsPrefix.TextChanged += HandleSettingsChanged;
+      editMapLabelsFilename.TextChanged += HandleSettingsChanged;
+      editMapLabelsPrefix.TextChanged += HandleSettingsChanged;
       editHeaderAsmDirectory.TextChanged += HandleSettingsChanged;
       editHeaderAsmFilename.TextChanged += HandleSettingsChanged;
       editHeaderAsmPrefix.TextChanged += HandleSettingsChanged;
@@ -97,6 +100,35 @@ namespace RetroDevStudio.Controls
         }
       }
 
+      // Pre-export validation: character-set warnings — a map bound to a
+      // charset that is not exported (it gets charset index 0), two enabled
+      // charsets exporting to the same file name, or no charset enabled at
+      // all. Warn, never block — the user decides.
+      if ( Info.Map != null )
+      {
+        var charsetWarnings = Info.Map.GetCharsetExportWarnings();
+        if ( charsetWarnings.Count > 0 )
+        {
+          var sb = new System.Text.StringBuilder();
+          sb.AppendLine( "Character set export warnings:" );
+          sb.AppendLine();
+          foreach ( var w in charsetWarnings ) sb.AppendLine( "  " + w );
+          sb.AppendLine();
+          sb.AppendLine( "Continue anyway?" );
+
+          var result = System.Windows.Forms.MessageBox.Show(
+            sb.ToString(),
+            "Character set export warnings",
+            System.Windows.Forms.MessageBoxButtons.YesNo,
+            System.Windows.Forms.MessageBoxIcon.Warning,
+            System.Windows.Forms.MessageBoxDefaultButton.Button2 );
+          if ( result != System.Windows.Forms.DialogResult.Yes )
+          {
+            return false;
+          }
+        }
+      }
+
       bool exportMarkers = checkExportMarkers.Checked;
       bool exportColors = checkExportColors.Checked;
       bool exportPassable = checkExportPassable.Checked;
@@ -130,13 +162,26 @@ namespace RetroDevStudio.Controls
       // adds its own load address. (The old absolute base-address option was
       // removed.) The "Prefix Load Address" option below is independent — it
       // just prepends the 2-byte PRG load word so the file is loadable.
+      System.Collections.Generic.List<string> exportErrors;
       GR.Memory.ByteBuffer data = Info.Map.ExportAsGameBinary(
         exportMarkers,
         exportColors,
-        exportPassable );
+        exportPassable,
+        out exportErrors );
 
       if ( data == null )
       {
+        // A hard error: the byte layout cannot represent this project (too
+        // many tiles / charsets / maps, or a binary over 64 KB).
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine( "Export aborted — the game binary cannot represent this project:" );
+        sb.AppendLine();
+        foreach ( var e in exportErrors ) sb.AppendLine( "  " + e );
+        System.Windows.Forms.MessageBox.Show(
+          sb.ToString(),
+          "Game binary export error",
+          System.Windows.Forms.MessageBoxButtons.OK,
+          System.Windows.Forms.MessageBoxIcon.Warning );
         return false;
       }
 
@@ -191,9 +236,21 @@ namespace RetroDevStudio.Controls
       string compressionReport;
       TryCompressExport( targetPath, finalData.Length, out compressionReport );
 
+      // Character set files — one per set with "Export character set" enabled
+      // on the Character Set tab, named by each set's export name, all in the
+      // charset export directory (resolved once, shared with the label
+      // sidecars further down). An empty export name writes no file; the
+      // report line in the log says so. Written before the log so the .def
+      // sidecar carries the report.
+      string charsetDir = ResolveCharsetExportDirectory( editCharsetExportDirectory.Text, DocInfo, targetPath );
+      ushort charsetLoadAddress = 0;
+      bool   charsetPrefix = checkCharsetPrefixLoadAddress.Checked
+                          && TryParseCharsetLoadAddress( editCharsetPrefixLoadAddress.Text, out charsetLoadAddress );
+      string charsetReport = WriteCharsetExportFiles( Info.Map, charsetDir, charsetPrefix, charsetLoadAddress, false );
+
       string log = GenerateExportLog( data, targetPath,
                                       exportMarkers, exportColors, exportPassable,
-                                      Info.Map, compressionReport );
+                                      Info.Map, compressionReport, charsetReport );
 
       // Optional .def sidecar
       if ( checkGenerateDefFile.Checked )
@@ -272,10 +329,33 @@ namespace RetroDevStudio.Controls
           () => map.GenerateMapStringsAsm( mapStringsPrefix ) );
       }
 
-      // Optional character set export (port of the old "As assembly" method's Character Set block)
-      if ( checkExportCharset.Checked )
+      // Charset-labels sidecar — export name -> compacted charset index.
+      // Lands next to the charset files.
+      if ( checkExportCharsetLabels.Checked )
       {
-        ExportCharsetBinary( Info, DocInfo );
+        string charsetLabelsPrefix = editCharsetLabelsPrefix.Text;
+        var map = Info.Map;
+        WriteAsmSidecar(
+          "charset labels",
+          charsetDir,
+          editCharsetLabelsFilename.Text,
+          "map_charsets.asm",
+          targetPath,
+          () => map.GenerateCharsetLabelsAsm( charsetLabelsPrefix ) );
+      }
+
+      // Map-labels sidecar — map name -> exported (compacted) map index.
+      if ( checkExportMapLabels.Checked )
+      {
+        string mapLabelsPrefix = editMapLabelsPrefix.Text;
+        var map = Info.Map;
+        WriteAsmSidecar(
+          "map labels",
+          charsetDir,
+          editMapLabelsFilename.Text,
+          "map_names.asm",
+          targetPath,
+          () => map.GenerateMapLabelsAsm( mapLabelsPrefix ) );
       }
 
       if ( EditOutput != null )
@@ -349,103 +429,6 @@ namespace RetroDevStudio.Controls
             "Could not save the " + Description + " file to:\r\n" + fullPath + "\r\n\r\n" + ex.Message );
         }
         // continue — the binary itself was saved
-      }
-    }
-
-
-
-    private void ExportCharsetBinary( ExportMapInfo Info, DocumentInfo DocInfo )
-    {
-      if ( ( Info == null )
-      ||   ( Info.Map == null )
-      ||   ( Info.Map.Charset == null ) )
-      {
-        return;
-      }
-
-      GR.Memory.ByteBuffer charData = Info.Map.Charset.CharacterData();
-      if ( charData == null )
-      {
-        return;
-      }
-
-      if ( checkCharsetPrefixLoadAddress.Checked )
-      {
-        string addrText = editCharsetPrefixLoadAddress.Text ?? "";
-        if ( ( addrText.Length == 4 )
-        &&   ( GR.Convert.ToI32( addrText, 16 ) >= 0 ) )
-        {
-          int loadAddress = GR.Convert.ToI32( addrText, 16 );
-          var prefixed = new GR.Memory.ByteBuffer();
-          prefixed.AppendU16( (ushort)loadAddress );
-          prefixed.Append( charData );
-          charData = prefixed;
-        }
-      }
-
-      string filename = editCharsetExportFilename.Text ?? "";
-      if ( string.IsNullOrEmpty( filename ) )
-      {
-        if ( Core != null )
-        {
-          Core.Notification.MessageBox( "Character set not exported",
-            "Character set export is enabled but no filename was provided." );
-        }
-        return;
-      }
-
-      string fullPath = filename;
-      string exportDirectory = editCharsetExportDirectory.Text ?? "";
-
-      if ( string.IsNullOrEmpty( exportDirectory ) )
-      {
-        string docDir = null;
-        if ( DocInfo != null )
-        {
-          try
-          {
-            docDir = System.IO.Path.GetDirectoryName( DocInfo.FullPath );
-          }
-          catch ( Exception )
-          {
-            docDir = null;
-          }
-        }
-        if ( !string.IsNullOrEmpty( docDir ) )
-        {
-          fullPath = System.IO.Path.Combine( docDir, filename );
-        }
-      }
-      else
-      {
-        try
-        {
-          fullPath = System.IO.Path.Combine( exportDirectory, filename );
-        }
-        catch ( Exception )
-        {
-          fullPath = filename;
-        }
-      }
-
-      // Copy ByteBuffer into a raw byte[] for System.IO.File.WriteAllBytes
-      byte[] rawData = new byte[charData.Length];
-      for ( int i = 0; i < charData.Length; ++i )
-      {
-        rawData[i] = charData.ByteAt( i );
-      }
-
-      try
-      {
-        System.IO.File.WriteAllBytes( fullPath, rawData );
-      }
-      catch ( Exception ex )
-      {
-        if ( Core != null )
-        {
-          Core.Notification.MessageBox( "Error saving character set",
-            "Could not save the character set to:\r\n" + fullPath + "\r\n\r\n" + ex.Message );
-        }
       }
     }
 
@@ -579,7 +562,8 @@ namespace RetroDevStudio.Controls
 
     private string GenerateExportLog( ByteBuffer buf, string targetPath,
                                        bool exportMarkers, bool exportColors, bool exportPassable,
-                                       RetroDevStudio.Formats.MapProject project, string CompressionReport = null )
+                                       RetroDevStudio.Formats.MapProject project, string CompressionReport = null,
+                                       string CharsetReport = null )
     {
       // Pointers in the binary are file-relative offsets, so the dump shows the
       // raw file offset for every address. Kept as a local 0 so the offset/
@@ -599,6 +583,10 @@ namespace RetroDevStudio.Controls
       {
         sb.AppendLine( CompressionReport );
       }
+      if ( !string.IsNullOrEmpty( CharsetReport ) )
+      {
+        sb.AppendLine( CharsetReport.TrimEnd() );
+      }
       sb.AppendLine();
 
       // Always include the header-constant definitions near the top so the .def
@@ -607,7 +595,7 @@ namespace RetroDevStudio.Controls
       sb.AppendLine( RetroDevStudio.Formats.MapProject.GenerateGameBinaryHeaderAsm() );
 
       // --- HEADER ---
-      sb.AppendLine( "--- HEADER (60 bytes) ---" );
+      sb.AppendLine( "--- HEADER (65 bytes) ---" );
       sb.AppendLine( Addr( baseAddr, 0x00 ) + ": " + HexByte( buf.ByteAt( 0 ) ).PadRight( 24 ) + "marker_stride = " + markerStride );
       sb.AppendLine( Addr( baseAddr, 0x01 ) + ": " + HexByte( buf.ByteAt( 1 ) ).PadRight( 24 ) + "tile_count = " + tileCount );
       sb.AppendLine( Addr( baseAddr, 0x02 ) + ": " + HexByte( buf.ByteAt( 2 ) ).PadRight( 24 ) + "map_count = " + mapCount );
@@ -676,58 +664,74 @@ namespace RetroDevStudio.Controls
         string resolved = ( val != 0 ) ? " -> $" + val.ToString( "X4" ) : " -> (disabled)";
         sb.AppendLine( Addr( baseAddr, hdrOff ) + ": " + HexBytes( buf, hdrOff, 2 ).PadRight( 24 ) + mapStringHdrNames[i] + resolved );
       }
+      // Multiple character sets (v29): per-map charset index table, exported
+      // charset count, charset directory.
+      {
+        ushort val = buf.UInt16At( 0x3C );
+        sb.AppendLine( Addr( baseAddr, 0x3C ) + ": " + HexBytes( buf, 0x3C, 2 ).PadRight( 24 ) + "offset_map_charset_index" + ( ( val != 0 ) ? " -> $" + val.ToString( "X4" ) : " -> (disabled)" ) );
+        sb.AppendLine( Addr( baseAddr, 0x3E ) + ": " + HexByte( buf.ByteAt( 0x3E ) ).PadRight( 24 ) + "charset_count = " + buf.ByteAt( 0x3E ) );
+        val = buf.UInt16At( 0x3F );
+        sb.AppendLine( Addr( baseAddr, 0x3F ) + ": " + HexBytes( buf, 0x3F, 2 ).PadRight( 24 ) + "offset_charset_directory" + ( ( val != 0 ) ? " -> $" + val.ToString( "X4" ) : " -> (disabled)" ) );
+      }
       sb.AppendLine();
 
       // Pointers stored in the file are file-relative offsets, so a stored value
       // is already the byte position to read from (baseAddr is 0).
       int ba = baseAddr;
 
-      // --- TILE ARRAYS ---
-      sb.AppendLine( "--- TILE ARRAYS ---" );
-
-      AppendArraySection( sb, buf, ba, 0x04, tileCount, "tiles_width", 1 );
-      AppendArraySection( sb, buf, ba, 0x06, tileCount, "tiles_height", 1 );
-      AppendArraySection( sb, buf, ba, 0x08, tileCount, "tiles_flags", 1 );
-      AppendArraySection( sb, buf, ba, 0x0A, tileCount, "tile_char_offset_lo", 1 );
-      AppendArraySection( sb, buf, ba, 0x0C, tileCount, "tile_char_offset_hi", 1 );
-      AppendArraySection( sb, buf, ba, 0x0E, tileCount, "tile_color_offset_lo", 1 );
-      AppendArraySection( sb, buf, ba, 0x10, tileCount, "tile_color_offset_hi", 1 );
-
-      // Tile char/color data (per tile, using offsets from offset tables)
-      if ( tileCount > 0 )
+      // --- CHARSET DIRECTORY + per-charset tile sections ---
+      // The legacy header fields ($01, $04..$10) mirror directory entry 0.
+      sb.AppendLine( RetroDevStudio.Formats.MapProject.DescribeGameBinaryCharsets( buf, project ) );
+      int charsetCount = buf.ByteAt( 0x3E );
+      int directoryPos = buf.UInt16At( 0x3F ) - ba;
+      for ( int c = 0; c < charsetCount; ++c )
       {
-        int charOffLoFilePos = buf.UInt16At( 0x0A ) - ba;
-        int charOffHiFilePos = buf.UInt16At( 0x0C ) - ba;
-        int colorOffLoFilePos = buf.UInt16At( 0x0E ) - ba;
-        int colorOffHiFilePos = buf.UInt16At( 0x10 ) - ba;
-        int widthFilePos = buf.UInt16At( 0x04 ) - ba;
-        int heightFilePos = buf.UInt16At( 0x06 ) - ba;
+        int rec = directoryPos + c * 15;
+        int csTileCount = buf.ByteAt( rec );
+        sb.AppendLine( "--- CHARSET " + c + " TILE ARRAYS (" + csTileCount + " tiles) ---" );
+        AppendArraySection( sb, buf, ba, rec + 0x01, csTileCount, "tiles_width", 1 );
+        AppendArraySection( sb, buf, ba, rec + 0x03, csTileCount, "tiles_height", 1 );
+        AppendArraySection( sb, buf, ba, rec + 0x05, csTileCount, "tiles_flags", 1 );
+        AppendArraySection( sb, buf, ba, rec + 0x07, csTileCount, "tile_char_offset_lo", 1 );
+        AppendArraySection( sb, buf, ba, rec + 0x09, csTileCount, "tile_char_offset_hi", 1 );
+        AppendArraySection( sb, buf, ba, rec + 0x0B, csTileCount, "tile_color_offset_lo", 1 );
+        AppendArraySection( sb, buf, ba, rec + 0x0D, csTileCount, "tile_color_offset_hi", 1 );
 
-        sb.AppendLine();
-        sb.AppendLine( "--- TILE CHAR DATA ---" );
-        for ( int t = 0; t < tileCount; ++t )
+        if ( csTileCount > 0 )
         {
-          int addr = buf.ByteAt( charOffLoFilePos + t ) | ( buf.ByteAt( charOffHiFilePos + t ) << 8 );
-          int filePos = addr - ba;
-          int tw = buf.ByteAt( widthFilePos + t );
-          int th = buf.ByteAt( heightFilePos + t );
-          int size = tw * th;
-          sb.AppendLine( "$" + addr.ToString( "X4" ) + ": tile " + t + " char data (" + tw + "x" + th + " = " + size + " bytes)  " + HexBytes( buf, filePos, Math.Min( size, 16 ) ) + ( size > 16 ? " ..." : "" ) );
-        }
+          int charOffLoFilePos = buf.UInt16At( rec + 0x07 ) - ba;
+          int charOffHiFilePos = buf.UInt16At( rec + 0x09 ) - ba;
+          int colorOffLoFilePos = buf.UInt16At( rec + 0x0B ) - ba;
+          int colorOffHiFilePos = buf.UInt16At( rec + 0x0D ) - ba;
+          int widthFilePos = buf.UInt16At( rec + 0x01 ) - ba;
+          int heightFilePos = buf.UInt16At( rec + 0x03 ) - ba;
 
-        sb.AppendLine();
-        sb.AppendLine( "--- TILE COLOR DATA ---" );
-        for ( int t = 0; t < tileCount; ++t )
-        {
-          int addr = buf.ByteAt( colorOffLoFilePos + t ) | ( buf.ByteAt( colorOffHiFilePos + t ) << 8 );
-          int filePos = addr - ba;
-          int tw = buf.ByteAt( widthFilePos + t );
-          int th = buf.ByteAt( heightFilePos + t );
-          int size = tw * th;
-          sb.AppendLine( "$" + addr.ToString( "X4" ) + ": tile " + t + " color data (" + tw + "x" + th + " = " + size + " bytes)  " + HexBytes( buf, filePos, Math.Min( size, 16 ) ) + ( size > 16 ? " ..." : "" ) );
+          sb.AppendLine();
+          sb.AppendLine( "--- CHARSET " + c + " TILE CHAR DATA ---" );
+          for ( int t = 0; t < csTileCount; ++t )
+          {
+            int addr = buf.ByteAt( charOffLoFilePos + t ) | ( buf.ByteAt( charOffHiFilePos + t ) << 8 );
+            int filePos = addr - ba;
+            int tw = buf.ByteAt( widthFilePos + t );
+            int th = buf.ByteAt( heightFilePos + t );
+            int size = tw * th;
+            sb.AppendLine( "$" + addr.ToString( "X4" ) + ": tile " + t + " char data (" + tw + "x" + th + " = " + size + " bytes)  " + HexBytes( buf, filePos, Math.Min( size, 16 ) ) + ( size > 16 ? " ..." : "" ) );
+          }
+
+          sb.AppendLine();
+          sb.AppendLine( "--- CHARSET " + c + " TILE COLOR DATA ---" );
+          for ( int t = 0; t < csTileCount; ++t )
+          {
+            int addr = buf.ByteAt( colorOffLoFilePos + t ) | ( buf.ByteAt( colorOffHiFilePos + t ) << 8 );
+            int filePos = addr - ba;
+            int tw = buf.ByteAt( widthFilePos + t );
+            int th = buf.ByteAt( heightFilePos + t );
+            int size = tw * th;
+            sb.AppendLine( "$" + addr.ToString( "X4" ) + ": tile " + t + " color data (" + tw + "x" + th + " = " + size + " bytes)  " + HexBytes( buf, filePos, Math.Min( size, 16 ) ) + ( size > 16 ? " ..." : "" ) );
+          }
         }
+        sb.AppendLine();
       }
-      sb.AppendLine();
 
       // --- MAP METADATA ARRAYS ---
       sb.AppendLine( "--- MAP METADATA ---" );
@@ -741,6 +745,8 @@ namespace RetroDevStudio.Controls
       // the lookup tables), so it belongs here in the metadata block — printing
       // it among the lookup tables put it out of file order in the dump.
       AppendArraySection( sb, buf, ba, 0x2F, mapCount, "map_entity_count", 1 );
+      // map_charset_index[] follows map_entity_count in the file (v29).
+      AppendArraySection( sb, buf, ba, 0x3C, mapCount, "map_charset_index", 1 );
       sb.AppendLine();
 
       // --- MAP DATA LOOKUP TABLES ---
@@ -787,7 +793,7 @@ namespace RetroDevStudio.Controls
 
         for ( int m = 0; m < mapCount; ++m )
         {
-          sb.AppendLine( "--- MAP " + m + " DATA ---" );
+          sb.AppendLine( "--- MAP " + m + " DATA (charset " + buf.ByteAt( buf.UInt16At( 0x3C ) - ba + m ) + ") ---" );
           int mw = buf.ByteAt( mapWidthFilePos + m );
           int mh = buf.ByteAt( mapHeightFilePos + m );
           int gridSize = mw * mh;
@@ -1281,35 +1287,9 @@ namespace RetroDevStudio.Controls
 
 
 
-    private void checkExportCharset_CheckedChanged( object sender, EventArgs e )
+    private void checkCharsetPrefixLoadAddress_CheckedChanged( object sender, EventArgs e )
     {
-      editCharsetExportDirectory.Enabled = checkExportCharset.Checked;
-      btnBrowseCharsetExportDirectory.Enabled = checkExportCharset.Checked;
-      editCharsetExportFilename.Enabled = checkExportCharset.Checked;
-
-      // Populate sensible defaults when first enabled
-      if ( ( checkExportCharset.Checked )
-      &&   ( Core != null )
-      &&   ( Core.MainForm != null )
-      &&   ( Core.MainForm.ActiveDocument != null )
-      &&   ( Core.MainForm.ActiveDocument.DocumentInfo != null ) )
-      {
-        string docPath = Core.MainForm.ActiveDocument.DocumentInfo.DocumentFilename;
-        if ( !string.IsNullOrEmpty( docPath ) )
-        {
-          if ( string.IsNullOrEmpty( editCharsetExportDirectory.Text ) )
-          {
-            try { editCharsetExportDirectory.Text = System.IO.Path.GetDirectoryName( docPath ); }
-            catch ( Exception ) { }
-          }
-          if ( string.IsNullOrEmpty( editCharsetExportFilename.Text ) )
-          {
-            try { editCharsetExportFilename.Text = System.IO.Path.GetFileNameWithoutExtension( docPath ) + ".bin"; }
-            catch ( Exception ) { }
-          }
-        }
-      }
-
+      editCharsetPrefixLoadAddress.Enabled = checkCharsetPrefixLoadAddress.Checked;
       if ( !m_ApplyingSettings )
       {
         RaiseSettingsChanged();
@@ -1318,9 +1298,32 @@ namespace RetroDevStudio.Controls
 
 
 
-    private void checkCharsetPrefixLoadAddress_CheckedChanged( object sender, EventArgs e )
+    private void checkExportCharsetLabels_CheckedChanged( object sender, EventArgs e )
     {
-      editCharsetPrefixLoadAddress.Enabled = checkCharsetPrefixLoadAddress.Checked;
+      editCharsetLabelsFilename.Enabled = checkExportCharsetLabels.Checked;
+      editCharsetLabelsPrefix.Enabled = checkExportCharsetLabels.Checked;
+      if ( ( checkExportCharsetLabels.Checked )
+      &&   ( string.IsNullOrEmpty( editCharsetLabelsFilename.Text ) ) )
+      {
+        editCharsetLabelsFilename.Text = "map_charsets.asm";
+      }
+      if ( !m_ApplyingSettings )
+      {
+        RaiseSettingsChanged();
+      }
+    }
+
+
+
+    private void checkExportMapLabels_CheckedChanged( object sender, EventArgs e )
+    {
+      editMapLabelsFilename.Enabled = checkExportMapLabels.Checked;
+      editMapLabelsPrefix.Enabled = checkExportMapLabels.Checked;
+      if ( ( checkExportMapLabels.Checked )
+      &&   ( string.IsNullOrEmpty( editMapLabelsFilename.Text ) ) )
+      {
+        editMapLabelsFilename.Text = "map_names.asm";
+      }
       if ( !m_ApplyingSettings )
       {
         RaiseSettingsChanged();
@@ -1628,12 +1631,24 @@ namespace RetroDevStudio.Controls
         editMapStringsFilename.Enabled = checkExportMapStrings.Checked;
         editMapStringsPrefix.Enabled = checkExportMapStrings.Checked;
 
-        checkExportCharset.Checked = s.ExportCharset;
+        // Charset files are always written for the sets enabled on the
+        // Character Set tab; only the directory (and the load-address prefix
+        // below) stay here.
         editCharsetExportDirectory.Text = s.CharsetExportDirectory ?? "";
-        editCharsetExportFilename.Text = s.CharsetExportFilename ?? "";
-        editCharsetExportDirectory.Enabled = checkExportCharset.Checked;
-        btnBrowseCharsetExportDirectory.Enabled = checkExportCharset.Checked;
-        editCharsetExportFilename.Enabled = checkExportCharset.Checked;
+        editCharsetExportDirectory.Enabled = true;
+        btnBrowseCharsetExportDirectory.Enabled = true;
+
+        checkExportCharsetLabels.Checked = s.ExportCharsetLabels;
+        editCharsetLabelsFilename.Text = string.IsNullOrEmpty( s.CharsetLabelsFilename ) ? "map_charsets.asm" : s.CharsetLabelsFilename;
+        editCharsetLabelsPrefix.Text = s.CharsetLabelsPrefix ?? "";
+        editCharsetLabelsFilename.Enabled = checkExportCharsetLabels.Checked;
+        editCharsetLabelsPrefix.Enabled = checkExportCharsetLabels.Checked;
+
+        checkExportMapLabels.Checked = s.ExportMapLabels;
+        editMapLabelsFilename.Text = string.IsNullOrEmpty( s.MapLabelsFilename ) ? "map_names.asm" : s.MapLabelsFilename;
+        editMapLabelsPrefix.Text = s.MapLabelsPrefix ?? "";
+        editMapLabelsFilename.Enabled = checkExportMapLabels.Checked;
+        editMapLabelsPrefix.Enabled = checkExportMapLabels.Checked;
 
         checkCharsetPrefixLoadAddress.Checked = s.CharsetPrefixLoadAddress;
         editCharsetPrefixLoadAddress.Text = s.CharsetPrefixLoadAddressHex ?? "";
@@ -1687,9 +1702,16 @@ namespace RetroDevStudio.Controls
       s.MapStringsDirectory = editMapStringsDirectory.Text ?? "";
       s.MapStringsFilename = string.IsNullOrEmpty( editMapStringsFilename.Text ) ? "map_strings.asm" : editMapStringsFilename.Text;
       s.MapStringsPrefix = editMapStringsPrefix.Text ?? "";
-      s.ExportCharset = checkExportCharset.Checked;
+      // ExportCharset / CharsetExportFilename are dead since v29 (the per-
+      // charset export name + checkbox live on the Character Set tab); they
+      // keep their loaded values so the settings chunk layout stays stable.
       s.CharsetExportDirectory = editCharsetExportDirectory.Text ?? "";
-      s.CharsetExportFilename = editCharsetExportFilename.Text ?? "";
+      s.ExportCharsetLabels = checkExportCharsetLabels.Checked;
+      s.CharsetLabelsFilename = string.IsNullOrEmpty( editCharsetLabelsFilename.Text ) ? "map_charsets.asm" : editCharsetLabelsFilename.Text;
+      s.CharsetLabelsPrefix = editCharsetLabelsPrefix.Text ?? "";
+      s.ExportMapLabels = checkExportMapLabels.Checked;
+      s.MapLabelsFilename = string.IsNullOrEmpty( editMapLabelsFilename.Text ) ? "map_names.asm" : editMapLabelsFilename.Text;
+      s.MapLabelsPrefix = editMapLabelsPrefix.Text ?? "";
       s.CharsetPrefixLoadAddress = checkCharsetPrefixLoadAddress.Checked;
       s.CharsetPrefixLoadAddressHex = editCharsetPrefixLoadAddress.Text ?? "";
     }

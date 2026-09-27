@@ -39,7 +39,12 @@ namespace RetroDevStudio.Controls
     {
       System.Windows.Forms.SaveFileDialog saveDlg = new System.Windows.Forms.SaveFileDialog();
 
-      saveDlg.FileName = GR.Path.RenameExtension( DocInfo.DocumentFilename, ".chr" );
+      // The charset selected on the Character Set tab; its export name is the
+      // natural default file name.
+      var charsetToExport = Info.Map.CharsetAt( Info.Map.CurrentCharsetIndex );
+      saveDlg.FileName = string.IsNullOrWhiteSpace( charsetToExport.ExportName )
+        ? GR.Path.RenameExtension( DocInfo.DocumentFilename, ".chr" )
+        : charsetToExport.ExportName;
       saveDlg.Title = "Export Charset to";
       saveDlg.Filter = "Charset|*.chr|All Files|*.*";
       if ( DocInfo.Project != null )
@@ -50,12 +55,9 @@ namespace RetroDevStudio.Controls
       {
         return false;
       }
-      GR.Memory.ByteBuffer charSet = new GR.Memory.ByteBuffer();
-
-      for ( int i = 0; i < Info.Map.Charset.Characters.Count; ++i )
-      {
-        charSet.Append( Info.Map.Charset.Characters[i].Tile.Data );
-      }
+      // CharacterData() honours the charset's ExportNumCharacters, like every
+      // other charset export.
+      GR.Memory.ByteBuffer charSet = charsetToExport.Charset.CharacterData();
       if ( checkPrefixLoadAddress.Checked )
       {
         ushort address = GR.Convert.ToU16( editPrefixLoadAddress.Text, 16 );

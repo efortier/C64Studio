@@ -10,32 +10,19 @@ namespace RetroDevStudio.Undo
   {
     public MapEditor              _MapEditor = null;
     public MapProject             _MapProject = null;
+    // The tile library the add happened in — undo must target it even after
+    // the editor switched to a map bound to another charset.
+    public MapProject.MapCharset  _Charset = null;
     public int                    _TileIndex = -1;
-    public List<Undo.UndoTask>    _InternalUndos = new List<UndoTask>();
 
 
 
-    public UndoMapTileAdd( MapEditor Editor, MapProject Project, int TileIndex )
+    public UndoMapTileAdd( MapEditor Editor, MapProject Project, MapProject.MapCharset Charset, int TileIndex )
     {
       _MapEditor  = Editor;
       _MapProject = Project;
+      _Charset    = Charset;
       _TileIndex  = TileIndex;
-
-      foreach ( var map in Project.Maps )
-      {
-        for ( int i = 0; i < map.Tiles.Width; ++i )
-        {
-          for ( int j = 0; j < map.Tiles.Height; ++j )
-          {
-            if ( map.Tiles[i, j] >= TileIndex )
-            {
-              i = map.Tiles.Width;
-              _InternalUndos.Add( new Undo.UndoMapTilesChange( _MapEditor, map, 0, 0, map.Tiles.Width, map.Tiles.Height ) );
-              break;
-            }
-          }
-        }
-      }
     }
 
 
@@ -53,14 +40,14 @@ namespace RetroDevStudio.Undo
 
     public override UndoTask CreateComplementaryTask()
     {
-      return new UndoMapTileRemove( _MapEditor, _MapProject, _TileIndex );
+      return new UndoMapTileRemove( _MapEditor, _MapProject, _Charset, _TileIndex );
     }
 
 
 
     public override void Apply()
     {
-      _MapEditor.RemoveTile( _TileIndex );
+      _MapEditor.RemoveTile( _Charset, _TileIndex );
     }
   }
 }

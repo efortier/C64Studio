@@ -58,15 +58,18 @@ namespace RetroDevStudio.Controls
       GR.Memory.ByteBuffer      charData = new GR.Memory.ByteBuffer( (uint)( mapToExport.Tiles.Width * mapToExport.TileSpacingX * mapToExport.Tiles.Height * mapToExport.TileSpacingY ) );
       GR.Memory.ByteBuffer      colorData = new GR.Memory.ByteBuffer( (uint)( mapToExport.Tiles.Width * mapToExport.TileSpacingX * mapToExport.Tiles.Height * mapToExport.TileSpacingY ) );
 
+      // The map's own charset and tile library.
+      var mapCharset = Info.Map.CharsetOf( mapToExport );
       for ( int y = 0; y < mapToExport.Tiles.Height; ++y )
       {
         for ( int x = 0; x < mapToExport.Tiles.Width; ++x )
         {
           int tileIndex = mapToExport.Tiles[x, y];
-          if ( tileIndex < Info.Map.Tiles.Count )
+          if ( ( tileIndex >= 0 )
+          &&   ( tileIndex < mapCharset.Tiles.Count ) )
           {
             // a real tile
-            var tile = Info.Map.Tiles[tileIndex];
+            var tile = mapCharset.Tiles[tileIndex];
 
             for ( int j = 0; j < tile.Chars.Height; ++j )
             {
@@ -111,7 +114,7 @@ namespace RetroDevStudio.Controls
         CharsetScreenEditor   charEditor = (CharsetScreenEditor)document;
         charEditor.ImportFromData( mapToExport.TileSpacingX * mapToExport.Tiles.Width,
                                    mapToExport.TileSpacingY * mapToExport.Tiles.Height,
-                                   charData, colorData, Info.Map.Charset );
+                                   charData, colorData, mapCharset.Charset );
         document.SetModified();
         document.Save( SaveMethod.SAVE );
       }
@@ -126,7 +129,7 @@ namespace RetroDevStudio.Controls
 
         charEditor.ImportFromData( mapToExport.TileSpacingX * mapToExport.Tiles.Width,
                                    mapToExport.TileSpacingY * mapToExport.Tiles.Height,
-                                   charData, colorData, Info.Map.Charset );
+                                   charData, colorData, mapCharset.Charset );
         charEditor.SetModified();
       }
       return true;

@@ -13,16 +13,18 @@ namespace RetroDevStudio.Undo
   // how many tiles moved.
   public class UndoMapTilesReorder : UndoTask
   {
-    private MapEditor    _MapEditor = null;
-    private MapProject   _MapProject = null;
-    private int[]        _OldToNew = null;
+    private MapEditor              _MapEditor = null;
+    private MapProject             _MapProject = null;
+    private MapProject.MapCharset  _Charset = null;
+    private int[]                  _OldToNew = null;
 
 
 
-    public UndoMapTilesReorder( MapEditor Editor, MapProject Project, int[] OldToNew )
+    public UndoMapTilesReorder( MapEditor Editor, MapProject Project, MapProject.MapCharset Charset, int[] OldToNew )
     {
       _MapEditor  = Editor;
       _MapProject = Project;
+      _Charset    = Charset;
       _OldToNew   = OldToNew;
     }
 
@@ -45,14 +47,14 @@ namespace RetroDevStudio.Undo
       {
         inverse[_OldToNew[i]] = i;
       }
-      return new UndoMapTilesReorder( _MapEditor, _MapProject, inverse );
+      return new UndoMapTilesReorder( _MapEditor, _MapProject, _Charset, inverse );
     }
 
 
 
     public override void Apply()
     {
-      _MapEditor.ReorderTiles( _OldToNew );
+      _MapEditor.ReorderTiles( _Charset, _OldToNew );
     }
   }
 }

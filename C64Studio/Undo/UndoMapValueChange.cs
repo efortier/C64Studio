@@ -20,6 +20,7 @@ namespace RetroDevStudio.Undo
     public string                 Name = "";
     public string                 ExtraData = "";
     public bool                   NotExported = false;
+    public int                    CharsetIndex = 0;
 
 
 
@@ -39,6 +40,7 @@ namespace RetroDevStudio.Undo
       TileSpacingY        = Map.TileSpacingY;
       AlternativeMode     = Map.AlternativeMode;
       NotExported         = Map.NotExported;
+      CharsetIndex        = Map.CharsetIndex;
     }
 
 
@@ -73,6 +75,10 @@ namespace RetroDevStudio.Undo
       AffectedMap.TileSpacingY        = TileSpacingY;
       AffectedMap.AlternativeMode     = AlternativeMode;
       AffectedMap.NotExported         = NotExported;
+      AffectedMap.CharsetIndex        = CharsetIndex;
+      // The scratch mirrors the owner's charset — before the resync below
+      // re-populates from the scratch when it is the visible face.
+      MapEditor.MirrorCharsetIndexToScratch( AffectedMap );
 
       MapEditor.InvalidateCurrentMap();
       // The dropdown row shows a "(not exported)" suffix — keep it current.

@@ -88,7 +88,7 @@ namespace RetroDevStudio.Controls
                 tile.Chars[x, y].Color = cpProject.Tiles[i].ColorData.ByteAt( x + y * tile.Chars.Width );
               }
             }
-            mapProject.Tiles.Add( tile );
+            mapProject.Charsets[0].Tiles.Add( tile );
           }
 
           var map = new Formats.MapProject.Map();
@@ -114,10 +114,10 @@ namespace RetroDevStudio.Controls
             for ( int x = 0; x < map.Tiles.Width; ++x )
             {
               int tileIndex = map.Tiles[x, y];
-              if ( tileIndex < mapProject.Tiles.Count )
+              if ( tileIndex < mapProject.Charsets[0].Tiles.Count )
               {
                 // a real tile
-                var tile = mapProject.Tiles[tileIndex];
+                var tile = mapProject.Charsets[0].Tiles[tileIndex];
 
                 for ( int j = 0; j < tile.Chars.Height; ++j )
                 {

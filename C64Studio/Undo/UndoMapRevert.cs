@@ -99,6 +99,11 @@ namespace RetroDevStudio.Undo
       m_AffectedMap.MarkerDimOpacity            = m_Snapshot.MarkerDimOpacity;
       m_AffectedMap.AlternativeMode             = m_Snapshot.AlternativeMode;
       m_AffectedMap.MemoRTF                     = m_Snapshot.MemoRTF;
+      m_AffectedMap.CharsetIndex                = m_Snapshot.CharsetIndex;
+      if ( m_MapEditor != null )
+      {
+        m_MapEditor.MirrorCharsetIndexToScratch( m_AffectedMap );
+      }
 
       // Full editor resync. This covers width/height textboxes,
       // scrollbars, char-list refresh, redraw — all the UI bits that

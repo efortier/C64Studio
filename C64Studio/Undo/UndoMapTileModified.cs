@@ -9,19 +9,21 @@ namespace RetroDevStudio.Undo
   {
     public MapEditor              MapEditor = null;
     private MapProject            Project = null;
+    private MapProject.MapCharset Charset = null;
     private MapProject.Tile       Tile = null;
     public int                    TileIndex = -1;
 
 
 
-    public UndoMapTileModified( MapEditor Editor, MapProject Project, int TileIndex )
+    public UndoMapTileModified( MapEditor Editor, MapProject Project, MapProject.MapCharset Charset, int TileIndex )
     {
       this.TileIndex = TileIndex;
       this.Project = Project;
+      this.Charset = Charset;
       MapEditor = Editor;
 
 
-      var Tile = Project.Tiles[TileIndex];
+      var Tile = Charset.Tiles[TileIndex];
 
       this.Tile = new MapProject.Tile();
       this.Tile.Chars = new GR.Game.Layer<MapProject.TileChar>();
@@ -38,6 +40,9 @@ namespace RetroDevStudio.Undo
 
       this.Tile.Name = Tile.Name;
       this.Tile.Passable = Tile.Passable;
+      // Pushed for group-id / not-exported edits too — snapshot those.
+      this.Tile.GroupId = Tile.GroupId;
+      this.Tile.NotExportedOnMap = Tile.NotExportedOnMap;
     }
 
 
@@ -55,14 +60,14 @@ namespace RetroDevStudio.Undo
 
     public override UndoTask CreateComplementaryTask()
     {
-      return new UndoMapTileModified( MapEditor, Project, TileIndex );
+      return new UndoMapTileModified( MapEditor, Project, Charset, TileIndex );
     }
 
 
 
     public override void Apply()
     {
-      var newTile = Project.Tiles[TileIndex];
+      var newTile = Charset.Tiles[TileIndex];
 
       newTile.Chars.Resize( Tile.Chars.Width, Tile.Chars.Height );
       for ( int i = 0; i < Tile.Chars.Width; ++i )
@@ -77,7 +82,9 @@ namespace RetroDevStudio.Undo
 
       newTile.Name = Tile.Name;
       newTile.Passable = Tile.Passable;
-      MapEditor.TileModified( TileIndex );
+      newTile.GroupId = Tile.GroupId;
+      newTile.NotExportedOnMap = Tile.NotExportedOnMap;
+      MapEditor.TileModified( Charset, TileIndex );
     }
   }
 }

@@ -11,8 +11,9 @@ namespace RetroDevStudio.Undo
     private MapEditor               _MapEditor = null;
     private MapProject.Tile         _RemovedTile = null;
     private MapProject              _MapProject = null;
+    // The tile library the removal happened in (see UndoMapTileAdd).
+    private MapProject.MapCharset   _Charset = null;
     private int                     _TileIndex = -1;
-    public List<Undo.UndoTask>      _InternalUndos = new List<UndoTask>();
 
     // Pre-deletion snapshots so undo can put everything back the way it
     // was. RemoveTile now mutates entity-type tile indices and per-cell
@@ -21,9 +22,10 @@ namespace RetroDevStudio.Undo
     // the tile itself is restored.
     //
     // Snapshots are keyed by the Map OBJECT, not by list position: the
-    // sweep covers MapEditor.AllEditableMaps() — project maps PLUS scratch
-    // workspaces — so an index into Project.Maps would misalign, and map
-    // adds/removes between capture and undo would shift it anyway.
+    // sweep covers MapEditor.MapsBoundTo( charset ) — the project maps PLUS
+    // scratch workspaces bound to the charset — so an index into
+    // Project.Maps would misalign, and map adds/removes between capture and
+    // undo would shift it anyway.
     private List<int>                                _EntityTypeTileIndices = new List<int>();
     // Colour overrides are PER-LAYER (RemoveTile wipes them on every layer
     // a removed tile occupied), so each map's snapshot is one grid per
@@ -41,28 +43,13 @@ namespace RetroDevStudio.Undo
 
 
 
-    public UndoMapTileRemove( MapEditor Editor, MapProject Project, int TileIndex )
+    public UndoMapTileRemove( MapEditor Editor, MapProject Project, MapProject.MapCharset Charset, int TileIndex )
     {
       _MapEditor  = Editor;
       _TileIndex  = TileIndex;
       _MapProject = Project;
-      _RemovedTile = _MapProject.Tiles[TileIndex];
-
-      foreach ( var map in Project.Maps )
-      {
-        for ( int i = 0; i < map.Tiles.Width; ++i )
-        {
-          for ( int j = 0; j < map.Tiles.Height; ++j )
-          {
-            if ( map.Tiles[i, j] >= TileIndex )
-            {
-              i = map.Tiles.Width;
-              _InternalUndos.Add( new Undo.UndoMapTilesChange( _MapEditor, map, 0, 0, map.Tiles.Width, map.Tiles.Height ) );
-              break;
-            }
-          }
-        }
-      }
+      _Charset    = Charset;
+      _RemovedTile = Charset.Tiles[TileIndex];
 
       // Snapshot every entity-type's tile binding. Index in the list
       // matches Project.EntityTypes index; on undo we walk both lists
@@ -73,14 +60,15 @@ namespace RetroDevStudio.Undo
         _EntityTypeTileIndices.Add( et.TileIndex );
       }
 
-      // Snapshot every editable map's color-override layers — the same set
-      // (project maps + scratch workspaces) RemoveTile's sweep mutates,
-      // and EVERY layer of each map, because the wipe is per-layer.
+      // Snapshot the color-override layers of every map bound to the charset
+      // — the same set (project maps + scratch workspaces) RemoveTile's
+      // sweep mutates, and EVERY layer of each map, because the wipe is
+      // per-layer.
       // Char-grid sized (Tiles × spacing); captured deeply (per-char copy)
       // rather than holding a reference because the original layer keeps
       // mutating during the delete. Loop bounds use the layer's own
       // Width/Height so this stays correct regardless of grid dimensions.
-      foreach ( var map in Editor.AllEditableMaps() )
+      foreach ( var map in Editor.MapsBoundTo( Charset ) )
       {
         var layerSnaps = new List<GR.Game.Layer<int>>();
         foreach ( var lay in map.Layers )
@@ -129,14 +117,14 @@ namespace RetroDevStudio.Undo
 
     public override UndoTask CreateComplementaryTask()
     {
-      return new UndoMapTileAdd( _MapEditor, _MapProject, _TileIndex );
+      return new UndoMapTileAdd( _MapEditor, _MapProject, _Charset, _TileIndex );
     }
 
 
 
     public override void Apply()
     {
-      _MapEditor.AddTile( _TileIndex, _RemovedTile );
+      _MapEditor.AddTile( _Charset, _TileIndex, _RemovedTile );
 
       // Restore entity-type → tile bindings. Done after AddTile so the
       // tile list is back to its pre-deletion length when we hand

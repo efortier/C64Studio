@@ -9,15 +9,17 @@ namespace RetroDevStudio.Undo
   {
     public MapEditor              _MapEditor = null;
     public MapProject             _MapProject = null;
+    public MapProject.MapCharset  _Charset = null;
     public int                    _TileIndexFrom = -1;
     public int                    _TileIndexTo = -1;
 
 
 
-    public UndoMapTileMove( MapEditor Editor, MapProject Project, int TileIndexFrom, int TileIndexTo )
+    public UndoMapTileMove( MapEditor Editor, MapProject Project, MapProject.MapCharset Charset, int TileIndexFrom, int TileIndexTo )
     {
       _MapEditor    = Editor;
       _MapProject   = Project;
+      _Charset      = Charset;
       _TileIndexFrom = TileIndexFrom;
       _TileIndexTo   = TileIndexTo;
     }
@@ -37,14 +39,14 @@ namespace RetroDevStudio.Undo
 
     public override UndoTask CreateComplementaryTask()
     {
-      return new UndoMapTileMove( _MapEditor, _MapProject, _TileIndexTo, _TileIndexFrom );
+      return new UndoMapTileMove( _MapEditor, _MapProject, _Charset, _TileIndexTo, _TileIndexFrom );
     }
 
 
 
     public override void Apply()
     {
-      _MapEditor.MoveTile( _TileIndexFrom, _TileIndexTo );
+      _MapEditor.MoveTile( _Charset, _TileIndexFrom, _TileIndexTo );
     }
   }
 }

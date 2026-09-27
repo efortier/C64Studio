@@ -74,7 +74,7 @@ namespace RetroDevStudio.Controls
           document.SetDocumentFilename( newFilename );
           document.DocumentInfo.Element.Filename = document.DocumentInfo.DocumentFilename;
         }
-        ( (CharsetEditor)document ).OpenProject( Info.Map.Charset.SaveToBuffer() );
+        ( (CharsetEditor)document ).OpenProject( Info.Map.CharsetAt( Info.Map.CurrentCharsetIndex ).Charset.SaveToBuffer() );
         document.SetModified();
       }
       else
@@ -91,7 +91,7 @@ namespace RetroDevStudio.Controls
         }
         if ( document != null )
         {
-          document.OpenProject( Info.Map.Charset.SaveToBuffer() );
+          document.OpenProject( Info.Map.CharsetAt( Info.Map.CurrentCharsetIndex ).Charset.SaveToBuffer() );
           document.SetModified();
         }
       }

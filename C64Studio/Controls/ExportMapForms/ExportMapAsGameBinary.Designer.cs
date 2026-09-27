@@ -77,14 +77,21 @@ namespace RetroDevStudio.Controls
       this.labelMapStringsPrefix = new System.Windows.Forms.Label();
       this.editMapStringsPrefix = new System.Windows.Forms.TextBox();
       this.groupCharset = new System.Windows.Forms.GroupBox();
-      this.checkExportCharset = new System.Windows.Forms.CheckBox();
       this.labelCharsetExportDirectory = new System.Windows.Forms.Label();
       this.editCharsetExportDirectory = new System.Windows.Forms.TextBox();
       this.btnBrowseCharsetExportDirectory = new System.Windows.Forms.Button();
-      this.labelCharsetExportFilename = new System.Windows.Forms.Label();
-      this.editCharsetExportFilename = new System.Windows.Forms.TextBox();
       this.checkCharsetPrefixLoadAddress = new System.Windows.Forms.CheckBox();
       this.editCharsetPrefixLoadAddress = new System.Windows.Forms.TextBox();
+      this.checkExportCharsetLabels = new System.Windows.Forms.CheckBox();
+      this.labelCharsetLabelsFilename = new System.Windows.Forms.Label();
+      this.editCharsetLabelsFilename = new System.Windows.Forms.TextBox();
+      this.labelCharsetLabelsPrefix = new System.Windows.Forms.Label();
+      this.editCharsetLabelsPrefix = new System.Windows.Forms.TextBox();
+      this.checkExportMapLabels = new System.Windows.Forms.CheckBox();
+      this.labelMapLabelsFilename = new System.Windows.Forms.Label();
+      this.editMapLabelsFilename = new System.Windows.Forms.TextBox();
+      this.labelMapLabelsPrefix = new System.Windows.Forms.Label();
+      this.editMapLabelsPrefix = new System.Windows.Forms.TextBox();
       this.checkCompressMap = new System.Windows.Forms.CheckBox();
       this.groupCompress = new System.Windows.Forms.GroupBox();
       this.comboCompressor = new System.Windows.Forms.ComboBox();
@@ -672,31 +679,27 @@ namespace RetroDevStudio.Controls
       //
       // groupCharset
       //
-      this.groupCharset.Controls.Add(this.checkExportCharset);
       this.groupCharset.Controls.Add(this.labelCharsetExportDirectory);
       this.groupCharset.Controls.Add(this.editCharsetExportDirectory);
       this.groupCharset.Controls.Add(this.btnBrowseCharsetExportDirectory);
-      this.groupCharset.Controls.Add(this.labelCharsetExportFilename);
-      this.groupCharset.Controls.Add(this.editCharsetExportFilename);
       this.groupCharset.Controls.Add(this.checkCharsetPrefixLoadAddress);
       this.groupCharset.Controls.Add(this.editCharsetPrefixLoadAddress);
+      this.groupCharset.Controls.Add(this.checkExportCharsetLabels);
+      this.groupCharset.Controls.Add(this.labelCharsetLabelsFilename);
+      this.groupCharset.Controls.Add(this.editCharsetLabelsFilename);
+      this.groupCharset.Controls.Add(this.labelCharsetLabelsPrefix);
+      this.groupCharset.Controls.Add(this.editCharsetLabelsPrefix);
+      this.groupCharset.Controls.Add(this.checkExportMapLabels);
+      this.groupCharset.Controls.Add(this.labelMapLabelsFilename);
+      this.groupCharset.Controls.Add(this.editMapLabelsFilename);
+      this.groupCharset.Controls.Add(this.labelMapLabelsPrefix);
+      this.groupCharset.Controls.Add(this.editMapLabelsPrefix);
       this.groupCharset.Location = new System.Drawing.Point(3, 552);
       this.groupCharset.Name = "groupCharset";
-      this.groupCharset.Size = new System.Drawing.Size(316, 148);
+      this.groupCharset.Size = new System.Drawing.Size(610, 180);
       this.groupCharset.TabIndex = 14;
       this.groupCharset.TabStop = false;
-      this.groupCharset.Text = "Character Set";
-      //
-      // checkExportCharset
-      //
-      this.checkExportCharset.AutoSize = true;
-      this.checkExportCharset.Location = new System.Drawing.Point(6, 19);
-      this.checkExportCharset.Name = "checkExportCharset";
-      this.checkExportCharset.Size = new System.Drawing.Size(125, 17);
-      this.checkExportCharset.TabIndex = 0;
-      this.checkExportCharset.Text = "Export character set";
-      this.checkExportCharset.UseVisualStyleBackColor = true;
-      this.checkExportCharset.CheckedChanged += new System.EventHandler(this.checkExportCharset_CheckedChanged);
+      this.groupCharset.Text = "Character Sets (one file per set with \"Export character set\" enabled on the Character Set tab)";
       //
       // labelCharsetExportDirectory
       //
@@ -709,7 +712,7 @@ namespace RetroDevStudio.Controls
       //
       // editCharsetExportDirectory
       //
-      this.editCharsetExportDirectory.Enabled = false;
+      this.editCharsetExportDirectory.Enabled = true;
       this.editCharsetExportDirectory.Location = new System.Drawing.Point(110, 42);
       this.editCharsetExportDirectory.Name = "editCharsetExportDirectory";
       this.editCharsetExportDirectory.Size = new System.Drawing.Size(163, 20);
@@ -717,7 +720,7 @@ namespace RetroDevStudio.Controls
       //
       // btnBrowseCharsetExportDirectory
       //
-      this.btnBrowseCharsetExportDirectory.Enabled = false;
+      this.btnBrowseCharsetExportDirectory.Enabled = true;
       this.btnBrowseCharsetExportDirectory.Location = new System.Drawing.Point(279, 40);
       this.btnBrowseCharsetExportDirectory.Name = "btnBrowseCharsetExportDirectory";
       this.btnBrowseCharsetExportDirectory.Size = new System.Drawing.Size(30, 23);
@@ -725,23 +728,6 @@ namespace RetroDevStudio.Controls
       this.btnBrowseCharsetExportDirectory.Text = "...";
       this.btnBrowseCharsetExportDirectory.UseVisualStyleBackColor = true;
       this.btnBrowseCharsetExportDirectory.Click += new System.EventHandler(this.btnBrowseCharsetExportDirectory_Click);
-      //
-      // labelCharsetExportFilename
-      //
-      this.labelCharsetExportFilename.AutoSize = true;
-      this.labelCharsetExportFilename.Location = new System.Drawing.Point(17, 71);
-      this.labelCharsetExportFilename.Name = "labelCharsetExportFilename";
-      this.labelCharsetExportFilename.Size = new System.Drawing.Size(91, 13);
-      this.labelCharsetExportFilename.TabIndex = 4;
-      this.labelCharsetExportFilename.Text = "Export filename:";
-      //
-      // editCharsetExportFilename
-      //
-      this.editCharsetExportFilename.Enabled = false;
-      this.editCharsetExportFilename.Location = new System.Drawing.Point(110, 68);
-      this.editCharsetExportFilename.Name = "editCharsetExportFilename";
-      this.editCharsetExportFilename.Size = new System.Drawing.Size(163, 20);
-      this.editCharsetExportFilename.TabIndex = 5;
       //
       // checkCharsetPrefixLoadAddress
       //
@@ -762,6 +748,96 @@ namespace RetroDevStudio.Controls
       this.editCharsetPrefixLoadAddress.Name = "editCharsetPrefixLoadAddress";
       this.editCharsetPrefixLoadAddress.Size = new System.Drawing.Size(66, 20);
       this.editCharsetPrefixLoadAddress.TabIndex = 7;
+      //
+      // checkExportCharsetLabels
+      //
+      this.checkExportCharsetLabels.AutoSize = true;
+      this.checkExportCharsetLabels.Location = new System.Drawing.Point(330, 19);
+      this.checkExportCharsetLabels.Name = "checkExportCharsetLabels";
+      this.checkExportCharsetLabels.Size = new System.Drawing.Size(240, 17);
+      this.checkExportCharsetLabels.TabIndex = 8;
+      this.checkExportCharsetLabels.Text = "Charset labels sidecar (export name -> index)";
+      this.checkExportCharsetLabels.UseVisualStyleBackColor = true;
+      this.checkExportCharsetLabels.CheckedChanged += new System.EventHandler(this.checkExportCharsetLabels_CheckedChanged);
+      //
+      // labelCharsetLabelsFilename
+      //
+      this.labelCharsetLabelsFilename.AutoSize = true;
+      this.labelCharsetLabelsFilename.Location = new System.Drawing.Point(348, 45);
+      this.labelCharsetLabelsFilename.Name = "labelCharsetLabelsFilename";
+      this.labelCharsetLabelsFilename.Size = new System.Drawing.Size(52, 13);
+      this.labelCharsetLabelsFilename.TabIndex = 9;
+      this.labelCharsetLabelsFilename.Text = "Filename:";
+      //
+      // editCharsetLabelsFilename
+      //
+      this.editCharsetLabelsFilename.Location = new System.Drawing.Point(420, 42);
+      this.editCharsetLabelsFilename.Name = "editCharsetLabelsFilename";
+      this.editCharsetLabelsFilename.Size = new System.Drawing.Size(183, 20);
+      this.editCharsetLabelsFilename.TabIndex = 10;
+      this.editCharsetLabelsFilename.Text = "map_charsets.asm";
+      //
+      // labelCharsetLabelsPrefix
+      //
+      this.labelCharsetLabelsPrefix.AutoSize = true;
+      this.labelCharsetLabelsPrefix.Location = new System.Drawing.Point(348, 71);
+      this.labelCharsetLabelsPrefix.Name = "labelCharsetLabelsPrefix";
+      this.labelCharsetLabelsPrefix.Size = new System.Drawing.Size(36, 13);
+      this.labelCharsetLabelsPrefix.TabIndex = 11;
+      this.labelCharsetLabelsPrefix.Text = "Prefix:";
+      //
+      // editCharsetLabelsPrefix
+      //
+      this.editCharsetLabelsPrefix.Font = new System.Drawing.Font("Courier New", 8.25F);
+      this.editCharsetLabelsPrefix.Location = new System.Drawing.Point(420, 68);
+      this.editCharsetLabelsPrefix.Name = "editCharsetLabelsPrefix";
+      this.editCharsetLabelsPrefix.Size = new System.Drawing.Size(183, 20);
+      this.editCharsetLabelsPrefix.TabIndex = 12;
+      //
+      // checkExportMapLabels
+      //
+      this.checkExportMapLabels.AutoSize = true;
+      this.checkExportMapLabels.Location = new System.Drawing.Point(330, 100);
+      this.checkExportMapLabels.Name = "checkExportMapLabels";
+      this.checkExportMapLabels.Size = new System.Drawing.Size(220, 17);
+      this.checkExportMapLabels.TabIndex = 13;
+      this.checkExportMapLabels.Text = "Map labels sidecar (map name -> index)";
+      this.checkExportMapLabels.UseVisualStyleBackColor = true;
+      this.checkExportMapLabels.CheckedChanged += new System.EventHandler(this.checkExportMapLabels_CheckedChanged);
+      //
+      // labelMapLabelsFilename
+      //
+      this.labelMapLabelsFilename.AutoSize = true;
+      this.labelMapLabelsFilename.Location = new System.Drawing.Point(348, 126);
+      this.labelMapLabelsFilename.Name = "labelMapLabelsFilename";
+      this.labelMapLabelsFilename.Size = new System.Drawing.Size(52, 13);
+      this.labelMapLabelsFilename.TabIndex = 14;
+      this.labelMapLabelsFilename.Text = "Filename:";
+      //
+      // editMapLabelsFilename
+      //
+      this.editMapLabelsFilename.Location = new System.Drawing.Point(420, 123);
+      this.editMapLabelsFilename.Name = "editMapLabelsFilename";
+      this.editMapLabelsFilename.Size = new System.Drawing.Size(183, 20);
+      this.editMapLabelsFilename.TabIndex = 15;
+      this.editMapLabelsFilename.Text = "map_names.asm";
+      //
+      // labelMapLabelsPrefix
+      //
+      this.labelMapLabelsPrefix.AutoSize = true;
+      this.labelMapLabelsPrefix.Location = new System.Drawing.Point(348, 152);
+      this.labelMapLabelsPrefix.Name = "labelMapLabelsPrefix";
+      this.labelMapLabelsPrefix.Size = new System.Drawing.Size(36, 13);
+      this.labelMapLabelsPrefix.TabIndex = 16;
+      this.labelMapLabelsPrefix.Text = "Prefix:";
+      //
+      // editMapLabelsPrefix
+      //
+      this.editMapLabelsPrefix.Font = new System.Drawing.Font("Courier New", 8.25F);
+      this.editMapLabelsPrefix.Location = new System.Drawing.Point(420, 149);
+      this.editMapLabelsPrefix.Name = "editMapLabelsPrefix";
+      this.editMapLabelsPrefix.Size = new System.Drawing.Size(183, 20);
+      this.editMapLabelsPrefix.TabIndex = 17;
       //
       // ExportMapAsGameBinary
       //
@@ -818,7 +894,7 @@ namespace RetroDevStudio.Controls
       this.Controls.Add(this.checkExportColors);
       this.Controls.Add(this.checkExportMarkers);
       this.Name = "ExportMapAsGameBinary";
-      this.Size = new System.Drawing.Size(620, 710);
+      this.Size = new System.Drawing.Size(620, 740);
       this.groupCharset.ResumeLayout(false);
       this.groupCharset.PerformLayout();
       this.groupCompress.ResumeLayout(false);
@@ -887,13 +963,20 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.Label labelMapStringsPrefix;
     private System.Windows.Forms.TextBox editMapStringsPrefix;
     private System.Windows.Forms.GroupBox groupCharset;
-    private System.Windows.Forms.CheckBox checkExportCharset;
     private System.Windows.Forms.Label labelCharsetExportDirectory;
     private System.Windows.Forms.TextBox editCharsetExportDirectory;
     private System.Windows.Forms.Button btnBrowseCharsetExportDirectory;
-    private System.Windows.Forms.Label labelCharsetExportFilename;
-    private System.Windows.Forms.TextBox editCharsetExportFilename;
     private System.Windows.Forms.CheckBox checkCharsetPrefixLoadAddress;
     private System.Windows.Forms.TextBox editCharsetPrefixLoadAddress;
+    private System.Windows.Forms.CheckBox checkExportCharsetLabels;
+    private System.Windows.Forms.Label labelCharsetLabelsFilename;
+    private System.Windows.Forms.TextBox editCharsetLabelsFilename;
+    private System.Windows.Forms.Label labelCharsetLabelsPrefix;
+    private System.Windows.Forms.TextBox editCharsetLabelsPrefix;
+    private System.Windows.Forms.CheckBox checkExportMapLabels;
+    private System.Windows.Forms.Label labelMapLabelsFilename;
+    private System.Windows.Forms.TextBox editMapLabelsFilename;
+    private System.Windows.Forms.Label labelMapLabelsPrefix;
+    private System.Windows.Forms.TextBox editMapLabelsPrefix;
   }
 }

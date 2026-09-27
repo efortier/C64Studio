@@ -57,11 +57,11 @@ namespace RetroDevStudio.Controls
       switch ( Info.ExportType )
       {
         case MapExportType.TILE_DATA:
-          Info.Map.ExportTilesAsBuffer( Info.RowByRow, out tileData );
+          Info.Map.ExportTilesAsBuffer( Info.RowByRow, out tileData, EditorCharsetIndex( Info ) );
           finalData = tileData;
           break;
         case MapExportType.TILE_AND_MAP_DATA:
-          Info.Map.ExportTilesAsBuffer( Info.RowByRow, out tileData );
+          Info.Map.ExportTilesAsBuffer( Info.RowByRow, out tileData, EditorCharsetIndex( Info ) );
           mapData = Info.Map.ExportMapsAsBuffer( Info.RowByRow );
           finalData = tileData + mapData;
           break;

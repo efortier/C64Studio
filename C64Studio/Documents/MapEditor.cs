@@ -673,6 +673,8 @@ namespace RetroDevStudio.Documents
     // bitmap handed to the canvas (owned here — re-rendered on tile/map
     // change so the stamp always shows the current map's alternative colors).
     private int                         m_OutlineStampTileIndex = -1;
+    // The charset the armed stamp index belongs to (null = disarmed).
+    private Formats.MapProject.MapCharset m_OutlineStampCharset = null;
     private System.Drawing.Bitmap       m_OutlineStampBitmap = null;
     private readonly List<System.Drawing.Color> m_OutlineRecentColors = new List<System.Drawing.Color>();
     private const int                   MAX_OUTLINE_RECENT_COLORS = 22;
@@ -1046,7 +1048,6 @@ namespace RetroDevStudio.Documents
 
       characterEditor.UndoManager = DocumentInfo.UndoManager;
       characterEditor.Core = Core;
-      characterEditor.Modified += CharacterEditor_Modified;
       characterEditor.ShowCreateTileButton = true;
       characterEditor.CreateTileFromCharacter += CharacterEditor_CreateTileFromCharacter;
       characterEditor.CreateMultipleTilesFromCharacters += CharacterEditor_CreateMultipleTilesFromCharacters;
@@ -1247,12 +1248,12 @@ namespace RetroDevStudio.Documents
 
       for ( int i = 0; i < 256; ++i )
       {
-        RebuildCharImage( i );
-        panelCharacters.Items.Add( i.ToString(), m_MapProject.Charset.Characters[i].Tile.Image );
+        panelCharacters.Items.Add( i.ToString(), ActiveCharset().Charset.Characters[i].Tile.Image );
       }
 
-      characterEditor.CharsetUpdated( m_MapProject.Charset );
+      // Renders the picker images and builds the tile lists (first rebind).
       RefreshMapTileList();
+      BindCharsetTab();
       Modified = false;
 
       ResumeLayout();
@@ -1787,8 +1788,8 @@ namespace RetroDevStudio.Documents
             if ( ( tileX < 0 ) || ( tileX >= m_CurrentMap.Tiles.Width ) ) continue;
 
             int tileIndex = m_CurrentMap.Tiles[tileX, tileY];
-            bool tilePassable = ( tileIndex >= 0 && tileIndex < m_MapProject.Tiles.Count )
-                                ? m_MapProject.Tiles[tileIndex].Passable : true;
+            bool tilePassable = ( tileIndex >= 0 && tileIndex < ActiveCharset().Tiles.Count )
+                                ? ActiveCharset().Tiles[tileIndex].Passable : true;
             bool blockedOverride = m_CurrentMap.CharBlockedOverrides[charMapX, charMapY];
 
             uint tintR, tintG, tintB;
@@ -1883,7 +1884,7 @@ namespace RetroDevStudio.Documents
              var  type = m_MapProject.MarkerTypes.FirstOrDefault( t => t.ID == marker.Type );
              if ( type != null )
              {
-               color = (uint)m_MapProject.Charset.Colors.Palette.ColorValues[type.Color];
+               color = (uint)ActiveCharset().Charset.Colors.Palette.ColorValues[type.Color];
              }
              
              // Inset box
@@ -1960,9 +1961,9 @@ namespace RetroDevStudio.Documents
             var etype = m_MapProject.EntityTypes.FirstOrDefault( t => t.ID == entity.Type );
             if ( ( etype != null )
             &&   ( etype.TileIndex >= 0 )
-            &&   ( etype.TileIndex < m_MapProject.Tiles.Count ) )
+            &&   ( etype.TileIndex < ActiveCharset().Tiles.Count ) )
             {
-              GetTileCellFootprint( m_MapProject.Tiles[etype.TileIndex], out cw, out ch );
+              GetTileCellFootprint( ActiveCharset().Tiles[etype.TileIndex], out cw, out ch );
             }
             drawHighlightAt( entity.X, entity.Y, cw, ch, disabledEntityColor, false );
           }
@@ -2087,9 +2088,9 @@ namespace RetroDevStudio.Documents
           var etype = m_MapProject.EntityTypes.FirstOrDefault( t => t.ID == m_SelectedEntity.Type );
           if ( ( etype != null )
           &&   ( etype.TileIndex >= 0 )
-          &&   ( etype.TileIndex < m_MapProject.Tiles.Count ) )
+          &&   ( etype.TileIndex < ActiveCharset().Tiles.Count ) )
           {
-            GetTileCellFootprint( m_MapProject.Tiles[etype.TileIndex], out cw, out ch );
+            GetTileCellFootprint( ActiveCharset().Tiles[etype.TileIndex], out cw, out ch );
           }
           drawHighlightAt( m_SelectedEntity.X, m_SelectedEntity.Y, cw, ch, highlightColor, true );
         }
@@ -2109,9 +2110,9 @@ namespace RetroDevStudio.Documents
           int cw = 1, ch = 1;
           int idx = ActiveTiles[m_SelectedTilePos.X, m_SelectedTilePos.Y];
           if ( ( idx >= 0 )
-          &&   ( idx < m_MapProject.Tiles.Count ) )
+          &&   ( idx < ActiveCharset().Tiles.Count ) )
           {
-            GetTileCellFootprint( m_MapProject.Tiles[idx], out cw, out ch );
+            GetTileCellFootprint( ActiveCharset().Tiles[idx], out cw, out ch );
           }
           drawHighlightAt( m_SelectedTilePos.X, m_SelectedTilePos.Y, cw, ch, highlightColor, true );
         }
@@ -2796,16 +2797,696 @@ namespace RetroDevStudio.Documents
 
 
 
+    // ---- Multiple character sets ------------------------------------------
+    // Every charset / tile-library use in this editor resolves through one of
+    // two accessors. Map-side surfaces (the map's tile palette, the Tiles
+    // tab, the character picker, every render / hit-test / usage path) follow
+    // the CURRENT MAP's charset — what you see is what that map is painted
+    // with. The Character Set tab follows its own selection (EditedCharset).
+
+    /// <summary>The current map's charset and tile library (charset 0 with no map).</summary>
+    private Formats.MapProject.MapCharset ActiveCharset()
+    {
+      return ( m_CurrentMap != null ) ? m_MapProject.CharsetOf( m_CurrentMap ) : m_MapProject.CharsetAt( 0 );
+    }
+
+
+
+    /// <summary>The charset selected on the Character Set tab.</summary>
+    internal Formats.MapProject.MapCharset EditedCharset()
+    {
+      return m_MapProject.CharsetAt( m_MapProject.CurrentCharsetIndex );
+    }
+
+
+
+    private int CharsetIndexOf( Formats.MapProject.MapCharset Charset )
+    {
+      return m_MapProject.Charsets.IndexOf( Charset );
+    }
+
+
+
+    // The charset comboTiles / listTileInfo / panelCharacters were last built
+    // from (reference-compared; null = never built). Intrinsic state of those
+    // lists, re-synced by EnsureDisplayedCharset.
+    private Formats.MapProject.MapCharset m_DisplayedCharset = null;
+
+
+
+    /// <summary>Rebinds the map-side lists when the current map's charset differs from the one they were built from.</summary>
+    private void EnsureDisplayedCharset()
+    {
+      if ( m_DisplayedCharset != ActiveCharset() )
+      {
+        RebindDisplayedCharset();
+      }
+    }
+
+
+
+    /// <summary>
+    /// Unconditional rebuild of comboTiles / listTileInfo / the character
+    /// picker from the current map's charset. Tile-edit state belonging to
+    /// the previous library is dropped, the brush is restored by index
+    /// ("switching charsets keeps the indices"), the outline stamp of the
+    /// old library is disarmed.
+    /// </summary>
+    private void RebindDisplayedCharset()
+    {
+      var charset = ActiveCharset();
+      m_DisplayedCharset = charset;
+      if ( ( m_CurrentEditorTile != null )
+      &&   ( !charset.Tiles.Contains( m_CurrentEditorTile ) ) )
+      {
+        m_CurrentEditorTile = null;
+      }
+      if ( ( m_CurrentEditedTile != null )
+      &&   ( !charset.Tiles.Contains( m_CurrentEditedTile ) ) )
+      {
+        m_CurrentEditedTile = null;
+        listTileChars.Items.Clear();
+      }
+      RebuildDisplayedCharImages();
+      RefreshTileLists();
+      RefreshOutlineStampBitmap();
+      RedrawTile();
+    }
+
+
+
+    /// <summary>Renders every character of the displayed charset into its cached picker bitmap.</summary>
+    private void RebuildDisplayedCharImages()
+    {
+      var charset = m_DisplayedCharset ?? ActiveCharset();
+      for ( int i = 0; i < charset.Charset.TotalNumberOfCharacters; ++i )
+      {
+        RebuildCharImage( charset, i );
+      }
+      panelCharacters.Invalidate();
+    }
+
+
+
+    /// <summary>Rebind + everything that depends on the current map's charset after the MAP's binding changed.</summary>
+    private void ActiveCharsetChanged()
+    {
+      RebindDisplayedCharset();
+      RecalcTileUsageInCurrentMap();
+      RedrawMap();
+      RedrawColorChooser();
+    }
+
+
+
+    /// <summary>
+    /// Every map a mutation of one charset's tile library must sweep: the
+    /// project maps and every materialized scratch workspace bound to that
+    /// charset (materializes stored scratches first, like AllEditableMaps).
+    /// Public so the tile undo tasks snapshot the same set they restore.
+    /// </summary>
+    public IEnumerable<Formats.MapProject.Map> MapsBoundTo( Formats.MapProject.MapCharset Charset )
+    {
+      foreach ( var map in AllEditableMaps() )
+      {
+        if ( m_MapProject.CharsetOf( map ) == Charset )
+        {
+          yield return map;
+        }
+      }
+    }
+
+
+
+    /// <summary>A scratch workspace always mirrors its owner's charset — re-sync after the owner's index changed.</summary>
+    public void MirrorCharsetIndexToScratch( Formats.MapProject.Map Owner )
+    {
+      Formats.MapProject.Map scratch;
+      if ( ( Owner != null )
+      &&   ( m_ScratchMaps.TryGetValue( Owner, out scratch ) ) )
+      {
+        scratch.CharsetIndex = Owner.CharsetIndex;
+      }
+    }
+
+
+
+    /// <summary>Colors are project-wide: MC1 / MC2 / BGColor4 are mirrored into every charset (the load-time rule).</summary>
+    private void ApplyProjectColorsToAllCharsets()
+    {
+      m_MapProject.SyncCharsetColorsFromProject();
+    }
+
+
+
+    /// <summary>The project text mode is project-wide: mode + machine palette mirrored into every charset (one Palette object each).</summary>
+    private void ApplyProjectModeToAllCharsets()
+    {
+      var charMode = Lookup.TextCharModeFromTextMode( m_MapProject.Mode );
+      var machine  = Lookup.MachineTypeFromTextMode( m_MapProject.Mode );
+      foreach ( var cs in m_MapProject.Charsets )
+      {
+        cs.Charset.Mode = charMode;
+        cs.Charset.Colors.Palettes[0] = Core.Imaging.PaletteFromMachine( machine );
+      }
+    }
+
+
+
+    // ---- Character Set tab: which charset the character editor is bound to
+    // (reference-compared; null = not bound yet, e.g. after Clear()).
+    private Formats.MapProject.MapCharset m_CharsetTabCharset = null;
+
+
+
+    /// <summary>The scratch workspaces (all stored ones materialized) — the maps living outside Maps that charset removal/insertion must remap.</summary>
+    public IEnumerable<Formats.MapProject.Map> ScratchWorkspaces()
+    {
+      EnsureAllScratchMapsMaterialized();
+      return new List<Formats.MapProject.Map>( m_ScratchMaps.Values );
+    }
+
+
+
+    /// <summary>
+    /// Selects a charset on the Character Set tab. View state like
+    /// LastSelectedTabIndex: no undo, no dirty flag — the persisted
+    /// CurrentCharsetIndex rides along with the next real save.
+    /// </summary>
+    private void SelectCharsetOnTab( int Index )
+    {
+      if ( ( Index < 0 )
+      ||   ( Index >= m_MapProject.Charsets.Count ) )
+      {
+        return;
+      }
+      m_MapProject.CurrentCharsetIndex = Index;
+      BindCharsetTab();
+    }
+
+
+
+    /// <summary>
+    /// Binds the Character Set tab (character editor + the strip) to
+    /// EditedCharset(). The (expensive, state-resetting) character editor
+    /// re-bind only runs when the bound charset object changed; the strip
+    /// fields are populated with their handlers detached.
+    /// </summary>
+    private void BindCharsetTab()
+    {
+      var charset = EditedCharset();
+      int index   = CharsetIndexOf( charset );
+
+      if ( m_CharsetTabCharset != charset )
+      {
+        m_CharsetTabCharset = charset;
+        characterEditor.CharsetUpdated( charset.Charset );
+        UpdateCharUsageCount();
+      }
+
+      comboCharsets.SelectedIndexChanged      -= comboCharsets_SelectedIndexChanged;
+      checkCharsetFollowMap.CheckedChanged    -= checkCharsetFollowMap_CheckedChanged;
+      checkCharsetExport.CheckedChanged       -= checkCharsetExport_CheckedChanged;
+      try
+      {
+        if ( ( index >= 0 )
+        &&   ( index < comboCharsets.Items.Count ) )
+        {
+          comboCharsets.SelectedIndex = index;
+        }
+        editCharsetDisplayName.Text   = charset.DisplayName ?? "";
+        editCharsetExportName.Text    = charset.ExportName ?? "";
+        checkCharsetExport.Checked    = charset.ExportEnabled;
+        checkCharsetFollowMap.Checked = m_MapProject.CharsetTabFollowsMap;
+      }
+      finally
+      {
+        comboCharsets.SelectedIndexChanged      += comboCharsets_SelectedIndexChanged;
+        checkCharsetFollowMap.CheckedChanged    += checkCharsetFollowMap_CheckedChanged;
+        checkCharsetExport.CheckedChanged       += checkCharsetExport_CheckedChanged;
+      }
+      // Charset 0 can never be removed.
+      btnCharsetRemove.Enabled = ( index != 0 );
+    }
+
+
+
+    /// <summary>
+    /// "Show charset for selected map": the tab follows the current map's
+    /// charset, applied only while the Character Set tab is the visible
+    /// page (at tab selection, when the checkbox is turned on, after load).
+    /// </summary>
+    private void ApplyCharsetTabFollow()
+    {
+      if ( ( m_MapProject.CharsetTabFollowsMap )
+      &&   ( tabMapEditor.SelectedPage == tabCharset ) )
+      {
+        SelectCharsetOnTab( CharsetIndexOf( ActiveCharset() ) );
+      }
+    }
+
+
+
+    /// <summary>
+    /// Rebuilds the three charset dropdowns (Character Set tab, Map tab,
+    /// Entities tab) with their handlers detached (Krypton combos fire on
+    /// Clear) and restores each selection.
+    /// </summary>
+    private void RefreshCharsetCombos()
+    {
+      int entityPreview = comboEntityPreviewCharset.SelectedIndex;
+      if ( ( listEntityTypes.SelectedIndices.Count == 1 )
+      &&   ( listEntityTypes.SelectedIndex >= 0 )
+      &&   ( listEntityTypes.SelectedIndex < m_MapProject.EntityTypes.Count ) )
+      {
+        entityPreview = m_MapProject.EntityTypes[listEntityTypes.SelectedIndex].PreviewCharsetIndex;
+      }
+      if ( ( entityPreview < 0 )
+      ||   ( entityPreview >= m_MapProject.Charsets.Count ) )
+      {
+        entityPreview = 0;
+      }
+
+      comboCharsets.SelectedIndexChanged             -= comboCharsets_SelectedIndexChanged;
+      comboMapCharset.SelectedIndexChanged           -= comboMapCharset_SelectedIndexChanged;
+      comboEntityPreviewCharset.SelectedIndexChanged -= comboEntityPreviewCharset_SelectedIndexChanged;
+      try
+      {
+        comboCharsets.BeginUpdate();
+        comboMapCharset.BeginUpdate();
+        comboEntityPreviewCharset.BeginUpdate();
+        comboCharsets.Items.Clear();
+        comboMapCharset.Items.Clear();
+        comboEntityPreviewCharset.Items.Clear();
+        for ( int i = 0; i < m_MapProject.Charsets.Count; ++i )
+        {
+          string name = i + ": " + m_MapProject.CharsetDisplayNameAt( i );
+          comboCharsets.Items.Add( name );
+          comboMapCharset.Items.Add( name );
+          comboEntityPreviewCharset.Items.Add( name );
+        }
+        comboCharsets.EndUpdate();
+        comboMapCharset.EndUpdate();
+        comboEntityPreviewCharset.EndUpdate();
+
+        comboCharsets.SelectedIndex = CharsetIndexOf( EditedCharset() );
+        comboMapCharset.SelectedIndex = ( m_CurrentMap != null ) ? CharsetIndexOf( ActiveCharset() ) : -1;
+        comboEntityPreviewCharset.SelectedIndex = entityPreview;
+      }
+      finally
+      {
+        comboCharsets.SelectedIndexChanged             += comboCharsets_SelectedIndexChanged;
+        comboMapCharset.SelectedIndexChanged           += comboMapCharset_SelectedIndexChanged;
+        comboEntityPreviewCharset.SelectedIndexChanged += comboEntityPreviewCharset_SelectedIndexChanged;
+      }
+      RefreshEntityTileCombo();
+    }
+
+
+
+    /// <summary>After a charset was added or removed (also by undo/redo).</summary>
+    public void CharsetListChanged()
+    {
+      RefreshCharsetCombos();
+      RefreshMapListDisplay();
+      EnsureDisplayedCharset();
+      RefreshOutlineStampBitmap();
+      BindCharsetTab();
+      RedrawMap();
+    }
+
+
+
+    /// <summary>After a charset's display name / export name / export flag changed (also by undo/redo).</summary>
+    public void CharsetMetaChanged( Formats.MapProject.MapCharset Charset )
+    {
+      RefreshCharsetCombos();
+      RefreshMapListDisplay();
+      BindCharsetTab();
+    }
+
+
+
+    private void comboCharsets_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      if ( comboCharsets.SelectedIndex < 0 )
+      {
+        return;
+      }
+      SelectCharsetOnTab( comboCharsets.SelectedIndex );
+    }
+
+
+
+    private void checkCharsetFollowMap_CheckedChanged( object sender, EventArgs e )
+    {
+      if ( m_MapProject.CharsetTabFollowsMap == checkCharsetFollowMap.Checked )
+      {
+        return;
+      }
+      m_MapProject.CharsetTabFollowsMap = checkCharsetFollowMap.Checked;
+      SetModified();
+      ApplyCharsetTabFollow();
+    }
+
+
+
+    private void btnCharsetAdd_Click( DecentForms.ControlBase Sender )
+    {
+      int index = m_MapProject.AddCharset();
+      if ( index < 0 )
+      {
+        System.Windows.Forms.MessageBox.Show(
+          "The project already holds 256 character sets - the map's character set index is exported as a single byte.",
+          "Cannot add character set",
+          System.Windows.Forms.MessageBoxButtons.OK,
+          System.Windows.Forms.MessageBoxIcon.Warning );
+        return;
+      }
+      // AddCharset copied charset 0's mode and palettes; the project-wide
+      // colors (MC1 / MC2 / BGColor4) fan out like everywhere else.
+      ApplyProjectColorsToAllCharsets();
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapCharsetListChange( this, m_MapProject, RetroDevStudio.Undo.UndoMapCharsetListChange.Kind.Added, index, m_MapProject.Charsets[index] ) );
+      m_MapProject.CurrentCharsetIndex = index;
+      CharsetListChanged();
+      SetModified();
+    }
+
+
+
+    private void btnCharsetDuplicate_Click( DecentForms.ControlBase Sender )
+    {
+      int index = m_MapProject.DuplicateCharset( CharsetIndexOf( EditedCharset() ) );
+      if ( index < 0 )
+      {
+        System.Windows.Forms.MessageBox.Show(
+          "The project already holds 256 character sets - the map's character set index is exported as a single byte.",
+          "Cannot duplicate character set",
+          System.Windows.Forms.MessageBoxButtons.OK,
+          System.Windows.Forms.MessageBoxIcon.Warning );
+        return;
+      }
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapCharsetListChange( this, m_MapProject, RetroDevStudio.Undo.UndoMapCharsetListChange.Kind.Added, index, m_MapProject.Charsets[index] ) );
+      m_MapProject.CurrentCharsetIndex = index;
+      CharsetListChanged();
+      SetModified();
+    }
+
+
+
+    /// <summary>
+    /// Everything that still references the charset: live maps (the model's
+    /// refusal), scratch workspaces whose owner is gone (kept for a
+    /// delete-undo) and entity-type previews. Empty = removable.
+    /// </summary>
+    private List<string> CharsetRemovalBlockers( Formats.MapProject.MapCharset Charset )
+    {
+      var reasons = new List<string>();
+      List<string> users;
+      m_MapProject.CanRemoveCharset( CharsetIndexOf( Charset ), out users );
+      foreach ( var name in users )
+      {
+        reasons.Add( "Map '" + name + "'" );
+      }
+      EnsureAllScratchMapsMaterialized();
+      foreach ( var pair in m_ScratchMaps )
+      {
+        if ( ( m_MapProject.CharsetOf( pair.Value ) == Charset )
+        &&   ( !m_MapProject.Maps.Contains( pair.Key ) ) )
+        {
+          reasons.Add( "Map '" + pair.Key.Name + "' (scratch)" );
+        }
+      }
+      foreach ( var type in m_MapProject.EntityTypes )
+      {
+        if ( m_MapProject.CharsetAt( type.PreviewCharsetIndex ) == Charset )
+        {
+          reasons.Add( "Entity type '" + type.Name + "' (preview)" );
+        }
+      }
+      return reasons;
+    }
+
+
+
+    private void btnCharsetRemove_Click( DecentForms.ControlBase Sender )
+    {
+      var charset = EditedCharset();
+      int index   = CharsetIndexOf( charset );
+      if ( index <= 0 )
+      {
+        return;
+      }
+      string name = m_MapProject.CharsetDisplayNameOf( charset );
+      var blockers = CharsetRemovalBlockers( charset );
+      if ( blockers.Count > 0 )
+      {
+        System.Windows.Forms.MessageBox.Show(
+          "Character set '" + name + "' is still in use by:\r\n\r\n  " + string.Join( "\r\n  ", blockers )
+          + "\r\n\r\nBind those to another character set first.",
+          "Cannot remove character set",
+          System.Windows.Forms.MessageBoxButtons.OK,
+          System.Windows.Forms.MessageBoxIcon.Warning );
+        return;
+      }
+      var confirm = System.Windows.Forms.MessageBox.Show(
+        "Remove character set '" + name + "' (" + charset.Tiles.Count + " tile" + ( charset.Tiles.Count == 1 ? "" : "s" ) + ")?",
+        "Remove character set",
+        System.Windows.Forms.MessageBoxButtons.YesNo,
+        System.Windows.Forms.MessageBoxIcon.Question );
+      if ( confirm != System.Windows.Forms.DialogResult.Yes )
+      {
+        return;
+      }
+
+      // Constructed BEFORE the removal: it captures the tab selection to restore.
+      var undo = new Undo.UndoMapCharsetListChange( this, m_MapProject, RetroDevStudio.Undo.UndoMapCharsetListChange.Kind.Removed, index, charset );
+      if ( !m_MapProject.RemoveCharset( index, ScratchWorkspaces() ) )
+      {
+        return;
+      }
+      DocumentInfo.UndoManager.AddUndoTask( undo );
+      // The model moved the tab selection onto the slot now at that position
+      // (or the last one).
+      CharsetListChanged();
+      SetModified();
+    }
+
+
+
+    private void editCharsetDisplayName_Leave( object sender, EventArgs e )
+    {
+      CommitCharsetDisplayName();
+    }
+
+
+
+    private void editCharsetDisplayName_KeyDown( object sender, KeyEventArgs e )
+    {
+      if ( e.KeyCode == Keys.Enter )
+      {
+        CommitCharsetDisplayName();
+        e.Handled = true;
+        e.SuppressKeyPress = true;
+      }
+    }
+
+
+
+    private void CommitCharsetDisplayName()
+    {
+      var charset = EditedCharset();
+      string value = ( editCharsetDisplayName.Text ?? "" ).Trim();
+      if ( ( charset.DisplayName ?? "" ) == value )
+      {
+        return;
+      }
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapCharsetMetaChange( this, charset ) );
+      charset.DisplayName = value;
+      CharsetMetaChanged( charset );
+      SetModified();
+    }
+
+
+
+    private void editCharsetExportName_Leave( object sender, EventArgs e )
+    {
+      CommitCharsetExportName();
+    }
+
+
+
+    private void editCharsetExportName_KeyDown( object sender, KeyEventArgs e )
+    {
+      if ( e.KeyCode == Keys.Enter )
+      {
+        CommitCharsetExportName();
+        e.Handled = true;
+        e.SuppressKeyPress = true;
+      }
+    }
+
+
+
+    private void CommitCharsetExportName()
+    {
+      var charset = EditedCharset();
+      string value = ( editCharsetExportName.Text ?? "" ).Trim();
+      if ( ( charset.ExportName ?? "" ) == value )
+      {
+        return;
+      }
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapCharsetMetaChange( this, charset ) );
+      charset.ExportName = value;
+      CharsetMetaChanged( charset );
+      SetModified();
+    }
+
+
+
+    private void checkCharsetExport_CheckedChanged( object sender, EventArgs e )
+    {
+      var charset = EditedCharset();
+      if ( charset.ExportEnabled == checkCharsetExport.Checked )
+      {
+        return;
+      }
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapCharsetMetaChange( this, charset ) );
+      charset.ExportEnabled = checkCharsetExport.Checked;
+      CharsetMetaChanged( charset );
+      SetModified();
+    }
+
+
+
+    // ---- Map tab: the map's charset ---------------------------------------
+
+    private void comboMapCharset_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      if ( ( m_CurrentMap == null )
+      ||   ( comboMapCharset.SelectedIndex < 0 ) )
+      {
+        return;
+      }
+      // Compared against the CLAMPED index: a populate never records an undo.
+      if ( CharsetIndexOf( m_MapProject.CharsetOf( m_CurrentMap ) ) == comboMapCharset.SelectedIndex )
+      {
+        return;
+      }
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapValueChange( this, m_CurrentMap ) );
+      m_CurrentMap.CharsetIndex = comboMapCharset.SelectedIndex;
+      MirrorCharsetIndexToScratch( m_CurrentMap );
+      RefreshMapListDisplay();
+      ActiveCharsetChanged();
+      SetModified();
+    }
+
+
+
+    // ---- Entities tab: preview charset + tile dropdown ----------------------
+
+    /// <summary>
+    /// Repopulates the tile dropdown from the preview charset, keeping the
+    /// staged tile index (see SetEntityTileCombo).
+    /// </summary>
+    private void RefreshEntityTileCombo()
+    {
+      if ( comboEntityTile == null )
+      {
+        return;
+      }
+      SetEntityTileCombo( EntityTileFromCombo() );
+    }
+
+
+
+    /// <summary>The tile index staged in the dropdown (-1 = none); every item but "(none)" starts with its index.</summary>
+    private int EntityTileFromCombo()
+    {
+      if ( ( comboEntityTile == null )
+      ||   ( comboEntityTile.SelectedIndex <= 0 )
+      ||   ( comboEntityTile.SelectedItem == null ) )
+      {
+        return -1;
+      }
+      string text = comboEntityTile.SelectedItem.ToString();
+      int colon = text.IndexOf( ':' );
+      int value;
+      if ( ( colon > 0 )
+      &&   ( int.TryParse( text.Substring( 0, colon ), out value ) ) )
+      {
+        return value;
+      }
+      return -1;
+    }
+
+
+
+    /// <summary>
+    /// Rebuilds the tile dropdown from the preview charset ("(none)" then
+    /// "index: name") and selects TileIndex. Always rebuilt: the tile
+    /// library changes on the Tiles tab without this combo being told. An
+    /// index the preview charset has no tile for gets a synthetic last item
+    /// ("N: (not in this charset)") so an unrelated Update never rewrites it.
+    /// </summary>
+    private void SetEntityTileCombo( int TileIndex )
+    {
+      var charset = m_MapProject.CharsetAt( comboEntityPreviewCharset.SelectedIndex );
+      comboEntityTile.BeginUpdate();
+      comboEntityTile.Items.Clear();
+      comboEntityTile.Items.Add( "(none)" );
+      foreach ( var tile in charset.Tiles )
+      {
+        comboEntityTile.Items.Add( tile.Index + ": " + tile.Name );
+      }
+      if ( TileIndex >= charset.Tiles.Count )
+      {
+        comboEntityTile.Items.Add( TileIndex + ": (not in this charset)" );
+      }
+      comboEntityTile.EndUpdate();
+      if ( TileIndex < 0 )
+      {
+        comboEntityTile.SelectedIndex = 0;
+      }
+      else if ( TileIndex < charset.Tiles.Count )
+      {
+        comboEntityTile.SelectedIndex = TileIndex + 1;
+      }
+      else
+      {
+        comboEntityTile.SelectedIndex = comboEntityTile.Items.Count - 1;
+      }
+    }
+
+
+
+    private void comboEntityPreviewCharset_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      RefreshEntityTileCombo();
+    }
+
+
+
+    /// <summary>Renders one character into ITS charset's cached bitmap (and re-points the picker when it shows that charset).</summary>
+    void RebuildCharImage( Formats.MapProject.MapCharset Charset, int CharIndex )
+    {
+      Displayer.CharacterDisplayer.DisplayChar( Charset.Charset,
+                                                CharIndex, Charset.Charset.Characters[CharIndex].Tile.Image, 0, 0,
+                                                Charset.Charset.Characters[CharIndex].Tile.CustomColor );
+
+      if ( ( Charset == m_DisplayedCharset )
+      &&   ( CharIndex < panelCharacters.Items.Count ) )
+      {
+        panelCharacters.Items[CharIndex].MemoryImage = Charset.Charset.Characters[CharIndex].Tile.Image;
+      }
+    }
+
+
+
+    /// <summary>Convenience for the map-side callers: the current map's charset.</summary>
     void RebuildCharImage( int CharIndex )
     {
-      Displayer.CharacterDisplayer.DisplayChar( m_MapProject.Charset,
-                                                CharIndex, m_MapProject.Charset.Characters[CharIndex].Tile.Image, 0, 0,
-                                                m_MapProject.Charset.Characters[CharIndex].Tile.CustomColor );
-
-      if ( CharIndex < panelCharacters.Items.Count )
-      {
-        panelCharacters.Items[CharIndex].MemoryImage = m_MapProject.Charset.Characters[CharIndex].Tile.Image;
-      }
+      RebuildCharImage( ActiveCharset(), CharIndex );
     }
 
 
@@ -2844,7 +3525,7 @@ namespace RetroDevStudio.Documents
         BGColor4        = bgColor4
       };
 
-      Displayer.CharacterDisplayer.DisplayChar( m_MapProject.Charset, Char, TargetImage, X, Y, alternativeSettings );
+      Displayer.CharacterDisplayer.DisplayChar( ActiveCharset().Charset, Char, TargetImage, X, Y, alternativeSettings );
     }
 
 
@@ -2875,7 +3556,7 @@ namespace RetroDevStudio.Documents
     {
       ComboBox combo = (ComboBox)sender;
 
-      Core.Theming.DrawSingleColorComboBox( combo, e, m_MapProject.Charset.Colors.Palette );
+      Core.Theming.DrawSingleColorComboBox( combo, e, ActiveCharset().Charset.Colors.Palette );
     }
 
 
@@ -2911,7 +3592,7 @@ namespace RetroDevStudio.Documents
         // layout the theme uses for other single-color combos: index label
         // on the left, swatch fills the rest of the row.
         int paletteIdx = e.Index - 1;
-        var pal = m_MapProject.Charset.Colors.Palette;
+        var pal = ActiveCharset().Charset.Colors.Palette;
 
         int offset = (int)e.Graphics.MeasureString( "22", e.Font ).Width + 5 + 3;
         var itemRect = new System.Drawing.Rectangle(
@@ -2939,7 +3620,7 @@ namespace RetroDevStudio.Documents
     {
       ComboBox combo = (ComboBox)sender;
 
-      Core.Theming.DrawMultiColorComboBox( combo, e, m_MapProject.Charset.Colors.Palette );
+      Core.Theming.DrawMultiColorComboBox( combo, e, ActiveCharset().Charset.Colors.Palette );
     }
 
 
@@ -3427,7 +4108,7 @@ namespace RetroDevStudio.Documents
 
       // filter only group members
       var groupMembers = new List<int>();
-      foreach ( var tile in m_MapProject.Tiles )
+      foreach ( var tile in ActiveCharset().Tiles )
       {
         if ( tile.GroupId == m_CurrentEditorTile.GroupId )
         {
@@ -3444,11 +4125,11 @@ namespace RetroDevStudio.Documents
         // map every cell is a valid index, so this is a no-op there and the
         // chosen variant is identical to before the extraction.
         if ( ( neighborIndex < 0 )
-        ||   ( neighborIndex >= m_MapProject.Tiles.Count ) )
+        ||   ( neighborIndex >= ActiveCharset().Tiles.Count ) )
         {
           continue;
         }
-        if ( m_MapProject.Tiles[neighborIndex].GroupId == m_CurrentEditorTile.GroupId )
+        if ( ActiveCharset().Tiles[neighborIndex].GroupId == m_CurrentEditorTile.GroupId )
         {
           if ( !neighboringGroupMembers.ContainsKey( neighborIndex ) )
           {
@@ -3559,8 +4240,8 @@ namespace RetroDevStudio.Documents
             anchorY[x, y]  = y;
             continue;
           }
-          if ( idx >= m_MapProject.Tiles.Count ) continue;    // genuinely invalid index
-          var tile = m_MapProject.Tiles[idx];
+          if ( idx >= ActiveCharset().Tiles.Count ) continue;    // genuinely invalid index
+          var tile = ActiveCharset().Tiles[idx];
 
           int cw = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Width  / (float)spacingX ) );
           int ch = Math.Max( 1, (int)Math.Ceiling( tile.Chars.Height / (float)spacingY ) );
@@ -3611,7 +4292,7 @@ namespace RetroDevStudio.Documents
       int fillCH = 1;
       if ( tileToFill >= 0 )
       {
-        var fillTile = m_MapProject.Tiles[tileToFill];
+        var fillTile = ActiveCharset().Tiles[tileToFill];
         fillCW = Math.Max( 1, (int)Math.Ceiling( fillTile.Chars.Width  / (float)spacingX ) );
         fillCH = Math.Max( 1, (int)Math.Ceiling( fillTile.Chars.Height / (float)spacingY ) );
       }
@@ -3734,8 +4415,8 @@ namespace RetroDevStudio.Documents
         {
           if ( covered[x, y] ) continue;
           int idx = rcTiles[x, y];
-          if ( ( idx < 0 ) || ( idx >= m_MapProject.Tiles.Count ) ) continue;
-          var tile = m_MapProject.Tiles[idx];
+          if ( ( idx < 0 ) || ( idx >= ActiveCharset().Tiles.Count ) ) continue;
+          var tile = ActiveCharset().Tiles[idx];
 
           int baseX = x * spacingX;
           int baseY = y * spacingY;
@@ -3856,8 +4537,8 @@ namespace RetroDevStudio.Documents
         {
           if ( covered[x, y] ) continue;
           int idx = rcTiles[x, y];
-          if ( ( idx < 0 ) || ( idx >= m_MapProject.Tiles.Count ) ) continue;
-          var tile = m_MapProject.Tiles[idx];
+          if ( ( idx < 0 ) || ( idx >= ActiveCharset().Tiles.Count ) ) continue;
+          var tile = ActiveCharset().Tiles[idx];
 
           int baseX = x * spacingX;
           int baseY = y * spacingY;
@@ -4785,7 +5466,7 @@ namespace RetroDevStudio.Documents
               // copy) and restore it at the end of the case.
               bool shiftBlankClick = ( ( Control.ModifierKeys & Keys.Shift ) == Keys.Shift )
                                   && ( m_MapProject != null )
-                                  && ( m_MapProject.Tiles.Count > 0 );
+                                  && ( ActiveCharset().Tiles.Count > 0 );
               int  savedPlacementColor = m_TilePlacementColorOverride;
               if ( shiftBlankClick )
               {
@@ -4833,9 +5514,9 @@ namespace RetroDevStudio.Documents
               {
                 int fpFootprintX = m_CurrentMap.TileSpacingX;
                 int fpFootprintY = m_CurrentMap.TileSpacingY;
-                if ( ( tileIndex >= 0 ) && ( tileIndex < m_MapProject.Tiles.Count ) )
+                if ( ( tileIndex >= 0 ) && ( tileIndex < ActiveCharset().Tiles.Count ) )
                 {
-                  var fpTile = m_MapProject.Tiles[tileIndex];
+                  var fpTile = ActiveCharset().Tiles[tileIndex];
                   if ( fpTile.Chars.Width  > fpFootprintX ) fpFootprintX = fpTile.Chars.Width;
                   if ( fpTile.Chars.Height > fpFootprintY ) fpFootprintY = fpTile.Chars.Height;
                 }
@@ -5315,9 +5996,9 @@ namespace RetroDevStudio.Documents
           {
             int tileIndex = ActiveTiles[cellX, cellY];
             if ( ( tileIndex >= 0 )
-            &&   ( tileIndex < m_MapProject.Tiles.Count ) )
+            &&   ( tileIndex < ActiveCharset().Tiles.Count ) )
             {
-              var tile = m_MapProject.Tiles[tileIndex];
+              var tile = ActiveCharset().Tiles[tileIndex];
               int localCharX = sampleCharX - cellX * m_CurrentMap.TileSpacingX;
               int localCharY = sampleCharY - cellY * m_CurrentMap.TileSpacingY;
               if ( ( localCharX >= 0 ) && ( localCharY >= 0 )
@@ -5417,7 +6098,7 @@ namespace RetroDevStudio.Documents
            // left-click only. The branch is kept (empty) so a right-click
            // here doesn't fall through to the tile-eyedrop action below.
         }
-        else if ( string.IsNullOrEmpty( m_MapProject.RightClickAction ) )
+        else if ( string.IsNullOrEmpty( ActiveCharset().RightClickAction ) )
         {
           int cellX = trueX + offsetX;
           int cellY = trueY + offsetY;
@@ -5431,9 +6112,9 @@ namespace RetroDevStudio.Documents
           {
             int tileIndex = ActiveTiles[cellX, cellY];
             if ( ( tileIndex >= 0 )
-            &&   ( tileIndex < m_MapProject.Tiles.Count ) )
+            &&   ( tileIndex < ActiveCharset().Tiles.Count ) )
             {
-              m_CurrentEditorTile = m_MapProject.Tiles[tileIndex];
+              m_CurrentEditorTile = ActiveCharset().Tiles[tileIndex];
               if ( tileIndex < comboTiles.Items.Count )
               {
                 // Right-click on a map tile — eyedrops the tile into
@@ -5469,9 +6150,9 @@ namespace RetroDevStudio.Documents
           }
 
           MapProject.Tile tileToUse = null;
-          foreach ( var tile in m_MapProject.Tiles )
+          foreach ( var tile in ActiveCharset().Tiles )
           {
-            if ( tile.Name == m_MapProject.RightClickAction )
+            if ( tile.Name == ActiveCharset().RightClickAction )
             {
               tileToUse = tile;
               break;
@@ -5504,9 +6185,9 @@ namespace RetroDevStudio.Documents
       int w = m_CurrentMap.TileSpacingX;
       int h = m_CurrentMap.TileSpacingY;
       if ( ( TileIndex >= 0 )
-      &&   ( TileIndex < m_MapProject.Tiles.Count ) )
+      &&   ( TileIndex < ActiveCharset().Tiles.Count ) )
       {
-        var tile = m_MapProject.Tiles[TileIndex];
+        var tile = ActiveCharset().Tiles[TileIndex];
         if ( tile.Chars.Width > w )  w = tile.Chars.Width;
         if ( tile.Chars.Height > h ) h = tile.Chars.Height;
       }
@@ -5828,15 +6509,19 @@ namespace RetroDevStudio.Documents
       int     usageCount = 0;
       int     charIndex = characterEditor.CurrentCharIndex;
 
+      // The Character Set tab counts within ITS charset's tile library and
+      // over the maps bound to that charset.
+      var     charset = EditedCharset();
+
       // cache occurrences per tile
-      int[]   charOccurrencesInTile = new int[m_MapProject.Tiles.Count];
+      int[]   charOccurrencesInTile = new int[charset.Tiles.Count];
 
       if ( ( charIndex >= 0 )
-      &&   ( charIndex < m_MapProject.Charset.Characters.Count ) )
+      &&   ( charIndex < charset.Charset.Characters.Count ) )
       {
-        for ( int i = 0; i < m_MapProject.Tiles.Count; ++i )
+        for ( int i = 0; i < charset.Tiles.Count; ++i )
         {
-          var tile = m_MapProject.Tiles[i];
+          var tile = charset.Tiles[i];
           int tileCharCount = 0;
           for ( int y = 0; y < tile.Chars.Height; ++y )
           {
@@ -5856,9 +6541,9 @@ namespace RetroDevStudio.Documents
 
       long mapUsageCount = 0;
       if ( ( charIndex >= 0 )
-      &&   ( charIndex < m_MapProject.Charset.Characters.Count ) )
+      &&   ( charIndex < charset.Charset.Characters.Count ) )
       {
-        foreach ( var map in m_MapProject.Maps )
+        foreach ( var map in m_MapProject.MapsUsingCharset( CharsetIndexOf( charset ) ) )
         {
           for ( int y = 0; y < map.Tiles.Height; ++y )
           {
@@ -5880,7 +6565,7 @@ namespace RetroDevStudio.Documents
     private void DrawTile( int trueX, int trueY, int TileIndex, int colorOverride = -1 )
     {
       if ( ( TileIndex < 0 )
-      ||   ( TileIndex >= m_MapProject.Tiles.Count ) )
+      ||   ( TileIndex >= ActiveCharset().Tiles.Count ) )
       {
         return;
       }
@@ -5893,9 +6578,9 @@ namespace RetroDevStudio.Documents
       int mapCharBaseX = ( trueX + m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX;
       int mapCharBaseY = ( trueY + m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY;
 
-      for ( int j = 0; j < m_MapProject.Tiles[TileIndex].Chars.Height; ++j )
+      for ( int j = 0; j < ActiveCharset().Tiles[TileIndex].Chars.Height; ++j )
       {
-        for ( int i = 0; i < m_MapProject.Tiles[TileIndex].Chars.Width; ++i )
+        for ( int i = 0; i < ActiveCharset().Tiles[TileIndex].Chars.Width; ++i )
         {
           // Two paths for the colour:
           //  - colorOverride >= 0  → caller forced a single colour for
@@ -5924,12 +6609,12 @@ namespace RetroDevStudio.Documents
             }
             colorToUse = ( charOverride >= 0 )
                          ? (byte)charOverride
-                         : m_MapProject.Tiles[TileIndex].Chars[i, j].Color;
+                         : ActiveCharset().Tiles[TileIndex].Chars[i, j].Color;
           }
           DrawCharImage( pictureEditor.DisplayPage,
                          renderOffsetX + ( trueX * m_CurrentMap.TileSpacingX + i ) * 8,
                          renderOffsetY + ( trueY * m_CurrentMap.TileSpacingY + j ) * 8,
-                         m_MapProject.Tiles[TileIndex].Chars[i, j].Character,
+                         ActiveCharset().Tiles[TileIndex].Chars[i, j].Character,
                          colorToUse );
         }
       }
@@ -5952,13 +6637,13 @@ namespace RetroDevStudio.Documents
                                             Func<int, int, int> CarriedColorAt )
     {
       if ( ( TileIndex < 0 )
-      ||   ( TileIndex >= m_MapProject.Tiles.Count ) )
+      ||   ( TileIndex >= ActiveCharset().Tiles.Count ) )
       {
         return;
       }
       GetMapRenderOffsets( out int renderOffsetX, out int renderOffsetY );
 
-      var tile = m_MapProject.Tiles[TileIndex];
+      var tile = ActiveCharset().Tiles[TileIndex];
       for ( int j = 0; j < tile.Chars.Height; ++j )
       {
         for ( int i = 0; i < tile.Chars.Width; ++i )
@@ -6039,7 +6724,7 @@ namespace RetroDevStudio.Documents
         mapVisH = Math.Min( pictureEditor.DisplayPage.Height, mapBottomPx ) - mapVisY;
         if ( ( mapVisW > 0 ) && ( mapVisH > 0 ) )
         {
-          pictureEditor.DisplayPage.Box( mapVisX, mapVisY, mapVisW, mapVisH, m_MapProject.Charset.Colors.Palette.ColorValues[bgColor] );
+          pictureEditor.DisplayPage.Box( mapVisX, mapVisY, mapVisW, mapVisH, ActiveCharset().Charset.Colors.Palette.ColorValues[bgColor] );
         }
       }
 
@@ -6055,9 +6740,9 @@ namespace RetroDevStudio.Documents
       int spacingX = Math.Max( 1, m_CurrentMap.TileSpacingX );
       int spacingY = Math.Max( 1, m_CurrentMap.TileSpacingY );
       bool needsCoverage = false;
-      for ( int i = 0; i < m_MapProject.Tiles.Count; ++i )
+      for ( int i = 0; i < ActiveCharset().Tiles.Count; ++i )
       {
-        var tileToCheck = m_MapProject.Tiles[i];
+        var tileToCheck = ActiveCharset().Tiles[i];
         if ( ( tileToCheck.Chars.Width > spacingX )
         ||   ( tileToCheck.Chars.Height > spacingY ) )
         {
@@ -6120,10 +6805,10 @@ namespace RetroDevStudio.Documents
             // transparent cell on this layer -> shows the layer below
             continue;
           }
-          if ( tileIndex < m_MapProject.Tiles.Count )
+          if ( tileIndex < ActiveCharset().Tiles.Count )
           {
             // a real tile
-            var tile = m_MapProject.Tiles[tileIndex];
+            var tile = ActiveCharset().Tiles[tileIndex];
 
             var alternativeSettings = new Types.AlternativeColorSettings()
             {
@@ -6171,7 +6856,7 @@ namespace RetroDevStudio.Documents
                 alternativeSettings.CustomColor = ( charOverride >= 0 )
                                                   ? charOverride
                                                   : tile.Chars[i, j].Color;
-                Displayer.CharacterDisplayer.DisplayChar( m_MapProject.Charset,
+                Displayer.CharacterDisplayer.DisplayChar( ActiveCharset().Charset,
                                                           tile.Chars[i, j].Character,
                                                           pictureEditor.DisplayPage,
                                                           renderOffsetX + ( ( x - offsetX ) * m_CurrentMap.TileSpacingX + i ) * 8,
@@ -6246,14 +6931,14 @@ namespace RetroDevStudio.Documents
         {
           var type = m_MapProject.EntityTypes.FirstOrDefault( t => t.ID == entity.Type );
           if ( type == null ) continue;
-          if ( ( type.TileIndex < 0 ) || ( type.TileIndex >= m_MapProject.Tiles.Count ) ) continue;
+          if ( ( type.TileIndex < 0 ) || ( type.TileIndex >= ActiveCharset().Tiles.Count ) ) continue;
 
           int ex = entity.X - offsetX;
           int ey = entity.Y - offsetY;
           if ( ( ex < x1 - offsetX ) || ( ex > x2 - offsetX )
           ||   ( ey < y1 - offsetY ) || ( ey > y2 - offsetY ) ) continue;
 
-          var tile = m_MapProject.Tiles[type.TileIndex];
+          var tile = ActiveCharset().Tiles[type.TileIndex];
           for ( int j = 0; j < tile.Chars.Height; ++j )
           {
             for ( int i = 0; i < tile.Chars.Width; ++i )
@@ -6272,7 +6957,7 @@ namespace RetroDevStudio.Documents
                 }
               }
               alternativeSettings.CustomColor = tile.Chars[i, j].Color;
-              Displayer.CharacterDisplayer.DisplayChar( m_MapProject.Charset,
+              Displayer.CharacterDisplayer.DisplayChar( ActiveCharset().Charset,
                                                         tile.Chars[i, j].Character,
                                                         pictureEditor.DisplayPage,
                                                         renderOffsetX + ( ex * m_CurrentMap.TileSpacingX + i ) * 8,
@@ -6295,31 +6980,12 @@ namespace RetroDevStudio.Documents
 
 
 
-    private void comboBackground_SelectedIndexChanged( object sender, EventArgs e )
-    {
-      if ( m_MapProject.BackgroundColor != comboTileBackground.SelectedIndex )
-      {
-        m_MapProject.BackgroundColor = comboTileBackground.SelectedIndex;
-        m_MapProject.Charset.Colors.BackgroundColor = m_MapProject.BackgroundColor;
-        for ( int i = 0; i < m_MapProject.Charset.TotalNumberOfCharacters; ++i )
-        {
-          RebuildCharImage( i );
-        }
-        Modified = true;
-        RedrawMap();
-        pictureEditor.Invalidate();
-        panelCharacters.Invalidate();
-      }
-    }
-
-
-
     private void comboMulticolor1_SelectedIndexChanged( object sender, EventArgs e )
     {
       if ( m_MapProject.MultiColor1 != comboTileMulticolor1.SelectedIndex )
       {
         m_MapProject.MultiColor1 = comboTileMulticolor1.SelectedIndex;
-        m_MapProject.Charset.Colors.MultiColor1 = m_MapProject.MultiColor1;
+        ApplyProjectColorsToAllCharsets();
         SetModified();
         FullRebuild();
       }
@@ -6332,7 +6998,7 @@ namespace RetroDevStudio.Documents
       if ( m_MapProject.MultiColor2 != comboTileMulticolor2.SelectedIndex )
       {
         m_MapProject.MultiColor2 = comboTileMulticolor2.SelectedIndex;
-        m_MapProject.Charset.Colors.MultiColor2 = m_MapProject.MultiColor2;
+        ApplyProjectColorsToAllCharsets();
         SetModified();
         FullRebuild();
       }
@@ -6345,6 +7011,11 @@ namespace RetroDevStudio.Documents
       DocumentInfo.DocumentFilename = "";
 
       m_MapProject.Clear();
+      // Charset 0 keeps its object identity across Clear(): forget which
+      // charset the lists and the character editor were bound to so the next
+      // refresh / BindCharsetTab rebinds.
+      m_DisplayedCharset = null;
+      m_CharsetTabCharset = null;
       // Sprite-panel state belongs to the project being cleared: park the
       // animation timer and drop all session-only instances so nothing can
       // outlive its project (Clear is the choke point for every (re)open path).
@@ -6485,33 +7156,14 @@ namespace RetroDevStudio.Documents
       RedrawColorChooser();
       RedrawColorChooser();
 
-      characterEditor.CharsetUpdated( m_MapProject.Charset );
+      BindCharsetTab();
       characterEditor.CharactersPerRow = m_MapProject.CharactersPerRow;
       characterEditor.EditorMode       = m_MapProject.CharacterEditorMode;
       characterEditor.SwatchSize       = m_MapProject.ColorSwatchSize;
 
-      // Re-point our own panelCharacters items at the loaded charset's
-      // Tile.Image bitmaps. Charset.ReadFromBuffer clears Characters
-      // and re-adds new CharData instances with new Tile.Image bitmaps,
-      // so the references the constructor stashed in
-      // panelCharacters.Items[*].MemoryImage are now orphaned. The
-      // bitmaps themselves already have valid pixels at this point —
-      // characterEditor.CharsetUpdated above runs RebuildAllCharImages
-      // which calls DisplayChar onto the new bitmaps. We just need to
-      // update the Items references and invalidate. (The previously-
-      // working case relied on the unguarded comboBackground handler
-      // firing FullRebuild during one of the SelectedIndex assignments
-      // earlier in this method — but that only fires when the new
-      // BackgroundColor differs from the constructor's default, which
-      // isn't the case for projects with BackgroundColor = 0.)
-      for ( int i = 0; i < m_MapProject.Charset.TotalNumberOfCharacters; ++i )
-      {
-        if ( i < panelCharacters.Items.Count )
-        {
-          panelCharacters.Items[i].MemoryImage = m_MapProject.Charset.Characters[i].Tile.Image;
-        }
-      }
-      panelCharacters.Invalidate();
+      // The picker items were re-pointed at the loaded charset's (new)
+      // Tile.Image bitmaps by the rebind inside RefreshMapTileList above —
+      // Clear() forgets the displayed charset, so that refresh always rebinds.
 
       // Restore the inner-tab selection from the project, ONCE per load.
       // Detach the SelectedIndexChanged handler around the assignment so
@@ -6553,6 +7205,14 @@ namespace RetroDevStudio.Documents
         }
         comboMaps.SelectedIndex = target;
       }
+      // Now that the current map is known: the restored Character Set tab
+      // may have to follow it. View state — it must not dirty the document
+      // (the same save/restore the DEFAULT_PALETTE_CHANGED event uses).
+      {
+        bool prevModified = Modified;
+        ApplyCharsetTabFollow();
+        Modified = prevModified;
+      }
       if ( ( comboTiles.Items.Count > 0 )
       &&   ( comboTiles.SelectedIndex == -1 ) )
       {
@@ -6587,6 +7247,52 @@ namespace RetroDevStudio.Documents
         editSwatchSize.Text = m_MapProject.ColorSwatchSize.ToString();
       }
 
+      RefreshTileLists();
+      RefreshCharsetCombos();
+
+      // Fullscreen preview's reserved HUD rows + Sprites panel visibility —
+      // populate from the project. Both handlers compare against the stored
+      // project value before writing/marking modified, so the populate
+      // (which writes the stored value itself) is a guaranteed no-op and
+      // needs no handler detach.
+      editReservedTopLines.Value = Math.Max( 0, Math.Min( 24, m_MapProject.FullscreenReservedTopLines ) );
+      checkShowMapSprites.Checked = m_MapProject.ShowMapSprites;
+
+      RefreshMarkerTypes();
+      RefreshEntityTypes();
+      RefreshEntityTileCombo();
+      RefreshMapStrings();
+      PopulateMapStringPreviewIndices();
+      LoadMapStringPreviewFont();
+      // Outline paint-mode tool settings (brush/eraser/border sizes, stamp
+      // scale, font, colors, extend step) — detached populate, never dirties.
+      PopulateOutlineToolSettingsFromProject();
+      // Sprites panel: load the persisted sprite project + animation selection.
+      // Silent on missing files; the populate path detaches its combo handler,
+      // so this can never dirty the freshly opened document.
+      LoadMapSpriteProject();
+      // Per-project CRT filters (seeds from the global settings pipeline
+      // for projects that predate the chunk).
+      LoadProjectDisplayFilters();
+    }
+
+
+
+    /// <summary>
+    /// Rebuilds the charset-dependent lists (comboTiles, listTileInfo, the
+    /// right-click and blank-tile combos) from the current map's charset,
+    /// restoring the selections by index. Rebinds first (once) when the
+    /// lists were built from another charset.
+    /// </summary>
+    private void RefreshTileLists()
+    {
+      if ( m_DisplayedCharset != ActiveCharset() )
+      {
+        // Re-enters here once, with m_DisplayedCharset set.
+        RebindDisplayedCharset();
+        return;
+      }
+
       int selectedIndex = comboTiles.SelectedIndex;
       int selectedTileIndex = -1;
       if ( m_CurrentEditorTile != null )
@@ -6616,7 +7322,7 @@ namespace RetroDevStudio.Documents
       {
         comboTiles.Items.Clear();
         listTileInfo.Items.Clear();
-        foreach ( var tile in m_MapProject.Tiles )
+        foreach ( var tile in ActiveCharset().Tiles )
         {
           comboTiles.Items.Add( new GR.Generic.Tupel<string, Formats.MapProject.Tile>( tile.Name, tile ) );
 
@@ -6652,19 +7358,19 @@ namespace RetroDevStudio.Documents
       comboRightClickBehavior.SelectedIndexChanged -= comboRightClickBehavior_SelectedIndexChanged;
       comboRightClickBehavior.Items.Clear();
       comboRightClickBehavior.Items.Add( "Default" );
-      foreach ( var tile in m_MapProject.Tiles )
+      foreach ( var tile in ActiveCharset().Tiles )
       {
         comboRightClickBehavior.Items.Add( "Use " + tile.Index + ": " + tile.Name );
       }
-      if ( string.IsNullOrEmpty( m_MapProject.RightClickAction ) )
+      if ( string.IsNullOrEmpty( ActiveCharset().RightClickAction ) )
       {
         comboRightClickBehavior.SelectedIndex = 0;
       }
       else
       {
-        for ( int i = 0; i < m_MapProject.Tiles.Count; ++i )
+        for ( int i = 0; i < ActiveCharset().Tiles.Count; ++i )
         {
-          if ( m_MapProject.Tiles[i].Name == m_MapProject.RightClickAction )
+          if ( ActiveCharset().Tiles[i].Name == ActiveCharset().RightClickAction )
           {
             comboRightClickBehavior.SelectedIndex = i + 1;
             break;
@@ -6673,19 +7379,11 @@ namespace RetroDevStudio.Documents
         if ( comboRightClickBehavior.SelectedIndex == -1 )
         {
           comboRightClickBehavior.SelectedIndex = 0;
-          m_MapProject.RightClickAction = "";
+          ActiveCharset().RightClickAction = "";
         }
       }
       comboRightClickBehavior.SelectedIndexChanged += comboRightClickBehavior_SelectedIndexChanged;
       comboRightClickBehavior.EndUpdate();
-
-      // Fullscreen preview's reserved HUD rows + Sprites panel visibility —
-      // populate from the project. Both handlers compare against the stored
-      // project value before writing/marking modified, so the populate
-      // (which writes the stored value itself) is a guaranteed no-op and
-      // needs no handler detach.
-      editReservedTopLines.Value = Math.Max( 0, Math.Min( 24, m_MapProject.FullscreenReservedTopLines ) );
-      checkShowMapSprites.Checked = m_MapProject.ShowMapSprites;
 
       // Mirror the same Default-first-then-tiles pattern for the
       // shift-click blank tile combo. "Default" means "use tile 0" so
@@ -6732,59 +7430,22 @@ namespace RetroDevStudio.Documents
         }
       }
       comboTiles.Invalidate();
-      RefreshMarkerTypes();
-      RefreshEntityTypes();
-      RefreshEntityTileIndexRange();
-      RefreshMapStrings();
-      PopulateMapStringPreviewIndices();
-      LoadMapStringPreviewFont();
-      // Outline paint-mode tool settings (brush/eraser/border sizes, stamp
-      // scale, font, colors, extend step) — detached populate, never dirties.
-      PopulateOutlineToolSettingsFromProject();
-      // Sprites panel: load the persisted sprite project + animation selection.
-      // Silent on missing files; the populate path detaches its combo handler,
-      // so this can never dirty the freshly opened document.
-      LoadMapSpriteProject();
-      // Per-project CRT filters (seeds from the global settings pipeline
-      // for projects that predate the chunk).
-      LoadProjectDisplayFilters();
     }
-
-    /// <summary>
-    /// Keeps the EntityTypes editor's TileIndex NumericUpDown range in sync with
-    /// the current tile count so an EntityType can't reference a missing tile.
-    /// Also clamps the existing value defensively if the count shrank.
-    /// </summary>
-    private void RefreshEntityTileIndexRange()
-    {
-      if ( editEntityTileIndex == null )
-      {
-        return;
-      }
-      int maxIndex = Math.Max( 0, m_MapProject.Tiles.Count - 1 );
-      editEntityTileIndex.Maximum = maxIndex;
-      if ( editEntityTileIndex.Value > maxIndex )
-      {
-        editEntityTileIndex.Value = maxIndex;
-      }
-    }
-
-
 
     private void comboRightClickBehavior_SelectedIndexChanged( object sender, EventArgs e )
     {
       if ( comboRightClickBehavior.SelectedIndex == 0 )
       {
-        m_MapProject.RightClickAction = "";
+        ActiveCharset().RightClickAction = "";
       }
       else
       {
         // "Default" is 0
         int tileIndex = comboRightClickBehavior.SelectedIndex - 1;
         if ( ( tileIndex >= 0 )
-        &&   ( tileIndex < m_MapProject.Tiles.Count ) )
+        &&   ( tileIndex < ActiveCharset().Tiles.Count ) )
         {
-          m_MapProject.RightClickAction = m_MapProject.Tiles[tileIndex].Name;
+          ActiveCharset().RightClickAction = ActiveCharset().Tiles[tileIndex].Name;
         }
       }
       Modified = true;
@@ -6807,7 +7468,7 @@ namespace RetroDevStudio.Documents
       comboBlankTile.SelectedIndexChanged -= comboBlankTile_SelectedIndexChanged;
       comboBlankTile.BeginUpdate();
       comboBlankTile.Items.Clear();
-      foreach ( var tile in m_MapProject.Tiles )
+      foreach ( var tile in ActiveCharset().Tiles )
       {
         comboBlankTile.Items.Add( tile.Index + ": " + tile.Name );
       }
@@ -6816,19 +7477,19 @@ namespace RetroDevStudio.Documents
       {
         // No tiles in the project at all — nothing to select. Empty out
         // the saved name too so we don't carry a dead reference.
-        m_MapProject.ShiftClickBlankTile = "";
+        ActiveCharset().ShiftClickBlankTile = "";
       }
       else
       {
-        int idx = string.IsNullOrEmpty( m_MapProject.ShiftClickBlankTile )
+        int idx = string.IsNullOrEmpty( ActiveCharset().ShiftClickBlankTile )
                   ? -1
-                  : m_MapProject.Tiles.FindIndex( t => t.Name == m_MapProject.ShiftClickBlankTile );
+                  : ActiveCharset().Tiles.FindIndex( t => t.Name == ActiveCharset().ShiftClickBlankTile );
         if ( idx < 0 ) idx = 0;
         comboBlankTile.SelectedIndex = idx;
         // Sync the saved name back so a fresh project (empty string) or
         // a stale name both write the resolved tile name into the model
         // — keeps subsequent saves clean and idempotent.
-        m_MapProject.ShiftClickBlankTile = m_MapProject.Tiles[idx].Name;
+        ActiveCharset().ShiftClickBlankTile = ActiveCharset().Tiles[idx].Name;
       }
       comboBlankTile.SelectedIndexChanged += comboBlankTile_SelectedIndexChanged;
       comboBlankTile.EndUpdate();
@@ -6849,7 +7510,7 @@ namespace RetroDevStudio.Documents
 
 
     /// <summary>
-    /// Resolve <see cref="MapProject.ShiftClickBlankTile"/> (a tile name)
+    /// Resolve <see cref="MapProject.MapCharset.ShiftClickBlankTile"/> (a tile name)
     /// to a tile index. Empty / not-found falls back to 0 — that gives
     /// shift-click a sensible default even when the user never touched
     /// the dropdown OR when the named tile was deleted out from under it.
@@ -6857,9 +7518,9 @@ namespace RetroDevStudio.Documents
     private int ResolveShiftClickBlankTileIndex()
     {
       if ( m_MapProject == null )                              return 0;
-      if ( m_MapProject.Tiles.Count == 0 )                     return 0;
-      if ( string.IsNullOrEmpty( m_MapProject.ShiftClickBlankTile ) ) return 0;
-      int idx = m_MapProject.Tiles.FindIndex( t => t.Name == m_MapProject.ShiftClickBlankTile );
+      if ( ActiveCharset().Tiles.Count == 0 )                     return 0;
+      if ( string.IsNullOrEmpty( ActiveCharset().ShiftClickBlankTile ) ) return 0;
+      int idx = ActiveCharset().Tiles.FindIndex( t => t.Name == ActiveCharset().ShiftClickBlankTile );
       return ( idx >= 0 ) ? idx : 0;
     }
 
@@ -6869,12 +7530,12 @@ namespace RetroDevStudio.Documents
     {
       if ( m_MapProject == null ) return;
       int tileIndex = comboBlankTile.SelectedIndex;
-      if ( tileIndex < 0 || tileIndex >= m_MapProject.Tiles.Count ) return;
+      if ( tileIndex < 0 || tileIndex >= ActiveCharset().Tiles.Count ) return;
 
-      string newValue = m_MapProject.Tiles[tileIndex].Name;
-      if ( m_MapProject.ShiftClickBlankTile != newValue )
+      string newValue = ActiveCharset().Tiles[tileIndex].Name;
+      if ( ActiveCharset().ShiftClickBlankTile != newValue )
       {
-        m_MapProject.ShiftClickBlankTile = newValue;
+        ActiveCharset().ShiftClickBlankTile = newValue;
         Modified = true;
       }
     }
@@ -6911,7 +7572,7 @@ namespace RetroDevStudio.Documents
       }
       // Legacy fallback: clamp the palette index and look it up.
       int idx = m_MapProject.DesignerBackgroundColor;
-      var palette = m_MapProject.Charset.Colors.Palette.ColorValues;
+      var palette = ActiveCharset().Charset.Colors.Palette.ColorValues;
       if ( idx < 0 || idx >= palette.Length ) idx = 0;
       return palette[idx];
     }
@@ -7206,15 +7867,19 @@ namespace RetroDevStudio.Documents
       {
         charsToImport = 256;
       }
+      // Imports land in the charset shown on the Character Set tab.
+      var charset = EditedCharset();
       for ( int i = 0; i < charsToImport; ++i )
       {
         for ( int j = 0; j < 8; ++j )
         {
-          m_MapProject.Charset.Characters[i].Tile.Data.SetU8At( j, charData.ByteAt( i * 8 + j ) );
+          charset.Charset.Characters[i].Tile.Data.SetU8At( j, charData.ByteAt( i * 8 + j ) );
         }
-        RebuildCharImage( i );
+        RebuildCharImage( charset, i );
       }
-      characterEditor.CharsetUpdated( m_MapProject.Charset );
+      panelCharacters.Invalidate();
+      characterEditor.CharsetUpdated( charset.Charset );
+      RedrawMap();
       return true;
     }
 
@@ -7295,8 +7960,10 @@ namespace RetroDevStudio.Documents
         return;
       }
 
+      // Lands in the charset shown on the Character Set tab.
+      var charset = EditedCharset();
       var tile = new MapProject.Tile();
-      tile.Name = MakeTileNameUnique( dlg.InputText );
+      tile.Name = MakeTileNameUnique( charset, dlg.InputText );
 
       int tileWidth = characterEditor.EditorWidth;
       int tileHeight = characterEditor.EditorHeight;
@@ -7312,10 +7979,10 @@ namespace RetroDevStudio.Documents
         for ( int x = 0; x < tileWidth; ++x )
         {
           int charIndex = startChar + x + y * charsPerRow;
-          if ( charIndex < m_MapProject.Charset.Characters.Count )
+          if ( charIndex < charset.Charset.Characters.Count )
           {
             tile.Chars[x, y].Character = (byte)charIndex;
-            tile.Chars[x, y].Color     = (byte)m_MapProject.Charset.Characters[charIndex].Tile.CustomColor;
+            tile.Chars[x, y].Color     = (byte)charset.Charset.Characters[charIndex].Tile.CustomColor;
           }
           else
           {
@@ -7325,13 +7992,15 @@ namespace RetroDevStudio.Documents
         }
       }
 
-      m_MapProject.Tiles.Add( tile );
-      tile.Index = m_MapProject.Tiles.Count - 1;
-      RefreshMapTileList();
-
-      if ( comboTiles.Items.Count > 0 )
+      int insertAt = charset.Tiles.Count;
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileAdd( this, m_MapProject, charset, insertAt ) );
+      AddTile( charset, insertAt, tile );
+      // The lists show the current MAP's charset — the new tile is only
+      // selectable there when that is the edited charset.
+      if ( ( charset == m_DisplayedCharset )
+      &&   ( insertAt < comboTiles.Items.Count ) )
       {
-        comboTiles.SelectedIndex = comboTiles.Items.Count - 1;
+        comboTiles.SelectedIndex = insertAt;
       }
       Modified = true;
     }
@@ -7383,35 +8052,38 @@ namespace RetroDevStudio.Documents
 
       // Counter starts at 1 so the user reads "Fence 1", "Fence 2".
       // MakeTileNameUnique handles collisions with already-existing
-      // names of the same prefix.
+      // names of the same prefix. The tiles land in the charset shown on
+      // the Character Set tab; one undo group for the whole batch (the
+      // multi-delete precedent).
+      var charset = EditedCharset();
       int counter = 1;
       int lastIndex = -1;
       for ( int i = 0; i < indices.Count; ++i )
       {
         int charIndex = indices[i];
         if ( ( charIndex < 0 )
-        ||   ( charIndex >= m_MapProject.Charset.Characters.Count ) )
+        ||   ( charIndex >= charset.Charset.Characters.Count ) )
         {
           continue;
         }
 
         var tile = new MapProject.Tile();
-        tile.Name = MakeTileNameUnique( baseName + " " + counter );
+        tile.Name = MakeTileNameUnique( charset, baseName + " " + counter );
         ++counter;
 
         tile.Chars.Resize( 1, 1 );
         tile.Chars[0, 0].Character = (byte)charIndex;
-        tile.Chars[0, 0].Color     = (byte)m_MapProject.Charset.Characters[charIndex].Tile.CustomColor;
+        tile.Chars[0, 0].Color     = (byte)charset.Charset.Characters[charIndex].Tile.CustomColor;
 
-        m_MapProject.Tiles.Add( tile );
-        tile.Index = m_MapProject.Tiles.Count - 1;
-        lastIndex = tile.Index;
+        int insertAt = charset.Tiles.Count;
+        DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileAdd( this, m_MapProject, charset, insertAt ), lastIndex < 0 );
+        AddTile( charset, insertAt, tile );
+        lastIndex = insertAt;
       }
 
       if ( lastIndex < 0 ) return; // every selected index was out of range
 
-      RefreshMapTileList();
-      if ( ( comboTiles.Items.Count > 0 )
+      if ( ( charset == m_DisplayedCharset )
       &&   ( lastIndex < comboTiles.Items.Count ) )
       {
         comboTiles.SelectedIndex = lastIndex;
@@ -7860,7 +8532,7 @@ namespace RetroDevStudio.Documents
                     if ( !modified )
                     {
                       modified = true;
-                      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
+                      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, ActiveCharset(), listTileInfo.SelectedIndices[0] ) );
                     }
 
                     m_CurrentEditedTile.Chars[x, y].Character = (byte)( copyData[x + y * selectionWidth].second & 0xff );
@@ -8647,9 +9319,9 @@ namespace RetroDevStudio.Documents
           int fpW = m_CurrentMap.TileSpacingX;
           int fpH = m_CurrentMap.TileSpacingY;
           if ( ( oldIndex >= 0 )
-          &&   ( oldIndex < m_MapProject.Tiles.Count ) )
+          &&   ( oldIndex < ActiveCharset().Tiles.Count ) )
           {
-            var oldTile = m_MapProject.Tiles[oldIndex];
+            var oldTile = ActiveCharset().Tiles[oldIndex];
             if ( oldTile.Chars.Width  > fpW ) fpW = oldTile.Chars.Width;
             if ( oldTile.Chars.Height > fpH ) fpH = oldTile.Chars.Height;
           }
@@ -8890,7 +9562,7 @@ namespace RetroDevStudio.Documents
           }
           int tileIndex = m_SelMoveTiles[bx, by];
           if ( ( tileIndex < 0 )
-          ||   ( tileIndex >= m_MapProject.Tiles.Count ) )
+          ||   ( tileIndex >= ActiveCharset().Tiles.Count ) )
           {
             continue;   // transparent upper-layer cell — nothing to show
           }
@@ -9621,12 +10293,12 @@ namespace RetroDevStudio.Documents
         {
           int tileIndex = roTiles[x, y];
           if ( ( tileIndex <= 0 )
-          ||   ( tileIndex >= m_MapProject.Tiles.Count ) )
+          ||   ( tileIndex >= ActiveCharset().Tiles.Count ) )
           {
             continue;
           }
 
-          var tile = m_MapProject.Tiles[tileIndex];
+          var tile = ActiveCharset().Tiles[tileIndex];
           int cellsWide = Math.Max( 1, ( tile.Chars.Width  + spacingX - 1 ) / spacingX );
           int cellsTall = Math.Max( 1, ( tile.Chars.Height + spacingY - 1 ) / spacingY );
 
@@ -9672,12 +10344,12 @@ namespace RetroDevStudio.Documents
         {
           int tileIndex = roTiles[x, y];
           if ( ( tileIndex <= 0 )
-          ||   ( tileIndex >= m_MapProject.Tiles.Count ) )
+          ||   ( tileIndex >= ActiveCharset().Tiles.Count ) )
           {
             continue;
           }
 
-          var tile = m_MapProject.Tiles[tileIndex];
+          var tile = ActiveCharset().Tiles[tileIndex];
           int cellsWide = Math.Max( 1, ( tile.Chars.Width  + spacingX - 1 ) / spacingX );
           int cellsTall = Math.Max( 1, ( tile.Chars.Height + spacingY - 1 ) / spacingY );
 
@@ -10045,7 +10717,7 @@ namespace RetroDevStudio.Documents
       &&   ( listTileInfo.SelectedIndices.Count > 0 )
       &&   ( listTileChars.SelectedItems.Count > 0 ) )
       {
-        DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
+        DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, ActiveCharset(), listTileInfo.SelectedIndices[0] ) );
 
         m_CurrentTileChar.Character = m_CurrentChar;
 
@@ -10181,7 +10853,7 @@ namespace RetroDevStudio.Documents
               // UndoMapTileModified snapshots the entire tile. Pushing it
               // before the mutation matches the rest of this editor.
               DocumentInfo.UndoManager.AddUndoTask(
-                new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
+                new Undo.UndoMapTileModified( this, m_MapProject, ActiveCharset(), listTileInfo.SelectedIndices[0] ) );
 
               foreach ( var item in rowsToChange )
               {
@@ -10218,15 +10890,21 @@ namespace RetroDevStudio.Documents
         {
           return false;
         }
-        if ( !m_MapProject.Charset.ReadFromBuffer( charSetProject ) )
+        // Replaces the charset shown on the Character Set tab; the project
+        // mode follows the imported charset (fanned out to every charset by
+        // the mode combo when it changes).
+        var charset = EditedCharset();
+        if ( !charset.Charset.ReadFromBuffer( charSetProject ) )
         {
           return false;
         }
-        m_MapProject.Mode = Lookup.TextModeFromTextCharMode( m_MapProject.Charset.Mode );
+        m_MapProject.Mode = Lookup.TextModeFromTextCharMode( charset.Charset.Mode );
         comboMapProjectMode.SelectedIndex = (int)m_MapProject.Mode;
 
+        // ReadFromBuffer replaced the CharData instances (new Tile.Image
+        // bitmaps) — the displayed-charset rebuild re-points the picker.
         FullRebuild();
-        characterEditor.CharsetUpdated( m_MapProject.Charset );
+        characterEditor.CharsetUpdated( charset.Charset );
         RedrawMap();
         Modified = true;
         return true;
@@ -10412,11 +11090,6 @@ namespace RetroDevStudio.Documents
     }
 
 
-
-    private void CharacterEditor_Modified( List<int> ModifiedChars )
-    {
-      Modified = true;
-    }
 
     private void AdjustScrollbars()
     {
@@ -10607,6 +11280,8 @@ namespace RetroDevStudio.Documents
     {
       m_ActiveLayerIndex = m_CurrentMap.SelectedLayerIndex;
       RefreshLayerList();
+      // The lists follow the map's charset — before anything below renders.
+      EnsureDisplayedCharset();
 
       m_SelectedTiles = new bool[m_CurrentMap.Tiles.Width, m_CurrentMap.Tiles.Height];
       // The fog-of-war mask is sized to the map — re-init (all opaque) on
@@ -10632,6 +11307,13 @@ namespace RetroDevStudio.Documents
       comboMapAlternativeMode.SelectedIndex = (int)m_CurrentMap.AlternativeMode + 1;
       // Value-equality guard in the handler keeps this populate clean.
       checkMapNotExported.Checked = m_CurrentMap.NotExported;
+      // Same for the charset combo (it compares against the clamped index).
+      int mapCharsetIndex = CharsetIndexOf( m_MapProject.CharsetOf( m_CurrentMap ) );
+      if ( ( mapCharsetIndex >= 0 )
+      &&   ( mapCharsetIndex < comboMapCharset.Items.Count ) )
+      {
+        comboMapCharset.SelectedIndex = mapCharsetIndex;
+      }
 
       dimSlider.Value = m_CurrentMap.MarkerDimOpacity;
       if ( m_MapProject.MarkerTypes.Count > 0 )
@@ -10809,6 +11491,9 @@ namespace RetroDevStudio.Documents
         // (recoverable) — the visit path will hand out a fresh scratch.
         return null;
       }
+      // A workspace always mirrors its owner's charset (the blob may predate
+      // a later change of the owner's binding).
+      scratch.CharsetIndex = Owner.CharsetIndex;
       m_ScratchMaps[Owner] = scratch;
       return scratch;
     }
@@ -10926,6 +11611,7 @@ namespace RetroDevStudio.Documents
       scratch.AlternativeBackgroundColor = Owner.AlternativeBackgroundColor;
       scratch.AlternativeBGColor4        = Owner.AlternativeBGColor4;
       scratch.AlternativeMode            = Owner.AlternativeMode;
+      scratch.CharsetIndex               = Owner.CharsetIndex;
       scratch.Name = Owner.Name + " (scratch)";
       scratch.OutlineGuid = "";
       return scratch;
@@ -10949,8 +11635,10 @@ namespace RetroDevStudio.Documents
       btnMoveMapUp.Enabled         = false;
       btnMoveMapDown.Enabled       = false;
       btnSetStartMap.Enabled       = false;
-      // The export flag and the painter belong to the OWNER map's face.
+      // The export flag, the charset binding and the painter belong to the
+      // OWNER map's face (a workspace mirrors its owner's charset).
       checkMapNotExported.Enabled  = false;
+      comboMapCharset.Enabled      = false;
       btnToggleOutlineMode.Enabled = false;
       // Revisions are the owner's history — locked while its workspace is
       // showing (the combo still lists them; selection is refused too).
@@ -10963,7 +11651,7 @@ namespace RetroDevStudio.Documents
     private void RecalcTileUsageInCurrentMap()
     {
       _TileUsage.Clear();
-      for ( int i = 0; i < m_MapProject.Tiles.Count; ++i )
+      for ( int i = 0; i < ActiveCharset().Tiles.Count; ++i )
       {
         _TileUsage.Add( 0 );
       }
@@ -11000,19 +11688,20 @@ namespace RetroDevStudio.Documents
       {
         return;
       }
+      var charset = ActiveCharset();
       Formats.MapProject.Tile tile = new Formats.MapProject.Tile();
       tile.Chars.Resize( w, h );
-      tile.Name = MakeTileNameUnique( editTileName.Text );
+      tile.Name = MakeTileNameUnique( charset, editTileName.Text );
 
-      int indexToInsertAt = m_MapProject.Tiles.Count;
+      int indexToInsertAt = charset.Tiles.Count;
       if ( listTileInfo.SelectedIndices.Count > 0 )
       {
         indexToInsertAt = listTileInfo.SelectedIndices[0] + 1;
       }
 
-      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileAdd( this, m_MapProject, indexToInsertAt ) );
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileAdd( this, m_MapProject, charset, indexToInsertAt ) );
 
-      AddTile( indexToInsertAt, tile );
+      AddTile( charset, indexToInsertAt, tile );
       listTileInfo.SelectedIndices.Clear();
       listTileInfo.SelectedIndices.Add( indexToInsertAt );
     }
@@ -11030,11 +11719,12 @@ namespace RetroDevStudio.Documents
       // both at a glance (e.g. "1/12" = used once in this map, twelve
       // times across all maps). When there's no current map, the
       // current count collapses to 0.
-      int tileCount = m_MapProject.Tiles.Count;
+      int tileCount = ActiveCharset().Tiles.Count;
       var currentMapUsage = new int[tileCount];
       var projectUsage    = new int[tileCount];
 
-      foreach ( var map in m_MapProject.Maps )
+      // Tile indices only mean this library on the maps bound to its charset.
+      foreach ( var map in m_MapProject.MapsUsingCharset( CharsetIndexOf( ActiveCharset() ) ) )
       {
         // While the scratch workspace is showing, m_CurrentMap is not in
         // Maps — count the OWNER as "current" so the column keeps meaning.
@@ -11128,38 +11818,44 @@ namespace RetroDevStudio.Documents
 
 
 
-    public void AddTile( int TileIndex, Formats.MapProject.Tile Tile )
+    // Tile-library mutators take the MapCharset they act on: undo/redo can
+    // target a charset other than the one the lists currently show (the user
+    // switched maps in between), so every comboTiles / listTileInfo touch
+    // runs only when Charset is the displayed one. Map cells are swept over
+    // the maps bound to that charset only.
+    public void AddTile( Formats.MapProject.MapCharset Charset, int TileIndex, Formats.MapProject.Tile Tile )
     {
-      m_MapProject.Tiles.Insert( TileIndex, Tile );
-      Tile.Index = TileIndex;
-      comboTiles.Items.Insert( TileIndex, new GR.Generic.Tupel<string, Formats.MapProject.Tile>( Tile.Name, Tile ) );
+      bool displayed = ( Charset == m_DisplayedCharset );
 
-      ListViewItem item = new ListViewItem();
-
-      item.Text = Tile.Index.ToString();
-      // Preview column — empty text; thumbnail painted by DrawItemImage.
-      item.SubItems.Add( "" );
-      item.SubItems.Add( Tile.Name );
-      item.SubItems.Add( Tile.Chars.Width.ToString() + "x" + Tile.Chars.Height.ToString() );
-      item.SubItems.Add( "0" );
-      item.Tag = Tile;
-      item.ImageIndex = 0;
-
-      listTileInfo.Items.Insert( TileIndex, item );
-
-      for ( int i = 0; i < m_MapProject.Tiles.Count; ++i )
+      Charset.Tiles.Insert( TileIndex, Tile );
+      Charset.ReindexTiles();
+      if ( displayed )
       {
-        m_MapProject.Tiles[i].Index = i;
-      }
-      for ( int i = TileIndex; i < listTileInfo.Items.Count; ++i )
-      {
-        listTileInfo.Items[i].Text = i.ToString();
+        comboTiles.Items.Insert( TileIndex, new GR.Generic.Tupel<string, Formats.MapProject.Tile>( Tile.Name, Tile ) );
+
+        ListViewItem item = new ListViewItem();
+
+        item.Text = Tile.Index.ToString();
+        // Preview column — empty text; thumbnail painted by DrawItemImage.
+        item.SubItems.Add( "" );
+        item.SubItems.Add( Tile.Name );
+        item.SubItems.Add( Tile.Chars.Width.ToString() + "x" + Tile.Chars.Height.ToString() );
+        item.SubItems.Add( "0" );
+        item.Tag = Tile;
+        item.ImageIndex = 0;
+
+        listTileInfo.Items.Insert( TileIndex, item );
+
+        for ( int i = TileIndex; i < listTileInfo.Items.Count; ++i )
+        {
+          listTileInfo.Items[i].Text = i.ToString();
+        }
       }
 
       // Shift cell indices up on EVERY layer (a palette insert at TileIndex
       // pushes all references >= TileIndex up by one). Upper-layer transparent
       // cells (-1) are below any valid TileIndex so they're left untouched.
-      foreach ( var map in AllEditableMaps() )
+      foreach ( var map in MapsBoundTo( Charset ) )
       {
         foreach ( var layer in map.Layers )
         {
@@ -11177,9 +11873,12 @@ namespace RetroDevStudio.Documents
       }
 
       // auto-select tile
-      listTileInfo.SelectedIndices.Clear();
-      listTileInfo.SelectedIndices.Add( TileIndex );
-      listTileInfo.EnsureVisible( TileIndex );
+      if ( displayed )
+      {
+        listTileInfo.SelectedIndices.Clear();
+        listTileInfo.SelectedIndices.Add( TileIndex );
+        listTileInfo.EnsureVisible( TileIndex );
+      }
       RedrawMap();
       RedrawTile();
       SetModified();
@@ -11345,6 +12044,8 @@ namespace RetroDevStudio.Documents
       // explicit reset needed.
       map.CharBlockedOverrides.Resize( w * tw, h * th );
       map.Name = editMapName.Text;
+      // A new map inherits the current map's charset.
+      map.CharsetIndex = ( m_CurrentMap != null ) ? m_CurrentMap.CharsetIndex : 0;
 
       DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapAdd( this, m_MapProject, m_MapProject.Maps.Count ) );
 
@@ -11607,8 +12308,11 @@ namespace RetroDevStudio.Documents
     private string FormatMapDisplayName( int Index, Formats.MapProject.Map Map )
     {
       string prefix = ( ( m_MapProject != null ) && ( Index == m_MapProject.StartMapIndex ) ) ? "★ " : "";
+      // The charset tag only appears once there is more than one to tell apart.
+      string charset = ( ( m_MapProject != null ) && ( m_MapProject.Charsets.Count > 1 ) )
+                       ? " [" + m_MapProject.CharsetDisplayNameOf( m_MapProject.CharsetOf( Map ) ) + "]" : "";
       string suffix = Map.NotExported ? " (not exported)" : "";
-      return prefix + Index.ToString() + ": " + Map.Name + suffix;
+      return prefix + Index.ToString() + ": " + Map.Name + charset + suffix;
     }
 
 
@@ -12120,6 +12824,18 @@ namespace RetroDevStudio.Documents
         // anywhere in the project — recompute them on every visit.
         UpdateMapStringUsageColumn();
       }
+      else if ( tabMapEditor.SelectedPage == tabCharset )
+      {
+        // "Show charset for selected map" is applied only at the moment the
+        // Character Set tab is selected — never while another tab is showing.
+        ApplyCharsetTabFollow();
+      }
+      else if ( tabMapEditor.SelectedPage == tabEntities )
+      {
+        // The tile dropdown lists the preview charset's library, which the
+        // Tiles tab may have changed since the last visit.
+        RefreshEntityTileCombo();
+      }
       // Remember the user's last-visited tab so reopening the project lands on
       // the same page. We update the in-memory value (so it rides along with
       // the next real Save), but deliberately do NOT SetModified() here:
@@ -12149,15 +12865,7 @@ namespace RetroDevStudio.Documents
 
     private void FullRebuild()
     {
-      for ( int i = 0; i < m_MapProject.Charset.TotalNumberOfCharacters; ++i )
-      {
-        RebuildCharImage( i );
-        if ( i < panelCharacters.Items.Count )
-        {
-          panelCharacters.Items[i].MemoryImage = m_MapProject.Charset.Characters[i].Tile.Image;
-        }
-      }
-      panelCharacters.Invalidate();
+      RebuildDisplayedCharImages();
 
       SetModified();
       RedrawTile();
@@ -12184,12 +12892,12 @@ namespace RetroDevStudio.Documents
         {
           if ( firstUndo )
           {
-            DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, tile.Index ) );
+            DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, ActiveCharset(), tile.Index ) );
             firstUndo = false;
           }
           else
           {
-            DocumentInfo.UndoManager.AddGroupedUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, tile.Index ) );
+            DocumentInfo.UndoManager.AddGroupedUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, ActiveCharset(), tile.Index ) );
           }
           tile.Passable = checkTilePassable.Checked;
           SetModified();
@@ -12214,12 +12922,12 @@ namespace RetroDevStudio.Documents
         {
           if ( firstUndo )
           {
-            DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, tile.Index ) );
+            DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, ActiveCharset(), tile.Index ) );
             firstUndo = false;
           }
           else
           {
-            DocumentInfo.UndoManager.AddGroupedUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, tile.Index ) );
+            DocumentInfo.UndoManager.AddGroupedUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, ActiveCharset(), tile.Index ) );
           }
           tile.NotExportedOnMap = checkNotExportedOnMap.Checked;
           SetModified();
@@ -12237,7 +12945,7 @@ namespace RetroDevStudio.Documents
       bool    modified = false;
       if ( m_CurrentEditedTile.Name != editTileName.Text )
       {
-        DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
+        DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, ActiveCharset(), listTileInfo.SelectedIndices[0] ) );
         modified = true;
 
         m_CurrentEditedTile.Name = editTileName.Text;
@@ -12254,7 +12962,7 @@ namespace RetroDevStudio.Documents
       {
         if ( !modified )
         {
-          DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
+          DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, ActiveCharset(), listTileInfo.SelectedIndices[0] ) );
           modified = true;
         }
         m_CurrentEditedTile.GroupId = groupId;
@@ -12269,7 +12977,7 @@ namespace RetroDevStudio.Documents
       {
         if ( !modified )
         {
-          DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
+          DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, ActiveCharset(), listTileInfo.SelectedIndices[0] ) );
           modified = true;
         }
 
@@ -12306,8 +13014,8 @@ namespace RetroDevStudio.Documents
         {
           int   indexToRemove = indicesToRemove[indicesToRemove.Count - 1 - i];
 
-          DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileRemove( this, m_MapProject, indexToRemove ), i == 0 );
-          RemoveTile( indexToRemove );
+          DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileRemove( this, m_MapProject, ActiveCharset(), indexToRemove ), i == 0 );
+          RemoveTile( ActiveCharset(), indexToRemove );
         }
 
         // Auto-select the next tile (the one that shifted into the first deleted
@@ -12329,8 +13037,10 @@ namespace RetroDevStudio.Documents
 
 
 
-    public void RemoveTile( int TileIndex )
+    public void RemoveTile( Formats.MapProject.MapCharset Charset, int TileIndex )
     {
+      bool displayed = ( Charset == m_DisplayedCharset );
+
       // The tile being removed is still in the list at this point
       // (RemoveAt happens after the per-map sweep below). Capture its
       // char-footprint up-front so the override-clear loop knows exactly
@@ -12340,15 +13050,15 @@ namespace RetroDevStudio.Documents
       // spacing²=1 clear would leave 3 stale overrides per cell.
       int removedFootprintX = 1;
       int removedFootprintY = 1;
-      if ( ( TileIndex >= 0 ) && ( TileIndex < m_MapProject.Tiles.Count ) )
+      if ( ( TileIndex >= 0 ) && ( TileIndex < Charset.Tiles.Count ) )
       {
-        var removedTile = m_MapProject.Tiles[TileIndex];
+        var removedTile = Charset.Tiles[TileIndex];
         removedFootprintX = removedTile.Chars.Width;
         removedFootprintY = removedTile.Chars.Height;
       }
 
-      // remove from all maps
-      foreach ( var map in AllEditableMaps() )
+      // remove from all maps bound to this charset
+      foreach ( var map in MapsBoundTo( Charset ) )
       {
         int clrFootprintX = ( removedFootprintX > map.TileSpacingX ) ? removedFootprintX : map.TileSpacingX;
         int clrFootprintY = ( removedFootprintY > map.TileSpacingY ) ? removedFootprintY : map.TileSpacingY;
@@ -12411,8 +13121,14 @@ namespace RetroDevStudio.Documents
       // "no tile" and skips the entity. Better to surface a deleted
       // entity-tile binding as an invisible entity than to silently
       // re-bind it to whatever shifted into the freed slot.
+      // One TileIndex is read in every map's charset — it follows the
+      // library it was designed against (the type's preview charset).
       foreach ( var et in m_MapProject.EntityTypes )
       {
+        if ( m_MapProject.CharsetAt( et.PreviewCharsetIndex ) != Charset )
+        {
+          continue;
+        }
         if ( et.TileIndex == TileIndex )
         {
           et.TileIndex = -1;
@@ -12423,11 +13139,8 @@ namespace RetroDevStudio.Documents
         }
       }
 
-      m_MapProject.Tiles.RemoveAt( TileIndex );
-      for ( int i = 0; i < m_MapProject.Tiles.Count; ++i )
-      {
-        m_MapProject.Tiles[i].Index = i;
-      }
+      Charset.Tiles.RemoveAt( TileIndex );
+      Charset.ReindexTiles();
 
       // The painting selection (m_CurrentEditorTile) may still hold a
       // reference to the just-removed Tile object. Its .Index field
@@ -12436,8 +13149,16 @@ namespace RetroDevStudio.Documents
       // a stale index into m_CurrentMap.Tiles[,]. Drop the reference
       // here; the comboTiles.SelectedIndex assignment below rebinds it
       // deterministically through comboTiles_SelectedIndexChanged.
+      if ( !displayed )
+      {
+        // The lists (and the brush) belong to another charset — nothing of
+        // theirs changed.
+        RedrawMap();
+        SetModified();
+        return;
+      }
       if ( ( m_CurrentEditorTile != null )
-      &&   ( !m_MapProject.Tiles.Contains( m_CurrentEditorTile ) ) )
+      &&   ( !Charset.Tiles.Contains( m_CurrentEditorTile ) ) )
       {
         m_CurrentEditorTile = null;
       }
@@ -12598,9 +13319,9 @@ namespace RetroDevStudio.Documents
       int index1 = listTileInfo.SelectedIndices[0] - 1;
       int index2 = listTileInfo.SelectedIndices[0];
 
-      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileExchange( this, m_MapProject, index1, index2 ) );
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileExchange( this, m_MapProject, ActiveCharset(), index1, index2 ) );
 
-      SwapTiles( index1, index2 );
+      SwapTiles( ActiveCharset(), index1, index2 );
 
       listTileInfo.SelectedIndices.Clear();
       listTileInfo.SelectedIndices.Add( index1 );
@@ -12609,36 +13330,32 @@ namespace RetroDevStudio.Documents
 
 
 
-    public void MoveTile( int FromIndex, int ToIndex )
+    public void MoveTile( Formats.MapProject.MapCharset Charset, int FromIndex, int ToIndex )
     {
       if ( FromIndex == ToIndex )
       {
         return;
       }
       if ( ( FromIndex < 0 )
-      ||   ( FromIndex >= m_MapProject.Tiles.Count )
+      ||   ( FromIndex >= Charset.Tiles.Count )
       ||   ( ToIndex < 0 )
-      ||   ( ToIndex >= m_MapProject.Tiles.Count ) )
+      ||   ( ToIndex >= Charset.Tiles.Count ) )
       {
         return;
       }
+      bool displayed = ( Charset == m_DisplayedCharset );
 
-      Formats.MapProject.Tile tile = m_MapProject.Tiles[FromIndex];
+      Formats.MapProject.Tile tile = Charset.Tiles[FromIndex];
 
-      m_MapProject.Tiles.RemoveAt( FromIndex );
-      m_MapProject.Tiles.Insert( ToIndex, tile );
+      Charset.Tiles.RemoveAt( FromIndex );
+      Charset.Tiles.Insert( ToIndex, tile );
+      Charset.ReindexTiles();
 
-      for ( int i = 0; i < m_MapProject.Tiles.Count; ++i )
-      {
-        m_MapProject.Tiles[i].Index = i;
-      }
-
-      // Shift cell references on EVERY layer of every map. Upper-layer
-      // transparent cells (-1) sit below all three conditions, so they
-      // stay -1 — the same invariant the add/remove/swap sweeps rely on.
-      // (This previously walked only map.Tiles, the Background proxy,
-      // silently breaking upper-layer references on a palette move.)
-      foreach ( var map in AllEditableMaps() )
+      // Shift cell references on EVERY layer of every map bound to this
+      // charset. Upper-layer transparent cells (-1) sit below all three
+      // conditions, so they stay -1 — the same invariant the
+      // add/remove/swap sweeps rely on.
+      foreach ( var map in MapsBoundTo( Charset ) )
       {
         foreach ( var layer in map.Layers )
         {
@@ -12676,9 +13393,13 @@ namespace RetroDevStudio.Documents
 
       // Entity types reference tiles by index — apply the same shift to
       // their TileIndex so entity overlays keep pointing at the same tile
-      // after the reorder.
+      // after the reorder (types designed against this charset only).
       foreach ( var entityType in m_MapProject.EntityTypes )
       {
+        if ( m_MapProject.CharsetAt( entityType.PreviewCharsetIndex ) != Charset )
+        {
+          continue;
+        }
         int tileIndex = entityType.TileIndex;
         if ( tileIndex == FromIndex )
         {
@@ -12703,15 +13424,18 @@ namespace RetroDevStudio.Documents
         }
       }
 
-      // update list
-      ListViewItem item = listTileInfo.Items[FromIndex];
-      listTileInfo.Items.RemoveAt( FromIndex );
-      listTileInfo.Items.Insert( ToIndex, item );
+      if ( displayed )
+      {
+        // update list
+        ListViewItem item = listTileInfo.Items[FromIndex];
+        listTileInfo.Items.RemoveAt( FromIndex );
+        listTileInfo.Items.Insert( ToIndex, item );
 
-      // update combo
-      object comboItem = comboTiles.Items[FromIndex];
-      comboTiles.Items.RemoveAt( FromIndex );
-      comboTiles.Items.Insert( ToIndex, comboItem );
+        // update combo
+        object comboItem = comboTiles.Items[FromIndex];
+        comboTiles.Items.RemoveAt( FromIndex );
+        comboTiles.Items.Insert( ToIndex, comboItem );
+      }
 
       RedrawMap();
       SetModified();
@@ -12730,7 +13454,7 @@ namespace RetroDevStudio.Documents
       {
         return;
       }
-      int count = m_MapProject.Tiles.Count;
+      int count = ActiveCharset().Tiles.Count;   // the Tiles tab lists the current map's charset
       if ( count == 0 )
       {
         return;
@@ -12829,9 +13553,9 @@ namespace RetroDevStudio.Documents
       {
         inverse[oldToNew[i]] = i;
       }
-      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesReorder( this, m_MapProject, inverse ) );
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTilesReorder( this, m_MapProject, ActiveCharset(), inverse ) );
 
-      ReorderTiles( oldToNew );
+      ReorderTiles( ActiveCharset(), oldToNew );
 
       // Re-select the moved block at its new, contiguous home.
       listTileInfo.SelectedIndices.Clear();
@@ -12852,17 +13576,17 @@ namespace RetroDevStudio.Documents
 
 
     // Apply a tile-index permutation (OldToNew[oldIndex] = newIndex) to the
-    // whole project: the tile list, every map cell on EVERY layer, and entity-
-    // type tile bindings. Used by the multi-tile reorder and its undo. (The
-    // older single-tile MoveTile only remaps the Background layer; this is the
-    // layer-complete path.)
-    public void ReorderTiles( int[] OldToNew )
+    // one charset: its tile list, every cell on EVERY layer of the maps bound
+    // to it, and the entity-type tile bindings designed against it. Used by
+    // the multi-tile reorder and its undo (the same layer-complete sweep as
+    // MoveTile).
+    public void ReorderTiles( Formats.MapProject.MapCharset Charset, int[] OldToNew )
     {
       if ( m_MapProject == null )
       {
         return;
       }
-      int count = m_MapProject.Tiles.Count;
+      int count = Charset.Tiles.Count;
       if ( ( OldToNew == null ) || ( OldToNew.Length != count ) )
       {
         return;
@@ -12871,18 +13595,18 @@ namespace RetroDevStudio.Documents
       var newTiles = new Formats.MapProject.Tile[count];
       for ( int i = 0; i < count; ++i )
       {
-        newTiles[OldToNew[i]] = m_MapProject.Tiles[i];
+        newTiles[OldToNew[i]] = Charset.Tiles[i];
       }
-      m_MapProject.Tiles.Clear();
+      Charset.Tiles.Clear();
       for ( int i = 0; i < count; ++i )
       {
-        newTiles[i].Index = i;
-        m_MapProject.Tiles.Add( newTiles[i] );
+        Charset.Tiles.Add( newTiles[i] );
       }
+      Charset.ReindexTiles();
 
-      // Remap cell references on every layer of every map. Upper-layer
+      // Remap cell references on every layer of every bound map. Upper-layer
       // transparent cells (-1) are below any valid index, so they stay -1.
-      foreach ( var map in AllEditableMaps() )
+      foreach ( var map in MapsBoundTo( Charset ) )
       {
         foreach ( var layer in map.Layers )
         {
@@ -12900,16 +13624,24 @@ namespace RetroDevStudio.Documents
         }
       }
 
-      // Entity types reference tiles by index — follow the permutation.
+      // Entity types reference tiles by index — follow the permutation
+      // (types designed against this charset only).
       foreach ( var et in m_MapProject.EntityTypes )
       {
+        if ( m_MapProject.CharsetAt( et.PreviewCharsetIndex ) != Charset )
+        {
+          continue;
+        }
         if ( ( et.TileIndex >= 0 ) && ( et.TileIndex < count ) )
         {
           et.TileIndex = OldToNew[et.TileIndex];
         }
       }
 
-      RefreshMapTileList();
+      if ( Charset == m_DisplayedCharset )
+      {
+        RefreshTileLists();
+      }
       RedrawMap();
       SetModified();
     }
@@ -13146,46 +13878,49 @@ namespace RetroDevStudio.Documents
 
 
 
-    public void SwapTiles( int Index1, int Index2 )
+    public void SwapTiles( Formats.MapProject.MapCharset Charset, int Index1, int Index2 )
     {
-      Formats.MapProject.Tile tile1 = m_MapProject.Tiles[Index1];
-      Formats.MapProject.Tile tile2 = m_MapProject.Tiles[Index2];
+      Formats.MapProject.Tile tile1 = Charset.Tiles[Index1];
+      Formats.MapProject.Tile tile2 = Charset.Tiles[Index2];
 
-      m_MapProject.Tiles[Index1] = tile2;
-      m_MapProject.Tiles[Index2] = tile1;
+      Charset.Tiles[Index1] = tile2;
+      Charset.Tiles[Index2] = tile1;
 
-      m_MapProject.Tiles[Index1].Index = Index1;
-      m_MapProject.Tiles[Index2].Index = Index2;
+      Charset.Tiles[Index1].Index = Index1;
+      Charset.Tiles[Index2].Index = Index2;
 
-      // swap in list — SubItem indices: 0=#, 1=Preview (empty),
-      // 2=Name, 3=Size, 4=Used. The preview column is image-only so we
-      // leave its text alone; the row repaint picks up the new tile
-      // via Tag.
-      listTileInfo.Items[Index1].SubItems[2].Text = tile2.Name;
-      listTileInfo.Items[Index1].SubItems[3].Text = tile2.Chars.Width.ToString() + "x" + tile2.Chars.Height.ToString();
-      listTileInfo.Items[Index1].SubItems[4].Text = "0";
-      listTileInfo.Items[Index1].Tag = tile2;
+      if ( Charset == m_DisplayedCharset )
+      {
+        // swap in list — SubItem indices: 0=#, 1=Preview (empty),
+        // 2=Name, 3=Size, 4=Used. The preview column is image-only so we
+        // leave its text alone; the row repaint picks up the new tile
+        // via Tag.
+        listTileInfo.Items[Index1].SubItems[2].Text = tile2.Name;
+        listTileInfo.Items[Index1].SubItems[3].Text = tile2.Chars.Width.ToString() + "x" + tile2.Chars.Height.ToString();
+        listTileInfo.Items[Index1].SubItems[4].Text = "0";
+        listTileInfo.Items[Index1].Tag = tile2;
 
-      listTileInfo.Items[Index2].SubItems[2].Text = tile1.Name;
-      listTileInfo.Items[Index2].SubItems[3].Text = tile1.Chars.Width.ToString() + "x" + tile1.Chars.Height.ToString();
-      listTileInfo.Items[Index2].SubItems[4].Text = "0";
-      listTileInfo.Items[Index2].Tag = tile1;
+        listTileInfo.Items[Index2].SubItems[2].Text = tile1.Name;
+        listTileInfo.Items[Index2].SubItems[3].Text = tile1.Chars.Width.ToString() + "x" + tile1.Chars.Height.ToString();
+        listTileInfo.Items[Index2].SubItems[4].Text = "0";
+        listTileInfo.Items[Index2].Tag = tile1;
 
-      // swap in tile combo
-      GR.Generic.Tupel<string, Formats.MapProject.Tile>    tupel1 = (GR.Generic.Tupel<string, Formats.MapProject.Tile>)comboTiles.Items[Index1];
-      GR.Generic.Tupel<string, Formats.MapProject.Tile>    tupel2 = (GR.Generic.Tupel<string, Formats.MapProject.Tile>)comboTiles.Items[Index2];
+        // swap in tile combo
+        GR.Generic.Tupel<string, Formats.MapProject.Tile>    tupel1 = (GR.Generic.Tupel<string, Formats.MapProject.Tile>)comboTiles.Items[Index1];
+        GR.Generic.Tupel<string, Formats.MapProject.Tile>    tupel2 = (GR.Generic.Tupel<string, Formats.MapProject.Tile>)comboTiles.Items[Index2];
 
-      string    temp = tupel1.first;
-      tupel1.first = tupel2.first;
-      tupel2.first = temp;
+        string    temp = tupel1.first;
+        tupel1.first = tupel2.first;
+        tupel2.first = temp;
 
-      tupel1.second = tile2;
-      tupel2.second = tile1;
-         
-      comboTiles.Items[Index1] = tupel1;
-      comboTiles.Items[Index2] = tupel2;
+        tupel1.second = tile2;
+        tupel2.second = tile1;
 
-      foreach ( var map in AllEditableMaps() )
+        comboTiles.Items[Index1] = tupel1;
+        comboTiles.Items[Index2] = tupel2;
+      }
+
+      foreach ( var map in MapsBoundTo( Charset ) )
       {
         // Swap references on EVERY layer (not just Background) so upper-layer
         // tiles follow the reorder and the map stays visually identical.
@@ -13210,9 +13945,14 @@ namespace RetroDevStudio.Documents
 
       // Entity types reference tiles by index — keep them pointing at the
       // same visual tile after the swap so entity overlays don't silently
-      // start rendering a different tile.
+      // start rendering a different tile (types designed against this
+      // charset only).
       foreach ( var entityType in m_MapProject.EntityTypes )
       {
+        if ( m_MapProject.CharsetAt( entityType.PreviewCharsetIndex ) != Charset )
+        {
+          continue;
+        }
         if ( entityType.TileIndex == Index1 )
         {
           entityType.TileIndex = Index2;
@@ -13233,9 +13973,9 @@ namespace RetroDevStudio.Documents
       int index1 = listTileInfo.SelectedIndices[0];
       int index2 = listTileInfo.SelectedIndices[0] + 1;
 
-      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileExchange( this, m_MapProject, index1, index2 ) );
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileExchange( this, m_MapProject, ActiveCharset(), index1, index2 ) );
 
-      SwapTiles( index1, index2 );
+      SwapTiles( ActiveCharset(), index1, index2 );
 
       listTileInfo.SelectedIndices.Clear();
       listTileInfo.SelectedIndices.Add( index2 );
@@ -13357,10 +14097,14 @@ namespace RetroDevStudio.Documents
         return false;
       }
 
-      m_MapProject.Charset.Colors.BackgroundColor = cpProject.BackgroundColor;
-      m_MapProject.Charset.Colors.MultiColor1 = cpProject.MultiColor1;
-      m_MapProject.Charset.Colors.MultiColor2 = cpProject.MultiColor2;
-      m_MapProject.Charset.Colors.BGColor4 = cpProject.BackgroundColor4;
+      // A CharPad project replaces the charset shown on the Character Set
+      // tab (art, colors, tiles) and the project's maps with its map, which
+      // is bound to that charset.
+      var charset = EditedCharset();
+      charset.Charset.Colors.BackgroundColor = cpProject.BackgroundColor;
+      charset.Charset.Colors.MultiColor1 = cpProject.MultiColor1;
+      charset.Charset.Colors.MultiColor2 = cpProject.MultiColor2;
+      charset.Charset.Colors.BGColor4 = cpProject.BackgroundColor4;
 
       int maxChars = cpProject.NumChars;
       if ( maxChars > 256 )
@@ -13368,39 +14112,37 @@ namespace RetroDevStudio.Documents
         maxChars = 256;
       }
 
-      m_MapProject.Charset.ExportNumCharacters = maxChars;
-      for ( int charIndex = 0; charIndex < m_MapProject.Charset.ExportNumCharacters; ++charIndex )
+      charset.Charset.ExportNumCharacters = maxChars;
+      for ( int charIndex = 0; charIndex < charset.Charset.ExportNumCharacters; ++charIndex )
       {
-        m_MapProject.Charset.Characters[charIndex].Tile.Data = cpProject.Characters[charIndex].Data;
-        m_MapProject.Charset.Characters[charIndex].Tile.CustomColor = cpProject.Characters[charIndex].Color;
+        charset.Charset.Characters[charIndex].Tile.Data = cpProject.Characters[charIndex].Data;
+        charset.Charset.Characters[charIndex].Tile.CustomColor = cpProject.Characters[charIndex].Color;
 
-        RebuildCharImage( charIndex );
+        RebuildCharImage( charset, charIndex );
       }
 
       // import tiles
       m_MapProject.Maps.Clear();
       comboMaps.Items.Clear();
 
-      m_MapProject.Tiles.Clear();
-      comboTiles.Items.Clear();
-      listTileInfo.Items.Clear();
+      charset.Tiles.Clear();
 
       switch ( cpProject.DisplayModeFile )
       {
         case Formats.CharpadProject.DisplayMode.HIRES:
           comboMapProjectMode.SelectedIndex = (int)TextMode.COMMODORE_40_X_25_HIRES;
-          m_MapProject.Charset.Mode = TextCharMode.COMMODORE_HIRES;
+          charset.Charset.Mode = TextCharMode.COMMODORE_HIRES;
           break;
         case Formats.CharpadProject.DisplayMode.MULTICOLOR:
           comboMapProjectMode.SelectedIndex = (int)TextMode.COMMODORE_40_X_25_MULTICOLOR;
-          m_MapProject.Charset.Mode = TextCharMode.COMMODORE_MULTICOLOR;
+          charset.Charset.Mode = TextCharMode.COMMODORE_MULTICOLOR;
           break;
         case Formats.CharpadProject.DisplayMode.ECM:
           comboMapProjectMode.SelectedIndex = (int)TextMode.COMMODORE_40_X_25_ECM;
-          m_MapProject.Charset.Mode = TextCharMode.COMMODORE_ECM;
+          charset.Charset.Mode = TextCharMode.COMMODORE_ECM;
           break;
       }
-      characterEditor.CharsetUpdated( m_MapProject.Charset );
+      characterEditor.CharsetUpdated( charset.Charset );
 
       for ( int i = 0; i < cpProject.NumTiles; ++i )
       {
@@ -13418,24 +14160,11 @@ namespace RetroDevStudio.Documents
             tile.Chars[x, y].Color = cpProject.Tiles[i].ColorData.ByteAt( x + y * tile.Chars.Width );
           }
         }
-        m_MapProject.Tiles.Add( tile );
-        comboTiles.Items.Add( new GR.Generic.Tupel<string, Formats.MapProject.Tile>( tile.Name, tile ) );
-
-        ListViewItem item = new ListViewItem();
-
-        item.Text = tile.Index.ToString();
-        // Preview column — empty text; thumbnail painted by DrawItemImage.
-        item.SubItems.Add( "" );
-        item.SubItems.Add( tile.Name );
-        item.SubItems.Add( tile.Chars.Width.ToString() + "x" + tile.Chars.Height.ToString() );
-        item.SubItems.Add( "0" );
-        item.Tag = tile;
-        item.ImageIndex = 0;
-
-        listTileInfo.Items.Add( item );
+        charset.Tiles.Add( tile );
       }
 
       var map = new Formats.MapProject.Map();
+      map.CharsetIndex = CharsetIndexOf( charset );
       map.Tiles.Resize( cpProject.MapWidth, cpProject.MapHeight );
       // TileColorOverrides is char-grid — multiply by spacing.
       map.TileColorOverrides.Resize(
@@ -13465,13 +14194,18 @@ namespace RetroDevStudio.Documents
       }
       map.Name = "Imported Map";
       m_MapProject.Maps.Add( map );
-      comboMaps.Items.Add( new GR.Generic.Tupel<string, Formats.MapProject.Map>( map.Name, map ) );
+      comboMaps.Items.Add( new GR.Generic.Tupel<string, Formats.MapProject.Map>( FormatMapDisplayName( 0, map ), map ) );
       comboMaps.Enabled = true;
+      // Select the imported map: the populate binds the lists to its charset.
+      // The MapCharset object itself is unchanged, so the tile lists are
+      // rebuilt explicitly afterwards.
+      comboMaps.SelectedIndex = 0;
+      RefreshMapTileList();
 
-      comboTileBackground.SelectedIndex = m_MapProject.Charset.Colors.BackgroundColor;
-      comboTileMulticolor1.SelectedIndex = m_MapProject.Charset.Colors.MultiColor1;
-      comboTileMulticolor2.SelectedIndex = m_MapProject.Charset.Colors.MultiColor2;
-      comboTileBGColor4.SelectedIndex = m_MapProject.Charset.Colors.BGColor4;
+      comboTileBackground.SelectedIndex = charset.Charset.Colors.BackgroundColor;
+      comboTileMulticolor1.SelectedIndex = charset.Charset.Colors.MultiColor1;
+      comboTileMulticolor2.SelectedIndex = charset.Charset.Colors.MultiColor2;
+      comboTileBGColor4.SelectedIndex = charset.Charset.Colors.BGColor4;
 
       RedrawMap();
       SetModified();
@@ -13768,11 +14502,11 @@ namespace RetroDevStudio.Documents
       {
         if ( owner == comboMapMultiColor1 )
         {
-          colorToUse = m_MapProject.Charset.Colors.MultiColor1;
+          colorToUse = ActiveCharset().Charset.Colors.MultiColor1;
         }
         else if ( owner == comboMapMultiColor2 )
         {
-          colorToUse = m_MapProject.Charset.Colors.MultiColor2;
+          colorToUse = ActiveCharset().Charset.Colors.MultiColor2;
         }
         else
         {
@@ -13966,22 +14700,25 @@ namespace RetroDevStudio.Documents
 
 
 
-    public void TileModified( int TileIndex )
+    public void TileModified( Formats.MapProject.MapCharset Charset, int TileIndex )
     {
-      // force refresh
-      listTileInfo_SelectedIndexChanged( null, null );
-      listTileChars_SelectedIndexChanged( null, null );
-      if ( comboTiles.SelectedIndex == TileIndex )
+      if ( Charset == m_DisplayedCharset )
       {
-        comboTiles.Invalidate();
-      }
-      // Refresh just the modified row's thumbnail in the Tiles tab list.
-      // RedrawItems is cheaper than a full Invalidate and avoids visible
-      // flicker when the user paints quickly in the character editor.
-      if ( ( TileIndex >= 0 )
-      &&   ( TileIndex < listTileInfo.Items.Count ) )
-      {
-        listTileInfo.RedrawItems( TileIndex, TileIndex, false );
+        // force refresh
+        listTileInfo_SelectedIndexChanged( null, null );
+        listTileChars_SelectedIndexChanged( null, null );
+        if ( comboTiles.SelectedIndex == TileIndex )
+        {
+          comboTiles.Invalidate();
+        }
+        // Refresh just the modified row's thumbnail in the Tiles tab list.
+        // RedrawItems is cheaper than a full Invalidate and avoids visible
+        // flicker when the user paints quickly in the character editor.
+        if ( ( TileIndex >= 0 )
+        &&   ( TileIndex < listTileInfo.Items.Count ) )
+        {
+          listTileInfo.RedrawItems( TileIndex, TileIndex, false );
+        }
       }
       RedrawMap();
     }
@@ -13993,7 +14730,7 @@ namespace RetroDevStudio.Documents
       if ( m_MapProject.BGColor4 != comboTileBGColor4.SelectedIndex )
       {
         m_MapProject.BGColor4 = comboTileBGColor4.SelectedIndex;
-        m_MapProject.Charset.Colors.BGColor4 = m_MapProject.BGColor4;
+        ApplyProjectColorsToAllCharsets();
         SetModified();
         FullRebuild();
       }
@@ -14027,16 +14764,21 @@ namespace RetroDevStudio.Documents
 
         m_CurrentMap.AlternativeMode = (TextCharMode)( comboMapAlternativeMode.SelectedIndex - 1 );
 
-        switch ( m_CurrentMap.AlternativeMode )
+        // Palettes are project-wide: the machine palette goes into every
+        // charset (one Palette object per charset).
+        foreach ( var cs in m_MapProject.Charsets )
         {
-          case TextCharMode.COMMODORE_ECM:
-          case TextCharMode.COMMODORE_HIRES:
-          case TextCharMode.COMMODORE_MULTICOLOR:
-            m_MapProject.Charset.Colors.Palettes[0] = Core.Imaging.PaletteFromMachine( MachineType.C64 );
-            break;
-          case TextCharMode.VIC20:
-            m_MapProject.Charset.Colors.Palettes[0] = Core.Imaging.PaletteFromMachine( MachineType.VIC20 );
-            break;
+          switch ( m_CurrentMap.AlternativeMode )
+          {
+            case TextCharMode.COMMODORE_ECM:
+            case TextCharMode.COMMODORE_HIRES:
+            case TextCharMode.COMMODORE_MULTICOLOR:
+              cs.Charset.Colors.Palettes[0] = Core.Imaging.PaletteFromMachine( MachineType.C64 );
+              break;
+            case TextCharMode.VIC20:
+              cs.Charset.Colors.Palettes[0] = Core.Imaging.PaletteFromMachine( MachineType.VIC20 );
+              break;
+          }
         }
         RefreshOutlineStampBitmap();
         RedrawMap();
@@ -14064,7 +14806,7 @@ namespace RetroDevStudio.Documents
       if ( ( nextChar.Character != m_CurrentTileChar.Character )
       ||   ( nextChar.Color != m_CurrentTileChar.Color ) )
       {
-        DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, m_CurrentEditedTile.Index ) );
+        DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, ActiveCharset(), m_CurrentEditedTile.Index ) );
 
         nextChar.Character = m_CurrentTileChar.Character;
         nextChar.Color = m_CurrentTileChar.Color;
@@ -14100,7 +14842,7 @@ namespace RetroDevStudio.Documents
       if ( ( nextChar.Character != (byte)( m_CurrentTileChar.Character + 1 ) )
       ||   ( nextChar.Color != m_CurrentColor ) )
       {
-        DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, m_CurrentEditedTile.Index ) );
+        DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, ActiveCharset(), m_CurrentEditedTile.Index ) );
 
         nextChar.Character  = (byte)( m_CurrentTileChar.Character + 1 );
         nextChar.Color      = m_CurrentTileChar.Color;
@@ -14161,7 +14903,7 @@ namespace RetroDevStudio.Documents
         if ( _TileDisplayMouseReleased )
         {
           _TileDisplayMouseReleased = false;
-          DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, m_CurrentEditedTile.Index ) );
+          DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, ActiveCharset(), m_CurrentEditedTile.Index ) );
         }
 
         curChar.Character = m_CurrentChar;
@@ -14286,8 +15028,9 @@ namespace RetroDevStudio.Documents
       {
         return;
       }
+      var     charset = ActiveCharset();
       var     clonedTile = new Formats.MapProject.Tile();
-      clonedTile.Name = MakeTileNameUnique( m_CurrentEditedTile.Name );
+      clonedTile.Name = MakeTileNameUnique( charset, m_CurrentEditedTile.Name );
 
       clonedTile.Chars.Resize( m_CurrentEditedTile.Chars.Width, m_CurrentEditedTile.Chars.Height );
 
@@ -14301,21 +15044,21 @@ namespace RetroDevStudio.Documents
         }
       }
 
-      int indexToInsertAt = m_MapProject.Tiles.Count;
+      int indexToInsertAt = charset.Tiles.Count;
       if ( listTileInfo.SelectedIndices.Count > 0 )
       {
         indexToInsertAt = listTileInfo.SelectedIndices[0] + 1;
       }
-      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileAdd( this, m_MapProject, indexToInsertAt ) );
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileAdd( this, m_MapProject, charset, indexToInsertAt ) );
 
-      AddTile( indexToInsertAt, clonedTile );
+      AddTile( charset, indexToInsertAt, clonedTile );
     }
 
 
 
-    private string MakeTileNameUnique( string OrigName )
+    private string MakeTileNameUnique( Formats.MapProject.MapCharset Charset, string OrigName )
     {
-      if ( !m_MapProject.Tiles.Any( t => t.Name == OrigName ) )
+      if ( !Charset.Tiles.Any( t => t.Name == OrigName ) )
       {
         return OrigName;
       }
@@ -14336,7 +15079,7 @@ namespace RetroDevStudio.Documents
       
       string  newName = OrigName + " " + copyIndex;
 
-      while ( m_MapProject.Tiles.Any( t => t.Name == newName ) )
+      while ( Charset.Tiles.Any( t => t.Name == newName ) )
       {
         ++copyIndex;
         newName = OrigName + " " + copyIndex;
@@ -14348,11 +15091,14 @@ namespace RetroDevStudio.Documents
 
     private void characterEditor_Modified( List<int> AffectedChars )
     {
+      // The character editor renders into the edited charset's Tile.Image
+      // bitmaps; the picker shares them when that charset is the displayed one.
       panelCharacters.Invalidate();
       RedrawMap();
       RedrawColorChooser();
       RedrawTile();
-      SetModified();
+      // The property setter (not SetModified) also enables the save-charset menu item.
+      Modified = true;
     }
 
 
@@ -14588,7 +15334,7 @@ namespace RetroDevStudio.Documents
         {
           bgColorIndex = (uint)m_CurrentMap.AlternativeBackgroundColor;
         }
-        uint bgARGB = (uint)m_MapProject.Charset.Colors.Palette.ColorValues[bgColorIndex];
+        uint bgARGB = (uint)ActiveCharset().Charset.Colors.Palette.ColorValues[bgColorIndex];
 
         // Sprites follow the editor's Show checkbox and render/animate with
         // the exact same code paths (shared instance state).
@@ -14686,14 +15432,14 @@ namespace RetroDevStudio.Documents
       {
         bgColor = (uint)m_CurrentMap.AlternativeBackgroundColor;
       }
-      fullImage.Box( 0, 0, fullImage.Width, fullImage.Height, m_MapProject.Charset.Colors.Palette.ColorValues[bgColor] );
+      fullImage.Box( 0, 0, fullImage.Width, fullImage.Height, ActiveCharset().Charset.Colors.Palette.ColorValues[bgColor] );
 
       int spacingX = Math.Max( 1, m_CurrentMap.TileSpacingX );
       int spacingY = Math.Max( 1, m_CurrentMap.TileSpacingY );
       bool needsCoverage = false;
-      for ( int i = 0; i < m_MapProject.Tiles.Count; ++i )
+      for ( int i = 0; i < ActiveCharset().Tiles.Count; ++i )
       {
-        var tileToCheck = m_MapProject.Tiles[i];
+        var tileToCheck = ActiveCharset().Tiles[i];
         if ( ( tileToCheck.Chars.Width > spacingX )
         ||   ( tileToCheck.Chars.Height > spacingY ) )
         {
@@ -14733,12 +15479,12 @@ namespace RetroDevStudio.Documents
             }
             var tileIndex = renderLayer.Tiles[x, y];
             if ( ( tileIndex < 0 )
-            ||   ( tileIndex >= m_MapProject.Tiles.Count ) )
+            ||   ( tileIndex >= ActiveCharset().Tiles.Count ) )
             {
               // transparent cell on this layer -> shows the layer below
               continue;
             }
-            var tile = m_MapProject.Tiles[tileIndex];
+            var tile = ActiveCharset().Tiles[tileIndex];
 
             var alternativeSettings = new Types.AlternativeColorSettings()
             {
@@ -14768,7 +15514,7 @@ namespace RetroDevStudio.Documents
                 alternativeSettings.CustomColor = ( charOverride >= 0 )
                                                   ? charOverride
                                                   : tile.Chars[i, j].Color;
-                Displayer.CharacterDisplayer.DisplayChar( m_MapProject.Charset,
+                Displayer.CharacterDisplayer.DisplayChar( ActiveCharset().Charset,
                                                           tile.Chars[i, j].Character,
                                                           fullImage,
                                                           ( x * m_CurrentMap.TileSpacingX + i ) * 8,
@@ -14835,17 +15581,17 @@ namespace RetroDevStudio.Documents
           continue;
         }
         if ( ( type.TileIndex < 0 )
-        ||   ( type.TileIndex >= m_MapProject.Tiles.Count ) )
+        ||   ( type.TileIndex >= ActiveCharset().Tiles.Count ) )
         {
           continue;
         }
-        var tile = m_MapProject.Tiles[type.TileIndex];
+        var tile = ActiveCharset().Tiles[type.TileIndex];
         for ( int j = 0; j < tile.Chars.Height; ++j )
         {
           for ( int i = 0; i < tile.Chars.Width; ++i )
           {
             alternativeSettings.CustomColor = tile.Chars[i, j].Color;
-            Displayer.CharacterDisplayer.DisplayChar( m_MapProject.Charset,
+            Displayer.CharacterDisplayer.DisplayChar( ActiveCharset().Charset,
                                                       tile.Chars[i, j].Character,
                                                       fullImage,
                                                       ( entity.X * m_CurrentMap.TileSpacingX + i ) * 8,
@@ -14871,13 +15617,14 @@ namespace RetroDevStudio.Documents
       }
       string    extension = GR.Path.GetExtension( saveDlg.FileName );
 
+      // The charset shown on the Character Set tab.
       if ( extension.ToUpper() == ".CHARSETPROJECT" )
       {
-        GR.IO.File.WriteAllBytes( saveDlg.FileName, m_MapProject.Charset.SaveToBuffer() );
+        GR.IO.File.WriteAllBytes( saveDlg.FileName, EditedCharset().Charset.SaveToBuffer() );
       }
       else
       {
-        GR.IO.File.WriteAllBytes( saveDlg.FileName, m_MapProject.Charset.SaveCharsetToBuffer() );
+        GR.IO.File.WriteAllBytes( saveDlg.FileName, EditedCharset().Charset.SaveCharsetToBuffer() );
       }
     }
 
@@ -14984,11 +15731,13 @@ namespace RetroDevStudio.Documents
 
     private void characterEditor_CharactersShifted( int[] OldToNew, int[] NewToOld )
     {
-      for ( int i = 0; i < m_MapProject.Tiles.Count; ++i )
+      // Only the edited charset's own tile library references its characters.
+      var charset = EditedCharset();
+      for ( int i = 0; i < charset.Tiles.Count; ++i )
       {
-        DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, i ), false );
+        DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, charset, i ), false );
       }
-      foreach ( var tile in m_MapProject.Tiles )
+      foreach ( var tile in charset.Tiles )
       {
         for ( int i = 0; i < tile.Chars.Width; ++i )
         {
@@ -14998,11 +15747,11 @@ namespace RetroDevStudio.Documents
           }
         }
       }
-      for ( int i = 0; i < m_MapProject.Charset.TotalNumberOfCharacters; ++i )
+      for ( int i = 0; i < charset.Charset.TotalNumberOfCharacters; ++i )
       {
-        RebuildCharImage( i );
-        panelCharacters.Items[i].MemoryImage = m_MapProject.Charset.Characters[i].Tile.Image;
+        RebuildCharImage( charset, i );
       }
+      panelCharacters.Invalidate();
       UpdateCurrentTileCharacterList();
       RedrawMap();
       RedrawTile();
@@ -15017,17 +15766,11 @@ namespace RetroDevStudio.Documents
       m_MapProject.Mode = (TextMode)comboMapProjectMode.SelectedIndex;
 
       // TODO - that should change all kind of values inside the charset! (TotalNumberOfCharacters!)
-      m_MapProject.Charset.Mode         = Lookup.TextCharModeFromTextMode( m_MapProject.Mode );
-      characterEditor.CharsetUpdated( m_MapProject.Charset );
+      ApplyProjectModeToAllCharsets();
+      characterEditor.CharsetUpdated( EditedCharset().Charset );
 
-      m_MapProject.Charset.Colors.Palettes[0] = Core.Imaging.PaletteFromMachine( Lookup.MachineTypeFromTextMode( m_MapProject.Mode ) );
-
-      for ( int i = 0; i < m_MapProject.Charset.TotalNumberOfCharacters; ++i )
-      {
-        RebuildCharImage( i );
-      }
+      RebuildDisplayedCharImages();
       Modified = true;
-      panelCharacters.Invalidate();
       RedrawColorChooser();
       RefreshOutlineStampBitmap();
       RedrawMap();
@@ -15256,7 +15999,7 @@ namespace RetroDevStudio.Documents
     private void btnImport_Click( DecentForms.ControlBase Sender )
     {
       // Undo?
-      var undo = new Undo.UndoMapCharsetChange( m_MapProject, this );
+      var undo = new Undo.UndoMapCharsetChange( EditedCharset(), this );
 
       if ( m_ImportForm.HandleImport( m_MapProject, this ) )
       {
@@ -15294,9 +16037,16 @@ namespace RetroDevStudio.Documents
 
 
 
-    internal void CharsetChanged()
+    internal void CharsetChanged( Formats.MapProject.MapCharset Charset )
     {
-      characterEditor.CharsetUpdated( m_MapProject.Charset );
+      if ( Charset == EditedCharset() )
+      {
+        characterEditor.CharsetUpdated( Charset.Charset );
+      }
+      if ( Charset == m_DisplayedCharset )
+      {
+        RebuildDisplayedCharImages();
+      }
       RedrawMap();
       RedrawColorChooser();
       RedrawTile();
@@ -15312,20 +16062,23 @@ namespace RetroDevStudio.Documents
           {
             bool  prevModified = Modified;
 
-            if ( !string.IsNullOrEmpty( Event.OriginalValue ) )
+            foreach ( var cs in m_MapProject.Charsets )
             {
-              Core.Imaging.ApplyPalette( (PaletteType)Enum.Parse( typeof( PaletteType ), Event.OriginalValue, true ),
-                                         Lookup.PaletteTypeFromTextCharMode( m_MapProject.Charset.Mode ),
-                                         m_MapProject.Charset.Colors );
-            }
-            else
-            {
-              Core.Imaging.ApplyPalette( Lookup.PaletteTypeFromTextCharMode( m_MapProject.Charset.Mode ),
-                                         Lookup.PaletteTypeFromTextCharMode( m_MapProject.Charset.Mode ),
-                                         m_MapProject.Charset.Colors );
-
+              if ( !string.IsNullOrEmpty( Event.OriginalValue ) )
+              {
+                Core.Imaging.ApplyPalette( (PaletteType)Enum.Parse( typeof( PaletteType ), Event.OriginalValue, true ),
+                                           Lookup.PaletteTypeFromTextCharMode( cs.Charset.Mode ),
+                                           cs.Charset.Colors );
+              }
+              else
+              {
+                Core.Imaging.ApplyPalette( Lookup.PaletteTypeFromTextCharMode( cs.Charset.Mode ),
+                                           Lookup.PaletteTypeFromTextCharMode( cs.Charset.Mode ),
+                                           cs.Charset.Colors );
+              }
             }
             characterEditor.ColorsChanged();
+            RebuildDisplayedCharImages();
             RedrawMap();
             RedrawColorChooser();
             RedrawTile();
@@ -15887,9 +16640,9 @@ namespace RetroDevStudio.Documents
       int oldIndex = ActiveTiles[x, y];
       int undoW = 1, undoH = 1;
       if ( ( oldIndex >= 0 )
-      &&   ( oldIndex < m_MapProject.Tiles.Count ) )
+      &&   ( oldIndex < ActiveCharset().Tiles.Count ) )
       {
-        GetTileCellFootprint( m_MapProject.Tiles[oldIndex], out undoW, out undoH );
+        GetTileCellFootprint( ActiveCharset().Tiles[oldIndex], out undoW, out undoH );
       }
       DocumentInfo.UndoManager.AddUndoTask(
         new Undo.UndoMapTilesChange( this, m_CurrentMap, x, y, undoW, undoH, m_ActiveLayerIndex ) );
@@ -15905,9 +16658,9 @@ namespace RetroDevStudio.Documents
       int clrFootprintX = m_CurrentMap.TileSpacingX;
       int clrFootprintY = m_CurrentMap.TileSpacingY;
       if ( ( oldIndex >= 0 )
-      &&   ( oldIndex < m_MapProject.Tiles.Count ) )
+      &&   ( oldIndex < ActiveCharset().Tiles.Count ) )
       {
-        var oldTile = m_MapProject.Tiles[oldIndex];
+        var oldTile = ActiveCharset().Tiles[oldIndex];
         if ( oldTile.Chars.Width  > clrFootprintX ) clrFootprintX = oldTile.Chars.Width;
         if ( oldTile.Chars.Height > clrFootprintY ) clrFootprintY = oldTile.Chars.Height;
       }
@@ -18760,10 +19513,10 @@ namespace RetroDevStudio.Documents
 
       // 2. Project charset fallback.
       if ( m_MapProject == null ) return null;
-      if ( m_MapProject.Charset == null ) return null;
-      if ( m_MapProject.Charset.Characters == null ) return null;
-      if ( ScreenCode < 0 || ScreenCode >= m_MapProject.Charset.Characters.Count ) return null;
-      var ch = m_MapProject.Charset.Characters[ScreenCode];
+      if ( ActiveCharset().Charset == null ) return null;
+      if ( ActiveCharset().Charset.Characters == null ) return null;
+      if ( ScreenCode < 0 || ScreenCode >= ActiveCharset().Charset.Characters.Count ) return null;
+      var ch = ActiveCharset().Charset.Characters[ScreenCode];
       if ( ch == null || ch.Tile == null ) return null;
       var data = ch.Tile.Data;
       if ( data == null || data.Length < 8 ) return null;
@@ -18797,8 +19550,8 @@ namespace RetroDevStudio.Documents
       comboMarkerTypes.Items.Clear();
       comboMarkerTypes.Items.Add( "None" );
 
-      var palette = ( ( m_MapProject.Charset != null ) && ( m_MapProject.Charset.Colors != null ) )
-                  ? m_MapProject.Charset.Colors.Palette : null;
+      var palette = ( ( ActiveCharset().Charset != null ) && ( ActiveCharset().Charset.Colors != null ) )
+                  ? ActiveCharset().Charset.Colors.Palette : null;
       foreach ( var type in m_MapProject.MarkerTypes )
       {
         System.Drawing.Color bg = System.Drawing.Color.Gray;
@@ -20450,7 +21203,7 @@ namespace RetroDevStudio.Documents
        // Or grab from item? The list was populated with "00", "01"...
        // But we just want the color.
 
-       uint color = m_MapProject.Charset.Colors.Palette.ColorValues[colorIndex];
+       uint color = ActiveCharset().Charset.Colors.Palette.ColorValues[colorIndex];
 
        using ( var brush = new System.Drawing.SolidBrush( System.Drawing.Color.FromArgb( (int)color ) ) )
        {
@@ -20538,7 +21291,7 @@ namespace RetroDevStudio.Documents
         // filling the rest of the row width (minus a small right margin),
         // with a thin black border.
         int colorIndex = e.Index - 1;
-        uint color = m_MapProject.Charset.Colors.Palette.ColorValues[colorIndex];
+        uint color = ActiveCharset().Charset.Colors.Palette.ColorValues[colorIndex];
 
         // Reserve a fixed column on the left for the index text. 26 px
         // is enough for two digits in the editor's typical font; if the
@@ -20635,8 +21388,8 @@ namespace RetroDevStudio.Documents
 
       int tileIndex = ActiveTiles[sx, sy];
       if ( ( tileIndex < 0 )
-      ||   ( tileIndex >= m_MapProject.Tiles.Count ) ) return;
-      var tile = m_MapProject.Tiles[tileIndex];
+      ||   ( tileIndex >= ActiveCharset().Tiles.Count ) ) return;
+      var tile = ActiveCharset().Tiles[tileIndex];
 
       // Snapshot the affected tile-cell footprint BEFORE mutating so
       // undo restores both Tiles[] (no change here, but the snapshot
@@ -20728,8 +21481,8 @@ namespace RetroDevStudio.Documents
       ||   ( tileX >= m_CurrentMap.Tiles.Width )
       ||   ( tileY >= m_CurrentMap.Tiles.Height ) ) return -1;
       int tileIndex = ActiveTiles[tileX, tileY];
-      if ( ( tileIndex < 0 ) || ( tileIndex >= m_MapProject.Tiles.Count ) ) return -1;
-      var tile = m_MapProject.Tiles[tileIndex];
+      if ( ( tileIndex < 0 ) || ( tileIndex >= ActiveCharset().Tiles.Count ) ) return -1;
+      var tile = ActiveCharset().Tiles[tileIndex];
       int localX = charMapX - tileX * spacingX;
       int localY = charMapY - tileY * spacingY;
       if ( ( localX < 0 ) || ( localY < 0 )
@@ -20844,8 +21597,8 @@ namespace RetroDevStudio.Documents
 
           int tileIndex = bsTiles[tx, ty];
           if ( ( tileIndex < 0 )
-          ||   ( tileIndex >= m_MapProject.Tiles.Count ) ) continue;
-          var tile = m_MapProject.Tiles[tileIndex];
+          ||   ( tileIndex >= ActiveCharset().Tiles.Count ) ) continue;
+          var tile = ActiveCharset().Tiles[tileIndex];
 
           // Walk the tile's full char footprint (max(spacing, Chars
           // dims)) so when spacing < Chars dims (e.g. spacing=1 on a
@@ -20995,9 +21748,9 @@ namespace RetroDevStudio.Documents
       {
         int placedTileIndex = ActiveTiles[cellX, cellY];
         if ( ( placedTileIndex >= 0 )
-        &&   ( placedTileIndex < m_MapProject.Tiles.Count ) )
+        &&   ( placedTileIndex < ActiveCharset().Tiles.Count ) )
         {
-          var placedTile = m_MapProject.Tiles[placedTileIndex];
+          var placedTile = ActiveCharset().Tiles[placedTileIndex];
           if ( placedTile.Chars.Width  > footprintX ) footprintX = placedTile.Chars.Width;
           if ( placedTile.Chars.Height > footprintY ) footprintY = placedTile.Chars.Height;
         }
@@ -21143,7 +21896,8 @@ namespace RetroDevStudio.Documents
       var newType = new MapProject.EntityType();
       newType.Name = name;
       newType.ExportSymbol = editEntityExportSymbol.Text ?? "";
-      newType.TileIndex = (int)editEntityTileIndex.Value;
+      newType.TileIndex = EntityTileFromCombo();
+      newType.PreviewCharsetIndex = Math.Max( 0, comboEntityPreviewCharset.SelectedIndex );
       newType.TagID = tagID;
       newType.ID = 0;
       if ( m_MapProject.EntityTypes.Count > 0 )
@@ -21192,7 +21946,8 @@ namespace RetroDevStudio.Documents
 
       type.Name = editEntityName.Text;
       type.ExportSymbol = editEntityExportSymbol.Text ?? "";
-      type.TileIndex = (int)editEntityTileIndex.Value;
+      type.TileIndex = EntityTileFromCombo();
+      type.PreviewCharsetIndex = Math.Max( 0, comboEntityPreviewCharset.SelectedIndex );
       type.TagID = newTagID;
 
       RefreshEntityTypes();
@@ -21288,8 +22043,19 @@ namespace RetroDevStudio.Documents
       var type = m_MapProject.EntityTypes[listEntityTypes.SelectedIndex];
       editEntityName.Text = type.Name;
       editEntityExportSymbol.Text = type.ExportSymbol ?? "";
-      editEntityTileIndex.Value = Math.Max( editEntityTileIndex.Minimum,
-                                             Math.Min( editEntityTileIndex.Maximum, type.TileIndex ) );
+      // Preview charset first (its handler rebuilds the tile list), then the tile.
+      int previewIndex = type.PreviewCharsetIndex;
+      if ( ( previewIndex < 0 )
+      ||   ( previewIndex >= comboEntityPreviewCharset.Items.Count ) )
+      {
+        previewIndex = 0;
+      }
+      if ( ( previewIndex < comboEntityPreviewCharset.Items.Count )
+      &&   ( comboEntityPreviewCharset.SelectedIndex != previewIndex ) )
+      {
+        comboEntityPreviewCharset.SelectedIndex = previewIndex;
+      }
+      SetEntityTileCombo( type.TileIndex );
       editEntityTagID.Value = type.TagID;
     }
 
@@ -21299,7 +22065,8 @@ namespace RetroDevStudio.Documents
     {
       editEntityName.Enabled         = Enabled;
       editEntityExportSymbol.Enabled = Enabled;
-      editEntityTileIndex.Enabled    = Enabled;
+      comboEntityPreviewCharset.Enabled = Enabled;
+      comboEntityTile.Enabled        = Enabled;
       editEntityTagID.Enabled        = Enabled;
       // The two helper buttons feed the spinners above — same gate.
       btnEntityTileFromSelection.Enabled = Enabled;
@@ -21374,8 +22141,15 @@ namespace RetroDevStudio.Documents
         return;
       }
       int tileIndex = listTileInfo.SelectedIndices[0];
-      editEntityTileIndex.Value = Math.Max( editEntityTileIndex.Minimum,
-        Math.Min( editEntityTileIndex.Maximum, tileIndex ) );
+      // The Tiles tab lists the current map's charset — preview it there.
+      int charsetIndex = CharsetIndexOf( ActiveCharset() );
+      if ( ( charsetIndex >= 0 )
+      &&   ( charsetIndex < comboEntityPreviewCharset.Items.Count )
+      &&   ( comboEntityPreviewCharset.SelectedIndex != charsetIndex ) )
+      {
+        comboEntityPreviewCharset.SelectedIndex = charsetIndex;
+      }
+      SetEntityTileCombo( tileIndex );
     }
 
     private void editEntityExportSymbol_KeyPress( object sender, KeyPressEventArgs e )
@@ -22669,6 +23443,7 @@ namespace RetroDevStudio.Documents
     private void ArmOutlineTileStamp( int TileIndex )
     {
       m_OutlineStampTileIndex = TileIndex;
+      m_OutlineStampCharset   = ActiveCharset();
       RefreshOutlineStampBitmap();
       if ( ( m_OutlineStampBitmap != null )
       &&   ( !btnOutlineToolStamp.Checked ) )
@@ -22693,13 +23468,17 @@ namespace RetroDevStudio.Documents
         m_OutlineStampBitmap.Dispose();
         m_OutlineStampBitmap = null;
       }
+      // A stamp armed from another charset's library is disarmed (the index
+      // means a different tile there).
       if ( ( m_OutlineStampTileIndex < 0 )
-      ||   ( m_OutlineStampTileIndex >= m_MapProject.Tiles.Count ) )
+      ||   ( m_OutlineStampCharset != ActiveCharset() )
+      ||   ( m_OutlineStampTileIndex >= ActiveCharset().Tiles.Count ) )
       {
         m_OutlineStampTileIndex = -1;
+        m_OutlineStampCharset   = null;
         return;
       }
-      m_OutlineStampBitmap = RenderTileToBitmap( m_MapProject.Tiles[m_OutlineStampTileIndex] );
+      m_OutlineStampBitmap = RenderTileToBitmap( ActiveCharset(), ActiveCharset().Tiles[m_OutlineStampTileIndex] );
       outlineCanvas.StampImage = m_OutlineStampBitmap;
     }
 
@@ -22711,7 +23490,7 @@ namespace RetroDevStudio.Documents
     /// image copy uses, minus per-char map overrides (a stamp has no map
     /// position).
     /// </summary>
-    private System.Drawing.Bitmap RenderTileToBitmap( Formats.MapProject.Tile Tile )
+    private System.Drawing.Bitmap RenderTileToBitmap( Formats.MapProject.MapCharset Charset, Formats.MapProject.Tile Tile )
     {
       if ( ( Tile == null )
       ||   ( Tile.Chars.Width <= 0 )
@@ -22739,7 +23518,7 @@ namespace RetroDevStudio.Documents
         for ( int i = 0; i < Tile.Chars.Width; ++i )
         {
           alternativeSettings.CustomColor = Tile.Chars[i, j].Color;
-          Displayer.CharacterDisplayer.DisplayChar( m_MapProject.Charset, Tile.Chars[i, j].Character,
+          Displayer.CharacterDisplayer.DisplayChar( Charset.Charset, Tile.Chars[i, j].Character,
                                                     image, i * 8, j * 8, alternativeSettings );
         }
       }
@@ -24714,9 +25493,9 @@ namespace RetroDevStudio.Documents
       // Build the set of GroupIds in use, excluding the current
       // tile's own id (so it can keep its slot if already free).
       var inUse = new System.Collections.Generic.HashSet<int>();
-      for ( int i = 0; i < m_MapProject.Tiles.Count; ++i )
+      for ( int i = 0; i < ActiveCharset().Tiles.Count; ++i )
       {
-        var t = m_MapProject.Tiles[i];
+        var t = ActiveCharset().Tiles[i];
         if ( t == m_CurrentEditedTile ) continue;
         inUse.Add( t.GroupId );
       }
@@ -24732,7 +25511,7 @@ namespace RetroDevStudio.Documents
       }
 
       DocumentInfo.UndoManager.AddUndoTask(
-        new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
+        new Undo.UndoMapTileModified( this, m_MapProject, ActiveCharset(), listTileInfo.SelectedIndices[0] ) );
       m_CurrentEditedTile.GroupId = candidate;
       editTileGroupId.Text = candidate.ToString();
       SetModified();
@@ -24793,7 +25572,7 @@ namespace RetroDevStudio.Documents
         int groupId = GR.Convert.ToI32( editTileGroupId.Text );
         if ( m_CurrentEditedTile.GroupId != groupId )
         {
-          DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, listTileInfo.SelectedIndices[0] ) );
+          DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileModified( this, m_MapProject, ActiveCharset(), listTileInfo.SelectedIndices[0] ) );
           m_CurrentEditedTile.GroupId = groupId;
           SetModified();
         }
@@ -25206,6 +25985,7 @@ namespace RetroDevStudio.Documents
       if ( comboMapAlternativeBGColor4 != null ) comboMapAlternativeBGColor4.Enabled = enabled;
       if ( comboMapAlternativeMode != null ) comboMapAlternativeMode.Enabled = enabled;
       if ( checkMapNotExported != null )     checkMapNotExported.Enabled     = enabled;
+      if ( comboMapCharset != null )         comboMapCharset.Enabled         = enabled;
       // Extra data is now in a dialog opened from Tools — gate the menu
       // item itself so the dialog can't be opened while read-only.
       if ( editExtraDataToolStripMenuItem != null ) editExtraDataToolStripMenuItem.Enabled = enabled;
@@ -25411,6 +26191,8 @@ namespace RetroDevStudio.Documents
       m_LiveMap.MarkerDimOpacity            = fresh.MarkerDimOpacity;
       m_LiveMap.AlternativeMode             = fresh.AlternativeMode;
       m_LiveMap.MemoRTF                     = fresh.MemoRTF;
+      m_LiveMap.CharsetIndex                = fresh.CharsetIndex;
+      MirrorCharsetIndexToScratch( m_LiveMap );
 
       // Revert always lands the user back on the live (now editable) map.
       m_CurrentMap = m_LiveMap;

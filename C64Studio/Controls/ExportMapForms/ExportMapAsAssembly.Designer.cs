@@ -55,12 +55,9 @@ namespace RetroDevStudio.Controls
             this.labelExportDirectory = new System.Windows.Forms.Label();
             this.checkSaveOnExport = new System.Windows.Forms.CheckBox();
             this.groupCharset = new System.Windows.Forms.GroupBox();
-            this.editCharsetExportFilename = new System.Windows.Forms.TextBox();
-            this.labelCharsetExportFilename = new System.Windows.Forms.Label();
             this.btnBrowseCharsetExportDirectory = new System.Windows.Forms.Button();
             this.editCharsetExportDirectory = new System.Windows.Forms.TextBox();
             this.labelCharsetExportDirectory = new System.Windows.Forms.Label();
-            this.checkExportCharset = new System.Windows.Forms.CheckBox();
             this.checkCharsetPrefixLoadAddress = new System.Windows.Forms.CheckBox();
             this.editCharsetPrefixLoadAddress = new System.Windows.Forms.TextBox();
             this.checkAlwaysOverwrite = new System.Windows.Forms.CheckBox();
@@ -343,12 +340,9 @@ namespace RetroDevStudio.Controls
             // 
             // groupCharset
             // 
-            this.groupCharset.Controls.Add(this.editCharsetExportFilename);
-            this.groupCharset.Controls.Add(this.labelCharsetExportFilename);
             this.groupCharset.Controls.Add(this.btnBrowseCharsetExportDirectory);
             this.groupCharset.Controls.Add(this.editCharsetExportDirectory);
             this.groupCharset.Controls.Add(this.labelCharsetExportDirectory);
-            this.groupCharset.Controls.Add(this.checkExportCharset);
             this.groupCharset.Controls.Add(this.editCharsetPrefixLoadAddress);
             this.groupCharset.Controls.Add(this.checkCharsetPrefixLoadAddress);
             this.groupCharset.Location = new System.Drawing.Point(3, 325);
@@ -356,29 +350,11 @@ namespace RetroDevStudio.Controls
             this.groupCharset.Size = new System.Drawing.Size(397, 120);
             this.groupCharset.TabIndex = 23;
             this.groupCharset.TabStop = false;
-            this.groupCharset.Text = "Character Set";
-            // 
-            // editCharsetExportFilename
-            // 
-            this.editCharsetExportFilename.Enabled = false;
-            this.editCharsetExportFilename.Location = new System.Drawing.Point(97, 65);
-            this.editCharsetExportFilename.Name = "editCharsetExportFilename";
-            this.editCharsetExportFilename.Size = new System.Drawing.Size(214, 20);
-            this.editCharsetExportFilename.TabIndex = 5;
-            this.editCharsetExportFilename.TextChanged += new System.EventHandler(this.HandleSettingsChanged);
-            // 
-            // labelCharsetExportFilename
-            // 
-            this.labelCharsetExportFilename.AutoSize = true;
-            this.labelCharsetExportFilename.Location = new System.Drawing.Point(6, 68);
-            this.labelCharsetExportFilename.Name = "labelCharsetExportFilename";
-            this.labelCharsetExportFilename.Size = new System.Drawing.Size(82, 13);
-            this.labelCharsetExportFilename.TabIndex = 4;
-            this.labelCharsetExportFilename.Text = "Export filename:";
+            this.groupCharset.Text = "Character Sets (a file per set with \"Export character set\" enabled on the Character Set tab)";
             // 
             // btnBrowseCharsetExportDirectory
             // 
-            this.btnBrowseCharsetExportDirectory.Enabled = false;
+            this.btnBrowseCharsetExportDirectory.Enabled = true;
             this.btnBrowseCharsetExportDirectory.Location = new System.Drawing.Point(317, 37);
             this.btnBrowseCharsetExportDirectory.Name = "btnBrowseCharsetExportDirectory";
             this.btnBrowseCharsetExportDirectory.Size = new System.Drawing.Size(75, 23);
@@ -389,7 +365,7 @@ namespace RetroDevStudio.Controls
             // 
             // editCharsetExportDirectory
             // 
-            this.editCharsetExportDirectory.Enabled = false;
+            this.editCharsetExportDirectory.Enabled = true;
             this.editCharsetExportDirectory.Location = new System.Drawing.Point(97, 39);
             this.editCharsetExportDirectory.Name = "editCharsetExportDirectory";
             this.editCharsetExportDirectory.Size = new System.Drawing.Size(214, 20);
@@ -404,17 +380,6 @@ namespace RetroDevStudio.Controls
             this.labelCharsetExportDirectory.Size = new System.Drawing.Size(83, 13);
             this.labelCharsetExportDirectory.TabIndex = 1;
             this.labelCharsetExportDirectory.Text = "Export directory:";
-            // 
-            // checkExportCharset
-            // 
-            this.checkExportCharset.AutoSize = true;
-            this.checkExportCharset.Location = new System.Drawing.Point(6, 19);
-            this.checkExportCharset.Name = "checkExportCharset";
-            this.checkExportCharset.Size = new System.Drawing.Size(121, 17);
-            this.checkExportCharset.TabIndex = 0;
-            this.checkExportCharset.Text = "Export character set";
-            this.checkExportCharset.UseVisualStyleBackColor = true;
-            this.checkExportCharset.CheckedChanged += new System.EventHandler(this.checkExportCharset_CheckedChanged);
             // 
             // checkCharsetPrefixLoadAddress
             // 
@@ -587,12 +552,9 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.GroupBox groupCharset;
     private System.Windows.Forms.GroupBox groupPrefixCode;
     private System.Windows.Forms.TextBox editPrefixCode;
-    private System.Windows.Forms.TextBox editCharsetExportFilename;
-    private System.Windows.Forms.Label labelCharsetExportFilename;
     private System.Windows.Forms.Button btnBrowseCharsetExportDirectory;
     private System.Windows.Forms.TextBox editCharsetExportDirectory;
     private System.Windows.Forms.Label labelCharsetExportDirectory;
-    private System.Windows.Forms.CheckBox checkExportCharset;
     private System.Windows.Forms.CheckBox checkAlwaysOverwrite;
     private System.Windows.Forms.CheckBox checkExportMapAsCharAndColors;
     private System.Windows.Forms.CheckBox checkExportPassableBitfields;

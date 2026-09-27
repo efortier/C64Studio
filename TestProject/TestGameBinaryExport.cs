@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using GR.Memory;
@@ -42,7 +42,25 @@ namespace TestProject
     const int HDR_MAP_ENTITY_COUNT  = 0x2F;
     const int HDR_MAP_ENTITIES_LO   = 0x31;
     const int HDR_MAP_ENTITIES_HI   = 0x33;
-    const int HEADER_SIZE           = 0x3C; // 60 bytes (v25: includes start_map_index at +$03)
+    const int HDR_MAP_STRING_COUNT  = 0x35;
+    const int HDR_MAP_STRING_LO     = 0x36;
+    const int HDR_MAP_STRING_HI     = 0x38;
+    const int HDR_MAP_STRING_ID     = 0x3A;
+    // v29: multiple character sets — appended after the map-strings fields.
+    const int HDR_MAP_CHARSET_INDEX = 0x3C;
+    const int HDR_CHARSET_COUNT     = 0x3E;
+    const int HDR_CHARSET_DIRECTORY = 0x3F;
+    const int HEADER_SIZE           = 0x41; // 65 bytes (v29: +map_charset_index ptr, charset_count, directory ptr)
+    // Charset directory record layout (one per exported charset).
+    const int CHARSET_RECORD_SIZE          = 15;
+    const int CSREC_TILE_COUNT             = 0x00;
+    const int CSREC_TILES_WIDTH            = 0x01;
+    const int CSREC_TILES_HEIGHT           = 0x03;
+    const int CSREC_TILES_FLAGS            = 0x05;
+    const int CSREC_TILE_CHAR_OFF_LO       = 0x07;
+    const int CSREC_TILE_CHAR_OFF_HI       = 0x09;
+    const int CSREC_TILE_COLOR_OFF_LO      = 0x0B;
+    const int CSREC_TILE_COLOR_OFF_HI      = 0x0D;
 
     /// <summary>Read a 16-bit LE offset from the header and return it.</summary>
     int HdrOff( ByteBuffer buf, int hdrField ) => buf.UInt16At( hdrField );
@@ -71,7 +89,7 @@ namespace TestProject
         tile.Chars[0, 0] = new MapProject.TileChar { Character = (byte)t, Color = (byte)( t % 16 ) };
         tile.Passable = true;
         tile.Name = "Tile" + t;
-        proj.Tiles.Add( tile );
+        proj.Charsets[0].Tiles.Add( tile );
       }
       var map = new MapProject.Map();
       map.Name = "TestMap";
@@ -245,12 +263,12 @@ namespace TestProject
     public void TestTileWidthsHeightsFlagsDirectAccess()
     {
       var proj = CreateTestProject( 3, 2, 2 );
-      proj.Tiles[1].Chars.Resize( 2, 2 );
-      proj.Tiles[1].Chars[0, 0] = new MapProject.TileChar { Character = 0x10, Color = 1 };
-      proj.Tiles[1].Chars[1, 0] = new MapProject.TileChar { Character = 0x11, Color = 1 };
-      proj.Tiles[1].Chars[0, 1] = new MapProject.TileChar { Character = 0x20, Color = 1 };
-      proj.Tiles[1].Chars[1, 1] = new MapProject.TileChar { Character = 0x21, Color = 1 };
-      proj.Tiles[2].Passable = false;
+      proj.Charsets[0].Tiles[1].Chars.Resize( 2, 2 );
+      proj.Charsets[0].Tiles[1].Chars[0, 0] = new MapProject.TileChar { Character = 0x10, Color = 1 };
+      proj.Charsets[0].Tiles[1].Chars[1, 0] = new MapProject.TileChar { Character = 0x11, Color = 1 };
+      proj.Charsets[0].Tiles[1].Chars[0, 1] = new MapProject.TileChar { Character = 0x20, Color = 1 };
+      proj.Charsets[0].Tiles[1].Chars[1, 1] = new MapProject.TileChar { Character = 0x21, Color = 1 };
+      proj.Charsets[0].Tiles[2].Passable = false;
 
       var buf = proj.ExportAsGameBinary( false, false, false );
 
@@ -277,8 +295,8 @@ namespace TestProject
     public void TestTileCharDataAbsoluteOffsets()
     {
       var proj = CreateTestProject( 2, 2, 2 );
-      proj.Tiles[0].Chars[0, 0] = new MapProject.TileChar { Character = 0xAA, Color = 5 };
-      proj.Tiles[1].Chars[0, 0] = new MapProject.TileChar { Character = 0xBB, Color = 7 };
+      proj.Charsets[0].Tiles[0].Chars[0, 0] = new MapProject.TileChar { Character = 0xAA, Color = 5 };
+      proj.Charsets[0].Tiles[1].Chars[0, 0] = new MapProject.TileChar { Character = 0xBB, Color = 7 };
 
       var buf = proj.ExportAsGameBinary( false, false, false );
 
@@ -294,8 +312,8 @@ namespace TestProject
     public void TestTileColorDataAbsoluteOffsets()
     {
       var proj = CreateTestProject( 2, 2, 2 );
-      proj.Tiles[0].Chars[0, 0] = new MapProject.TileChar { Character = 0x10, Color = 5 };
-      proj.Tiles[1].Chars[0, 0] = new MapProject.TileChar { Character = 0x20, Color = 9 };
+      proj.Charsets[0].Tiles[0].Chars[0, 0] = new MapProject.TileChar { Character = 0x10, Color = 5 };
+      proj.Charsets[0].Tiles[1].Chars[0, 0] = new MapProject.TileChar { Character = 0x20, Color = 9 };
 
       var buf = proj.ExportAsGameBinary( false, false, false );
 
@@ -372,8 +390,8 @@ namespace TestProject
     public void TestMapColorGridAbsoluteOffset()
     {
       var proj = CreateTestProject( 2, 2, 2 );
-      proj.Tiles[0].Chars[0, 0] = new MapProject.TileChar { Character = 0, Color = 5 };
-      proj.Tiles[1].Chars[0, 0] = new MapProject.TileChar { Character = 1, Color = 9 };
+      proj.Charsets[0].Tiles[0].Chars[0, 0] = new MapProject.TileChar { Character = 0, Color = 5 };
+      proj.Charsets[0].Tiles[1].Chars[0, 0] = new MapProject.TileChar { Character = 1, Color = 9 };
       proj.Maps[0].Tiles[0, 0] = 0; proj.Maps[0].Tiles[1, 0] = 1;
       proj.Maps[0].Tiles[0, 1] = 1; proj.Maps[0].Tiles[1, 1] = 0;
 
@@ -405,8 +423,8 @@ namespace TestProject
     public void TestPassableBitsAbsoluteOffset()
     {
       var proj = CreateTestProject( 4, 4, 1 );
-      proj.Tiles[1].Passable = false;
-      proj.Tiles[3].Passable = false;
+      proj.Charsets[0].Tiles[1].Passable = false;
+      proj.Charsets[0].Tiles[3].Passable = false;
       proj.Maps[0].Tiles[0, 0] = 0;
       proj.Maps[0].Tiles[1, 0] = 1;
       proj.Maps[0].Tiles[2, 0] = 2;
@@ -568,7 +586,7 @@ namespace TestProject
     public void TestSingleTileSingleCell()
     {
       var proj = CreateTestProject( 1, 1, 1 );
-      proj.Tiles[0].Chars[0, 0] = new MapProject.TileChar { Character = 0x42, Color = 7 };
+      proj.Charsets[0].Tiles[0].Chars[0, 0] = new MapProject.TileChar { Character = 0x42, Color = 7 };
 
       var buf = proj.ExportAsGameBinary( false, true, true );
       int gridPos = LookupAbsOffset( buf, HDR_MAP_CHAR_GRID_LO, HDR_MAP_CHAR_GRID_HI, 0 );
@@ -585,11 +603,11 @@ namespace TestProject
     public void TestMapWith2x2Tile()
     {
       var proj = CreateTestProject( 2, 3, 3, tileSpacingX: 2, tileSpacingY: 2 );
-      proj.Tiles[1].Chars.Resize( 2, 2 );
-      proj.Tiles[1].Chars[0, 0] = new MapProject.TileChar { Character = 0xA0, Color = 1 };
-      proj.Tiles[1].Chars[1, 0] = new MapProject.TileChar { Character = 0xA1, Color = 2 };
-      proj.Tiles[1].Chars[0, 1] = new MapProject.TileChar { Character = 0xB0, Color = 3 };
-      proj.Tiles[1].Chars[1, 1] = new MapProject.TileChar { Character = 0xB1, Color = 4 };
+      proj.Charsets[0].Tiles[1].Chars.Resize( 2, 2 );
+      proj.Charsets[0].Tiles[1].Chars[0, 0] = new MapProject.TileChar { Character = 0xA0, Color = 1 };
+      proj.Charsets[0].Tiles[1].Chars[1, 0] = new MapProject.TileChar { Character = 0xA1, Color = 2 };
+      proj.Charsets[0].Tiles[1].Chars[0, 1] = new MapProject.TileChar { Character = 0xB0, Color = 3 };
+      proj.Charsets[0].Tiles[1].Chars[1, 1] = new MapProject.TileChar { Character = 0xB1, Color = 4 };
       proj.Maps[0].Tiles[0, 0] = 1;
 
       var buf = proj.ExportAsGameBinary( false, false, false );
@@ -647,7 +665,7 @@ namespace TestProject
         for ( int x = 0; x < 6; ++x )
         {
           int tileIdx = ( x + y * 6 ) % 8;
-          byte expected = proj.Tiles[tileIdx].Chars[0, 0].Character;
+          byte expected = proj.Charsets[0].Tiles[tileIdx].Chars[0, 0].Character;
           Assert.AreEqual( expected, buf.ByteAt( gridPos + x + y * 6 ), $"Mismatch at ({x},{y})" );
         }
     }
@@ -707,7 +725,7 @@ namespace TestProject
     public void TestFullExportAllSections()
     {
       var proj = CreateTestProject( 3, 4, 3 );
-      proj.Tiles[2].Passable = false;
+      proj.Charsets[0].Tiles[2].Passable = false;
       proj.MarkerTypes.Add( new MapProject.MarkerType { ID = 0, Name = "START", TagID = 1 } );
       proj.Maps[0].Markers.Add( new MapProject.Marker { X = 1, Y = 2, Type = 0, Value1 = 0xAB } );
       proj.Maps[0].Tiles[2, 1] = 2;
@@ -839,7 +857,7 @@ namespace TestProject
       int gridPos = LookupAbsOffset( buf, HDR_MAP_CHAR_GRID_LO, HDR_MAP_CHAR_GRID_HI, 0 );
       Assert.IsTrue( gridPos >= HEADER_SIZE && gridPos < buf.Length,
         "Map 0 char-grid pointer must be a file offset" );
-      Assert.AreEqual( proj.Tiles[1].Chars[0, 0].Character, buf.ByteAt( gridPos + 1 ) );
+      Assert.AreEqual( proj.Charsets[0].Tiles[1].Chars[0, 0].Character, buf.ByteAt( gridPos + 1 ) );
     }
 
     [TestMethod]
