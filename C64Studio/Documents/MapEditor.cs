@@ -16110,6 +16110,21 @@ namespace RetroDevStudio.Documents
           return true;
         }
       }
+      if ( keyData == Keys.Delete )
+      {
+        // Character Set tab: Delete clears the selected characters — exactly
+        // the "Clear" button's action (no prompt, one undo group). Not while
+        // a text input owns the key (the charset name fields, the swatch-size
+        // box: COPY_PASTE is true for TextBoxBase-derived editors). The
+        // map-face Delete further down is Map-tab scoped on its own.
+        if ( ( tabMapEditor != null )
+        &&   ( tabMapEditor.SelectedPage == tabCharset )
+        &&   ( !FocusSupport.FocusedControlUsesKeysFor( FocusSupport.FocusControlReason.COPY_PASTE ) ) )
+        {
+          characterEditor.ClearSelectedCharacters();
+          return true;
+        }
+      }
       if ( OutlineModeActive )
       {
         // The outline face has its own, much smaller key surface. Escape

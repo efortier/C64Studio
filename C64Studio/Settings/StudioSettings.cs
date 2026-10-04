@@ -2091,7 +2091,9 @@ namespace RetroDevStudio
       SetKeyBindingKey( RetroDevStudio.Types.Function.DEBUG_GO, Keys.F5 );
       SetKeyBindingKey( RetroDevStudio.Types.Function.DEBUG_STEP_OUT, Keys.F9 );
       SetKeyBindingKey( RetroDevStudio.Types.Function.CENTER_ON_CURSOR, Keys.Clear );
-      SetKeyBindingKey( RetroDevStudio.Types.Function.DELETE_LINE, Keys.Control | Keys.Y );
+      // Ctrl+Y belongs to Redo (user decision) — Delete Line takes the Visual
+      // Studio key instead.
+      SetKeyBindingKey( RetroDevStudio.Types.Function.DELETE_LINE, Keys.Control | Keys.Shift | Keys.L );
       SetKeyBindingKey( RetroDevStudio.Types.Function.DEBUG_STEP, Keys.F11 );
       // F11 doubles as Debug Step — safe because the two functions live in
       // disjoint studio states (NORMAL vs DEBUGGER_BROKEN, F5 precedent).
@@ -2114,8 +2116,11 @@ namespace RetroDevStudio
       // can be rebound in the key bindings dialog.
       SetKeyBindingKey( RetroDevStudio.Types.Function.MAP_EDITOR_TOGGLE_SCRATCH, Keys.F12 );
       SetKeyBindingKey( RetroDevStudio.Types.Function.TOGGLE_BREAKPOINT, Keys.Shift | Keys.F9 );
-      SetKeyBindingKey( RetroDevStudio.Types.Function.UNDO, Keys.Alt | Keys.Back, Keys.Control | Keys.Z);
-      SetKeyBindingKey( RetroDevStudio.Types.Function.REDO, Keys.Shift | Keys.Alt | Keys.Back, Keys.Control | Keys.Shift | Keys.Z);
+      // Undo / redo are Ctrl+Z / Ctrl+Y only (user decision): the old
+      // Alt+Backspace / Shift+Alt+Backspace primaries and the Ctrl+Shift+Z
+      // secondary are retired, so the Edit menu shows the Ctrl keys.
+      SetKeyBindingKey( RetroDevStudio.Types.Function.UNDO, Keys.Control | Keys.Z );
+      SetKeyBindingKey( RetroDevStudio.Types.Function.REDO, Keys.Control | Keys.Y );
       SetKeyBindingKey( RetroDevStudio.Types.Function.COPY, Keys.Control | Keys.C );
       SetKeyBindingKey( RetroDevStudio.Types.Function.PASTE, Keys.Control | Keys.V );
       SetKeyBindingKey( RetroDevStudio.Types.Function.CUT, Keys.Control | Keys.X );
@@ -2347,7 +2352,20 @@ namespace RetroDevStudio
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.DEBUG_GO, Keys.F5 );
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.DEBUG_STEP_OUT, Keys.F9 );
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.CENTER_ON_CURSOR, Keys.Clear );
-      ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.DELETE_LINE, Keys.Control | Keys.Y );
+      // Undo / redo are Ctrl+Z / Ctrl+Y only and Delete Line moved off Ctrl+Y
+      // (see SetDefaultKeyBinding). Upgrade EXISTING settings.dat: a binding
+      // still carrying one of the retired keys gets the new default; a
+      // binding the user remapped to something else is left alone.
+      RetireKeyBinding( RetroDevStudio.Types.Function.DELETE_LINE,
+                        new Keys[] { Keys.Control | Keys.Y },
+                        Keys.Control | Keys.Shift | Keys.L );
+      RetireKeyBinding( RetroDevStudio.Types.Function.UNDO,
+                        new Keys[] { Keys.Alt | Keys.Back, Keys.Control | Keys.Shift | Keys.Z },
+                        Keys.Control | Keys.Z );
+      RetireKeyBinding( RetroDevStudio.Types.Function.REDO,
+                        new Keys[] { Keys.Shift | Keys.Alt | Keys.Back, Keys.Control | Keys.Shift | Keys.Z },
+                        Keys.Control | Keys.Y );
+      ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.DELETE_LINE, Keys.Control | Keys.Shift | Keys.L );
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.DEBUG_STEP, Keys.F11 );
       // Upgrade path: existing users' settings gain the outline toggle
       // without touching any binding they already customized.
@@ -2379,8 +2397,8 @@ namespace RetroDevStudio
       }
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.MAP_EDITOR_TOGGLE_SCRATCH, Keys.F12 );
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.TOGGLE_BREAKPOINT, Keys.Shift | Keys.F9 );
-      ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.UNDO, Keys.Alt | Keys.Back, Keys.Control | Keys.Z);
-      ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.REDO, Keys.Shift | Keys.Alt | Keys.Back, Keys.Control | Keys.Shift | Keys.Z);
+      ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.UNDO, Keys.Control | Keys.Z );
+      ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.REDO, Keys.Control | Keys.Y );
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.COPY, Keys.Control | Keys.C );
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.PASTE, Keys.Control | Keys.V );
       ValidateOrSetKeyBindingKey( RetroDevStudio.Types.Function.CUT, Keys.Control | Keys.X );
@@ -2415,6 +2433,27 @@ namespace RetroDevStudio
         }
       }
       SetKeyBindingKey( Func, KeyBinding, AltKeyBinding );
+    }
+
+
+
+    /// <summary>
+    /// Upgrade path for a retired default: when the function's stored binding
+    /// still uses one of RetiredKeys (as primary or secondary key), it is
+    /// replaced by NewKey (a single key, no secondary). Idempotent; a binding
+    /// without any retired key is left untouched.
+    /// </summary>
+    private void RetireKeyBinding( Function Func, Keys[] RetiredKeys, Keys NewKey )
+    {
+      var stale = Accelerators.Where( acc => ( acc.Value.Function == Func )
+                                          && ( ( RetiredKeys.Contains( acc.Value.Key ) )
+                                          ||   ( RetiredKeys.Contains( acc.Value.SecondaryKey ) ) ) ).ToList();
+      if ( stale.Count == 0 )
+      {
+        return;
+      }
+      // Drops every entry of the function, then binds the single new key.
+      SetKeyBindingKey( Func, NewKey );
     }
 
 

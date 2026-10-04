@@ -3516,6 +3516,18 @@ namespace RetroDevStudio.Controls
 
     private void btnClear_Click( DecentForms.ControlBase Sender )
     {
+      ClearSelectedCharacters();
+    }
+
+
+
+    /// <summary>
+    /// The "Clear" button's action: blanks every selected character (one undo
+    /// group, no prompt). Public so a host can bind it to a key (the map
+    /// editor's Character Set tab uses Delete). No-op without a selection.
+    /// </summary>
+    public void ClearSelectedCharacters()
+    {
       bool  wasModified = false;
       var   selectedChars = panelCharacters.SelectedIndices;
       bool  firstUndoStep = true;
