@@ -371,3 +371,4 @@ build_final.log
 *.cache
 *.pdb
 *.exe
+/Binaries_pre-change

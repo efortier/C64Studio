@@ -69,6 +69,7 @@
             editMapStringLabel = new System.Windows.Forms.TextBox();
             labelMapStringID = new System.Windows.Forms.Label();
             editMapStringID = new System.Windows.Forms.NumericUpDown();
+            btnFindNextMapStringID = new DecentForms.Button();
             labelMapStringLine0 = new System.Windows.Forms.Label();
             comboMapStringLineControl0 = new System.Windows.Forms.ComboBox();
             editMapStringLine0 = new System.Windows.Forms.TextBox();
@@ -125,7 +126,7 @@
             btnFindNextEntityTagID = new DecentForms.Button();
             labelEntityTagID = new System.Windows.Forms.Label();
             comboEntityPreviewCharset = new Krypton.Toolkit.KryptonComboBox();
-            comboEntityTile = new Krypton.Toolkit.KryptonComboBox();
+            comboEntityTile = new System.Windows.Forms.ComboBox();
             btnEntityTileFromSelection = new DecentForms.Button();
             labelEntityPreviewCharset = new System.Windows.Forms.Label();
             labelEntityTile = new System.Windows.Forms.Label();
@@ -417,6 +418,7 @@
             editSwatchSize = new System.Windows.Forms.TextBox();
             btnTileApply = new DecentForms.Button();
             btnGetTileCount = new DecentForms.Button();
+            btnDeleteUnusedTiles = new DecentForms.Button();
             btnCopyTileCharToNextIncreased = new DecentForms.Button();
             btnSetNextTileChar = new DecentForms.Button();
             btnMoveTileDown = new DecentForms.Button();
@@ -464,6 +466,7 @@
             btnCharsetAdd = new DecentForms.Button();
             btnCharsetDuplicate = new DecentForms.Button();
             btnCharsetRemove = new DecentForms.Button();
+            btnCharsetClearUnused = new DecentForms.Button();
             checkCharsetFollowMap = new Krypton.Toolkit.KryptonCheckBox();
             labelCharsetDisplayName = new System.Windows.Forms.Label();
             editCharsetDisplayName = new Krypton.Toolkit.KryptonTextBox();
@@ -515,7 +518,6 @@
             tabEntities.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)editEntityTagID).BeginInit();
             ((System.ComponentModel.ISupportInitialize)comboEntityPreviewCharset).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)comboEntityTile).BeginInit();
             menuStrip1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)tabEditor).BeginInit();
             tabEditor.SuspendLayout();
@@ -874,6 +876,7 @@
             tabMapStrings.Controls.Add(editMapStringLabel);
             tabMapStrings.Controls.Add(labelMapStringID);
             tabMapStrings.Controls.Add(editMapStringID);
+            tabMapStrings.Controls.Add(btnFindNextMapStringID);
             tabMapStrings.Controls.Add(labelMapStringLine0);
             tabMapStrings.Controls.Add(comboMapStringLineControl0);
             tabMapStrings.Controls.Add(editMapStringLine0);
@@ -993,7 +996,23 @@
             editMapStringID.Name = "editMapStringID";
             editMapStringID.Size = new System.Drawing.Size(60, 20);
             editMapStringID.TabIndex = 54;
-            toolTip1.SetToolTip(editMapStringID, "Per-string numeric identifier (0-255). Exported as the MAP_STRING_ID byte table so runtime code can map an ID to the string's index.");
+            toolTip1.SetToolTip(editMapStringID, "Per-string numeric identifier (0-255). Exported as the MAP_STRING_ID byte table so runtime code can map an ID to the string's index. Add, Duplicate and the ? button pick the lowest unused ID starting at 1.");
+            //
+            // btnFindNextMapStringID
+            //
+            btnFindNextMapStringID.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnFindNextMapStringID.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnFindNextMapStringID.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnFindNextMapStringID.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnFindNextMapStringID.Enabled = false;
+            btnFindNextMapStringID.Image = null;
+            btnFindNextMapStringID.Location = new System.Drawing.Point(784, 6);
+            btnFindNextMapStringID.Name = "btnFindNextMapStringID";
+            btnFindNextMapStringID.Size = new System.Drawing.Size(24, 23);
+            btnFindNextMapStringID.TabIndex = 55;
+            btnFindNextMapStringID.Text = "?";
+            toolTip1.SetToolTip(btnFindNextMapStringID, "Find the lowest unused String ID (starting at 1, max 255) among the map strings and assign it to the selected string.");
+            btnFindNextMapStringID.Click += btnFindNextMapStringID_Click;
             // 
             // labelMapStringLine0
             // 
@@ -1608,14 +1627,21 @@
             //
             // comboEntityTile
             //
+            comboEntityTile.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawVariable;
+            comboEntityTile.DropDownHeight = 440;
             comboEntityTile.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            comboEntityTile.DropDownWidth = 200;
+            comboEntityTile.DropDownWidth = 260;
+            comboEntityTile.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             comboEntityTile.FormattingEnabled = true;
+            comboEntityTile.IntegralHeight = false;
+            comboEntityTile.ItemHeight = 20;
             comboEntityTile.Location = new System.Drawing.Point(472, 64);
             comboEntityTile.Name = "comboEntityTile";
-            comboEntityTile.Size = new System.Drawing.Size(120, 22);
+            comboEntityTile.Size = new System.Drawing.Size(120, 26);
             comboEntityTile.TabIndex = 5;
-            toolTip1.SetToolTip(comboEntityTile, "Tile this entity type is drawn with (index: name in the preview character set). Update commits it.");
+            toolTip1.SetToolTip(comboEntityTile, "Tile this entity type is drawn with - picture, index and name from the preview character set. Update commits it.");
+            comboEntityTile.DrawItem += comboEntityTile_DrawItem;
+            comboEntityTile.MeasureItem += comboEntityTile_MeasureItem;
             //
             // btnEntityTileFromSelection
             //
@@ -4826,6 +4852,7 @@
             tabTiles.Controls.Add(editSwatchSize);
             tabTiles.Controls.Add(btnTileApply);
             tabTiles.Controls.Add(btnGetTileCount);
+            tabTiles.Controls.Add(btnDeleteUnusedTiles);
             tabTiles.Controls.Add(btnCopyTileCharToNextIncreased);
             tabTiles.Controls.Add(btnSetNextTileChar);
             tabTiles.Controls.Add(btnMoveTileDown);
@@ -4913,7 +4940,23 @@
             btnGetTileCount.Size = new System.Drawing.Size(87, 23);
             btnGetTileCount.TabIndex = 26;
             btnGetTileCount.Text = "Get tile count";
+            toolTip1.SetToolTip(btnGetTileCount, "Counts the cells using each tile on every layer of the maps linked to this character set (their scratch workspaces included) - never other maps. One linked map: its count. Several: current map / all linked maps. Red = unused. * = no cell uses it, but Delete unused tiles keeps it (tile 0, blank or right-click tile, export empty tile, entity tile).");
             btnGetTileCount.Click += btnGetTileCount_Click;
+            //
+            // btnDeleteUnusedTiles
+            //
+            btnDeleteUnusedTiles.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnDeleteUnusedTiles.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnDeleteUnusedTiles.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnDeleteUnusedTiles.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnDeleteUnusedTiles.Image = null;
+            btnDeleteUnusedTiles.Location = new System.Drawing.Point(512, 434);
+            btnDeleteUnusedTiles.Name = "btnDeleteUnusedTiles";
+            btnDeleteUnusedTiles.Size = new System.Drawing.Size(112, 23);
+            btnDeleteUnusedTiles.TabIndex = 27;
+            btnDeleteUnusedTiles.Text = "Delete unused tiles";
+            toolTip1.SetToolTip(btnDeleteUnusedTiles, "Deletes every tile of this character set that no linked map uses (every layer, scratch workspaces included). Asks for confirmation and lists what goes and what is kept. One undo step.");
+            btnDeleteUnusedTiles.Click += btnDeleteUnusedTiles_Click;
             // 
             // btnCopyTileCharToNextIncreased
             // 
@@ -5376,6 +5419,7 @@
             //
             // panelCharsetTools
             //
+            panelCharsetTools.Controls.Add(btnCharsetClearUnused);
             panelCharsetTools.Controls.Add(checkCharsetExport);
             panelCharsetTools.Controls.Add(editCharsetExportName);
             panelCharsetTools.Controls.Add(labelCharsetExportName);
@@ -5521,6 +5565,21 @@
             toolTip1.SetToolTip(checkCharsetExport, "Unchecked: this character set (and its tile tables) is dropped from the game-binary export; later character sets shift down.");
             checkCharsetExport.Values.Text = "Export character set";
             checkCharsetExport.CheckedChanged += checkCharsetExport_CheckedChanged;
+            //
+            // btnCharsetClearUnused
+            //
+            btnCharsetClearUnused.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnCharsetClearUnused.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnCharsetClearUnused.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnCharsetClearUnused.DialogResult = System.Windows.Forms.DialogResult.OK;
+            btnCharsetClearUnused.Image = null;
+            btnCharsetClearUnused.Location = new System.Drawing.Point(660, 32);
+            btnCharsetClearUnused.Name = "btnCharsetClearUnused";
+            btnCharsetClearUnused.Size = new System.Drawing.Size(150, 23);
+            btnCharsetClearUnused.TabIndex = 11;
+            btnCharsetClearUnused.Text = "Clear unused characters";
+            toolTip1.SetToolTip(btnCharsetClearUnused, "Blanks every character of this character set that no tile used on its linked maps draws (every layer, scratch workspaces included). Asks for confirmation. One undo step.");
+            btnCharsetClearUnused.Click += btnCharsetClearUnused_Click;
             // 
             // tabExport
             // 
@@ -5860,7 +5919,6 @@
             tabEntities.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)editEntityTagID).EndInit();
             ((System.ComponentModel.ISupportInitialize)comboEntityPreviewCharset).EndInit();
-            ((System.ComponentModel.ISupportInitialize)comboEntityTile).EndInit();
             menuStrip1.ResumeLayout(false);
             menuStrip1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)tabEditor).EndInit();
@@ -5995,6 +6053,7 @@
     private System.Windows.Forms.ColumnHeader columnHeader4;
     private System.Windows.Forms.ColumnHeader columnHeaderTilePreview;
     private DecentForms.Button btnGetTileCount;
+        private DecentForms.Button btnDeleteUnusedTiles;
     private RetroDevStudio.Controls.CSListView listTileChars;
     private System.Windows.Forms.ColumnHeader columnHeader5;
     private System.Windows.Forms.ColumnHeader columnHeader6;
@@ -6089,6 +6148,7 @@
         private System.Windows.Forms.Label labelCharsetExportName;
         private Krypton.Toolkit.KryptonTextBox editCharsetExportName;
         private Krypton.Toolkit.KryptonCheckBox checkCharsetExport;
+        private DecentForms.Button btnCharsetClearUnused;
     private Krypton.Toolkit.KryptonButton btnShiftLeft;
     private Krypton.Toolkit.KryptonButton btnShiftUp;
     private Krypton.Toolkit.KryptonButton btnShiftDown;
@@ -6290,6 +6350,7 @@
         private DecentForms.Button btnMoveMapStringUp;
         private DecentForms.Button btnMoveMapStringDown;
         private DecentForms.Button btnDuplicateMapString;
+        private DecentForms.Button btnFindNextMapStringID;
         private System.Windows.Forms.Label labelMapStringPreview;
         private System.Windows.Forms.PictureBox picMapStringPreview;
         private System.Windows.Forms.Label labelMapStringScratch;
@@ -6311,7 +6372,7 @@
         private System.Windows.Forms.NumericUpDown editEntityTagID;
         private DecentForms.Button btnFindNextEntityTagID;
         private Krypton.Toolkit.KryptonComboBox comboEntityPreviewCharset;
-        private Krypton.Toolkit.KryptonComboBox comboEntityTile;
+        private System.Windows.Forms.ComboBox comboEntityTile;
         private DecentForms.Button btnEntityTileFromSelection;
         private System.Windows.Forms.Label labelEntityPreviewCharset;
         private System.Windows.Forms.Label labelEntityTile;

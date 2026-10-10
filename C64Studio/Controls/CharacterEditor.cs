@@ -3528,14 +3528,31 @@ namespace RetroDevStudio.Controls
     /// </summary>
     public void ClearSelectedCharacters()
     {
+      ClearCharacters( panelCharacters.SelectedIndices );
+    }
+
+
+
+    /// <summary>
+    /// Blanks the given characters (one undo group, no prompt). The host
+    /// decides which ones - the map editor's "Clear unused characters"
+    /// passes the characters none of its used tiles draw.
+    /// </summary>
+    public void ClearCharacters( List<int> Characters )
+    {
       bool  wasModified = false;
-      var   selectedChars = panelCharacters.SelectedIndices;
+      var   selectedChars = Characters;
       bool  firstUndoStep = true;
 
       DoNotUpdateFromControls = true;
 
       foreach ( int i in selectedChars )
       {
+        if ( ( i < 0 )
+        ||   ( i >= m_Project.Characters.Count ) )
+        {
+          continue;
+        }
         wasModified = true;
 
         UndoManager.AddUndoTask( new Undo.UndoCharacterEditorCharChange( this, m_Project, i, 1 ), firstUndoStep );

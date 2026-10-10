@@ -1137,6 +1137,241 @@ namespace RetroDevStudio.Formats
 
 
 
+    // ---- Usage of a charset's tiles / characters on the maps linked to it ----
+    // "Linked" = the maps bound to the charset (their cells index that
+    // charset's tile library) plus, from the editor, their scratch
+    // workspaces. Maps bound to another charset never count: the same number
+    // means a different tile there.
+
+    /// <summary>
+    /// The live maps bound to the charset plus the AdditionalMaps bound to it
+    /// (the editor passes its scratch workspaces, which mirror their owner).
+    /// </summary>
+    public List<Map> MapsLinkedTo( MapCharset Charset, IEnumerable<Map> AdditionalMaps )
+    {
+      var result = new List<Map>();
+      foreach ( var map in Maps )
+      {
+        if ( CharsetOf( map ) == Charset )
+        {
+          result.Add( map );
+        }
+      }
+      if ( AdditionalMaps != null )
+      {
+        foreach ( var map in AdditionalMaps )
+        {
+          if ( ( map != null )
+          &&   ( CharsetOf( map ) == Charset )
+          &&   ( !result.Contains( map ) ) )
+          {
+            result.Add( map );
+          }
+        }
+      }
+      return result;
+    }
+
+
+
+    /// <summary>
+    /// Number of cells referencing each tile of the charset, over EVERY layer
+    /// of the given maps. Transparent cells (-1) and indices beyond the
+    /// library are ignored.
+    /// </summary>
+    public static int[] CountTileUsage( MapCharset Charset, IEnumerable<Map> Maps )
+    {
+      var usage = new int[Charset.Tiles.Count];
+      if ( Maps == null )
+      {
+        return usage;
+      }
+      foreach ( var map in Maps )
+      {
+        if ( map == null )
+        {
+          continue;
+        }
+        foreach ( var layer in map.Layers )
+        {
+          for ( int y = 0; y < layer.Tiles.Height; ++y )
+          {
+            for ( int x = 0; x < layer.Tiles.Width; ++x )
+            {
+              int index = layer.Tiles[x, y];
+              if ( ( index >= 0 )
+              &&   ( index < usage.Length ) )
+              {
+                ++usage[index];
+              }
+            }
+          }
+        }
+      }
+      return usage;
+    }
+
+
+
+    /// <summary>
+    /// Tiles a bulk "delete unused tiles" must keep although no cell uses
+    /// them, each with the reason shown to the user: tile 0 (what an erased
+    /// cell falls back to), the export's empty tile, the charset's
+    /// right-click and shift-click tiles (stored by name), and tiles drawn
+    /// by entity types - a type designed against this charset (its preview
+    /// charset) or one with instances on a linked map, where its number is
+    /// read in this library.
+    /// </summary>
+    public Dictionary<int, string> ProtectedTiles( MapCharset Charset, IEnumerable<Map> LinkedMaps )
+    {
+      var result = new Dictionary<int, string>();
+      int count = Charset.Tiles.Count;
+      if ( count == 0 )
+      {
+        return result;
+      }
+      AddTileProtection( result, 0, "tile 0" );
+      int emptyTile = Settings.Assembly.EmptyTileIndex;
+      if ( ( emptyTile >= 0 )
+      &&   ( emptyTile < count ) )
+      {
+        AddTileProtection( result, emptyTile, "the export's empty tile" );
+      }
+      for ( int i = 0; i < count; ++i )
+      {
+        if ( ( !string.IsNullOrEmpty( Charset.RightClickAction ) )
+        &&   ( Charset.Tiles[i].Name == Charset.RightClickAction ) )
+        {
+          AddTileProtection( result, i, "the right-click tile" );
+        }
+        if ( ( !string.IsNullOrEmpty( Charset.ShiftClickBlankTile ) )
+        &&   ( Charset.Tiles[i].Name == Charset.ShiftClickBlankTile ) )
+        {
+          AddTileProtection( result, i, "the shift-click blank tile" );
+        }
+      }
+
+      var typesOnLinkedMaps = new Dictionary<int, bool>();
+      if ( LinkedMaps != null )
+      {
+        foreach ( var map in LinkedMaps )
+        {
+          if ( map == null )
+          {
+            continue;
+          }
+          foreach ( var entity in map.Entities )
+          {
+            typesOnLinkedMaps[entity.Type] = true;
+          }
+        }
+      }
+      foreach ( var type in EntityTypes )
+      {
+        if ( ( type.TileIndex < 0 )
+        ||   ( type.TileIndex >= count ) )
+        {
+          continue;
+        }
+        if ( ( CharsetAt( type.PreviewCharsetIndex ) == Charset )
+        ||   ( typesOnLinkedMaps.ContainsKey( type.ID ) ) )
+        {
+          AddTileProtection( result, type.TileIndex, "entity type '" + type.Name + "'" );
+        }
+      }
+      return result;
+    }
+
+
+
+    private static void AddTileProtection( Dictionary<int, string> Protected, int TileIndex, string Reason )
+    {
+      string existing;
+      if ( Protected.TryGetValue( TileIndex, out existing ) )
+      {
+        Protected[TileIndex] = existing + ", " + Reason;
+      }
+      else
+      {
+        Protected[TileIndex] = Reason;
+      }
+    }
+
+
+
+    /// <summary>
+    /// Tiles no cell of a linked map uses (every layer) and that are not
+    /// protected - ascending. Empty when no map is linked: with nothing to
+    /// check against, nothing may be called unused.
+    /// </summary>
+    public List<int> UnusedTileIndexes( MapCharset Charset, IEnumerable<Map> AdditionalMaps )
+    {
+      var result = new List<int>();
+      var linked = MapsLinkedTo( Charset, AdditionalMaps );
+      if ( linked.Count == 0 )
+      {
+        return result;
+      }
+      var usage = CountTileUsage( Charset, linked );
+      var keep = ProtectedTiles( Charset, linked );
+      for ( int i = 0; i < usage.Length; ++i )
+      {
+        if ( ( usage[i] == 0 )
+        &&   ( !keep.ContainsKey( i ) ) )
+        {
+          result.Add( i );
+        }
+      }
+      return result;
+    }
+
+
+
+    /// <summary>
+    /// Per character: true when a USED tile of the charset draws it - a tile
+    /// placed on a linked map (any layer) or a protected one (see
+    /// ProtectedTiles). A character only drawn by tiles nobody places counts
+    /// as unused. All true when no map is linked (nothing to check against).
+    /// </summary>
+    public bool[] UsedCharacters( MapCharset Charset, IEnumerable<Map> AdditionalMaps )
+    {
+      var used = new bool[Charset.Charset.Characters.Count];
+      var linked = MapsLinkedTo( Charset, AdditionalMaps );
+      if ( linked.Count == 0 )
+      {
+        for ( int i = 0; i < used.Length; ++i )
+        {
+          used[i] = true;
+        }
+        return used;
+      }
+      var usage = CountTileUsage( Charset, linked );
+      var keep = ProtectedTiles( Charset, linked );
+      for ( int i = 0; i < Charset.Tiles.Count; ++i )
+      {
+        if ( ( usage[i] == 0 )
+        &&   ( !keep.ContainsKey( i ) ) )
+        {
+          continue;
+        }
+        var tile = Charset.Tiles[i];
+        for ( int y = 0; y < tile.Chars.Height; ++y )
+        {
+          for ( int x = 0; x < tile.Chars.Width; ++x )
+          {
+            int character = tile.Chars[x, y].Character;
+            if ( character < used.Length )
+            {
+              used[character] = true;
+            }
+          }
+        }
+      }
+      return used;
+    }
+
+
+
     /// <summary>
     /// Appends a fresh charset (default font, empty tile list) whose mode,
     /// colors and palettes are copied from charset 0. Returns the new index,
@@ -5323,6 +5558,39 @@ namespace RetroDevStudio.Formats
         }
       }
       return usage;
+    }
+
+
+
+    /// <summary>
+    /// The lowest String ID from 1 to 255 that no map string holds, or -1
+    /// when all of them are taken. 0 is never handed out: a message marker
+    /// whose value was never set points at 0 (the marker placement defaults
+    /// are 0), so a string with ID 0 would be shown by - and counted as used
+    /// by - every such marker. Same start-at-1 rule as the editor's other
+    /// free-ID searches (marker and entity Tag IDs, tile group IDs, marker
+    /// values). Exclude (the string being reassigned) does not count as
+    /// taken, so a string already holding the lowest free ID keeps it.
+    /// </summary>
+    public int FindFreeMapStringID( MapString Exclude )
+    {
+      var inUse = new HashSet<int>();
+      foreach ( var ms in MapStrings )
+      {
+        if ( ms == Exclude )
+        {
+          continue;
+        }
+        inUse.Add( ms.StringID );
+      }
+      for ( int id = 1; id <= 255; ++id )
+      {
+        if ( !inUse.Contains( id ) )
+        {
+          return id;
+        }
+      }
+      return -1;
     }
 
 

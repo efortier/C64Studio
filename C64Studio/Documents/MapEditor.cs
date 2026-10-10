@@ -3359,6 +3359,91 @@ namespace RetroDevStudio.Documents
 
 
 
+    /// <summary>
+    /// Blanks every character of the charset shown on this tab that no USED
+    /// tile draws - see MapProject.UsedCharacters (tiles placed on the linked
+    /// maps, every layer, scratch workspaces included, plus the protected
+    /// tiles). Explicit confirmation; one undo group through the character
+    /// editor's own Clear.
+    /// </summary>
+    private void btnCharsetClearUnused_Click( DecentForms.ControlBase Sender )
+    {
+      var charset = EditedCharset();
+      string charsetName = m_MapProject.CharsetDisplayNameOf( charset );
+      if ( LinkedMapsOf( charset ).Count == 0 )
+      {
+        System.Windows.Forms.MessageBox.Show(
+          "No map is linked to character set '" + charsetName + "' - every character would count as unused.\r\n\r\nLink a map to it first (Map tab, Charset).",
+          "Clear unused characters",
+          System.Windows.Forms.MessageBoxButtons.OK,
+          System.Windows.Forms.MessageBoxIcon.Information );
+        return;
+      }
+
+      var used = m_MapProject.UsedCharacters( charset, ScratchWorkspaces() );
+      var toClear = new List<int>();
+      for ( int i = 0; ( i < used.Length ) && ( i < charset.Charset.Characters.Count ); ++i )
+      {
+        if ( used[i] )
+        {
+          continue;
+        }
+        // an already empty character has nothing to clear
+        var data = charset.Charset.Characters[i].Tile.Data;
+        for ( int j = 0; j < (int)data.Length; ++j )
+        {
+          if ( data.ByteAt( j ) != 0 )
+          {
+            toClear.Add( i );
+            break;
+          }
+        }
+      }
+      if ( toClear.Count == 0 )
+      {
+        System.Windows.Forms.MessageBox.Show(
+          "Character set '" + charsetName + "' has no unused character left to clear.\r\n\r\nChecked against the tiles used on: " + DescribeLinkedMaps( charset ) + ".",
+          "Clear unused characters",
+          System.Windows.Forms.MessageBoxButtons.OK,
+          System.Windows.Forms.MessageBoxIcon.Information );
+        return;
+      }
+
+      var message = new StringBuilder();
+      message.Append( "Clear " + toClear.Count + " unused character" + ( toClear.Count == 1 ? "" : "s" ) + " of character set '" + charsetName + "'?\r\n\r\n" );
+      message.Append( "A character is kept when a tile placed on a linked map draws it (every layer), or a kept tile does (tile 0, the blank and right-click tiles, the export's empty tile, entity tiles).\r\n" );
+      message.Append( "Linked maps: " + DescribeLinkedMaps( charset ) + ".\r\n\r\n" );
+      var unusedTiles = m_MapProject.UnusedTileIndexes( charset, ScratchWorkspaces() );
+      if ( unusedTiles.Count > 0 )
+      {
+        var names = new List<string>();
+        foreach ( int index in unusedTiles )
+        {
+          names.Add( index + ": " + charset.Tiles[index].Name );
+        }
+        message.Append( unusedTiles.Count + " tile" + ( unusedTiles.Count == 1 ? "" : "s" ) + " of this character set " + ( unusedTiles.Count == 1 ? "is" : "are" ) + " not placed on those maps - the characters only they use are cleared too, which leaves them blank:\r\n  " );
+        message.Append( JoinLimited( names, 20 ) + "\r\n" );
+        message.Append( "(Delete unused tiles on the Tiles tab removes them.)\r\n\r\n" );
+      }
+      message.Append( "Undo brings the characters back in one step." );
+
+      var answer = System.Windows.Forms.MessageBox.Show(
+        message.ToString(),
+        "Clear unused characters",
+        System.Windows.Forms.MessageBoxButtons.YesNo,
+        System.Windows.Forms.MessageBoxIcon.Warning,
+        System.Windows.Forms.MessageBoxDefaultButton.Button2 );
+      if ( answer != System.Windows.Forms.DialogResult.Yes )
+      {
+        return;
+      }
+      // Through the character editor (bound to this charset): its undo
+      // tasks, image rebuild and Modified event stay in charge.
+      characterEditor.ClearCharacters( toClear );
+    }
+
+
+
     // ---- Map tab: the map's charset ---------------------------------------
 
     private void comboMapCharset_SelectedIndexChanged( object sender, EventArgs e )
@@ -3467,6 +3552,112 @@ namespace RetroDevStudio.Documents
 
 
 
+    // Row height of a tile row in the dropdown list (32 px picture: 4x for a
+    // one-character tile, 2x for a 2x2 one). The closed field uses the
+    // combo's ItemHeight (Designer).
+    private const int EntityTileRowHeight = 36;
+
+
+
+    /// <summary>Tile rows are tall enough for a picture; "(none)" and the "not in this charset" row are text only.</summary>
+    private void comboEntityTile_MeasureItem( object sender, MeasureItemEventArgs e )
+    {
+      var charset = m_MapProject.CharsetAt( comboEntityPreviewCharset.SelectedIndex );
+      bool hasPicture = ( e.Index >= 1 ) && ( e.Index - 1 < charset.Tiles.Count );
+      e.ItemHeight = hasPicture ? EntityTileRowHeight : 20;
+    }
+
+
+
+    /// <summary>
+    /// Owner-draw of the entity tile dropdown: the tile's picture (rendered
+    /// from the PREVIEW charset, not the current map's) followed by the
+    /// "index: name" text the item carries. Item 0 is "(none)", items 1..n
+    /// are the preview charset's tiles in order (see SetEntityTileCombo).
+    /// </summary>
+    private void comboEntityTile_DrawItem( object sender, DrawItemEventArgs e )
+    {
+      var combo = (ComboBox)sender;
+      if ( Core?.Theming != null )
+        Core.Theming.DrawThemedBackground( e, combo );
+      else
+        e.DrawBackground();
+      if ( ( e.Index < 0 )
+      ||   ( e.Index >= combo.Items.Count ) )
+      {
+        return;
+      }
+
+      int textX = e.Bounds.X + 4;
+      var charset = m_MapProject.CharsetAt( comboEntityPreviewCharset.SelectedIndex );
+      int tileIndex = e.Index - 1;
+      if ( ( tileIndex >= 0 )
+      &&   ( tileIndex < charset.Tiles.Count ) )
+      {
+        int box = Math.Max( 1, e.Bounds.Height - 4 );
+        var boxRect = new System.Drawing.Rectangle( e.Bounds.X + 2, e.Bounds.Y + 2, box, box );
+        DrawTilePreview( e.Graphics, boxRect, charset, charset.Tiles[tileIndex] );
+        textX = boxRect.Right + 6;
+      }
+      using ( var brush = new System.Drawing.SolidBrush( combo.ForeColor ) )
+      {
+        e.Graphics.DrawString( combo.Items[e.Index].ToString(), combo.Font, brush,
+                               textX, e.Bounds.Y + ( e.Bounds.Height - combo.Font.Height ) / 2 );
+      }
+      e.DrawFocusRectangle();
+    }
+
+
+
+    /// <summary>
+    /// Draws a tile of the given charset into Rect: centred, aspect kept,
+    /// scaled by a whole factor when it fits (crisp pixels).
+    /// </summary>
+    private void DrawTilePreview( System.Drawing.Graphics G, System.Drawing.Rectangle Rect, Formats.MapProject.MapCharset Charset, Formats.MapProject.Tile Tile )
+    {
+      if ( ( Tile == null )
+      ||   ( Tile.Chars.Width <= 0 )
+      ||   ( Tile.Chars.Height <= 0 ) )
+      {
+        return;
+      }
+      int pixelWidth  = Tile.Chars.Width * 8;
+      int pixelHeight = Tile.Chars.Height * 8;
+      using ( var memImage = new GR.Image.FastImage( pixelWidth, pixelHeight, GR.Drawing.PixelFormat.Format32bppRgb ) )
+      {
+        PaletteManager.ApplyPalette( memImage );
+        for ( int j = 0; j < Tile.Chars.Height; ++j )
+        {
+          for ( int i = 0; i < Tile.Chars.Width; ++i )
+          {
+            var ch = Tile.Chars[i, j];
+            DrawCharImage( Charset, memImage, i * 8, j * 8, ch.Character, ch.Color );
+          }
+        }
+        float scale = Math.Min( (float)Rect.Width / pixelWidth, (float)Rect.Height / pixelHeight );
+        if ( scale >= 1.0f )
+        {
+          scale = (float)Math.Floor( scale );
+        }
+        int drawWidth  = Math.Max( 1, (int)( pixelWidth * scale ) );
+        int drawHeight = Math.Max( 1, (int)( pixelHeight * scale ) );
+        var target = new System.Drawing.Rectangle( Rect.X + ( Rect.Width - drawWidth ) / 2,
+                                                   Rect.Y + ( Rect.Height - drawHeight ) / 2,
+                                                   drawWidth, drawHeight );
+        IntPtr hdc = G.GetHdc();
+        try
+        {
+          memImage.DrawToHDC( hdc, target );
+        }
+        finally
+        {
+          G.ReleaseHdc();
+        }
+      }
+    }
+
+
+
     /// <summary>Renders one character into ITS charset's cached bitmap (and re-points the picker when it shows that charset).</summary>
     void RebuildCharImage( Formats.MapProject.MapCharset Charset, int CharIndex )
     {
@@ -3492,6 +3683,14 @@ namespace RetroDevStudio.Documents
 
 
     void DrawCharImage( GR.Image.FastImage TargetImage, int X, int Y, byte Char, byte Color )
+    {
+      DrawCharImage( ActiveCharset(), TargetImage, X, Y, Char, Color );
+    }
+
+
+
+    /// <summary>Same, from an explicit charset (the Entities tab previews a charset that need not be the current map's).</summary>
+    void DrawCharImage( Formats.MapProject.MapCharset Charset, GR.Image.FastImage TargetImage, int X, int Y, byte Char, byte Color )
     {
       int bgColor = m_MapProject.BackgroundColor;
       int mColor1 = m_MapProject.MultiColor1;
@@ -3525,7 +3724,7 @@ namespace RetroDevStudio.Documents
         BGColor4        = bgColor4
       };
 
-      Displayer.CharacterDisplayer.DisplayChar( ActiveCharset().Charset, Char, TargetImage, X, Y, alternativeSettings );
+      Displayer.CharacterDisplayer.DisplayChar( Charset.Charset, Char, TargetImage, X, Y, alternativeSettings );
     }
 
 
@@ -6539,27 +6738,67 @@ namespace RetroDevStudio.Documents
       }
       characterEditor.CharacterUsageText = "Usage in tiles: " + usageCount;
 
+      // Placements on the maps LINKED to this charset only (every layer,
+      // their scratch workspaces included) - a map on another charset draws
+      // other tiles with the same numbers.
       long mapUsageCount = 0;
       if ( ( charIndex >= 0 )
       &&   ( charIndex < charset.Charset.Characters.Count ) )
       {
-        foreach ( var map in m_MapProject.MapsUsingCharset( CharsetIndexOf( charset ) ) )
+        // Display only, and this runs while a project is still opening
+        // (before the document knows its file name): never force the
+        // scratch sidecar to load from here - that would cache an empty
+        // container for the session. Count the workspaces already open.
+        var tileUsage = Formats.MapProject.CountTileUsage( charset, m_MapProject.MapsLinkedTo( charset, m_ScratchMaps.Values ) );
+        for ( int i = 0; i < charOccurrencesInTile.Length; ++i )
         {
-          for ( int y = 0; y < map.Tiles.Height; ++y )
-          {
-            for ( int x = 0; x < map.Tiles.Width; ++x )
-            {
-              int tileIndex = map.Tiles[x,y];
-              if ( ( tileIndex >= 0 )
-              &&   ( tileIndex < charOccurrencesInTile.Length ) )
-              {
-                 mapUsageCount += charOccurrencesInTile[tileIndex];
-              }
-            }
-          }
+          mapUsageCount += (long)charOccurrencesInTile[i] * tileUsage[i];
         }
       }
       characterEditor.CharacterMapUsageText = "Usage in maps: " + mapUsageCount;
+    }
+
+
+
+    /// <summary>
+    /// The maps linked to a charset for every usage check: the maps bound to
+    /// it plus their scratch workspaces (a workspace mirrors its owner's
+    /// charset, and what it holds must not be called unused). Materializes
+    /// the stored workspaces - call it from user actions only, never while a
+    /// project is opening (see UpdateCharUsageCount).
+    /// </summary>
+    private List<Formats.MapProject.Map> LinkedMapsOf( Formats.MapProject.MapCharset Charset )
+    {
+      return m_MapProject.MapsLinkedTo( Charset, ScratchWorkspaces() );
+    }
+
+
+
+    /// <summary>"Arrival, Cemetary (scratch workspaces included)" - for the confirmations.</summary>
+    private string DescribeLinkedMaps( Formats.MapProject.MapCharset Charset )
+    {
+      var names = new List<string>();
+      foreach ( var map in m_MapProject.MapsUsingCharset( CharsetIndexOf( Charset ) ) )
+      {
+        names.Add( map.Name );
+      }
+      string text = ( names.Count == 0 ) ? "(no map)" : string.Join( ", ", names );
+      if ( LinkedMapsOf( Charset ).Count > names.Count )
+      {
+        text += " (scratch workspaces included)";
+      }
+      return text;
+    }
+
+
+
+    private static string JoinLimited( List<string> Items, int Limit )
+    {
+      if ( Items.Count <= Limit )
+      {
+        return string.Join( ", ", Items );
+      }
+      return string.Join( ", ", Items.GetRange( 0, Limit ) ) + " ... and " + ( Items.Count - Limit ) + " more";
     }
 
     private void DrawTile( int trueX, int trueY, int TileIndex, int colorOverride = -1 )
@@ -11710,53 +11949,40 @@ namespace RetroDevStudio.Documents
 
     private void btnGetTileCount_Click( DecentForms.ControlBase Sender )
     {
-      // Two independent passes:
-      //   currentMapUsage[i] = number of cells in m_CurrentMap that
-      //                        reference tile index i.
-      //   projectUsage[i]    = same, summed across every map in the
-      //                        project.
-      // The "Used" column shows "current/project" so the user can see
-      // both at a glance (e.g. "1/12" = used once in this map, twelve
-      // times across all maps). When there's no current map, the
-      // current count collapses to 0.
-      int tileCount = ActiveCharset().Tiles.Count;
-      var currentMapUsage = new int[tileCount];
-      var projectUsage    = new int[tileCount];
+      RefreshTileUsageColumn();
+    }
 
-      // Tile indices only mean this library on the maps bound to its charset.
-      foreach ( var map in m_MapProject.MapsUsingCharset( CharsetIndexOf( ActiveCharset() ) ) )
-      {
-        // While the scratch workspace is showing, m_CurrentMap is not in
-        // Maps — count the OWNER as "current" so the column keeps meaning.
-        bool isCurrent = ( map == m_CurrentMap )
-                      || ( ( m_IsViewingScratch )
-                      &&   ( ReferenceEquals( map, m_LiveMap ) ) );
-        for ( int x = 0; x < map.Tiles.Width; ++x )
-        {
-          for ( int y = 0; y < map.Tiles.Height; ++y )
-          {
-            int idx = map.Tiles[x, y];
-            if ( ( idx < 0 ) || ( idx >= tileCount ) ) continue;
-            ++projectUsage[idx];
-            if ( isCurrent ) ++currentMapUsage[idx];
-          }
-        }
-      }
 
-      // Keep the cached _TileUsage in sync with the current map so
-      // other call sites that read it (e.g. the comboTiles painter)
-      // see fresh numbers after a manual recount.
-      _TileUsage.Clear();
-      for ( int i = 0; i < tileCount; ++i )
-      {
-        _TileUsage.Add( currentMapUsage[i] );
-      }
+
+    /// <summary>
+    /// Fills the Tiles tab's "Used" column for the listed (= current map's)
+    /// charset. Usage is counted on EVERY layer of the maps LINKED to that
+    /// charset - the maps bound to it and their scratch workspaces - never
+    /// on maps of another charset. One linked map: a single number. Several
+    /// maps sharing the charset: "current map / all linked maps".
+    /// Red bold = unused, i.e. what "Delete unused tiles" removes; "*" = no
+    /// cell uses it, but it is kept (see MapProject.ProtectedTiles).
+    /// </summary>
+    private void RefreshTileUsageColumn()
+    {
+      var charset = ActiveCharset();
+      int tileCount = charset.Tiles.Count;
+      var linkedMaps = LinkedMapsOf( charset );
+      var linkedUsage = Formats.MapProject.CountTileUsage( charset, linkedMaps );
+      // While the scratch workspace is showing, the OWNER counts as the
+      // current map so the column keeps its meaning.
+      var current = m_IsViewingScratch ? m_LiveMap : m_CurrentMap;
+      var currentUsage = Formats.MapProject.CountTileUsage( charset, ( current != null ) ? new Formats.MapProject.Map[] { current } : null );
+      var kept = m_MapProject.ProtectedTiles( charset, linkedMaps );
+      bool severalMaps = ( m_MapProject.MapsUsingCharset( CharsetIndexOf( charset ) ).Count > 1 );
+
+      // Keep the cached per-current-map usage in sync after a manual recount.
+      RecalcTileUsageInCurrentMap();
 
       // Build the "unused" font once, lazily — bold version of the
-      // listview's font, used for tiles whose total project usage is
-      // zero. Keeping it scoped to this method means we don't have to
-      // own the font's lifetime; CSListView's painter doesn't dispose
-      // the SubItem.Font, so the same font instance can persist on
+      // listview's font. Keeping it scoped to this method means we don't
+      // have to own the font's lifetime; CSListView's painter doesn't
+      // dispose the SubItem.Font, so the same font instance can persist on
       // multiple rows without leaking.
       System.Drawing.Font unusedFont = null;
 
@@ -11770,10 +11996,9 @@ namespace RetroDevStudio.Documents
           continue;
         }
 
-        // SubItem 4 = "Used" column (after the new Preview column at 2
-        // shifted Size and Used down to 3 and 4 respectively). Promote
-        // the existing subitem to a CSListViewSubItem if it isn't one
-        // already — the OverrideForeColor / Font tweaks below need it.
+        // SubItem 4 = "Used" column. Promote the existing subitem to a
+        // CSListViewSubItem if it isn't one already — the
+        // OverrideForeColor / Font tweaks below need it.
         var sub = item.SubItems[4];
         if ( !( sub is RetroDevStudio.Controls.CSListViewSubItem ) )
         {
@@ -11784,16 +12009,18 @@ namespace RetroDevStudio.Documents
         }
         var csSub = (RetroDevStudio.Controls.CSListViewSubItem)sub;
 
-        int curUse = currentMapUsage[tile.Index];
-        int prjUse = projectUsage[tile.Index];
-        csSub.Text = curUse.ToString() + "/" + prjUse.ToString();
+        int curUse = currentUsage[tile.Index];
+        int linkUse = linkedUsage[tile.Index];
+        bool keptAnyway = ( linkUse == 0 ) && ( kept.ContainsKey( tile.Index ) );
+        csSub.Text = ( severalMaps ? curUse.ToString() + "/" + linkUse.ToString() : linkUse.ToString() )
+                   + ( keptAnyway ? " *" : "" );
 
-        if ( prjUse == 0 )
+        if ( ( linkUse == 0 )
+        &&   ( !keptAnyway )
+        &&   ( linkedMaps.Count > 0 ) )
         {
-          // Truly unused tile — red bold so it's easy to spot in a
-          // long list. ProjectUsage == 0 implies currentMapUsage is
-          // also 0 (both sums share the same zero-source loop), so
-          // this is the "0/0" case the user asked for.
+          // Unused on every linked map and not kept for another reason —
+          // red bold: exactly the tiles "Delete unused tiles" removes.
           if ( unusedFont == null )
           {
             unusedFont = new System.Drawing.Font( listTileInfo.Font, System.Drawing.FontStyle.Bold );
@@ -11803,9 +12030,8 @@ namespace RetroDevStudio.Documents
         }
         else
         {
-          // Used at least once somewhere — restore default styling
-          // so a tile that became used after a previous "0/0" run
-          // doesn't keep the red bold.
+          // Used (or kept) — restore default styling so a tile that became
+          // used after a previous run doesn't keep the red bold.
           csSub.Font = listTileInfo.Font;
           csSub.OverrideForeColor = null;
         }
@@ -11814,6 +12040,130 @@ namespace RetroDevStudio.Documents
       listTileInfo.Invalidate();
 
       comboTiles.Invalidate();
+    }
+
+
+
+    /// <summary>
+    /// Deletes every tile of the listed (= current map's) charset that no
+    /// linked map uses - see MapProject.UnusedTileIndexes for the exact rule
+    /// (every layer, scratch workspaces included, protected tiles kept).
+    /// Explicit confirmation; one undo group, like the multi-row Delete.
+    /// </summary>
+    private void btnDeleteUnusedTiles_Click( DecentForms.ControlBase Sender )
+    {
+      var charset = ActiveCharset();
+      string charsetName = m_MapProject.CharsetDisplayNameOf( charset );
+      var linkedMaps = LinkedMapsOf( charset );
+      if ( linkedMaps.Count == 0 )
+      {
+        System.Windows.Forms.MessageBox.Show(
+          "No map is linked to character set '" + charsetName + "', so there is nothing to check its tiles against.",
+          "Delete unused tiles",
+          System.Windows.Forms.MessageBoxButtons.OK,
+          System.Windows.Forms.MessageBoxIcon.Information );
+        return;
+      }
+
+      var unused = m_MapProject.UnusedTileIndexes( charset, ScratchWorkspaces() );
+      var usage = Formats.MapProject.CountTileUsage( charset, linkedMaps );
+      var kept = m_MapProject.ProtectedTiles( charset, linkedMaps );
+      var keptLines = new List<string>();
+      foreach ( var pair in kept )
+      {
+        if ( ( pair.Key < usage.Length )
+        &&   ( usage[pair.Key] == 0 ) )
+        {
+          keptLines.Add( pair.Key + ": " + charset.Tiles[pair.Key].Name + " (" + pair.Value + ")" );
+        }
+      }
+      keptLines.Sort( ( a, b ) => GR.Convert.ToI32( a.Substring( 0, a.IndexOf( ':' ) ) ).CompareTo( GR.Convert.ToI32( b.Substring( 0, b.IndexOf( ':' ) ) ) ) );
+
+      if ( unused.Count == 0 )
+      {
+        System.Windows.Forms.MessageBox.Show(
+          "Character set '" + charsetName + "' has no unused tile.\r\n\r\nChecked on every layer of: " + DescribeLinkedMaps( charset ) + "."
+          + ( keptLines.Count == 0 ? "" : "\r\n\r\nNo cell uses these, but they are kept:\r\n  " + JoinLimited( keptLines, 12 ) ),
+          "Delete unused tiles",
+          System.Windows.Forms.MessageBoxButtons.OK,
+          System.Windows.Forms.MessageBoxIcon.Information );
+        return;
+      }
+
+      var names = new List<string>();
+      foreach ( int index in unused )
+      {
+        names.Add( index + ": " + charset.Tiles[index].Name );
+      }
+      var message = new StringBuilder();
+      message.Append( "Delete " + unused.Count + " unused tile" + ( unused.Count == 1 ? "" : "s" ) + " from character set '" + charsetName + "'?\r\n\r\n" );
+      message.Append( "Checked on every layer of: " + DescribeLinkedMaps( charset ) + ".\r\n\r\n" );
+      message.Append( "Tiles to delete:\r\n  " + JoinLimited( names, 30 ) + "\r\n\r\n" );
+      if ( keptLines.Count > 0 )
+      {
+        message.Append( "No cell uses these either, but they are kept:\r\n  " + JoinLimited( keptLines, 12 ) + "\r\n\r\n" );
+      }
+      // An entity type's tile number is only adjusted for types previewed
+      // with this charset (the remap rule of RemoveTile). One placed on
+      // these maps but previewed with another charset keeps its number,
+      // which then names another tile here.
+      var foreignTypes = new List<string>();
+      foreach ( var type in m_MapProject.EntityTypes )
+      {
+        if ( ( m_MapProject.CharsetAt( type.PreviewCharsetIndex ) == charset )
+        ||   ( type.TileIndex < 0 )
+        ||   ( type.TileIndex >= charset.Tiles.Count ) )
+        {
+          continue;
+        }
+        foreach ( var map in linkedMaps )
+        {
+          if ( map.Entities.Any( entity => entity.Type == type.ID ) )
+          {
+            foreignTypes.Add( type.Name );
+            break;
+          }
+        }
+      }
+      if ( foreignTypes.Count > 0 )
+      {
+        message.Append( "Careful - these entity types stand on the linked maps but are set to another character set on the Entities tab, so their tile number is NOT adjusted and may point at another tile afterwards:\r\n  " + JoinLimited( foreignTypes, 12 ) + "\r\nSet their charset to '" + charsetName + "' first if they belong to it.\r\n\r\n" );
+      }
+      message.Append( "The remaining tiles move up and the linked maps are re-numbered to match. Revision snapshots are not adjusted. Undo brings everything back in one step." );
+
+      var answer = System.Windows.Forms.MessageBox.Show(
+        message.ToString(),
+        "Delete unused tiles",
+        System.Windows.Forms.MessageBoxButtons.YesNo,
+        System.Windows.Forms.MessageBoxIcon.Warning,
+        System.Windows.Forms.MessageBoxDefaultButton.Button2 );
+      if ( answer != System.Windows.Forms.DialogResult.Yes )
+      {
+        return;
+      }
+
+      // Highest index first, so every removal acts on a list the earlier
+      // ones did not shift (the multi-row Delete's order and undo grouping).
+      listTileInfo.BeginUpdate();
+      try
+      {
+        for ( int i = unused.Count - 1; i >= 0; --i )
+        {
+          DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileRemove( this, m_MapProject, charset, unused[i] ), i == unused.Count - 1 );
+          RemoveTile( charset, unused[i] );
+        }
+      }
+      finally
+      {
+        listTileInfo.EndUpdate();
+      }
+      if ( listTileInfo.Items.Count > 0 )
+      {
+        listTileInfo.SelectedIndices.Clear();
+        listTileInfo.SelectedIndices.Add( 0 );
+        listTileInfo.EnsureVisible( 0 );
+      }
+      RefreshTileUsageColumn();
     }
 
 
@@ -18878,6 +19228,7 @@ namespace RetroDevStudio.Documents
                        && ( listMapStrings.SelectedIndex < m_MapProject.MapStrings.Count );
       btnDeleteMapString.Enabled    = hasSelection;
       btnDuplicateMapString.Enabled = hasSelection;
+      btnFindNextMapStringID.Enabled = hasSelection;
       btnMoveMapStringUp.Enabled    = hasSelection && ( listMapStrings.SelectedIndex > 0 );
       btnMoveMapStringDown.Enabled  = hasSelection
                                    && ( listMapStrings.SelectedIndex < m_MapProject.MapStrings.Count - 1 );
@@ -19174,22 +19525,11 @@ namespace RetroDevStudio.Documents
       while ( existing.Contains( candidate ) );
       ms.Label = candidate;
 
-      // Assign the lowest String ID (0..255) not already used by an
-      // existing map string. With 256+ strings every value is taken —
-      // fall back to the default of 0.
-      var usedIDs = new HashSet<byte>();
-      foreach ( var x in m_MapProject.MapStrings )
-      {
-        usedIDs.Add( x.StringID );
-      }
-      for ( int id = 0; id <= 255; ++id )
-      {
-        if ( !usedIDs.Contains( (byte)id ) )
-        {
-          ms.StringID = (byte)id;
-          break;
-        }
-      }
+      // The lowest free String ID, starting at 1 (see FindFreeMapStringID:
+      // 0 is what an unset message marker points at). The 255-string cap
+      // checked above leaves at most 254 strings here, so one of 1..255 is
+      // always free and the 0 fallback is never reached.
+      ms.StringID = (byte)Math.Max( 0, m_MapProject.FindFreeMapStringID( null ) );
 
       m_MapProject.MapStrings.Add( ms );
       RefreshMapStrings();
@@ -19273,11 +19613,15 @@ namespace RetroDevStudio.Documents
       if ( MapStringLimitReached() ) return;
 
       DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+      // Everything is copied EXCEPT the String ID: sharing the source's ID
+      // would make two strings answer to one ID, and a marker can only ever
+      // reach one of them. The copy gets a fresh ID, as Add does (never
+      // falls back to 0 - see btnAddMapString_Click).
       var copy = new Formats.MapProject.MapString
       {
         Label              = MakeUniqueMapStringLabel( ( src.Label ?? "" ) + "_COPY" ),
         ClearTextAreaAtEnd = src.ClearTextAreaAtEnd,
-        StringID           = src.StringID
+        StringID           = (byte)Math.Max( 0, m_MapProject.FindFreeMapStringID( null ) )
       };
       for ( int i = 0; i < 5; ++i )
       {
@@ -19293,6 +19637,34 @@ namespace RetroDevStudio.Documents
       RefreshMapStrings();
       listMapStrings.SelectedIndex = m_MapProject.MapStrings.Count - 1;
       SetModified();
+    }
+
+
+
+    private void btnFindNextMapStringID_Click( DecentForms.ControlBase Sender )
+    {
+      var ms = GetSelectedMapString();
+      if ( ms == null ) return;
+
+      // The selected string is excluded, so one that already holds the
+      // lowest free ID keeps it (the self-exclusion rule of every other
+      // find-free button).
+      int candidate = m_MapProject.FindFreeMapStringID( ms );
+      if ( candidate < 0 )
+      {
+        System.Windows.Forms.MessageBox.Show(
+          this,
+          "All String IDs from 1 to 255 are already in use by other map strings. String ID 0 is never handed out automatically, and the field is exported as a single byte so it cannot exceed 255.",
+          "No free String ID",
+          System.Windows.Forms.MessageBoxButtons.OK,
+          System.Windows.Forms.MessageBoxIcon.Warning );
+        return;
+      }
+      // The spinner is live-bound: assigning it runs editMapStringID_ValueChanged
+      // (undo step, model write, Used column refresh) - the same path as
+      // typing the value. An unchanged value raises nothing, so clicking
+      // again adds no undo step and does not mark the document modified.
+      editMapStringID.Value = candidate;
     }
 
 
