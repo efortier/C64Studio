@@ -922,6 +922,9 @@ namespace RetroDevStudio.Documents
 
       // Dark scrollbars on the listbox / multiline textbox that show them.
       RetroDevStudio.CustomRenderer.DarkTheme.ApplyDarkScrollBarsTo( comboTiles );
+      // The export settings panel scrolls when its form is taller than the
+      // tab (the game-binary form is, at larger font scaling).
+      RetroDevStudio.CustomRenderer.DarkTheme.ApplyDarkScrollBarsTo( panelExport );
 
       // The palette/theme dropdown that used to live here was promoted
       // to the global application toolbar (mainToolPaletteSelector) and
@@ -1959,11 +1962,11 @@ namespace RetroDevStudio.Documents
             }
             int cw = 1, ch = 1;
             var etype = m_MapProject.EntityTypes.FirstOrDefault( t => t.ID == entity.Type );
-            if ( ( etype != null )
-            &&   ( etype.TileIndex >= 0 )
-            &&   ( etype.TileIndex < ActiveCharset().Tiles.Count ) )
+            int etile = ActiveCharset().EntityTileOf( etype );
+            if ( ( etile >= 0 )
+            &&   ( etile < ActiveCharset().Tiles.Count ) )
             {
-              GetTileCellFootprint( ActiveCharset().Tiles[etype.TileIndex], out cw, out ch );
+              GetTileCellFootprint( ActiveCharset().Tiles[etile], out cw, out ch );
             }
             drawHighlightAt( entity.X, entity.Y, cw, ch, disabledEntityColor, false );
           }
@@ -2086,11 +2089,11 @@ namespace RetroDevStudio.Documents
           // than just the anchor cell.
           int cw = 1, ch = 1;
           var etype = m_MapProject.EntityTypes.FirstOrDefault( t => t.ID == m_SelectedEntity.Type );
-          if ( ( etype != null )
-          &&   ( etype.TileIndex >= 0 )
-          &&   ( etype.TileIndex < ActiveCharset().Tiles.Count ) )
+          int etile = ActiveCharset().EntityTileOf( etype );
+          if ( ( etile >= 0 )
+          &&   ( etile < ActiveCharset().Tiles.Count ) )
           {
-            GetTileCellFootprint( ActiveCharset().Tiles[etype.TileIndex], out cw, out ch );
+            GetTileCellFootprint( ActiveCharset().Tiles[etile], out cw, out ch );
           }
           drawHighlightAt( m_SelectedEntity.X, m_SelectedEntity.Y, cw, ch, highlightColor, true );
         }
@@ -2654,13 +2657,13 @@ namespace RetroDevStudio.Documents
           m_SpriteAnimTimer.Stop();
         }
         UpdateFilterAnimationTimerState( false );
-        // A tile-list drag cannot survive the focus loss; without this the
-        // autoscroll timer could keep ticking if the mouse-up landed in
-        // another application.
-        if ( ( m_TileListAutoScrollTimer != null )
-        &&   ( m_TileListAutoScrollTimer.Enabled ) )
+        // A list drag (Tiles / Map Strings reorder) cannot survive the
+        // focus loss; without this the autoscroll timer could keep ticking
+        // if the mouse-up landed in another application.
+        if ( ( m_ListAutoScrollTimer != null )
+        &&   ( m_ListAutoScrollTimer.Enabled ) )
         {
-          m_TileListAutoScrollTimer.Stop();
+          m_ListAutoScrollTimer.Stop();
         }
         return;
       }
@@ -3547,7 +3550,32 @@ namespace RetroDevStudio.Documents
 
     private void comboEntityPreviewCharset_SelectedIndexChanged( object sender, EventArgs e )
     {
+      // Every type has one tile per charset: with a type selected, show ITS
+      // tile in the chosen charset (an uncommitted pick for the previous
+      // charset is dropped - Update commits one charset at a time). While
+      // staging a new type, keep the staged number and just re-list.
+      var type = SingleSelectedEntityType();
+      if ( type != null )
+      {
+        SetEntityTileCombo( m_MapProject.CharsetAt( comboEntityPreviewCharset.SelectedIndex ).EntityTileOf( type ) );
+        return;
+      }
       RefreshEntityTileCombo();
+    }
+
+
+
+    /// <summary>The entity type the Entities tab editor shows: the single selected one, else null.</summary>
+    private MapProject.EntityType SingleSelectedEntityType()
+    {
+      if ( ( m_MapProject == null )
+      ||   ( listEntityTypes.SelectedIndices.Count != 1 )
+      ||   ( listEntityTypes.SelectedIndex < 0 )
+      ||   ( listEntityTypes.SelectedIndex >= m_MapProject.EntityTypes.Count ) )
+      {
+        return null;
+      }
+      return m_MapProject.EntityTypes[listEntityTypes.SelectedIndex];
     }
 
 
@@ -7170,14 +7198,16 @@ namespace RetroDevStudio.Documents
         {
           var type = m_MapProject.EntityTypes.FirstOrDefault( t => t.ID == entity.Type );
           if ( type == null ) continue;
-          if ( ( type.TileIndex < 0 ) || ( type.TileIndex >= ActiveCharset().Tiles.Count ) ) continue;
+          // The type's tile in the map's own charset (one per charset).
+          int typeTile = ActiveCharset().EntityTileOf( type );
+          if ( ( typeTile < 0 ) || ( typeTile >= ActiveCharset().Tiles.Count ) ) continue;
 
           int ex = entity.X - offsetX;
           int ey = entity.Y - offsetY;
           if ( ( ex < x1 - offsetX ) || ( ex > x2 - offsetX )
           ||   ( ey < y1 - offsetY ) || ( ey > y2 - offsetY ) ) continue;
 
-          var tile = ActiveCharset().Tiles[type.TileIndex];
+          var tile = ActiveCharset().Tiles[typeTile];
           for ( int j = 0; j < tile.Chars.Height; ++j )
           {
             for ( int i = 0; i < tile.Chars.Width; ++i )
@@ -11434,15 +11464,16 @@ namespace RetroDevStudio.Documents
       m_LiveMap = null;
       m_CurrentMap = null;
 
-      // Persist the user's map choice so reopening the project lands them
+      // Remember the user's map choice so reopening the project lands them
       // on the same map. -1 ("none selected") writes through too — falling
       // back to "no preference" rather than the last good index keeps the
-      // saved value honest.
-      if ( ( m_MapProject != null )
-      &&   ( m_MapProject.CurrentMapIndex != comboMaps.SelectedIndex ) )
+      // saved value honest. View state: it does NOT mark the project
+      // modified (looking at another map is not an edit) - it rides along
+      // with the next real save, like the placement-type choices.
+      // TestMapEditorStaysClean guards this.
+      if ( m_MapProject != null )
       {
         m_MapProject.CurrentMapIndex = comboMaps.SelectedIndex;
-        SetModified();
       }
 
       btnMapApply.Enabled = ( comboMaps.SelectedIndex != -1 );
@@ -11555,6 +11586,18 @@ namespace RetroDevStudio.Documents
       }
 
       dimSlider.Value = m_CurrentMap.MarkerDimOpacity;
+      // A remembered placement type that no longer exists (its type was
+      // deleted) reads as "none" - in the map too, BEFORE the combos are
+      // set, so their handlers see no change and never write back or mark
+      // the project modified. View state, it rides the next real save.
+      if ( m_MapProject.MarkerTypes.FindIndex( t => t.ID == m_CurrentMap.SelectedMarkerType ) < 0 )
+      {
+        m_CurrentMap.SelectedMarkerType = -1;
+      }
+      if ( m_MapProject.EntityTypes.FindIndex( t => t.ID == m_CurrentMap.SelectedEntityType ) < 0 )
+      {
+        m_CurrentMap.SelectedEntityType = -1;
+      }
       if ( m_MapProject.MarkerTypes.Count > 0 )
       {
         int index = m_MapProject.MarkerTypes.FindIndex( t => t.ID == m_CurrentMap.SelectedMarkerType );
@@ -11973,7 +12016,7 @@ namespace RetroDevStudio.Documents
       // current map so the column keeps its meaning.
       var current = m_IsViewingScratch ? m_LiveMap : m_CurrentMap;
       var currentUsage = Formats.MapProject.CountTileUsage( charset, ( current != null ) ? new Formats.MapProject.Map[] { current } : null );
-      var kept = m_MapProject.ProtectedTiles( charset, linkedMaps );
+      var kept = m_MapProject.ProtectedTiles( charset );
       bool severalMaps = ( m_MapProject.MapsUsingCharset( CharsetIndexOf( charset ) ).Count > 1 );
 
       // Keep the cached per-current-map usage in sync after a manual recount.
@@ -12067,7 +12110,7 @@ namespace RetroDevStudio.Documents
 
       var unused = m_MapProject.UnusedTileIndexes( charset, ScratchWorkspaces() );
       var usage = Formats.MapProject.CountTileUsage( charset, linkedMaps );
-      var kept = m_MapProject.ProtectedTiles( charset, linkedMaps );
+      var kept = m_MapProject.ProtectedTiles( charset );
       var keptLines = new List<string>();
       foreach ( var pair in kept )
       {
@@ -12102,32 +12145,6 @@ namespace RetroDevStudio.Documents
       if ( keptLines.Count > 0 )
       {
         message.Append( "No cell uses these either, but they are kept:\r\n  " + JoinLimited( keptLines, 12 ) + "\r\n\r\n" );
-      }
-      // An entity type's tile number is only adjusted for types previewed
-      // with this charset (the remap rule of RemoveTile). One placed on
-      // these maps but previewed with another charset keeps its number,
-      // which then names another tile here.
-      var foreignTypes = new List<string>();
-      foreach ( var type in m_MapProject.EntityTypes )
-      {
-        if ( ( m_MapProject.CharsetAt( type.PreviewCharsetIndex ) == charset )
-        ||   ( type.TileIndex < 0 )
-        ||   ( type.TileIndex >= charset.Tiles.Count ) )
-        {
-          continue;
-        }
-        foreach ( var map in linkedMaps )
-        {
-          if ( map.Entities.Any( entity => entity.Type == type.ID ) )
-          {
-            foreignTypes.Add( type.Name );
-            break;
-          }
-        }
-      }
-      if ( foreignTypes.Count > 0 )
-      {
-        message.Append( "Careful - these entity types stand on the linked maps but are set to another character set on the Entities tab, so their tile number is NOT adjusted and may point at another tile afterwards:\r\n  " + JoinLimited( foreignTypes, 12 ) + "\r\nSet their charset to '" + charsetName + "' first if they belong to it.\r\n\r\n" );
       }
       message.Append( "The remaining tiles move up and the linked maps are re-numbered to match. Revision snapshots are not adjusted. Undo brings everything back in one step." );
 
@@ -12221,6 +12238,9 @@ namespace RetroDevStudio.Documents
           }
         }
       }
+      // The entity types' tiles in this charset follow the same shift, so an
+      // insert (Clone, undo of a delete) never leaves them on the neighbour.
+      Charset.ShiftEntityTilesForInsert( TileIndex );
 
       // auto-select tile
       if ( displayed )
@@ -13464,30 +13484,11 @@ namespace RetroDevStudio.Documents
         }
       }
 
-      // Entity types reference tiles by index. Mirror the same shift
-      // that we just applied to map cells: indices > TileIndex slide
-      // down by one; indices == TileIndex (whose tile is gone) become
-      // -1, which the rendering loop's `TileIndex < 0` guard treats as
-      // "no tile" and skips the entity. Better to surface a deleted
-      // entity-tile binding as an invisible entity than to silently
-      // re-bind it to whatever shifted into the freed slot.
-      // One TileIndex is read in every map's charset — it follows the
-      // library it was designed against (the type's preview charset).
-      foreach ( var et in m_MapProject.EntityTypes )
-      {
-        if ( m_MapProject.CharsetAt( et.PreviewCharsetIndex ) != Charset )
-        {
-          continue;
-        }
-        if ( et.TileIndex == TileIndex )
-        {
-          et.TileIndex = -1;
-        }
-        else if ( et.TileIndex > TileIndex )
-        {
-          --et.TileIndex;
-        }
-      }
+      // The entity types' tiles in this charset mirror the map-cell shift:
+      // above the removed tile they slide down by one, one ON it loses its
+      // tile (an invisible entity beats one silently showing whatever moved
+      // into the freed slot). Other charsets keep their own tiles.
+      Charset.ShiftEntityTilesForRemoval( TileIndex );
 
       Charset.Tiles.RemoveAt( TileIndex );
       Charset.ReindexTiles();
@@ -13741,38 +13742,9 @@ namespace RetroDevStudio.Documents
         }
       }
 
-      // Entity types reference tiles by index — apply the same shift to
-      // their TileIndex so entity overlays keep pointing at the same tile
-      // after the reorder (types designed against this charset only).
-      foreach ( var entityType in m_MapProject.EntityTypes )
-      {
-        if ( m_MapProject.CharsetAt( entityType.PreviewCharsetIndex ) != Charset )
-        {
-          continue;
-        }
-        int tileIndex = entityType.TileIndex;
-        if ( tileIndex == FromIndex )
-        {
-          entityType.TileIndex = ToIndex;
-        }
-        else if ( FromIndex < ToIndex )
-        {
-          if ( ( tileIndex > FromIndex )
-          &&   ( tileIndex <= ToIndex ) )
-          {
-            --entityType.TileIndex;
-          }
-        }
-        else
-        {
-          // FromIndex > ToIndex
-          if ( ( tileIndex >= ToIndex )
-          &&   ( tileIndex < FromIndex ) )
-          {
-            ++entityType.TileIndex;
-          }
-        }
-      }
+      // The entity types' tiles in this charset follow the move, so their
+      // overlays keep showing the same tile.
+      Charset.MoveEntityTiles( FromIndex, ToIndex );
 
       if ( displayed )
       {
@@ -13974,19 +13946,8 @@ namespace RetroDevStudio.Documents
         }
       }
 
-      // Entity types reference tiles by index — follow the permutation
-      // (types designed against this charset only).
-      foreach ( var et in m_MapProject.EntityTypes )
-      {
-        if ( m_MapProject.CharsetAt( et.PreviewCharsetIndex ) != Charset )
-        {
-          continue;
-        }
-        if ( ( et.TileIndex >= 0 ) && ( et.TileIndex < count ) )
-        {
-          et.TileIndex = OldToNew[et.TileIndex];
-        }
-      }
+      // The entity types' tiles in this charset follow the permutation.
+      Charset.PermuteEntityTiles( OldToNew );
 
       if ( Charset == m_DisplayedCharset )
       {
@@ -13999,19 +13960,23 @@ namespace RetroDevStudio.Documents
 
 
     // ----------------------------------------------------------------
-    // Auto-scroll the tile list while the user is dragging an item near
-    // the top/bottom edge — matches Explorer/Outlook/etc. so the user
-    // can drop a tile far above/below the current viewport without
-    // having to release, scroll manually, and re-grab.
+    // Auto-scroll a reorderable list (the Tiles list, the Map Strings
+    // list) while the user drags rows near its top/bottom edge — matches
+    // Explorer/Outlook/etc. so a row can be dropped far above/below the
+    // current viewport without having to release, scroll manually, and
+    // re-grab.
     //
-    // Pattern: hot-zone detection in DragOver flips the direction
-    // field; a 60 ms tick timer pumps WM_VSCROLL (line up/down) at the
-    // listview while the cursor sits in the zone. Released on
-    // DragDrop / DragLeave so it can't keep scrolling after the drop.
+    // Pattern: hot-zone detection in DragOver (UpdateListAutoScroll) sets
+    // the direction and the list to scroll; a 60 ms tick timer pumps
+    // WM_VSCROLL (line up/down) at that list while the cursor sits in the
+    // zone. One timer serves every list: a drag is modal, so only one list
+    // can be dragging at a time. Released on DragDrop / DragLeave / drag
+    // end so it can't keep scrolling after the drop.
     // ----------------------------------------------------------------
-    private System.Windows.Forms.Timer  m_TileListAutoScrollTimer = null;
-    private int                          m_TileListAutoScrollDirection = 0;
-    private const int                    TileListAutoScrollHotZonePx = 24;
+    private System.Windows.Forms.Timer     m_ListAutoScrollTimer = null;
+    private System.Windows.Forms.ListView  m_ListAutoScrollTarget = null;
+    private int                             m_ListAutoScrollDirection = 0;
+    private const int                       ListAutoScrollHotZonePx = 24;
 
     [System.Runtime.InteropServices.DllImport( "user32.dll" )]
     private static extern int SendMessage( IntPtr hWnd, int wMsg, IntPtr wParam, IntPtr lParam );
@@ -14019,47 +13984,87 @@ namespace RetroDevStudio.Documents
     private const int SB_LINEUP = 0;
     private const int SB_LINEDOWN = 1;
 
-    private void EnsureTileListAutoScrollTimer()
+    private void EnsureListAutoScrollTimer()
     {
-      if ( m_TileListAutoScrollTimer != null ) return;
-      m_TileListAutoScrollTimer = new System.Windows.Forms.Timer();
+      if ( m_ListAutoScrollTimer != null ) return;
+      m_ListAutoScrollTimer = new System.Windows.Forms.Timer();
       // 60 ms ≈ 16 lines/sec — fast enough that you won't think it's
       // stuck, slow enough that overshooting by one row is rare. Tuned
       // by feel; bump down to ~40 ms if it feels sluggish on long lists.
-      m_TileListAutoScrollTimer.Interval = 60;
-      m_TileListAutoScrollTimer.Tick += TileListAutoScrollTimer_Tick;
+      m_ListAutoScrollTimer.Interval = 60;
+      m_ListAutoScrollTimer.Tick += ListAutoScrollTimer_Tick;
     }
 
-    private void TileListAutoScrollTimer_Tick( object sender, EventArgs e )
+    private void ListAutoScrollTimer_Tick( object sender, EventArgs e )
     {
-      if ( ( listTileInfo == null ) || ( !listTileInfo.IsHandleCreated ) )
+      var list = m_ListAutoScrollTarget;
+      if ( ( list == null ) || ( !list.IsHandleCreated ) )
       {
         return;
       }
-      if ( m_TileListAutoScrollDirection < 0 )
+      if ( m_ListAutoScrollDirection < 0 )
       {
-        SendMessage( listTileInfo.Handle, WM_VSCROLL, (IntPtr)SB_LINEUP, IntPtr.Zero );
+        SendMessage( list.Handle, WM_VSCROLL, (IntPtr)SB_LINEUP, IntPtr.Zero );
       }
-      else if ( m_TileListAutoScrollDirection > 0 )
+      else if ( m_ListAutoScrollDirection > 0 )
       {
-        SendMessage( listTileInfo.Handle, WM_VSCROLL, (IntPtr)SB_LINEDOWN, IntPtr.Zero );
+        SendMessage( list.Handle, WM_VSCROLL, (IntPtr)SB_LINEDOWN, IntPtr.Zero );
       }
     }
 
-    private void StopTileListAutoScroll()
+    /// <summary>
+    /// Hot-zone auto-scroll for a row drag over List (ClientPoint in its
+    /// client coordinates): cursor near the top edge → scroll up, near the
+    /// bottom edge → scroll down, anywhere else → idle. The timer
+    /// (lazy-initialised in the list's ItemDrag) does the actual pumping
+    /// at a steady rate so the user doesn't have to wiggle the mouse to
+    /// keep scrolling. Direction 0 stops the timer until the cursor
+    /// re-enters a zone.
+    /// </summary>
+    private void UpdateListAutoScroll( System.Windows.Forms.ListView List, System.Drawing.Point ClientPoint )
     {
-      m_TileListAutoScrollDirection = 0;
-      if ( m_TileListAutoScrollTimer != null )
+      int newDir = 0;
+      if ( ClientPoint.Y < ListAutoScrollHotZonePx )
       {
-        m_TileListAutoScrollTimer.Stop();
+        newDir = -1;
+      }
+      else if ( ClientPoint.Y > List.ClientSize.Height - ListAutoScrollHotZonePx )
+      {
+        newDir = 1;
+      }
+      m_ListAutoScrollTarget    = List;
+      m_ListAutoScrollDirection = newDir;
+      if ( m_ListAutoScrollTimer != null )
+      {
+        if ( newDir != 0 )
+        {
+          if ( !m_ListAutoScrollTimer.Enabled )
+          {
+            m_ListAutoScrollTimer.Start();
+          }
+        }
+        else if ( m_ListAutoScrollTimer.Enabled )
+        {
+          m_ListAutoScrollTimer.Stop();
+        }
+      }
+    }
+
+    private void StopListAutoScroll()
+    {
+      m_ListAutoScrollDirection = 0;
+      m_ListAutoScrollTarget    = null;
+      if ( m_ListAutoScrollTimer != null )
+      {
+        m_ListAutoScrollTimer.Stop();
       }
     }
 
     private void listTileInfo_ItemDrag( object sender, ItemDragEventArgs e )
     {
-      EnsureTileListAutoScrollTimer();
+      EnsureListAutoScrollTimer();
       listTileInfo.DoDragDrop( e.Item, DragDropEffects.Move );
-      StopTileListAutoScroll();
+      StopListAutoScroll();
     }
 
 
@@ -14069,14 +14074,14 @@ namespace RetroDevStudio.Documents
       // Cursor exited the listview — stop pumping scrolls so a
       // dragged-out-then-back-in motion doesn't keep scrolling while
       // the cursor is somewhere else entirely.
-      StopTileListAutoScroll();
+      StopListAutoScroll();
     }
 
 
 
     private void listTileInfo_DragEnter( object sender, DragEventArgs e )
     {
-      if ( e.Data.GetDataPresent( typeof( ListViewItem ) ) )
+      if ( DraggedRowOf( listTileInfo, e ) != null )
       {
         e.Effect = DragDropEffects.Move;
       }
@@ -14090,6 +14095,11 @@ namespace RetroDevStudio.Documents
 
     private void listTileInfo_DragOver( object sender, DragEventArgs e )
     {
+      if ( DraggedRowOf( listTileInfo, e ) == null )
+      {
+        e.Effect = DragDropEffects.None;
+        return;
+      }
       System.Drawing.Point targetPoint = listTileInfo.PointToClient( new System.Drawing.Point( e.X, e.Y ) );
       int targetIndex = listTileInfo.InsertionMark.NearestIndex( targetPoint );
 
@@ -14107,36 +14117,7 @@ namespace RetroDevStudio.Documents
       }
       listTileInfo.InsertionMark.Index = targetIndex;
 
-      // Hot-zone auto-scroll: cursor near the top edge → scroll up,
-      // near the bottom edge → scroll down, anywhere else → idle.
-      // The timer (lazy-initialised in ItemDrag) does the actual
-      // pumping at a steady rate so the user doesn't have to wiggle
-      // the mouse to keep scrolling. Direction reset to 0 stops the
-      // timer until the cursor re-enters a zone.
-      int newDir = 0;
-      if ( targetPoint.Y < TileListAutoScrollHotZonePx )
-      {
-        newDir = -1;
-      }
-      else if ( targetPoint.Y > listTileInfo.ClientSize.Height - TileListAutoScrollHotZonePx )
-      {
-        newDir = 1;
-      }
-      m_TileListAutoScrollDirection = newDir;
-      if ( m_TileListAutoScrollTimer != null )
-      {
-        if ( newDir != 0 )
-        {
-          if ( !m_TileListAutoScrollTimer.Enabled )
-          {
-            m_TileListAutoScrollTimer.Start();
-          }
-        }
-        else if ( m_TileListAutoScrollTimer.Enabled )
-        {
-          m_TileListAutoScrollTimer.Stop();
-        }
-      }
+      UpdateListAutoScroll( listTileInfo, targetPoint );
     }
 
 
@@ -14147,7 +14128,14 @@ namespace RetroDevStudio.Documents
       // ItemDrag finally-clause also stops it, but doing it here means
       // the listview doesn't get one extra scroll tick after the user
       // releases.
-      StopTileListAutoScroll();
+      StopListAutoScroll();
+
+      // Only a row of this very list may reorder it (see DraggedRowOf).
+      var draggedRow = DraggedRowOf( listTileInfo, e );
+      if ( draggedRow == null )
+      {
+        return;
+      }
 
       System.Drawing.Point targetPoint = listTileInfo.PointToClient( new System.Drawing.Point( e.X, e.Y ) );
       int targetIndex = listTileInfo.InsertionMark.NearestIndex( targetPoint );
@@ -14212,12 +14200,7 @@ namespace RetroDevStudio.Documents
       }
       if ( sourceIndices.Count == 0 )
       {
-        ListViewItem draggedItem = (ListViewItem)e.Data.GetData( typeof( ListViewItem ) );
-        if ( draggedItem == null )
-        {
-          return;
-        }
-        sourceIndices.Add( draggedItem.Index );
+        sourceIndices.Add( draggedRow.Index );
       }
 
       // targetIndex is the insertion point in the current list (0..Count);
@@ -14293,25 +14276,9 @@ namespace RetroDevStudio.Documents
         }
       }
 
-      // Entity types reference tiles by index — keep them pointing at the
-      // same visual tile after the swap so entity overlays don't silently
-      // start rendering a different tile (types designed against this
-      // charset only).
-      foreach ( var entityType in m_MapProject.EntityTypes )
-      {
-        if ( m_MapProject.CharsetAt( entityType.PreviewCharsetIndex ) != Charset )
-        {
-          continue;
-        }
-        if ( entityType.TileIndex == Index1 )
-        {
-          entityType.TileIndex = Index2;
-        }
-        else if ( entityType.TileIndex == Index2 )
-        {
-          entityType.TileIndex = Index1;
-        }
-      }
+      // The entity types' tiles in this charset follow the swap, so their
+      // overlays don't silently start rendering a different tile.
+      Charset.SwapEntityTiles( Index1, Index2 );
       RedrawMap();
       SetModified();
     }
@@ -15930,12 +15897,14 @@ namespace RetroDevStudio.Documents
         {
           continue;
         }
-        if ( ( type.TileIndex < 0 )
-        ||   ( type.TileIndex >= ActiveCharset().Tiles.Count ) )
+        // The type's tile in the map's own charset (one per charset).
+        int typeTile = ActiveCharset().EntityTileOf( type );
+        if ( ( typeTile < 0 )
+        ||   ( typeTile >= ActiveCharset().Tiles.Count ) )
         {
           continue;
         }
-        var tile = ActiveCharset().Tiles[type.TileIndex];
+        var tile = ActiveCharset().Tiles[typeTile];
         for ( int j = 0; j < tile.Chars.Height; ++j )
         {
           for ( int i = 0; i < tile.Chars.Width; ++i )
@@ -19544,14 +19513,32 @@ namespace RetroDevStudio.Documents
     private void btnDeleteMapString_Click( DecentForms.ControlBase Sender )
     {
       if ( m_MapProject == null ) return;
-      int idx = listMapStrings.SelectedIndex;
-      if ( idx < 0 || idx >= m_MapProject.MapStrings.Count ) return;
 
-      string label = m_MapProject.MapStrings[idx].Label;
-      string shown = string.IsNullOrEmpty( label ) ? "(no label)" : label;
+      // Every selected string goes (the Tiles list's Delete rule), in one
+      // undo step. SelectedIndices is ascending.
+      var indices = new List<int>();
+      foreach ( int i in listMapStrings.SelectedIndices )
+      {
+        if ( ( i >= 0 )
+        &&   ( i < m_MapProject.MapStrings.Count ) )
+        {
+          indices.Add( i );
+        }
+      }
+      if ( indices.Count == 0 ) return;
+
+      var shown = new List<string>();
+      foreach ( int i in indices )
+      {
+        string label = m_MapProject.MapStrings[i].Label;
+        shown.Add( string.IsNullOrEmpty( label ) ? "(no label)" : label );
+      }
+      string question = ( indices.Count == 1 )
+                      ? "Delete map string '" + shown[0] + "'?"
+                      : "Delete these " + indices.Count + " map strings?\r\n\r\n" + JoinLimited( shown, 20 );
       var confirm = System.Windows.Forms.MessageBox.Show(
         this,
-        "Delete map string '" + shown + "'?\r\n\r\nThis can be undone.",
+        question + "\r\n\r\nThis can be undone.",
         "Confirm delete",
         System.Windows.Forms.MessageBoxButtons.OKCancel,
         System.Windows.Forms.MessageBoxIcon.Warning,
@@ -19559,12 +19546,16 @@ namespace RetroDevStudio.Documents
       if ( confirm != System.Windows.Forms.DialogResult.OK ) return;
 
       DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
-      m_MapProject.MapStrings.RemoveAt( idx );
+      for ( int k = indices.Count - 1; k >= 0; --k )
+      {
+        m_MapProject.MapStrings.RemoveAt( indices[k] );
+      }
       RefreshMapStrings();
-      // Restore selection close to where the user was (clamped).
+      // Select the string that moved up into the first deleted slot, or the
+      // last one when the deletion ran off the end (as the Tiles list does).
       if ( m_MapProject.MapStrings.Count > 0 )
       {
-        listMapStrings.SelectedIndex = Math.Min( idx, m_MapProject.MapStrings.Count - 1 );
+        listMapStrings.SelectedIndex = Math.Min( indices[0], m_MapProject.MapStrings.Count - 1 );
       }
       SetModified();
     }
@@ -19686,6 +19677,109 @@ namespace RetroDevStudio.Documents
       }
       while ( existing.Contains( candidate ) );
       return candidate;
+    }
+
+
+
+    // -------- Drag & drop reordering --------
+    //
+    // Modelled on the Tiles list: drag one or several selected rows; they
+    // land as a contiguous block at the drop slot in their original
+    // relative order and stay selected, and the list auto-scrolls while the
+    // cursor sits near its top or bottom edge. One undo step. Markers
+    // reference a string by its String ID, never by its position, so a
+    // reorder only changes the export order (and with it the sidecar's
+    // label indices).
+
+    private void listMapStrings_ItemDrag( object sender, ItemDragEventArgs e )
+    {
+      EnsureListAutoScrollTimer();
+      listMapStrings.DoDragDrop( e.Item, DragDropEffects.Move );
+      // The drag is over, dropped or cancelled (Esc).
+      StopListAutoScroll();
+      listMapStrings.InsertionMark.Index = -1;
+    }
+
+
+
+    private void listMapStrings_DragEnter( object sender, DragEventArgs e )
+    {
+      UpdateReorderInsertionMark( listMapStrings, e );
+    }
+
+
+
+    private void listMapStrings_DragOver( object sender, DragEventArgs e )
+    {
+      UpdateReorderInsertionMark( listMapStrings, e );
+      if ( e.Effect == DragDropEffects.Move )
+      {
+        UpdateListAutoScroll( listMapStrings, listMapStrings.PointToClient( new System.Drawing.Point( e.X, e.Y ) ) );
+      }
+    }
+
+
+
+    private void listMapStrings_DragLeave( object sender, EventArgs e )
+    {
+      StopListAutoScroll();
+      listMapStrings.InsertionMark.Index = -1;
+    }
+
+
+
+    private void listMapStrings_DragDrop( object sender, DragEventArgs e )
+    {
+      StopListAutoScroll();
+      listMapStrings.InsertionMark.Index = -1;
+      if ( m_MapProject == null ) return;
+      var dragged = DraggedRowOf( listMapStrings, e );
+      if ( dragged == null ) return;
+
+      // Multi-select aware: move every selected row (the grabbed one is
+      // among them), keeping their relative order.
+      var sources = new List<int>();
+      foreach ( int idx in listMapStrings.SelectedIndices )
+      {
+        if ( idx < m_MapProject.MapStrings.Count )
+        {
+          sources.Add( idx );
+        }
+      }
+      if ( sources.Count == 0 )
+      {
+        if ( dragged.Index >= m_MapProject.MapStrings.Count ) return;
+        sources.Add( dragged.Index );
+      }
+
+      int insertBefore = ReorderDropInsertSlot( listMapStrings, e );
+      if ( insertBefore < 0 ) return;
+
+      // Reorder a copy first: a drop that leaves the order as it was
+      // (dropped in place) must not push an undo step or mark the
+      // document modified - and the undo snapshot has to be taken before
+      // the live list changes.
+      var reordered = new List<Formats.MapProject.MapString>( m_MapProject.MapStrings );
+      int newFirst = MoveListItems( reordered, sources, insertBefore );
+      bool changed = false;
+      for ( int i = 0; i < reordered.Count; ++i )
+      {
+        if ( !ReferenceEquals( reordered[i], m_MapProject.MapStrings[i] ) )
+        {
+          changed = true;
+          break;
+        }
+      }
+      if ( !changed ) return;
+
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapStringsChange( this, m_MapProject ) );
+      m_MapProject.MapStrings.Clear();
+      m_MapProject.MapStrings.AddRange( reordered );
+      RefreshMapStrings();
+      // RefreshMapStrings keeps only one selected row - select the moved
+      // block at its new home.
+      SelectListViewRange( listMapStrings, newFirst, sources.Count );
+      SetModified();
     }
 
 
@@ -20195,11 +20289,36 @@ namespace RetroDevStudio.Documents
       return bmp;
     }
 
-    // Show the built-in InsertionMark at the drop position (before/after the nearest
-    // row per which half of it the cursor is over).
-    private static void UpdateTypeInsertionMark( System.Windows.Forms.ListView List, DragEventArgs e )
+    /// <summary>
+    /// The row being dragged when the drag started in List itself, else null.
+    /// Every reorderable list (tiles, marker types, entity types, map strings)
+    /// drags its rows as a plain ListViewItem, so without this check a row
+    /// dragged in from another list - for instance from a second map editor
+    /// docked alongside - would be accepted and reorder this list's own
+    /// selection. In-process drags hand back the very row, so its ListView
+    /// tells where it came from.
+    /// </summary>
+    private static ListViewItem DraggedRowOf( System.Windows.Forms.ListView List, DragEventArgs e )
     {
       if ( !e.Data.GetDataPresent( typeof( ListViewItem ) ) )
+      {
+        return null;
+      }
+      var row = e.Data.GetData( typeof( ListViewItem ) ) as ListViewItem;
+      if ( ( row == null )
+      ||   ( row.ListView != List ) )
+      {
+        return null;
+      }
+      return row;
+    }
+
+    // Show the built-in InsertionMark at the drop position (before/after the nearest
+    // row per which half of it the cursor is over) - for a row of List itself only.
+    // Shared by the marker-type, entity-type and map-string lists.
+    private static void UpdateReorderInsertionMark( System.Windows.Forms.ListView List, DragEventArgs e )
+    {
+      if ( DraggedRowOf( List, e ) == null )
       {
         e.Effect = DragDropEffects.None;
         List.InsertionMark.Index = -1;
@@ -20217,7 +20336,7 @@ namespace RetroDevStudio.Documents
     }
 
     // The insertion slot (0..Count) for the current drop point, or -1 if undecidable.
-    private static int TypeDropInsertSlot( System.Windows.Forms.ListView List, DragEventArgs e )
+    private static int ReorderDropInsertSlot( System.Windows.Forms.ListView List, DragEventArgs e )
     {
       var pt = List.PointToClient( new System.Drawing.Point( e.X, e.Y ) );
       int target = List.InsertionMark.NearestIndex( pt );
@@ -20286,12 +20405,12 @@ namespace RetroDevStudio.Documents
 
     private void listMarkerTypes_DragEnter( object sender, DragEventArgs e )
     {
-      UpdateTypeInsertionMark( listMarkerTypes, e );
+      UpdateReorderInsertionMark( listMarkerTypes, e );
     }
 
     private void listMarkerTypes_DragOver( object sender, DragEventArgs e )
     {
-      UpdateTypeInsertionMark( listMarkerTypes, e );
+      UpdateReorderInsertionMark( listMarkerTypes, e );
     }
 
     private void listMarkerTypes_DragLeave( object sender, EventArgs e )
@@ -20302,8 +20421,7 @@ namespace RetroDevStudio.Documents
     private void listMarkerTypes_DragDrop( object sender, DragEventArgs e )
     {
       listMarkerTypes.InsertionMark.Index = -1;
-      if ( !e.Data.GetDataPresent( typeof( ListViewItem ) ) ) return;
-      var dragged = (ListViewItem)e.Data.GetData( typeof( ListViewItem ) );
+      var dragged = DraggedRowOf( listMarkerTypes, e );
       if ( dragged == null ) return;
 
       // Multi-select aware: move every selected row (the grabbed one is among them)
@@ -20312,7 +20430,7 @@ namespace RetroDevStudio.Documents
       foreach ( int idx in listMarkerTypes.SelectedIndices ) sources.Add( idx );
       if ( sources.Count == 0 ) sources.Add( dragged.Index );
 
-      int insertBefore = TypeDropInsertSlot( listMarkerTypes, e );
+      int insertBefore = ReorderDropInsertSlot( listMarkerTypes, e );
       if ( insertBefore < 0 ) return;
 
       var before = new object[m_MapProject.MarkerTypes.Count];
@@ -20339,12 +20457,12 @@ namespace RetroDevStudio.Documents
 
     private void listEntityTypes_DragEnter( object sender, DragEventArgs e )
     {
-      UpdateTypeInsertionMark( listEntityTypes, e );
+      UpdateReorderInsertionMark( listEntityTypes, e );
     }
 
     private void listEntityTypes_DragOver( object sender, DragEventArgs e )
     {
-      UpdateTypeInsertionMark( listEntityTypes, e );
+      UpdateReorderInsertionMark( listEntityTypes, e );
     }
 
     private void listEntityTypes_DragLeave( object sender, EventArgs e )
@@ -20355,15 +20473,14 @@ namespace RetroDevStudio.Documents
     private void listEntityTypes_DragDrop( object sender, DragEventArgs e )
     {
       listEntityTypes.InsertionMark.Index = -1;
-      if ( !e.Data.GetDataPresent( typeof( ListViewItem ) ) ) return;
-      var dragged = (ListViewItem)e.Data.GetData( typeof( ListViewItem ) );
+      var dragged = DraggedRowOf( listEntityTypes, e );
       if ( dragged == null ) return;
 
       var sources = new List<int>();
       foreach ( int idx in listEntityTypes.SelectedIndices ) sources.Add( idx );
       if ( sources.Count == 0 ) sources.Add( dragged.Index );
 
-      int insertBefore = TypeDropInsertSlot( listEntityTypes, e );
+      int insertBefore = ReorderDropInsertSlot( listEntityTypes, e );
       if ( insertBefore < 0 ) return;
 
       var before = new object[m_MapProject.EntityTypes.Count];
@@ -22283,7 +22400,6 @@ namespace RetroDevStudio.Documents
       var newType = new MapProject.EntityType();
       newType.Name = name;
       newType.ExportSymbol = editEntityExportSymbol.Text ?? "";
-      newType.TileIndex = EntityTileFromCombo();
       newType.PreviewCharsetIndex = Math.Max( 0, comboEntityPreviewCharset.SelectedIndex );
       newType.TagID = tagID;
       newType.ID = 0;
@@ -22291,6 +22407,10 @@ namespace RetroDevStudio.Documents
       {
         newType.ID = m_MapProject.EntityTypes.Max( t => t.ID ) + 1;
       }
+      // Its tile belongs to the charset shown above. IDs are reused, so drop
+      // whatever a deleted type with this ID may have left behind first.
+      m_MapProject.ForgetEntityType( newType );
+      m_MapProject.CharsetAt( newType.PreviewCharsetIndex ).SetEntityTile( newType, EntityTileFromCombo() );
       m_MapProject.EntityTypes.Add( newType );
       RefreshEntityTypes();
 
@@ -22333,8 +22453,10 @@ namespace RetroDevStudio.Documents
 
       type.Name = editEntityName.Text;
       type.ExportSymbol = editEntityExportSymbol.Text ?? "";
-      type.TileIndex = EntityTileFromCombo();
       type.PreviewCharsetIndex = Math.Max( 0, comboEntityPreviewCharset.SelectedIndex );
+      // The tile is committed for the charset shown above only - every type
+      // keeps one tile per charset.
+      m_MapProject.CharsetAt( type.PreviewCharsetIndex ).SetEntityTile( type, EntityTileFromCombo() );
       type.TagID = newTagID;
 
       RefreshEntityTypes();
@@ -22343,9 +22465,9 @@ namespace RetroDevStudio.Documents
       {
         listEntityTypes.SelectedIndex = savedSelection;
       }
-      // The Map tab renders entities using the current EntityType.TileIndex,
-      // so a change here has to invalidate the cached map image — otherwise
-      // switching back to the Map tab shows the entity with its old tile.
+      // The Map tab renders entities with each type's tile in the map's
+      // charset, so a change here has to invalidate the cached map image —
+      // otherwise switching back to the Map tab shows the old tile.
       RedrawMap();
       pictureEditor.Invalidate();
       SetModified();
@@ -22411,6 +22533,8 @@ namespace RetroDevStudio.Documents
           }
         }
         m_MapProject.EntityTypes.Remove( type );
+        // Its tiles go too: the next new type may reuse the ID.
+        m_MapProject.ForgetEntityType( type );
       }
       RefreshEntityTypes();
       pictureEditor.Invalidate();
@@ -22442,7 +22566,8 @@ namespace RetroDevStudio.Documents
       {
         comboEntityPreviewCharset.SelectedIndex = previewIndex;
       }
-      SetEntityTileCombo( type.TileIndex );
+      // The type's tile in the charset shown (one per charset).
+      SetEntityTileCombo( m_MapProject.CharsetAt( comboEntityPreviewCharset.SelectedIndex ).EntityTileOf( type ) );
       editEntityTagID.Value = type.TagID;
     }
 

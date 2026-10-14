@@ -29,6 +29,8 @@ namespace RetroDevStudio.Controls
     /// </summary>
     private void InitializeComponent()
     {
+      this.components = new System.ComponentModel.Container();
+      this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
       this.checkExportMarkers = new System.Windows.Forms.CheckBox();
       this.checkExportColors = new System.Windows.Forms.CheckBox();
       this.checkExportPassable = new System.Windows.Forms.CheckBox();
@@ -80,6 +82,8 @@ namespace RetroDevStudio.Controls
       this.labelCharsetExportDirectory = new System.Windows.Forms.Label();
       this.editCharsetExportDirectory = new System.Windows.Forms.TextBox();
       this.btnBrowseCharsetExportDirectory = new System.Windows.Forms.Button();
+      this.labelCharsetFilenamePattern = new System.Windows.Forms.Label();
+      this.editCharsetFilenamePattern = new System.Windows.Forms.TextBox();
       this.checkCharsetPrefixLoadAddress = new System.Windows.Forms.CheckBox();
       this.editCharsetPrefixLoadAddress = new System.Windows.Forms.TextBox();
       this.checkExportCharsetLabels = new System.Windows.Forms.CheckBox();
@@ -102,7 +106,15 @@ namespace RetroDevStudio.Controls
       this.editCompressFilename = new System.Windows.Forms.TextBox();
       this.checkOverrideLoadAddress = new ThemedCheckBox();
       this.editOverrideLoadAddress = new System.Windows.Forms.TextBox();
+      this.groupCharsetCompress = new System.Windows.Forms.GroupBox();
+      this.checkCompressCharsets = new System.Windows.Forms.CheckBox();
+      this.comboCharsetCompressor = new System.Windows.Forms.ComboBox();
+      this.labelCharsetCompressFilename = new System.Windows.Forms.Label();
+      this.editCharsetCompressFilename = new System.Windows.Forms.TextBox();
+      this.checkCharsetOverrideLoadAddress = new ThemedCheckBox();
+      this.editCharsetOverrideLoadAddress = new System.Windows.Forms.TextBox();
       this.groupCharset.SuspendLayout();
+      this.groupCharsetCompress.SuspendLayout();
       this.groupCompress.SuspendLayout();
       this.SuspendLayout();
       //
@@ -193,16 +205,19 @@ namespace RetroDevStudio.Controls
       // checkCompressMap
       //
       this.checkCompressMap.AutoSize = true;
-      this.checkCompressMap.Location = new System.Drawing.Point(325, 5);
+      this.checkCompressMap.Location = new System.Drawing.Point(6, 20);
       this.checkCompressMap.Name = "checkCompressMap";
       this.checkCompressMap.Size = new System.Drawing.Size(95, 17);
-      this.checkCompressMap.TabIndex = 47;
+      this.checkCompressMap.TabIndex = 0;
       this.checkCompressMap.Text = "Compress map";
       this.checkCompressMap.UseVisualStyleBackColor = true;
+      this.toolTip1.SetToolTip(this.checkCompressMap, "Also writes each map file compressed, as a SECOND file placed and named by the settings below (the map file itself stays).");
       this.checkCompressMap.CheckedChanged += new System.EventHandler(this.checkCompressMap_CheckedChanged);
+      this.checkCompressMap.Click += new System.EventHandler(this.checkCompressMap_Click);
       //
       // groupCompress
       //
+      this.groupCompress.Controls.Add(this.checkCompressMap);
       this.groupCompress.Controls.Add(this.comboCompressor);
       this.groupCompress.Controls.Add(this.labelCompressDirectory);
       this.groupCompress.Controls.Add(this.editCompressDirectory);
@@ -211,7 +226,7 @@ namespace RetroDevStudio.Controls
       this.groupCompress.Controls.Add(this.editCompressFilename);
       this.groupCompress.Controls.Add(this.checkOverrideLoadAddress);
       this.groupCompress.Controls.Add(this.editOverrideLoadAddress);
-      this.groupCompress.Location = new System.Drawing.Point(325, 26);
+      this.groupCompress.Location = new System.Drawing.Point(325, 3);
       this.groupCompress.Name = "groupCompress";
       this.groupCompress.Size = new System.Drawing.Size(285, 125);
       this.groupCompress.TabIndex = 48;
@@ -225,10 +240,10 @@ namespace RetroDevStudio.Controls
       this.comboCompressor.FormattingEnabled = true;
       this.comboCompressor.Items.AddRange(new object[] {
       "ZX0"});
-      this.comboCompressor.Location = new System.Drawing.Point(8, 18);
+      this.comboCompressor.Location = new System.Drawing.Point(163, 18);
       this.comboCompressor.Name = "comboCompressor";
-      this.comboCompressor.Size = new System.Drawing.Size(269, 21);
-      this.comboCompressor.TabIndex = 0;
+      this.comboCompressor.Size = new System.Drawing.Size(110, 21);
+      this.comboCompressor.TabIndex = 1;
       this.comboCompressor.SelectedIndexChanged += new System.EventHandler(this.HandleSettingsChanged);
       //
       // labelCompressDirectory
@@ -237,7 +252,7 @@ namespace RetroDevStudio.Controls
       this.labelCompressDirectory.Location = new System.Drawing.Point(6, 48);
       this.labelCompressDirectory.Name = "labelCompressDirectory";
       this.labelCompressDirectory.Size = new System.Drawing.Size(52, 13);
-      this.labelCompressDirectory.TabIndex = 1;
+      this.labelCompressDirectory.TabIndex = 2;
       this.labelCompressDirectory.Text = "Directory:";
       //
       // editCompressDirectory
@@ -246,7 +261,7 @@ namespace RetroDevStudio.Controls
       this.editCompressDirectory.Location = new System.Drawing.Point(66, 45);
       this.editCompressDirectory.Name = "editCompressDirectory";
       this.editCompressDirectory.Size = new System.Drawing.Size(171, 20);
-      this.editCompressDirectory.TabIndex = 2;
+      this.editCompressDirectory.TabIndex = 3;
       //
       // btnBrowseCompressDirectory
       //
@@ -254,7 +269,7 @@ namespace RetroDevStudio.Controls
       this.btnBrowseCompressDirectory.Location = new System.Drawing.Point(243, 43);
       this.btnBrowseCompressDirectory.Name = "btnBrowseCompressDirectory";
       this.btnBrowseCompressDirectory.Size = new System.Drawing.Size(30, 23);
-      this.btnBrowseCompressDirectory.TabIndex = 3;
+      this.btnBrowseCompressDirectory.TabIndex = 4;
       this.btnBrowseCompressDirectory.Text = "...";
       this.btnBrowseCompressDirectory.UseVisualStyleBackColor = true;
       this.btnBrowseCompressDirectory.Click += new System.EventHandler(this.btnBrowseCompressDirectory_Click);
@@ -265,7 +280,7 @@ namespace RetroDevStudio.Controls
       this.labelCompressFilename.Location = new System.Drawing.Point(6, 75);
       this.labelCompressFilename.Name = "labelCompressFilename";
       this.labelCompressFilename.Size = new System.Drawing.Size(52, 13);
-      this.labelCompressFilename.TabIndex = 4;
+      this.labelCompressFilename.TabIndex = 5;
       this.labelCompressFilename.Text = "Filename:";
       //
       // editCompressFilename
@@ -274,15 +289,17 @@ namespace RetroDevStudio.Controls
       this.editCompressFilename.Location = new System.Drawing.Point(66, 72);
       this.editCompressFilename.Name = "editCompressFilename";
       this.editCompressFilename.Size = new System.Drawing.Size(207, 20);
-      this.editCompressFilename.TabIndex = 5;
+      this.editCompressFilename.TabIndex = 6;
+      this.toolTip1.SetToolTip(this.editCompressFilename, "File name of each compressed map, with %d for the map number like the map files (e.g. MAP_%d.zx0).");
       //
       // checkOverrideLoadAddress
       //
       this.checkOverrideLoadAddress.AutoSize = false;
+      this.checkOverrideLoadAddress.Enabled = false;
       this.checkOverrideLoadAddress.Location = new System.Drawing.Point(6, 100);
       this.checkOverrideLoadAddress.Name = "checkOverrideLoadAddress";
       this.checkOverrideLoadAddress.Size = new System.Drawing.Size(180, 18);
-      this.checkOverrideLoadAddress.TabIndex = 6;
+      this.checkOverrideLoadAddress.TabIndex = 7;
       this.checkOverrideLoadAddress.Text = "Override file load address";
       this.checkOverrideLoadAddress.UseVisualStyleBackColor = true;
       this.checkOverrideLoadAddress.CheckedChanged += new System.EventHandler(this.checkOverrideLoadAddress_CheckedChanged);
@@ -294,7 +311,7 @@ namespace RetroDevStudio.Controls
       this.editOverrideLoadAddress.Location = new System.Drawing.Point(207, 98);
       this.editOverrideLoadAddress.Name = "editOverrideLoadAddress";
       this.editOverrideLoadAddress.Size = new System.Drawing.Size(66, 20);
-      this.editOverrideLoadAddress.TabIndex = 7;
+      this.editOverrideLoadAddress.TabIndex = 8;
       //
       // checkSaveOnExport
       //
@@ -342,15 +359,15 @@ namespace RetroDevStudio.Controls
       this.labelExportFilename.Name = "labelExportFilename";
       this.labelExportFilename.Size = new System.Drawing.Size(52, 13);
       this.labelExportFilename.TabIndex = 9;
-      this.labelExportFilename.Text = "Filename:";
+      this.labelExportFilename.Text = "Map files:";
       //
       // editExportFilename
       //
-      this.editExportFilename.Enabled = false;
       this.editExportFilename.Location = new System.Drawing.Point(78, 178);
       this.editExportFilename.Name = "editExportFilename";
       this.editExportFilename.Size = new System.Drawing.Size(195, 20);
       this.editExportFilename.TabIndex = 10;
+      this.toolTip1.SetToolTip(this.editExportFilename, "File name of each map, with %d for the map number (its exported index, the MAP_INDEX_ value): MAP_%d.bin gives MAP_0.bin, MAP_1.bin ... %02d pads to two digits, %% is a percent sign. Without auto-save the export asks for the folder.");
       //
       // checkGenerateDefFile
       //
@@ -682,6 +699,8 @@ namespace RetroDevStudio.Controls
       this.groupCharset.Controls.Add(this.labelCharsetExportDirectory);
       this.groupCharset.Controls.Add(this.editCharsetExportDirectory);
       this.groupCharset.Controls.Add(this.btnBrowseCharsetExportDirectory);
+      this.groupCharset.Controls.Add(this.labelCharsetFilenamePattern);
+      this.groupCharset.Controls.Add(this.editCharsetFilenamePattern);
       this.groupCharset.Controls.Add(this.checkCharsetPrefixLoadAddress);
       this.groupCharset.Controls.Add(this.editCharsetPrefixLoadAddress);
       this.groupCharset.Controls.Add(this.checkExportCharsetLabels);
@@ -694,12 +713,13 @@ namespace RetroDevStudio.Controls
       this.groupCharset.Controls.Add(this.editMapLabelsFilename);
       this.groupCharset.Controls.Add(this.labelMapLabelsPrefix);
       this.groupCharset.Controls.Add(this.editMapLabelsPrefix);
+      this.groupCharset.Controls.Add(this.groupCharsetCompress);
       this.groupCharset.Location = new System.Drawing.Point(3, 552);
       this.groupCharset.Name = "groupCharset";
-      this.groupCharset.Size = new System.Drawing.Size(610, 180);
+      this.groupCharset.Size = new System.Drawing.Size(610, 236);
       this.groupCharset.TabIndex = 14;
       this.groupCharset.TabStop = false;
-      this.groupCharset.Text = "Character Sets (one file per set with \"Export character set\" enabled on the Character Set tab)";
+      this.groupCharset.Text = "Character Sets (one file per map, numbered like the map files)";
       //
       // labelCharsetExportDirectory
       //
@@ -728,6 +748,23 @@ namespace RetroDevStudio.Controls
       this.btnBrowseCharsetExportDirectory.Text = "...";
       this.btnBrowseCharsetExportDirectory.UseVisualStyleBackColor = true;
       this.btnBrowseCharsetExportDirectory.Click += new System.EventHandler(this.btnBrowseCharsetExportDirectory_Click);
+      //
+      // labelCharsetFilenamePattern
+      //
+      this.labelCharsetFilenamePattern.AutoSize = true;
+      this.labelCharsetFilenamePattern.Location = new System.Drawing.Point(17, 72);
+      this.labelCharsetFilenamePattern.Name = "labelCharsetFilenamePattern";
+      this.labelCharsetFilenamePattern.Size = new System.Drawing.Size(61, 13);
+      this.labelCharsetFilenamePattern.TabIndex = 4;
+      this.labelCharsetFilenamePattern.Text = "File names:";
+      //
+      // editCharsetFilenamePattern
+      //
+      this.editCharsetFilenamePattern.Location = new System.Drawing.Point(110, 69);
+      this.editCharsetFilenamePattern.Name = "editCharsetFilenamePattern";
+      this.editCharsetFilenamePattern.Size = new System.Drawing.Size(163, 20);
+      this.editCharsetFilenamePattern.TabIndex = 5;
+      this.toolTip1.SetToolTip(this.editCharsetFilenamePattern, "File name of each map's character set file, with %d for the map number - the same number as its map file: CHARSET_MAP_%d.dat gives CHARSET_MAP_0.dat, CHARSET_MAP_1.dat ... %02d pads to two digits, %% is a percent sign. Empty = no charset files.");
       //
       // checkCharsetPrefixLoadAddress
       //
@@ -839,12 +876,91 @@ namespace RetroDevStudio.Controls
       this.editMapLabelsPrefix.Size = new System.Drawing.Size(183, 20);
       this.editMapLabelsPrefix.TabIndex = 17;
       //
+      // groupCharsetCompress
+      //
+      this.groupCharsetCompress.Controls.Add(this.checkCompressCharsets);
+      this.groupCharsetCompress.Controls.Add(this.comboCharsetCompressor);
+      this.groupCharsetCompress.Controls.Add(this.labelCharsetCompressFilename);
+      this.groupCharsetCompress.Controls.Add(this.editCharsetCompressFilename);
+      this.groupCharsetCompress.Controls.Add(this.checkCharsetOverrideLoadAddress);
+      this.groupCharsetCompress.Controls.Add(this.editCharsetOverrideLoadAddress);
+      this.groupCharsetCompress.Location = new System.Drawing.Point(6, 124);
+      this.groupCharsetCompress.Name = "groupCharsetCompress";
+      this.groupCharsetCompress.Size = new System.Drawing.Size(303, 100);
+      this.groupCharsetCompress.TabIndex = 18;
+      this.groupCharsetCompress.TabStop = false;
+      this.groupCharsetCompress.Text = "Compressor";
+      //
+      // checkCompressCharsets
+      //
+      this.checkCompressCharsets.AutoSize = true;
+      this.checkCompressCharsets.Location = new System.Drawing.Point(6, 20);
+      this.checkCompressCharsets.Name = "checkCompressCharsets";
+      this.checkCompressCharsets.Size = new System.Drawing.Size(144, 17);
+      this.checkCompressCharsets.TabIndex = 0;
+      this.checkCompressCharsets.Text = "Compress character sets";
+      this.checkCompressCharsets.UseVisualStyleBackColor = true;
+      this.toolTip1.SetToolTip(this.checkCompressCharsets, "Also writes each map's character set file compressed, as a SECOND file in the export directory above, named by the pattern below (the character set file itself stays).");
+      this.checkCompressCharsets.CheckedChanged += new System.EventHandler(this.checkCompressCharsets_CheckedChanged);
+      this.checkCompressCharsets.Click += new System.EventHandler(this.checkCompressCharsets_Click);
+      //
+      // comboCharsetCompressor
+      //
+      this.comboCharsetCompressor.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+      this.comboCharsetCompressor.Enabled = false;
+      this.comboCharsetCompressor.FormattingEnabled = true;
+      this.comboCharsetCompressor.Items.AddRange(new object[] {
+      "ZX0"});
+      this.comboCharsetCompressor.Location = new System.Drawing.Point(181, 18);
+      this.comboCharsetCompressor.Name = "comboCharsetCompressor";
+      this.comboCharsetCompressor.Size = new System.Drawing.Size(110, 21);
+      this.comboCharsetCompressor.TabIndex = 1;
+      this.comboCharsetCompressor.SelectedIndexChanged += new System.EventHandler(this.HandleSettingsChanged);
+      //
+      // labelCharsetCompressFilename
+      //
+      this.labelCharsetCompressFilename.AutoSize = true;
+      this.labelCharsetCompressFilename.Location = new System.Drawing.Point(6, 48);
+      this.labelCharsetCompressFilename.Name = "labelCharsetCompressFilename";
+      this.labelCharsetCompressFilename.Size = new System.Drawing.Size(52, 13);
+      this.labelCharsetCompressFilename.TabIndex = 2;
+      this.labelCharsetCompressFilename.Text = "Filename:";
+      //
+      // editCharsetCompressFilename
+      //
+      this.editCharsetCompressFilename.Enabled = false;
+      this.editCharsetCompressFilename.Location = new System.Drawing.Point(66, 45);
+      this.editCharsetCompressFilename.Name = "editCharsetCompressFilename";
+      this.editCharsetCompressFilename.Size = new System.Drawing.Size(225, 20);
+      this.editCharsetCompressFilename.TabIndex = 3;
+      this.toolTip1.SetToolTip(this.editCharsetCompressFilename, "File name of each compressed character set file, with %d for the map number like the character set files (e.g. CHARSET_MAP_%d.zx0). Empty = no compression.");
+      //
+      // checkCharsetOverrideLoadAddress
+      //
+      this.checkCharsetOverrideLoadAddress.AutoSize = false;
+      this.checkCharsetOverrideLoadAddress.Enabled = false;
+      this.checkCharsetOverrideLoadAddress.Location = new System.Drawing.Point(6, 74);
+      this.checkCharsetOverrideLoadAddress.Name = "checkCharsetOverrideLoadAddress";
+      this.checkCharsetOverrideLoadAddress.Size = new System.Drawing.Size(180, 18);
+      this.checkCharsetOverrideLoadAddress.TabIndex = 4;
+      this.checkCharsetOverrideLoadAddress.Text = "Override file load address";
+      this.checkCharsetOverrideLoadAddress.UseVisualStyleBackColor = true;
+      this.checkCharsetOverrideLoadAddress.CheckedChanged += new System.EventHandler(this.checkCharsetOverrideLoadAddress_CheckedChanged);
+      //
+      // editCharsetOverrideLoadAddress
+      //
+      this.editCharsetOverrideLoadAddress.Enabled = false;
+      this.editCharsetOverrideLoadAddress.Font = new System.Drawing.Font("Courier New", 8.25F);
+      this.editCharsetOverrideLoadAddress.Location = new System.Drawing.Point(225, 72);
+      this.editCharsetOverrideLoadAddress.Name = "editCharsetOverrideLoadAddress";
+      this.editCharsetOverrideLoadAddress.Size = new System.Drawing.Size(66, 20);
+      this.editCharsetOverrideLoadAddress.TabIndex = 5;
+      //
       // ExportMapAsGameBinary
       //
       this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
       this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
       this.Controls.Add(this.groupCharset);
-      this.Controls.Add(this.checkCompressMap);
       this.Controls.Add(this.groupCompress);
       this.Controls.Add(this.editMarkerLabelsPrefix);
       this.Controls.Add(this.labelMarkerLabelsPrefix);
@@ -894,10 +1010,13 @@ namespace RetroDevStudio.Controls
       this.Controls.Add(this.checkExportColors);
       this.Controls.Add(this.checkExportMarkers);
       this.Name = "ExportMapAsGameBinary";
-      this.Size = new System.Drawing.Size(620, 740);
+      this.Size = new System.Drawing.Size(620, 796);
       this.groupCharset.ResumeLayout(false);
       this.groupCharset.PerformLayout();
+      this.groupCharsetCompress.ResumeLayout(false);
+      this.groupCharsetCompress.PerformLayout();
       this.groupCompress.ResumeLayout(false);
+      this.groupCompress.PerformLayout();
       this.ResumeLayout(false);
       this.PerformLayout();
 
@@ -966,6 +1085,9 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.Label labelCharsetExportDirectory;
     private System.Windows.Forms.TextBox editCharsetExportDirectory;
     private System.Windows.Forms.Button btnBrowseCharsetExportDirectory;
+    private System.Windows.Forms.Label labelCharsetFilenamePattern;
+    private System.Windows.Forms.TextBox editCharsetFilenamePattern;
+    private System.Windows.Forms.ToolTip toolTip1;
     private System.Windows.Forms.CheckBox checkCharsetPrefixLoadAddress;
     private System.Windows.Forms.TextBox editCharsetPrefixLoadAddress;
     private System.Windows.Forms.CheckBox checkExportCharsetLabels;
@@ -978,5 +1100,12 @@ namespace RetroDevStudio.Controls
     private System.Windows.Forms.TextBox editMapLabelsFilename;
     private System.Windows.Forms.Label labelMapLabelsPrefix;
     private System.Windows.Forms.TextBox editMapLabelsPrefix;
+    private System.Windows.Forms.GroupBox groupCharsetCompress;
+    private System.Windows.Forms.CheckBox checkCompressCharsets;
+    private System.Windows.Forms.ComboBox comboCharsetCompressor;
+    private System.Windows.Forms.Label labelCharsetCompressFilename;
+    private System.Windows.Forms.TextBox editCharsetCompressFilename;
+    private ThemedCheckBox checkCharsetOverrideLoadAddress;
+    private System.Windows.Forms.TextBox editCharsetOverrideLoadAddress;
   }
 }

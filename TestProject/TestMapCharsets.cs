@@ -102,7 +102,8 @@ namespace TestProject
 
       proj.Maps.Add( MakeMap( "A", 3, 2, 1, 0 ) );
       proj.Maps.Add( MakeMap( "B", 2, 2, 2, 1 ) );
-      proj.EntityTypes.Add( new MapProject.EntityType() { ID = 0, Name = "Enemy", TileIndex = 1, TagID = 5, PreviewCharsetIndex = 1 } );
+      proj.EntityTypes.Add( new MapProject.EntityType() { ID = 0, Name = "Enemy", TagID = 5, PreviewCharsetIndex = 1 } );
+      proj.Charsets[1].SetEntityTile( proj.EntityTypes[0], 1 );
       proj.CurrentCharsetIndex = 1;
       proj.CharsetTabFollowsMap = false;
       return proj;
@@ -324,7 +325,8 @@ namespace TestProject
       Assert.AreEqual( 0, reloaded.Maps[0].CharsetIndex );
       Assert.AreEqual( 1, reloaded.Maps[1].CharsetIndex );
       Assert.AreEqual( 1, reloaded.EntityTypes[0].PreviewCharsetIndex );
-      Assert.AreEqual( 1, reloaded.EntityTypes[0].TileIndex );
+      Assert.AreEqual( 1, reloaded.Charsets[1].EntityTileOf( reloaded.EntityTypes[0] ), "entity tile of charset 1" );
+      Assert.AreEqual( -1, reloaded.Charsets[0].EntityTileOf( reloaded.EntityTypes[0] ), "no tile in charset 0" );
       Assert.AreEqual( 1, reloaded.CurrentCharsetIndex );
       Assert.IsFalse( reloaded.CharsetTabFollowsMap );
     }
@@ -358,6 +360,14 @@ namespace TestProject
           {
             field.SetValue( cs, 100 + n );
           }
+          else if ( field.FieldType == typeof( Dictionary<int, int> ) )
+          {
+            // EntityTiles: keyed by EntityType.ID, and a load keeps only the
+            // IDs of types that exist - so use the project's one type.
+            var entries = new Dictionary<int, int>();
+            entries[proj.EntityTypes[0].ID] = 100 + n;
+            field.SetValue( cs, entries );
+          }
           else if ( ( field.FieldType == typeof( CharsetProject ) )
           ||        ( field.FieldType == typeof( List<MapProject.Tile> ) ) )
           {
@@ -381,7 +391,15 @@ namespace TestProject
       {
         foreach ( var field in scalars )
         {
-          Assert.AreEqual( field.GetValue( proj.Charsets[c] ), field.GetValue( reloaded.Charsets[c] ),
+          var expected = field.GetValue( proj.Charsets[c] );
+          var actual   = field.GetValue( reloaded.Charsets[c] );
+          if ( expected is Dictionary<int, int> )
+          {
+            CollectionAssert.AreEquivalent( (Dictionary<int, int>)expected, (Dictionary<int, int>)actual,
+                                            "MapCharset." + field.Name + " on charset " + c + " did not survive save/load — add it to MAP_CHARSET_META" );
+            continue;
+          }
+          Assert.AreEqual( expected, actual,
                            "MapCharset." + field.Name + " on charset " + c + " did not survive save/load — add it to MAP_CHARSET_META" );
         }
       }
@@ -518,8 +536,9 @@ namespace TestProject
       Assert.IsTrue( proj.Maps[1].NotExported );
       Assert.AreEqual( 2, proj.EntityTypes.Count );
       Assert.AreEqual( 0, proj.EntityTypes[0].PreviewCharsetIndex );
-      Assert.AreEqual( 1, proj.EntityTypes[0].TileIndex );
-      Assert.AreEqual( 2, proj.EntityTypes[1].TileIndex );
+      // the old single tile numbers migrate into the (only) charset
+      Assert.AreEqual( 1, cs0.EntityTileOf( proj.EntityTypes[0] ) );
+      Assert.AreEqual( 2, cs0.EntityTileOf( proj.EntityTypes[1] ) );
 
       for ( int j = 0; j < 8; ++j )
       {
@@ -623,6 +642,18 @@ namespace TestProject
         Assert.AreEqual( nestedBefore[i].Type, nestedAfter[i].Type, "nested sub-chunk type " + i );
         if ( nestedBefore[i].Type == FileChunkConstants.CHARSET_COLOR_SETTINGS )
         {
+          continue;
+        }
+        if ( nestedBefore[i].Type == FileChunkConstants.CHARSET_EXPORT )
+        {
+          // Append-only chunk: a resave adds the newer export settings (the
+          // binary export compression) after the legacy fields, which must
+          // come back byte-identical in front of them.
+          var legacyExport  = BodyOf( nestedBefore[i] ).Data();
+          var resavedExport = BodyOf( nestedAfter[i] ).Data();
+          Assert.IsTrue( resavedExport.Length >= legacyExport.Length, "CHARSET_EXPORT only grows" );
+          CollectionAssert.AreEqual( legacyExport, resavedExport.Take( legacyExport.Length ).ToArray(),
+                                     "CHARSET_EXPORT: the legacy fields must be byte-identical in front of the appended ones" );
           continue;
         }
         CollectionAssert.AreEqual( BodyOf( nestedBefore[i] ).Data(), BodyOf( nestedAfter[i] ).Data(),

@@ -220,7 +220,9 @@ namespace TestProject
       Assert.IsTrue( lines.Any( l => l.StartsWith( ".const MAP_INDEX_START_2 " ) && l.Contains( " = 2 " ) ), asm );
       Assert.IsFalse( asm.Contains( ".const MAP_INDEX_SECRET" ) );
       Assert.IsTrue( lines.Any( l => l.StartsWith( "// " ) && l.Contains( "Secret" ) ) );
-      Assert.AreEqual( 3, lines.Count( l => l.StartsWith( ".const " ) ) );
+      Assert.AreEqual( 3, lines.Count( l => l.StartsWith( ".const MAP_INDEX_" ) ) );
+      // the start map (none set = the first exported map) for the loader's first file
+      Assert.IsTrue( lines.Any( l => l.StartsWith( ".const MAP_START_INDEX = 0" ) ), asm );
     }
 
 

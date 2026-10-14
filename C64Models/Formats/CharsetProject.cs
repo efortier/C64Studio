@@ -61,6 +61,16 @@ namespace RetroDevStudio.Formats
     public int            ExportMethodIndex = 0;
     public bool           ExportBinaryPrefixLoadAddress = false;
     public ushort         ExportBinaryLoadAddress = 0x2000;
+    // "to binary file" compression (appended to CHARSET_EXPORT, guarded
+    // reads): with ExportBinaryCompress on and a file name, the exported
+    // binary also gets a compressed copy beside it - a SECOND file - made by
+    // ExportBinaryCompressor; ExportBinaryOverrideLoadAddress[Hex] relocates
+    // it (dali --relocate-origin), like the map export's override.
+    public bool           ExportBinaryCompress = false;
+    public string         ExportBinaryCompressor = "ZX0";
+    public string         ExportBinaryCompressFilename = "";
+    public bool           ExportBinaryOverrideLoadAddress = false;
+    public string         ExportBinaryOverrideLoadAddressHex = "$0000";
 
     public uint           UsedTiles = 0;
 
@@ -259,6 +269,12 @@ namespace RetroDevStudio.Formats
       chunkExport.AppendString( ExportDirectory ?? "" );
       chunkExport.AppendU8( ExportBinaryPrefixLoadAddress ? (byte)1 : (byte)0 );
       chunkExport.AppendU16( ExportBinaryLoadAddress );
+      // compression of the binary export (appended, guarded reads)
+      chunkExport.AppendU8( ExportBinaryCompress ? (byte)1 : (byte)0 );
+      chunkExport.AppendString( ExportBinaryCompressor ?? "ZX0" );
+      chunkExport.AppendString( ExportBinaryCompressFilename ?? "" );
+      chunkExport.AppendU8( ExportBinaryOverrideLoadAddress ? (byte)1 : (byte)0 );
+      chunkExport.AppendString( ExportBinaryOverrideLoadAddressHex ?? "" );
 
       chunkCharsetProject.Append( chunkExport.ToBuffer() );
 
@@ -633,6 +649,27 @@ namespace RetroDevStudio.Formats
                   if ( subMemIn.Size - subMemIn.Position >= 2 )
                   {
                     ExportBinaryLoadAddress = subMemIn.ReadUInt16();
+                  }
+                  // compression of the binary export (appended later; absent = off)
+                  if ( subMemIn.Size - subMemIn.Position >= 1 )
+                  {
+                    ExportBinaryCompress = ( subMemIn.ReadUInt8() != 0 );
+                  }
+                  if ( subMemIn.Size - subMemIn.Position >= 4 )
+                  {
+                    ExportBinaryCompressor = subMemIn.ReadString();
+                  }
+                  if ( subMemIn.Size - subMemIn.Position >= 4 )
+                  {
+                    ExportBinaryCompressFilename = subMemIn.ReadString();
+                  }
+                  if ( subMemIn.Size - subMemIn.Position >= 1 )
+                  {
+                    ExportBinaryOverrideLoadAddress = ( subMemIn.ReadUInt8() != 0 );
+                  }
+                  if ( subMemIn.Size - subMemIn.Position >= 4 )
+                  {
+                    ExportBinaryOverrideLoadAddressHex = subMemIn.ReadString();
                   }
                   break;
                 case FileChunkConstants.CHARSET_CHAR:

@@ -419,7 +419,8 @@ namespace TestProject
     public void TestEntityTileIndexExportedRaw()
     {
       var proj = CreateProject( 3, 2, 2 );
-      proj.EntityTypes.Add( new MapProject.EntityType() { ID = 0, Name = "Big", TileIndex = 200, TagID = 7, PreviewCharsetIndex = 0 } );
+      proj.EntityTypes.Add( new MapProject.EntityType() { ID = 0, Name = "Big", TagID = 7, PreviewCharsetIndex = 0 } );
+      proj.Charsets[0].SetEntityTile( proj.EntityTypes[0], 200 );
       proj.Maps[0].Entities.Add( new MapProject.Entity() { X = 1, Y = 1, Type = 0 } );
       var buf = proj.ExportAsGameBinary( true, true, true );
       int entities = MapTableAbs( buf, HDR_MAP_ENTITIES_LO, HDR_MAP_ENTITIES_HI, 0 );

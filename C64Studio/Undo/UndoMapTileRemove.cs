@@ -26,7 +26,9 @@ namespace RetroDevStudio.Undo
     // scratch workspaces bound to the charset — so an index into
     // Project.Maps would misalign, and map adds/removes between capture and
     // undo would shift it anyway.
-    private List<int>                                _EntityTypeTileIndices = new List<int>();
+    // The charset's entity tiles (type ID -> tile), copied: RemoveTile
+    // clears the one on the deleted tile and shifts the ones above it.
+    private Dictionary<int, int>                     _EntityTiles = new Dictionary<int, int>();
     // Colour overrides are PER-LAYER (RemoveTile wipes them on every layer
     // a removed tile occupied), so each map's snapshot is one grid per
     // layer, index-aligned to map.Layers — the same shape
@@ -51,14 +53,9 @@ namespace RetroDevStudio.Undo
       _Charset    = Charset;
       _RemovedTile = Charset.Tiles[TileIndex];
 
-      // Snapshot every entity-type's tile binding. Index in the list
-      // matches Project.EntityTypes index; on undo we walk both lists
-      // in lockstep up to min(count, count) so a concurrent type-add or
-      // type-remove (unlikely but possible) doesn't crash the restore.
-      foreach ( var et in Project.EntityTypes )
-      {
-        _EntityTypeTileIndices.Add( et.TileIndex );
-      }
+      // Snapshot the entity types' tiles in THIS charset (the only ones a
+      // removal touches - every charset keeps its own).
+      _EntityTiles = new Dictionary<int, int>( Charset.EntityTiles );
 
       // Snapshot the color-override layers of every map bound to the charset
       // — the same set (project maps + scratch workspaces) RemoveTile's
@@ -126,15 +123,13 @@ namespace RetroDevStudio.Undo
     {
       _MapEditor.AddTile( _Charset, _TileIndex, _RemovedTile );
 
-      // Restore entity-type → tile bindings. Done after AddTile so the
-      // tile list is back to its pre-deletion length when we hand
-      // indices back to the entity types — otherwise an index that was
-      // valid pre-delete (e.g. == old Tiles.Count - 1) would still be
-      // out of range until AddTile inserts the tile.
-      int entCount = System.Math.Min( _EntityTypeTileIndices.Count, _MapProject.EntityTypes.Count );
-      for ( int i = 0; i < entCount; ++i )
+      // Restore the charset's entity tiles exactly - including the one that
+      // sat on the deleted tile. Done after AddTile, whose insert shift has
+      // already moved the others back; this puts the cleared one back too.
+      _Charset.EntityTiles.Clear();
+      foreach ( var pair in _EntityTiles )
       {
-        _MapProject.EntityTypes[i].TileIndex = _EntityTypeTileIndices[i];
+        _Charset.EntityTiles[pair.Key] = pair.Value;
       }
 
       // Restore per-map, per-LAYER color overrides. We deep-copy back into

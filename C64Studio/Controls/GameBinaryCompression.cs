@@ -7,10 +7,11 @@ namespace RetroDevStudio.Controls
 {
   /// <summary>
   /// Shared helper for the game-binary exports (map + sprite): parses a C64 hex
-  /// address and runs the bundled Krill compressor (dali.exe / ZX0) on an
-  /// already-written file, producing a SECOND compressed file plus a size/ratio
-  /// report. UI-agnostic — callers do their own control reading, path resolution
-  /// and message boxes; this class only does the parse + the compressor run.
+  /// address and runs the bundled packer (dali.exe - Bitfire's ZX0 re-encoder by
+  /// Tobias Bindhammer) on an already-written file, producing a SECOND
+  /// compressed file plus a size/ratio report. UI-agnostic — callers do their
+  /// own control reading, path resolution and message boxes; this class only
+  /// does the parse + the compressor run.
   /// </summary>
   public static class GameBinaryCompression
   {
@@ -47,7 +48,8 @@ namespace RetroDevStudio.Controls
     /// Compress <paramref name="InputFilePath"/> to <paramref name="OutputFilePath"/>
     /// with the named compressor (currently only "ZX0" via Compressors/dali.exe).
     /// <paramref name="OverrideAddress"/> &lt; 0 = none, else 0..$FFFF passed to
-    /// dali's --relocate-origin. On success returns true with <paramref name="Report"/>
+    /// dali's --relocate-origin (it replaces the source file's load address, which
+    /// the packed file carries as its depack target). On success returns true with <paramref name="Report"/>
     /// set (sizes, %, depack address); on failure returns false with
     /// <paramref name="Error"/> set (the caller decides how to surface it).
     /// </summary>

@@ -287,6 +287,34 @@ namespace RetroDevStudio.Controls
         bool   charsetPrefix = checkCharsetPrefixLoadAddress.Checked
                             && TryParseCharsetLoadAddress( editCharsetPrefixLoadAddress.Text, out charsetLoadAddress );
         string charsetDir = ResolveCharsetExportDirectory( editCharsetExportDirectory.Text, DocInfo, DocInfo.FullPath );
+
+        // Every folder this export writes to - the charset files' and the
+        // auto-saved file's: the missing ones are offered for creation in one
+        // question, before anything is written.
+        var folders = new List<string>();
+        if ( Info.Map.ExportedCharsets().Any( cs => !string.IsNullOrWhiteSpace( cs.ExportName ) ) )
+        {
+          folders.Add( charsetDir );
+        }
+        if ( ( checkSaveOnExport.Checked )
+        &&   ( !string.IsNullOrEmpty( editExportFilename.Text ) ) )
+        {
+          try
+          {
+            string baseDirectory = string.IsNullOrEmpty( editExportDirectory.Text )
+                                 ? System.IO.Path.GetDirectoryName( DocInfo.FullPath )
+                                 : editExportDirectory.Text;
+            folders.Add( System.IO.Path.GetDirectoryName( System.IO.Path.Combine( baseDirectory, editExportFilename.Text ) ) );
+          }
+          catch ( Exception )
+          {
+            // an unusable path: the save below reports it
+          }
+        }
+        if ( !EnsureExportDirectories( folders ) )
+        {
+          return false;
+        }
         WriteCharsetExportFiles( Info.Map, charsetDir, charsetPrefix, charsetLoadAddress, !checkAlwaysOverwrite.Checked );
       }
 

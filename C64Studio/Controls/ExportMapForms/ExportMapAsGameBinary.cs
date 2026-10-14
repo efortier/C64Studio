@@ -58,10 +58,21 @@ namespace RetroDevStudio.Controls
       editMapStringsDirectory.TextChanged += HandleSettingsChanged;
       editMapStringsFilename.TextChanged += HandleSettingsChanged;
       editMapStringsPrefix.TextChanged += HandleSettingsChanged;
+      editCharsetFilenamePattern.TextChanged += HandleSettingsChanged;
+      editCharsetOverrideLoadAddress.TextChanged += HandleSettingsChanged;
+      editCharsetCompressFilename.TextChanged += HandleSettingsChanged;
     }
 
 
 
+    /// <summary>
+    /// The game-binary export writes ONE FILE PER MAP: each exported map goes
+    /// to its own binary named by the map file name pattern (%d = the map's
+    /// exported index, its MAP_INDEX_* value), each with its own charset file
+    /// named by the charset file name pattern, numbered the same way. The
+    /// sidecars are written once. Nothing is written unless every file can be
+    /// built.
+    /// </summary>
     public override bool HandleExport( ExportMapInfo Info, TextBox EditOutput, DocumentInfo DocInfo )
     {
       // Pre-export validation: warn the user about Map String labels that
@@ -100,25 +111,26 @@ namespace RetroDevStudio.Controls
         }
       }
 
-      // Pre-export validation: character-set warnings — a map bound to a
-      // charset that is not exported (it gets charset index 0), two enabled
-      // charsets exporting to the same file name, or no charset enabled at
-      // all. Warn, never block — the user decides.
+      // Pre-export validation: placed entities whose type has no usable tile
+      // in their map's character set (none there - the record gets $FF - or a
+      // number past that set's tiles). Warn, never block - the user decides.
       if ( Info.Map != null )
       {
-        var charsetWarnings = Info.Map.GetCharsetExportWarnings();
-        if ( charsetWarnings.Count > 0 )
+        var entityWarnings = Info.Map.GetEntityTileExportWarnings();
+        if ( entityWarnings.Count > 0 )
         {
           var sb = new System.Text.StringBuilder();
-          sb.AppendLine( "Character set export warnings:" );
+          sb.AppendLine( "Entity tile warnings:" );
           sb.AppendLine();
-          foreach ( var w in charsetWarnings ) sb.AppendLine( "  " + w );
+          foreach ( var w in entityWarnings ) sb.AppendLine( "  " + w );
+          sb.AppendLine();
+          sb.AppendLine( "Set the tile for that character set on the Entities tab (pick the set, pick the tile, Update)." );
           sb.AppendLine();
           sb.AppendLine( "Continue anyway?" );
 
           var result = System.Windows.Forms.MessageBox.Show(
             sb.ToString(),
-            "Character set export warnings",
+            "Entity tile warnings",
             System.Windows.Forms.MessageBoxButtons.YesNo,
             System.Windows.Forms.MessageBoxIcon.Warning,
             System.Windows.Forms.MessageBoxDefaultButton.Button2 );
@@ -158,116 +170,278 @@ namespace RetroDevStudio.Controls
         }
       }
 
-      // Pointers in the binary are always file-relative offsets; the runtime
-      // adds its own load address. (The old absolute base-address option was
-      // removed.) The "Prefix Load Address" option below is independent — it
-      // just prepends the 2-byte PRG load word so the file is loadable.
-      System.Collections.Generic.List<string> exportErrors;
-      GR.Memory.ByteBuffer data = Info.Map.ExportAsGameBinary(
-        exportMarkers,
-        exportColors,
-        exportPassable,
-        out exportErrors );
-
-      if ( data == null )
+      // Build every file first: a bad file name pattern, a set with too many
+      // tiles or a map file over 64 KB aborts before anything is written.
+      string mapPattern     = editExportFilename.Text ?? "";
+      string charsetPattern = editCharsetFilenamePattern.Text ?? "";
+      bool   compress         = checkCompressMap.Checked && !string.IsNullOrEmpty( editCompressFilename.Text );
+      bool   compressCharsets = checkCompressCharsets.Checked && !string.IsNullOrEmpty( editCharsetCompressFilename.Text );
+      var    errors           = new List<string>();
+      if ( compress )
       {
-        // A hard error: the byte layout cannot represent this project (too
-        // many tiles / charsets / maps, or a binary over 64 KB).
-        var sb = new System.Text.StringBuilder();
-        sb.AppendLine( "Export aborted — the game binary cannot represent this project:" );
-        sb.AppendLine();
-        foreach ( var e in exportErrors ) sb.AppendLine( "  " + e );
+        string compressError = RetroDevStudio.Formats.MapProject.ValidateFileNamePattern( editCompressFilename.Text );
+        if ( compressError != null )
+        {
+          errors.Add( "compressed file name: " + compressError );
+        }
+      }
+      if ( compressCharsets )
+      {
+        string compressError = RetroDevStudio.Formats.MapProject.ValidateFileNamePattern( editCharsetCompressFilename.Text );
+        if ( compressError != null )
+        {
+          errors.Add( "compressed character set file name: " + compressError );
+        }
+      }
+      // The load-address overrides are parsed ONCE, here: a bad one aborts
+      // before anything is written instead of failing once per map file.
+      int mapOverrideAddress     = -1;
+      int charsetOverrideAddress = -1;
+      if ( ( compress )
+      &&   ( checkOverrideLoadAddress.Checked )
+      &&   ( !GameBinaryCompression.TryParseHexAddress( editOverrideLoadAddress.Text, out mapOverrideAddress ) ) )
+      {
+        errors.Add( "compressed map load address: \"" + ( editOverrideLoadAddress.Text ?? "" ) + "\" is not a valid hex address ($0000-$FFFF)" );
+      }
+      if ( ( compressCharsets )
+      &&   ( checkCharsetOverrideLoadAddress.Checked )
+      &&   ( !GameBinaryCompression.TryParseHexAddress( editCharsetOverrideLoadAddress.Text, out charsetOverrideAddress ) ) )
+      {
+        errors.Add( "compressed character set load address: \"" + ( editCharsetOverrideLoadAddress.Text ?? "" ) + "\" is not a valid hex address ($0000-$FFFF)" );
+      }
+      List<string> exportErrors;
+      var files = Info.Map.ExportAsGameBinaryFiles( mapPattern, charsetPattern, exportMarkers, exportColors, exportPassable, out exportErrors );
+      if ( exportErrors != null )
+      {
+        errors.AddRange( exportErrors );
+      }
+      // The compressed charset files land beside the charset files, so a
+      // pattern yielding the same name would overwrite the original.
+      if ( ( compressCharsets )
+      &&   ( files != null ) )
+      {
+        foreach ( var file in files )
+        {
+          string compressedName;
+          string patternError;
+          if ( ( file.CharsetData != null )
+          &&   ( RetroDevStudio.Formats.MapProject.TryFormatFileNamePattern( editCharsetCompressFilename.Text, file.ExportIndex, out compressedName, out patternError ) )
+          &&   ( string.Equals( compressedName, file.CharsetFileName, StringComparison.OrdinalIgnoreCase ) ) )
+          {
+            errors.Add( "compressed character set file name " + compressedName + " equals the character set file name " + file.CharsetFileName + " - pick a different name" );
+            break;
+          }
+        }
+      }
+      if ( ( files == null )
+      ||   ( errors.Count > 0 ) )
+      {
+        ReportExportAborted( errors );
+        return false;
+      }
+      if ( files.Count == 0 )
+      {
         System.Windows.Forms.MessageBox.Show(
-          sb.ToString(),
-          "Game binary export error",
+          "No map is exported - every map is flagged 'Map not exported'.",
+          "Game binary export",
           System.Windows.Forms.MessageBoxButtons.OK,
-          System.Windows.Forms.MessageBoxIcon.Warning );
+          System.Windows.Forms.MessageBoxIcon.Information );
         return false;
       }
 
-      GR.Memory.ByteBuffer finalData = data;
-      if ( checkPrefixLoadAddress.Checked )
+      // Where the map files go: the auto-save directory, else ask for a folder.
+      string mapDir = null;
+      if ( ( checkSaveOnExport.Checked )
+      &&   ( !string.IsNullOrEmpty( editExportDirectory.Text ) ) )
       {
-        ushort address = GR.Convert.ToU16( editPrefixLoadAddress.Text, 16 );
-        var addressData = new ByteBuffer();
-        addressData.AppendU16( address );
-        finalData = addressData + finalData;
-      }
-
-      string targetPath = null;
-
-      if ( checkSaveOnExport.Checked
-      &&   !string.IsNullOrEmpty( editExportDirectory.Text )
-      &&   !string.IsNullOrEmpty( editExportFilename.Text ) )
-      {
-        targetPath = System.IO.Path.Combine( editExportDirectory.Text, editExportFilename.Text );
+        mapDir = editExportDirectory.Text;
       }
       else
       {
-        System.Windows.Forms.SaveFileDialog saveDlg = new System.Windows.Forms.SaveFileDialog();
-        saveDlg.Title = "Save game binary data";
-        saveDlg.Filter = "Game Binary Data|*.bin|All Files|*.*";
-
-        if ( saveDlg.ShowDialog() != System.Windows.Forms.DialogResult.OK )
+        using ( var dlg = new FolderBrowserDialog() )
         {
-          return false;
+          dlg.Description = "Folder for the " + files.Count + " map file(s) (" + files[0].FileName + ( ( files.Count > 1 ) ? " ..." : "" ) + ")";
+          if ( !string.IsNullOrEmpty( editExportDirectory.Text ) )
+          {
+            dlg.SelectedPath = editExportDirectory.Text;
+          }
+          if ( dlg.ShowDialog() != DialogResult.OK )
+          {
+            return false;
+          }
+          mapDir = dlg.SelectedPath;
         }
-        targetPath = saveDlg.FileName;
       }
+      string firstMapPath = System.IO.Path.Combine( mapDir, files[0].FileName );
 
-      try
-      {
-        GR.IO.File.WriteAllBytes( targetPath, finalData );
-      }
-      catch ( Exception ex )
-      {
-        if ( Core != null )
-        {
-          Core.Notification.MessageBox( "Error saving file",
-            "Could not save exported game binary to:\r\n" + targetPath + "\r\n\r\n" + ex.Message );
-        }
-        return false;
-      }
-
-      // Compress the exported map (optional). Runs AFTER the main file is on
-      // disk and writes a SECOND file beside it — the original is never replaced.
-      // The size/ratio report is shown at the top of the export log, right under
-      // the "Exported ..." line.
-      string compressionReport;
-      TryCompressExport( targetPath, finalData.Length, out compressionReport );
-
-      // Character set files — one per set with "Export character set" enabled
-      // on the Character Set tab, named by each set's export name, all in the
-      // charset export directory (resolved once, shared with the label
-      // sidecars further down). An empty export name writes no file; the
-      // report line in the log says so. Written before the log so the .def
-      // sidecar carries the report.
-      string charsetDir = ResolveCharsetExportDirectory( editCharsetExportDirectory.Text, DocInfo, targetPath );
+      // Charset files (and the label sidecars) go to the charset export
+      // directory - blank = the project's folder, like before.
+      string charsetDir = ResolveCharsetExportDirectory( editCharsetExportDirectory.Text, DocInfo, firstMapPath );
       ushort charsetLoadAddress = 0;
       bool   charsetPrefix = checkCharsetPrefixLoadAddress.Checked
                           && TryParseCharsetLoadAddress( editCharsetPrefixLoadAddress.Text, out charsetLoadAddress );
-      string charsetReport = WriteCharsetExportFiles( Info.Map, charsetDir, charsetPrefix, charsetLoadAddress, false );
+      int maxExportSize = 0;
+      int.TryParse( editMaxExportSize.Text, out maxExportSize );
 
-      string log = GenerateExportLog( data, targetPath,
-                                      exportMarkers, exportColors, exportPassable,
-                                      Info.Map, compressionReport, charsetReport );
-
-      // Optional .def sidecar
-      if ( checkGenerateDefFile.Checked )
+      // Every folder this export writes to: the missing ones are offered for
+      // creation in one question, before anything is written.
+      var folders = new List<string>() { mapDir };
+      if ( compress )
       {
-        string defPath = System.IO.Path.ChangeExtension( targetPath, ".def" );
+        folders.Add( string.IsNullOrEmpty( editCompressDirectory.Text ) ? mapDir : editCompressDirectory.Text );
+      }
+      if ( ( files[0].CharsetData != null )
+      ||   ( checkExportCharsetLabels.Checked )
+      ||   ( checkExportMapLabels.Checked ) )
+      {
+        folders.Add( charsetDir );
+      }
+      if ( checkExportHeaderAsm.Checked )
+      {
+        folders.Add( SidecarDirectory( editHeaderAsmDirectory.Text, firstMapPath ) );
+      }
+      if ( checkExportMarkerLabels.Checked )
+      {
+        folders.Add( SidecarDirectory( editMarkerLabelsDirectory.Text, firstMapPath ) );
+      }
+      if ( checkExportEntityLabels.Checked )
+      {
+        folders.Add( SidecarDirectory( editEntityLabelsDirectory.Text, firstMapPath ) );
+      }
+      if ( checkExportMapStrings.Checked )
+      {
+        folders.Add( SidecarDirectory( editMapStringsDirectory.Text, firstMapPath ) );
+      }
+      if ( !EnsureExportDirectories( folders ) )
+      {
+        return false;
+      }
+
+      var summary   = new StringBuilder();
+      var fileLogs  = new StringBuilder();
+      var oversized = new List<string>();
+      summary.AppendLine( "Exported " + files.Count + " map file(s) to " + mapDir
+                        + ( ( files[0].CharsetData != null ) ? ", their charset files" + ( compressCharsets ? " (+ compressed copies)" : "" ) + " to " + charsetDir : " (no charset files - the charset file name is empty)" ) );
+      foreach ( var file in files )
+      {
+        // The map binary (+ the optional 2-byte PRG load address).
+        GR.Memory.ByteBuffer finalData = file.Data;
+        if ( checkPrefixLoadAddress.Checked )
+        {
+          ushort address = GR.Convert.ToU16( editPrefixLoadAddress.Text, 16 );
+          var addressData = new ByteBuffer();
+          addressData.AppendU16( address );
+          finalData = addressData + finalData;
+        }
+        string mapPath = System.IO.Path.Combine( mapDir, file.FileName );
         try
         {
-          System.IO.File.WriteAllText( defPath, log );
+          GR.IO.File.WriteAllBytes( mapPath, finalData );
         }
         catch ( Exception ex )
         {
           if ( Core != null )
           {
-            Core.Notification.MessageBox( "Error saving .def file",
-              "Could not save the layout sidecar file to:\r\n" + defPath + "\r\n\r\n" + ex.Message );
+            Core.Notification.MessageBox( "Error saving file",
+              "Could not save the map file:\r\n" + mapPath + "\r\n\r\n" + ex.Message );
           }
-          // continue — the binary itself was saved
+          return false;
+        }
+
+        // Optional compressed copy - a SECOND file, named by the compressed
+        // file name pattern with the same number; the original stays.
+        string compressionReport = null;
+        if ( compress )
+        {
+          string compressedName;
+          string patternError;
+          RetroDevStudio.Formats.MapProject.TryFormatFileNamePattern( editCompressFilename.Text, file.ExportIndex, out compressedName, out patternError );
+          TryCompressExport( mapPath, compressedName, finalData.Length, mapOverrideAddress, out compressionReport );
+        }
+
+        // The map's charset file, numbered like the map file.
+        string charsetReport         = null;
+        string compressedCharsetName = null;
+        var    charsetNames          = new List<string>();
+        string charsetName           = Info.Map.CharsetDisplayNameOf( Info.Map.CharsetOf( file.Map ) );
+        if ( file.CharsetData != null )
+        {
+          GR.Memory.ByteBuffer charsetData = file.CharsetData;
+          if ( charsetPrefix )
+          {
+            var prefixed = new ByteBuffer();
+            prefixed.AppendU16( charsetLoadAddress );
+            prefixed.Append( charsetData );
+            charsetData = prefixed;
+          }
+          string charsetPath = System.IO.Path.Combine( charsetDir ?? mapDir, file.CharsetFileName );
+          try
+          {
+            GR.IO.File.WriteAllBytes( charsetPath, charsetData );
+          }
+          catch ( Exception ex )
+          {
+            if ( Core != null )
+            {
+              Core.Notification.MessageBox( "Error saving file",
+                "Could not save the charset file:\r\n" + charsetPath + "\r\n\r\n" + ex.Message );
+            }
+            return false;
+          }
+          charsetReport = "Charset file: " + charsetPath + " (" + charsetData.Length + " bytes, character set '" + charsetName + "')";
+          // Optional compressed copy - a SECOND file beside the charset file,
+          // named by the compressed charset file name pattern with the same
+          // number; the charset file itself stays.
+          if ( compressCharsets )
+          {
+            string compressedName;
+            string patternError;
+            RetroDevStudio.Formats.MapProject.TryFormatFileNamePattern( editCharsetCompressFilename.Text, file.ExportIndex, out compressedName, out patternError );
+            string compressedPath = System.IO.Path.Combine( charsetDir ?? mapDir, compressedName );
+            string charsetCompression;
+            if ( TryCompressCharsetFile( charsetPath, compressedPath, charsetData.Length, charsetOverrideAddress, out charsetCompression ) )
+            {
+              compressedCharsetName = compressedName;
+              charsetReport += "\r\n" + charsetCompression;
+            }
+          }
+          charsetNames.Add( file.CharsetFileName + " ('" + charsetName + "')" );
+        }
+        else
+        {
+          charsetNames.Add( "'" + charsetName + "'" );
+        }
+
+        string fileLog = GenerateExportLog( file.Data, mapPath, exportMarkers, exportColors, exportPassable,
+                                            Info.Map, file.Map, charsetNames, compressionReport, charsetReport );
+        // Optional .def sidecar - one per map file, beside it.
+        if ( checkGenerateDefFile.Checked )
+        {
+          string defPath = System.IO.Path.ChangeExtension( mapPath, ".def" );
+          try
+          {
+            System.IO.File.WriteAllText( defPath, fileLog );
+          }
+          catch ( Exception ex )
+          {
+            if ( Core != null )
+            {
+              Core.Notification.MessageBox( "Error saving .def file",
+                "Could not save the layout sidecar file to:\r\n" + defPath + "\r\n\r\n" + ex.Message );
+            }
+            // continue - the binary itself was saved
+          }
+        }
+        summary.AppendLine( "  " + file.FileName + " - map " + file.ExportIndex + " '" + file.Map.Name + "', " + finalData.Length + " bytes"
+                          + ( ( file.CharsetData != null ) ? " + " + file.CharsetFileName + ( ( compressedCharsetName != null ) ? " + " + compressedCharsetName : "" ) : "" ) );
+        fileLogs.AppendLine( "==================== " + file.FileName + " ====================" );
+        fileLogs.AppendLine( fileLog );
+
+        if ( ( checkMaxExportSize.Checked )
+        &&   ( maxExportSize > 0 )
+        &&   ( (long)finalData.Length > maxExportSize ) )
+        {
+          oversized.Add( file.FileName + " (" + finalData.Length + " bytes)" );
         }
       }
 
@@ -282,7 +456,7 @@ namespace RetroDevStudio.Controls
           editHeaderAsmDirectory.Text,
           editHeaderAsmFilename.Text,
           "map_header.asm",
-          targetPath,
+          firstMapPath,
           () => RetroDevStudio.Formats.MapProject.GenerateGameBinaryHeaderAsm( headerPrefix ) );
       }
 
@@ -296,7 +470,7 @@ namespace RetroDevStudio.Controls
           editMarkerLabelsDirectory.Text,
           editMarkerLabelsFilename.Text,
           "map_markers.asm",
-          targetPath,
+          firstMapPath,
           () => map.GenerateMarkerLabelsAsm( markerPrefix ) );
       }
 
@@ -310,7 +484,7 @@ namespace RetroDevStudio.Controls
           editEntityLabelsDirectory.Text,
           editEntityLabelsFilename.Text,
           "map_entities.asm",
-          targetPath,
+          firstMapPath,
           () => map.GenerateEntityLabelsAsm( entityPrefix ) );
       }
 
@@ -325,7 +499,7 @@ namespace RetroDevStudio.Controls
           editMapStringsDirectory.Text,
           editMapStringsFilename.Text,
           "map_strings.asm",
-          targetPath,
+          firstMapPath,
           () => map.GenerateMapStringsAsm( mapStringsPrefix ) );
       }
 
@@ -340,7 +514,7 @@ namespace RetroDevStudio.Controls
           charsetDir,
           editCharsetLabelsFilename.Text,
           "map_charsets.asm",
-          targetPath,
+          firstMapPath,
           () => map.GenerateCharsetLabelsAsm( charsetLabelsPrefix ) );
       }
 
@@ -354,30 +528,24 @@ namespace RetroDevStudio.Controls
           charsetDir,
           editMapLabelsFilename.Text,
           "map_names.asm",
-          targetPath,
+          firstMapPath,
           () => map.GenerateMapLabelsAsm( mapLabelsPrefix ) );
       }
 
       if ( EditOutput != null )
       {
-        EditOutput.Text = log;
+        EditOutput.Text = summary.ToString() + "\r\n" + fileLogs.ToString();
       }
 
-      // Max-export-size check — runs AFTER the export is fully written. When the
-      // option is enabled and the configured byte limit (decimal, 0 = off) is
-      // exceeded by the exported data (finalData already includes the 2-byte
-      // load-address prefix when that option is on), warn the user. Informational
-      // only: the file has already been saved.
-      int maxExportSize = 0;
-      int.TryParse( editMaxExportSize.Text, out maxExportSize );
-      if ( checkMaxExportSize.Checked
-      &&   ( maxExportSize > 0 )
-      &&   ( (long)finalData.Length > maxExportSize ) )
+      // Max-export-size check - runs AFTER the export is fully written, per
+      // map file (the size includes the 2-byte load-address prefix when that
+      // option is on). Informational only: the files are already saved.
+      if ( oversized.Count > 0 )
       {
         System.Windows.Forms.MessageBox.Show(
-          "The exported data is " + finalData.Length + " bytes"
-          + ( checkPrefixLoadAddress.Checked ? " (including the 2-byte load address)" : "" )
-          + ", which exceeds the configured maximum of " + maxExportSize + " bytes.",
+          "These map files exceed the configured maximum of " + maxExportSize + " bytes"
+          + ( checkPrefixLoadAddress.Checked ? " (sizes include the 2-byte load address)" : "" ) + ":\r\n\r\n  "
+          + string.Join( "\r\n  ", oversized.ToArray() ),
           "Max export size exceeded",
           System.Windows.Forms.MessageBoxButtons.OK,
           System.Windows.Forms.MessageBoxIcon.Warning );
@@ -388,21 +556,45 @@ namespace RetroDevStudio.Controls
 
 
 
+    /// <summary>The "nothing was written" box for the build-time errors (a test answers it silently).</summary>
+    protected virtual void ReportExportAborted( List<string> Errors )
+    {
+      var sb = new System.Text.StringBuilder();
+      sb.AppendLine( "Export aborted - nothing was written:" );
+      sb.AppendLine();
+      foreach ( var e in Errors ) sb.AppendLine( "  " + e );
+      System.Windows.Forms.MessageBox.Show(
+        sb.ToString(),
+        "Game binary export error",
+        System.Windows.Forms.MessageBoxButtons.OK,
+        System.Windows.Forms.MessageBoxIcon.Warning );
+    }
+
+
+
+    /// <summary>Where a sidecar lands: its configured folder, else the map files' folder.</summary>
+    private static string SidecarDirectory( string ConfiguredDir, string BinaryPath )
+    {
+      if ( !string.IsNullOrEmpty( ConfiguredDir ) )
+      {
+        return ConfiguredDir;
+      }
+      try
+      {
+        return System.IO.Path.GetDirectoryName( BinaryPath );
+      }
+      catch ( Exception )
+      {
+        return null;
+      }
+    }
+
+
+
     private void WriteAsmSidecar( string Description, string ConfiguredDir, string ConfiguredFilename,
                                   string DefaultFilename, string BinaryPath, Func<string> GenerateContent )
     {
-      string dir = ConfiguredDir;
-      if ( string.IsNullOrEmpty( dir ) )
-      {
-        try
-        {
-          dir = System.IO.Path.GetDirectoryName( BinaryPath );
-        }
-        catch ( Exception )
-        {
-          dir = null;
-        }
-      }
+      string dir = SidecarDirectory( ConfiguredDir, BinaryPath );
 
       string filename = string.IsNullOrEmpty( ConfiguredFilename ) ? DefaultFilename : ConfiguredFilename;
 
@@ -463,27 +655,27 @@ namespace RetroDevStudio.Controls
 
 
     /// <summary>
-    /// Parse a C64 hex address ($0000-$FFFF). Accepts an optional "$" or "0x"
-    /// prefix. Returns false for empty/garbage/out-of-range input.
-    /// </summary>
-    /// <summary>
-    /// Optionally compress the just-exported map file with the selected Krill
+    /// Optionally compress the just-exported map file with the selected
     /// compressor, writing the result as a SECOND file (the original is never
     /// touched). Runs only when "Compress map" is checked and a filename is
     /// given. The filename is used verbatim — no extension is added; a rooted
-    /// path is honored, otherwise the file lands beside the main export. On
-    /// success <paramref name="Report"/> gets a human-readable size/ratio line.
-    /// Any failure (missing tool, same-as-original name, compressor error) is
-    /// reported via a message box and leaves the export itself successful.
+    /// path is honored, otherwise the file lands beside the main export.
+    /// <paramref name="OverrideAddress"/> is the already-parsed load-address
+    /// override (-1 = none). On success <paramref name="Report"/> gets a
+    /// human-readable size/ratio line. Any failure (missing tool,
+    /// same-as-original name, compressor error) is reported via a message box
+    /// and leaves the export itself successful.
     /// </summary>
-    private bool TryCompressExport( string MainFilePath, long UncompressedSize, out string Report )
+    private bool TryCompressExport( string MainFilePath, string OutputName, long UncompressedSize, int OverrideAddress, out string Report )
     {
       Report = null;
       if ( !checkCompressMap.Checked )
       {
         return false;
       }
-      string outName = editCompressFilename.Text ?? "";
+      // The compressed file name pattern, already formatted with the map's
+      // number by the caller.
+      string outName = OutputName ?? "";
       if ( string.IsNullOrEmpty( outName ) )
       {
         return false;
@@ -523,29 +715,10 @@ namespace RetroDevStudio.Controls
         // compressor surface the bad path.
       }
 
-      // Optional load-address override: make the compressed file depack to a
-      // different address than the source PRG header says. Requires a valid hex
-      // address ($0000-$FFFF); a bad/empty value aborts compression so we never
-      // write a file with a silently-wrong load address.
-      int overrideAddress = -1;
-      if ( checkOverrideLoadAddress.Checked )
-      {
-        if ( !GameBinaryCompression.TryParseHexAddress( editOverrideLoadAddress.Text, out overrideAddress ) )
-        {
-          if ( Core != null )
-          {
-            Core.Notification.MessageBox( "Invalid load address",
-              "\"Override file load address\" is on but \"" + ( editOverrideLoadAddress.Text ?? "" )
-              + "\" is not a valid hex address ($0000-$FFFF).\r\n\r\nThe map was exported, but not compressed." );
-          }
-          return false;
-        }
-      }
-
       string compressor = ( comboCompressor.SelectedItem != null ) ? comboCompressor.SelectedItem.ToString() : "ZX0";
       string error;
       if ( !GameBinaryCompression.RunCompressor( compressor, MainFilePath, outPath,
-                                                 overrideAddress, UncompressedSize, out Report, out error ) )
+                                                 OverrideAddress, UncompressedSize, out Report, out error ) )
       {
         if ( Core != null )
         {
@@ -560,10 +733,41 @@ namespace RetroDevStudio.Controls
 
 
 
+    /// <summary>
+    /// Compresses the just-written charset file with the charset compressor
+    /// into <paramref name="OutputPath"/> - a SECOND file; the charset file
+    /// itself is never touched. <paramref name="OverrideAddress"/> is the
+    /// already-parsed load-address override (-1 = none). On success
+    /// <paramref name="Report"/> gets the size/ratio line; a failure is
+    /// reported via a message box and leaves the export itself successful,
+    /// like TryCompressExport.
+    /// </summary>
+    private bool TryCompressCharsetFile( string CharsetPath, string OutputPath, long UncompressedSize, int OverrideAddress, out string Report )
+    {
+      Report = null;
+      string compressor = ( comboCharsetCompressor.SelectedItem != null ) ? comboCharsetCompressor.SelectedItem.ToString() : "ZX0";
+      string error;
+      if ( !GameBinaryCompression.RunCompressor( compressor, CharsetPath, OutputPath,
+                                                 OverrideAddress, UncompressedSize, out Report, out error ) )
+      {
+        if ( Core != null )
+        {
+          Core.Notification.MessageBox( "Compression failed",
+            error + "\r\n\r\nThe character set file was exported, but not compressed:\r\n" + CharsetPath );
+        }
+        Report = null;
+        return false;
+      }
+      return true;
+    }
+
+
+
     private string GenerateExportLog( ByteBuffer buf, string targetPath,
                                        bool exportMarkers, bool exportColors, bool exportPassable,
-                                       RetroDevStudio.Formats.MapProject project, string CompressionReport = null,
-                                       string CharsetReport = null )
+                                       RetroDevStudio.Formats.MapProject project,
+                                       RetroDevStudio.Formats.MapProject.Map Map, List<string> CharsetNames,
+                                       string CompressionReport = null, string CharsetReport = null )
     {
       // Pointers in the binary are file-relative offsets, so the dump shows the
       // raw file offset for every address. Kept as a local 0 so the offset/
@@ -681,7 +885,7 @@ namespace RetroDevStudio.Controls
 
       // --- CHARSET DIRECTORY + per-charset tile sections ---
       // The legacy header fields ($01, $04..$10) mirror directory entry 0.
-      sb.AppendLine( RetroDevStudio.Formats.MapProject.DescribeGameBinaryCharsets( buf, project ) );
+      sb.AppendLine( RetroDevStudio.Formats.MapProject.DescribeGameBinaryCharsets( buf, CharsetNames ) );
       int charsetCount = buf.ByteAt( 0x3E );
       int directoryPos = buf.UInt16At( 0x3F ) - ba;
       for ( int c = 0; c < charsetCount; ++c )
@@ -942,7 +1146,8 @@ namespace RetroDevStudio.Controls
           var emittedLabels = new List<string>();
           if ( project != null )
           {
-            var exportStrings = project.GetMapStringsForExport();
+            // A per-map file carries only the strings its own markers show.
+            var exportStrings = ( Map != null ) ? project.GetMapStringsForExport( Map ) : project.GetMapStringsForExport();
             foreach ( var ms in exportStrings )
             {
               emittedLabels.Add( ms.Label ?? "" );
@@ -950,7 +1155,7 @@ namespace RetroDevStudio.Controls
             if ( exportStrings.Count < project.MapStrings.Count )
             {
               sb.AppendLine( "( " + ( project.MapStrings.Count - exportStrings.Count )
-                           + " unused string(s) skipped — no message marker (SHOW_MAP_MESSAGE,"
+                           + " string(s) not in this file — no message marker" + ( ( Map != null ) ? " on this map" : "" ) + " (SHOW_MAP_MESSAGE,"
                            + " or BUMPABLE_MARKER with Value1=1) references their StringID: )" );
               foreach ( var ms in project.MapStrings )
               {
@@ -1195,6 +1400,8 @@ namespace RetroDevStudio.Controls
 
     private void checkCompressMap_CheckedChanged( object sender, EventArgs e )
     {
+      // Only the settings beside the checkbox are disabled - never its group
+      // box - so it can always be ticked again.
       comboCompressor.Enabled = checkCompressMap.Checked;
       editCompressDirectory.Enabled = checkCompressMap.Checked;
       btnBrowseCompressDirectory.Enabled = checkCompressMap.Checked;
@@ -1242,7 +1449,8 @@ namespace RetroDevStudio.Controls
     {
       editExportDirectory.Enabled = checkSaveOnExport.Checked;
       btnBrowseExportDirectory.Enabled = checkSaveOnExport.Checked;
-      editExportFilename.Enabled = checkSaveOnExport.Checked;
+      // The map file name pattern is always needed (without auto-save the
+      // export asks for the folder only).
       if ( !m_ApplyingSettings )
       {
         RaiseSettingsChanged();
@@ -1290,6 +1498,72 @@ namespace RetroDevStudio.Controls
     private void checkCharsetPrefixLoadAddress_CheckedChanged( object sender, EventArgs e )
     {
       editCharsetPrefixLoadAddress.Enabled = checkCharsetPrefixLoadAddress.Checked;
+      if ( !m_ApplyingSettings )
+      {
+        RaiseSettingsChanged();
+      }
+    }
+
+
+
+    /// <summary>
+    /// A user turning compression on gets the load-address override with it -
+    /// the packer writes that address into the file as its depack target -
+    /// set to $0000 when the box holds no valid address yet. Done on Click,
+    /// not CheckedChanged: loading a project's settings restores them as
+    /// saved and must not add an override.
+    /// </summary>
+    private static void DefaultLoadAddressOverride( CheckBox Override, TextBox Address )
+    {
+      int parsed;
+      if ( !GameBinaryCompression.TryParseHexAddress( Address.Text, out parsed ) )
+      {
+        Address.Text = "$0000";
+      }
+      Override.Checked = true;
+    }
+
+
+
+    private void checkCompressMap_Click( object sender, EventArgs e )
+    {
+      if ( checkCompressMap.Checked )
+      {
+        DefaultLoadAddressOverride( checkOverrideLoadAddress, editOverrideLoadAddress );
+      }
+    }
+
+
+
+    private void checkCompressCharsets_Click( object sender, EventArgs e )
+    {
+      if ( checkCompressCharsets.Checked )
+      {
+        DefaultLoadAddressOverride( checkCharsetOverrideLoadAddress, editCharsetOverrideLoadAddress );
+      }
+    }
+
+
+
+    private void checkCompressCharsets_CheckedChanged( object sender, EventArgs e )
+    {
+      // Only the settings beside the checkbox are disabled - never its group
+      // box - so it can always be ticked again.
+      comboCharsetCompressor.Enabled = checkCompressCharsets.Checked;
+      editCharsetCompressFilename.Enabled = checkCompressCharsets.Checked;
+      checkCharsetOverrideLoadAddress.Enabled = checkCompressCharsets.Checked;
+      editCharsetOverrideLoadAddress.Enabled = checkCompressCharsets.Checked && checkCharsetOverrideLoadAddress.Checked;
+      if ( !m_ApplyingSettings )
+      {
+        RaiseSettingsChanged();
+      }
+    }
+
+
+
+    private void checkCharsetOverrideLoadAddress_CheckedChanged( object sender, EventArgs e )
+    {
+      editCharsetOverrideLoadAddress.Enabled = checkCompressCharsets.Checked && checkCharsetOverrideLoadAddress.Checked;
       if ( !m_ApplyingSettings )
       {
         RaiseSettingsChanged();
@@ -1588,10 +1862,10 @@ namespace RetroDevStudio.Controls
         editOverrideLoadAddress.Enabled = checkCompressMap.Checked && checkOverrideLoadAddress.Checked;
         checkSaveOnExport.Checked = s.SaveOnExport;
         editExportDirectory.Text = s.ExportDirectory ?? "";
-        editExportFilename.Text = s.ExportFilename ?? "";
+        // ExportFilename is the map file name PATTERN (one file per map).
+        editExportFilename.Text = string.IsNullOrEmpty( s.ExportFilename ) ? "MAP_%d.bin" : s.ExportFilename;
         editExportDirectory.Enabled = checkSaveOnExport.Checked;
         btnBrowseExportDirectory.Enabled = checkSaveOnExport.Checked;
-        editExportFilename.Enabled = checkSaveOnExport.Checked;
 
         checkGenerateDefFile.Checked = s.GenerateDefFile;
 
@@ -1631,12 +1905,12 @@ namespace RetroDevStudio.Controls
         editMapStringsFilename.Enabled = checkExportMapStrings.Checked;
         editMapStringsPrefix.Enabled = checkExportMapStrings.Checked;
 
-        // Charset files are always written for the sets enabled on the
-        // Character Set tab; only the directory (and the load-address prefix
-        // below) stay here.
+        // Charset files follow the maps: one per map file, named by the
+        // charset file name pattern with the map's number.
         editCharsetExportDirectory.Text = s.CharsetExportDirectory ?? "";
         editCharsetExportDirectory.Enabled = true;
         btnBrowseCharsetExportDirectory.Enabled = true;
+        editCharsetFilenamePattern.Text = s.CharsetFilenamePattern ?? "";
 
         checkExportCharsetLabels.Checked = s.ExportCharsetLabels;
         editCharsetLabelsFilename.Text = string.IsNullOrEmpty( s.CharsetLabelsFilename ) ? "map_charsets.asm" : s.CharsetLabelsFilename;
@@ -1653,6 +1927,21 @@ namespace RetroDevStudio.Controls
         checkCharsetPrefixLoadAddress.Checked = s.CharsetPrefixLoadAddress;
         editCharsetPrefixLoadAddress.Text = s.CharsetPrefixLoadAddressHex ?? "";
         editCharsetPrefixLoadAddress.Enabled = checkCharsetPrefixLoadAddress.Checked;
+
+        // Charset compression: the stored compressor, else the first offered.
+        checkCompressCharsets.Checked = s.CompressCharsets;
+        comboCharsetCompressor.SelectedIndex = comboCharsetCompressor.Items.IndexOf( s.CharsetCompressor ?? "ZX0" );
+        if ( comboCharsetCompressor.SelectedIndex < 0 )
+        {
+          comboCharsetCompressor.SelectedIndex = ( comboCharsetCompressor.Items.Count > 0 ) ? 0 : -1;
+        }
+        checkCharsetOverrideLoadAddress.Checked = s.CharsetOverrideLoadAddress;
+        editCharsetOverrideLoadAddress.Text = s.CharsetOverrideLoadAddressHex ?? "";
+        editCharsetCompressFilename.Text = s.CharsetCompressFilename ?? "";
+        comboCharsetCompressor.Enabled = checkCompressCharsets.Checked;
+        editCharsetCompressFilename.Enabled = checkCompressCharsets.Checked;
+        checkCharsetOverrideLoadAddress.Enabled = checkCompressCharsets.Checked;
+        editCharsetOverrideLoadAddress.Enabled = checkCompressCharsets.Checked && checkCharsetOverrideLoadAddress.Checked;
       }
       finally
       {
@@ -1706,6 +1995,7 @@ namespace RetroDevStudio.Controls
       // charset export name + checkbox live on the Character Set tab); they
       // keep their loaded values so the settings chunk layout stays stable.
       s.CharsetExportDirectory = editCharsetExportDirectory.Text ?? "";
+      s.CharsetFilenamePattern = editCharsetFilenamePattern.Text ?? "";
       s.ExportCharsetLabels = checkExportCharsetLabels.Checked;
       s.CharsetLabelsFilename = string.IsNullOrEmpty( editCharsetLabelsFilename.Text ) ? "map_charsets.asm" : editCharsetLabelsFilename.Text;
       s.CharsetLabelsPrefix = editCharsetLabelsPrefix.Text ?? "";
@@ -1714,6 +2004,11 @@ namespace RetroDevStudio.Controls
       s.MapLabelsPrefix = editMapLabelsPrefix.Text ?? "";
       s.CharsetPrefixLoadAddress = checkCharsetPrefixLoadAddress.Checked;
       s.CharsetPrefixLoadAddressHex = editCharsetPrefixLoadAddress.Text ?? "";
+      s.CompressCharsets = checkCompressCharsets.Checked;
+      s.CharsetCompressor = ( comboCharsetCompressor.SelectedItem != null ) ? comboCharsetCompressor.SelectedItem.ToString() : "ZX0";
+      s.CharsetOverrideLoadAddress = checkCharsetOverrideLoadAddress.Checked;
+      s.CharsetOverrideLoadAddressHex = editCharsetOverrideLoadAddress.Text ?? "";
+      s.CharsetCompressFilename = editCharsetCompressFilename.Text ?? "";
     }
 
 

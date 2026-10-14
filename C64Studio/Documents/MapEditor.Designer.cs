@@ -935,18 +935,24 @@
             // 
             // listMapStrings
             //
+            listMapStrings.AllowDrop = true;
             listMapStrings.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] { columnHeaderMapStringID, columnHeaderMapStringName, columnHeaderMapStringUsed });
             listMapStrings.FullRowSelect = true;
             listMapStrings.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
             listMapStrings.HideSelection = false;
             listMapStrings.Location = new System.Drawing.Point(8, 8);
-            listMapStrings.MultiSelect = false;
+            listMapStrings.MultiSelect = true;
             listMapStrings.Name = "listMapStrings";
             listMapStrings.Size = new System.Drawing.Size(312, 600);
             listMapStrings.TabIndex = 0;
             listMapStrings.UseCompatibleStateImageBehavior = false;
             listMapStrings.View = System.Windows.Forms.View.Details;
             listMapStrings.SelectedIndexChanged += listMapStrings_SelectedIndexChanged;
+            listMapStrings.ItemDrag += listMapStrings_ItemDrag;
+            listMapStrings.DragDrop += listMapStrings_DragDrop;
+            listMapStrings.DragEnter += listMapStrings_DragEnter;
+            listMapStrings.DragOver += listMapStrings_DragOver;
+            listMapStrings.DragLeave += listMapStrings_DragLeave;
             //
             // columnHeaderMapStringID
             //
@@ -1622,7 +1628,7 @@
             comboEntityPreviewCharset.Name = "comboEntityPreviewCharset";
             comboEntityPreviewCharset.Size = new System.Drawing.Size(120, 22);
             comboEntityPreviewCharset.TabIndex = 4;
-            toolTip1.SetToolTip(comboEntityPreviewCharset, "Character set used to pick and preview the tile below. Saved in the project, never exported - the exported tile index is read in each map's own character set.");
+            toolTip1.SetToolTip(comboEntityPreviewCharset, "Character set whose tile for this entity type you see and set below. Each entity type has its own tile in every character set; a map draws and exports the tile of its own character set.");
             comboEntityPreviewCharset.SelectedIndexChanged += comboEntityPreviewCharset_SelectedIndexChanged;
             //
             // comboEntityTile
@@ -1639,7 +1645,7 @@
             comboEntityTile.Name = "comboEntityTile";
             comboEntityTile.Size = new System.Drawing.Size(120, 26);
             comboEntityTile.TabIndex = 5;
-            toolTip1.SetToolTip(comboEntityTile, "Tile this entity type is drawn with - picture, index and name from the preview character set. Update commits it.");
+            toolTip1.SetToolTip(comboEntityTile, "This entity type's tile in the character set chosen above - picture, index and name. Update commits it for that character set only (pick, Update, then switch character sets).");
             comboEntityTile.DrawItem += comboEntityTile_DrawItem;
             comboEntityTile.MeasureItem += comboEntityTile_MeasureItem;
             //
@@ -1655,7 +1661,7 @@
             btnEntityTileFromSelection.Size = new System.Drawing.Size(90, 23);
             btnEntityTileFromSelection.TabIndex = 12;
             btnEntityTileFromSelection.Text = "Selected tile";
-            toolTip1.SetToolTip(btnEntityTileFromSelection, "Pick the tile currently selected on the Tiles tab (switches the preview character set to the current map's) - Update commits it. Does nothing when no tile is selected.");
+            toolTip1.SetToolTip(btnEntityTileFromSelection, "Pick the tile currently selected on the Tiles tab (switches the character set above to the current map's) - Update commits it for that character set. Does nothing when no tile is selected.");
             btnEntityTileFromSelection.Click += btnEntityTileFromSelection_Click;
             //
             // labelEntityPreviewCharset
@@ -5625,6 +5631,7 @@
             // panelExport
             // 
             panelExport.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
+            panelExport.AutoScroll = true;
             panelExport.Location = new System.Drawing.Point(9, 83);
             panelExport.Name = "panelExport";
             panelExport.Size = new System.Drawing.Size(842, 809);

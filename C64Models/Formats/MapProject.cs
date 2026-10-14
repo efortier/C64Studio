@@ -151,13 +151,13 @@ namespace RetroDevStudio.Formats
     {
       public string     Name = "";
       public string     ExportSymbol = "";
-      public int        TileIndex = 0;
       public int        ID = 0;
       public int        TagID = 0;
       /// <summary>
-      /// Editor-only: which charset's tile library the Entities tab shows
-      /// this type's TileIndex with. Persisted, NEVER exported — the runtime
-      /// reads TileIndex in each map's own charset.
+      /// Editor-only: the charset the Entities tab shows (and edits) this
+      /// type's tile for. Persisted, NEVER exported. The tile itself is kept
+      /// per charset (MapCharset.EntityTiles): a map draws and exports the
+      /// type with the tile of its OWN charset.
       /// </summary>
       public int        PreviewCharsetIndex = 0;
     };
@@ -301,6 +301,14 @@ namespace RetroDevStudio.Formats
       public string           RightClickAction = "";
       /// <summary>Tile dropped by shift+left-click; "" = the editor falls back to tile 0.</summary>
       public string           ShiftClickBlankTile = "";
+      /// <summary>
+      /// Each entity type's tile in THIS charset's tile library, keyed by
+      /// EntityType.ID; a type without an entry has no tile here. Kept with
+      /// the charset so duplicating, removing and restoring a charset carry
+      /// its entity tiles along, and tile edits in one library only ever
+      /// renumber its own entries.
+      /// </summary>
+      public Dictionary<int, int> EntityTiles = new Dictionary<int, int>();
 
       public MapCharset()
       {
@@ -332,6 +340,115 @@ namespace RetroDevStudio.Formats
         }
       }
 
+      /// <summary>The type's tile in this charset, -1 = none.</summary>
+      public int EntityTileOf( EntityType Type )
+      {
+        int tile;
+        if ( ( Type != null )
+        &&   ( EntityTiles.TryGetValue( Type.ID, out tile ) ) )
+        {
+          return tile;
+        }
+        return -1;
+      }
+
+      /// <summary>Sets the type's tile in this charset; a negative index removes it (none).</summary>
+      public void SetEntityTile( EntityType Type, int TileIndex )
+      {
+        if ( Type == null )
+        {
+          return;
+        }
+        if ( TileIndex < 0 )
+        {
+          EntityTiles.Remove( Type.ID );
+        }
+        else
+        {
+          EntityTiles[Type.ID] = TileIndex;
+        }
+      }
+
+      // ---- Keeping entity tiles on the same picture while the library changes.
+      // Same rules as the map-cell sweeps of the editor's tile mutators.
+
+      /// <summary>A tile was inserted at Index: entries at or above it move up by one.</summary>
+      public void ShiftEntityTilesForInsert( int Index )
+      {
+        RemapEntityTiles( tile => ( tile >= Index ) ? tile + 1 : tile );
+      }
+
+      /// <summary>
+      /// The tile at Index was removed: an entry on it loses its tile (better
+      /// an invisible entity than one silently showing whatever moved into
+      /// the freed slot), entries above it move down by one.
+      /// </summary>
+      public void ShiftEntityTilesForRemoval( int Index )
+      {
+        RemapEntityTiles( tile => ( tile == Index ) ? -1 : ( ( tile > Index ) ? tile - 1 : tile ) );
+      }
+
+      /// <summary>The tile at From moved to To (list remove + insert).</summary>
+      public void MoveEntityTiles( int From, int To )
+      {
+        RemapEntityTiles( tile =>
+        {
+          if ( tile == From )
+          {
+            return To;
+          }
+          if ( ( From < To )
+          &&   ( tile > From )
+          &&   ( tile <= To ) )
+          {
+            return tile - 1;
+          }
+          if ( ( From > To )
+          &&   ( tile >= To )
+          &&   ( tile < From ) )
+          {
+            return tile + 1;
+          }
+          return tile;
+        } );
+      }
+
+      /// <summary>Tiles A and B swapped places.</summary>
+      public void SwapEntityTiles( int A, int B )
+      {
+        RemapEntityTiles( tile => ( tile == A ) ? B : ( ( tile == B ) ? A : tile ) );
+      }
+
+      /// <summary>
+      /// The library was permuted (OldToNew[old] = new). Entries outside the
+      /// permutation (numbers past the library's end) stay as they are.
+      /// </summary>
+      public void PermuteEntityTiles( int[] OldToNew )
+      {
+        if ( OldToNew == null )
+        {
+          return;
+        }
+        RemapEntityTiles( tile => ( ( tile >= 0 ) && ( tile < OldToNew.Length ) ) ? OldToNew[tile] : tile );
+      }
+
+      private void RemapEntityTiles( Func<int, int> Remap )
+      {
+        var typeIds = new List<int>( EntityTiles.Keys );
+        foreach ( int typeId in typeIds )
+        {
+          int mapped = Remap( EntityTiles[typeId] );
+          if ( mapped < 0 )
+          {
+            EntityTiles.Remove( typeId );
+          }
+          else
+          {
+            EntityTiles[typeId] = mapped;
+          }
+        }
+      }
+
       /// <summary>
       /// Deep copy. The art/palette/playground round-trips through the
       /// charset's own serializer and the tiles through the MAP_TILE chunk
@@ -351,6 +468,7 @@ namespace RetroDevStudio.Formats
         copy.ExportEnabled       = ExportEnabled;
         copy.RightClickAction    = RightClickAction;
         copy.ShiftClickBlankTile = ShiftClickBlankTile;
+        copy.EntityTiles         = new Dictionary<int, int>( EntityTiles );
         return copy;
       }
 
@@ -681,7 +799,7 @@ namespace RetroDevStudio.Formats
         // disabled = no check.
         public bool   MaxExportSizeEnabled = false;
         public string MaxExportSizeText = "0";
-        // v26: optional post-export compression of the exported map (Krill loader).
+        // v26: optional post-export compression of the exported map (Bitfire's dali).
         // When CompressMap is true and CompressFilename is non-empty, the exported
         // map file is compressed with the Compressor (currently only "ZX0" via the
         // bundled dali.exe) and written as a SECOND file beside the main one. The
@@ -695,7 +813,7 @@ namespace RetroDevStudio.Formats
         // v28: override the compressed file's load address (--relocate-origin).
         // Only applied when OverrideLoadAddress is true and the hex is valid.
         public bool   OverrideLoadAddress = false;
-        public string OverrideLoadAddressHex = "";
+        public string OverrideLoadAddressHex = "$0000";
         // v29: charset-labels + map-labels sidecars. Both land in the CHARSET
         // export directory (CharsetExportDirectory), so they carry no
         // directory field. The ExportCharset / CharsetExportFilename fields
@@ -708,6 +826,23 @@ namespace RetroDevStudio.Formats
         public bool   ExportMapLabels = true;
         public string MapLabelsFilename = "map_names.asm";
         public string MapLabelsPrefix = "";
+        // Per-map export (appended after v29's fields, read with a length
+        // guard): the charset file name pattern - one charset file per map,
+        // numbered like the map files (ExportFilename is the map file name
+        // pattern). "" = no charset files.
+        public string CharsetFilenamePattern = "CHARSET_MAP_%d.bin";
+        // Charset compression (appended after the pattern, guarded reads):
+        // with CompressCharsets on and a CharsetCompressFilename, each map's
+        // charset file also gets a compressed copy beside it - a SECOND file
+        // in the charset export directory, named by that %d pattern (e.g.
+        // CHARSET_MAP_%d.zx0) - made by CharsetCompressor; the charset file
+        // itself stays. CharsetOverrideLoadAddress[Hex] relocates it
+        // (--relocate-origin) like OverrideLoadAddress does for the map.
+        public bool   CompressCharsets = false;
+        public string CharsetCompressor = "ZX0";
+        public bool   CharsetOverrideLoadAddress = false;
+        public string CharsetOverrideLoadAddressHex = "$0000";
+        public string CharsetCompressFilename = "";
       }
 
       public class TargetSettings
@@ -1015,6 +1150,7 @@ namespace RetroDevStudio.Formats
       first.ExportEnabled = true;
       first.RightClickAction = "";
       first.ShiftClickBlankTile = "";
+      first.EntityTiles.Clear();
       // first.Charset is deliberately untouched: a file without MAP_CHARSET
       // keeps the previous art, exactly as before this change.
       CurrentCharsetIndex = 0;
@@ -1137,6 +1273,34 @@ namespace RetroDevStudio.Formats
 
 
 
+    // ---- Entity tiles (one per charset, see MapCharset.EntityTiles) ----
+
+    /// <summary>The type's tile on this map: its tile in the map's charset, -1 = none.</summary>
+    public int EntityTileOf( Map map, EntityType Type )
+    {
+      return CharsetOf( map ).EntityTileOf( Type );
+    }
+
+
+
+    /// <summary>
+    /// Drops a type's tile from every charset - call it when the type is
+    /// deleted and before a new type takes its ID (IDs are reused).
+    /// </summary>
+    public void ForgetEntityType( EntityType Type )
+    {
+      if ( Type == null )
+      {
+        return;
+      }
+      foreach ( var cs in Charsets )
+      {
+        cs.EntityTiles.Remove( Type.ID );
+      }
+    }
+
+
+
     // ---- Usage of a charset's tiles / characters on the maps linked to it ----
     // "Linked" = the maps bound to the charset (their cells index that
     // charset's tile library) plus, from the editor, their scratch
@@ -1217,12 +1381,10 @@ namespace RetroDevStudio.Formats
     /// Tiles a bulk "delete unused tiles" must keep although no cell uses
     /// them, each with the reason shown to the user: tile 0 (what an erased
     /// cell falls back to), the export's empty tile, the charset's
-    /// right-click and shift-click tiles (stored by name), and tiles drawn
-    /// by entity types - a type designed against this charset (its preview
-    /// charset) or one with instances on a linked map, where its number is
-    /// read in this library.
+    /// right-click and shift-click tiles (stored by name), and every entity
+    /// type's tile in this charset (its picture here, placed or not).
     /// </summary>
-    public Dictionary<int, string> ProtectedTiles( MapCharset Charset, IEnumerable<Map> LinkedMaps )
+    public Dictionary<int, string> ProtectedTiles( MapCharset Charset )
     {
       var result = new Dictionary<int, string>();
       int count = Charset.Tiles.Count;
@@ -1251,32 +1413,13 @@ namespace RetroDevStudio.Formats
         }
       }
 
-      var typesOnLinkedMaps = new Dictionary<int, bool>();
-      if ( LinkedMaps != null )
-      {
-        foreach ( var map in LinkedMaps )
-        {
-          if ( map == null )
-          {
-            continue;
-          }
-          foreach ( var entity in map.Entities )
-          {
-            typesOnLinkedMaps[entity.Type] = true;
-          }
-        }
-      }
       foreach ( var type in EntityTypes )
       {
-        if ( ( type.TileIndex < 0 )
-        ||   ( type.TileIndex >= count ) )
+        int tile = Charset.EntityTileOf( type );
+        if ( ( tile >= 0 )
+        &&   ( tile < count ) )
         {
-          continue;
-        }
-        if ( ( CharsetAt( type.PreviewCharsetIndex ) == Charset )
-        ||   ( typesOnLinkedMaps.ContainsKey( type.ID ) ) )
-        {
-          AddTileProtection( result, type.TileIndex, "entity type '" + type.Name + "'" );
+          AddTileProtection( result, tile, "entity type '" + type.Name + "'" );
         }
       }
       return result;
@@ -1313,7 +1456,7 @@ namespace RetroDevStudio.Formats
         return result;
       }
       var usage = CountTileUsage( Charset, linked );
-      var keep = ProtectedTiles( Charset, linked );
+      var keep = ProtectedTiles( Charset );
       for ( int i = 0; i < usage.Length; ++i )
       {
         if ( ( usage[i] == 0 )
@@ -1346,7 +1489,7 @@ namespace RetroDevStudio.Formats
         return used;
       }
       var usage = CountTileUsage( Charset, linked );
-      var keep = ProtectedTiles( Charset, linked );
+      var keep = ProtectedTiles( Charset );
       for ( int i = 0; i < Charset.Tiles.Count; ++i )
       {
         if ( ( usage[i] == 0 )
@@ -1834,6 +1977,17 @@ namespace RetroDevStudio.Formats
         chunkMeta.AppendU8( cs.ExportEnabled ? (byte)1 : (byte)0 );
         chunkMeta.AppendString( cs.RightClickAction ?? "" );
         chunkMeta.AppendString( cs.ShiftClickBlankTile ?? "" );
+        // Entity tiles of this charset (appended later; older readers stop
+        // before them): count, then (entity type ID, tile index) pairs in ID
+        // order so a re-save is byte-identical.
+        var entityTypeIds = new List<int>( cs.EntityTiles.Keys );
+        entityTypeIds.Sort();
+        chunkMeta.AppendI32( entityTypeIds.Count );
+        foreach ( int typeId in entityTypeIds )
+        {
+          chunkMeta.AppendI32( typeId );
+          chunkMeta.AppendI32( cs.EntityTiles[typeId] );
+        }
         projectFile.Append( chunkMeta.ToBuffer() );
       }
 
@@ -1867,7 +2021,10 @@ namespace RetroDevStudio.Formats
         chunkEntityType.AppendI32( entityType.ID );
         chunkEntityType.AppendString( entityType.Name );
         chunkEntityType.AppendString( entityType.ExportSymbol ?? "" );
-        chunkEntityType.AppendI32( entityType.TileIndex );
+        // The single tile number older builds know: the type's tile in its
+        // preview charset. New builds read the per-charset tiles from each
+        // charset's META chunk and only use this to migrate older files.
+        chunkEntityType.AppendI32( CharsetAt( entityType.PreviewCharsetIndex ).EntityTileOf( entityType ) );
         chunkEntityType.AppendU8( (byte)entityType.TagID );
         // Appended for PreviewCharsetIndex — editor preview only, never
         // exported. Older readers stop after TagID and keep the default 0.
@@ -2056,6 +2213,14 @@ namespace RetroDevStudio.Formats
       chunkExportSettings.AppendI32( Settings.GameBinary.ExportMapLabels ? 1 : 0 );
       chunkExportSettings.AppendString( Settings.GameBinary.MapLabelsFilename ?? "" );
       chunkExportSettings.AppendString( Settings.GameBinary.MapLabelsPrefix ?? "" );
+      // per-map export: charset file name pattern (appended, guarded read)
+      chunkExportSettings.AppendString( Settings.GameBinary.CharsetFilenamePattern ?? "" );
+      // charset compression (appended, guarded read)
+      chunkExportSettings.AppendI32( Settings.GameBinary.CompressCharsets ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.GameBinary.CharsetCompressor ?? "ZX0" );
+      chunkExportSettings.AppendI32( Settings.GameBinary.CharsetOverrideLoadAddress ? 1 : 0 );
+      chunkExportSettings.AppendString( Settings.GameBinary.CharsetOverrideLoadAddressHex ?? "" );
+      chunkExportSettings.AppendString( Settings.GameBinary.CharsetCompressFilename ?? "" );
       projectFile.Append( chunkExportSettings.ToBuffer() );
       return projectFile;
     }
@@ -2076,6 +2241,10 @@ namespace RetroDevStudio.Formats
       string legacyRightClickAction    = "";
       string legacyShiftClickBlankTile = "";
       var    charsetMetaSeen           = new HashSet<int>();
+      // Charsets whose META carried entity tiles, and each type's single
+      // pre-per-charset tile number (the migration source for the others).
+      var    entityTilesSeen           = new HashSet<int>();
+      var    legacyEntityTiles         = new Dictionary<EntityType, int>();
 
       GR.IO.MemoryReader    memReader = new GR.IO.MemoryReader( ProjectFile );
 
@@ -2412,6 +2581,24 @@ namespace RetroDevStudio.Formats
               {
                 cs.ShiftClickBlankTile = chunkReader.ReadString();
               }
+              // Entity tiles (appended later): count, then (type ID, tile)
+              // pairs. A META chunk without them predates per-charset entity
+              // tiles; the post-pass migrates that charset.
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                int entityTileCount = chunkReader.ReadInt32();
+                if ( ( entityTileCount >= 0 )
+                &&   ( (long)entityTileCount * 8 <= (long)( chunkReader.Size - chunkReader.Position ) ) )
+                {
+                  cs.EntityTiles.Clear();
+                  for ( int t = 0; t < entityTileCount; ++t )
+                  {
+                    int typeId = chunkReader.ReadInt32();
+                    cs.EntityTiles[typeId] = chunkReader.ReadInt32();
+                  }
+                  entityTilesSeen.Add( index );
+                }
+              }
             }
             break;
           case FileChunkConstants.MAP_CHARSET_ENTRY:
@@ -2515,7 +2702,9 @@ namespace RetroDevStudio.Formats
                       }
                       if ( subChunkReader.Position < subChunkReader.Size )
                       {
-                        eType.TileIndex = subChunkReader.ReadInt32();
+                        // The single pre-per-charset tile number: only used to
+                        // migrate charsets whose META carries no entity tiles.
+                        legacyEntityTiles[eType] = subChunkReader.ReadInt32();
                       }
                       if ( subChunkReader.Position < subChunkReader.Size )
                       {
@@ -2819,6 +3008,32 @@ namespace RetroDevStudio.Formats
                   Settings.GameBinary.MapLabelsFilename = "map_names.asm";
                 }
                 Settings.GameBinary.MapLabelsPrefix = chunkReader.ReadString();
+                // per-map export: charset file name pattern (appended later)
+                if ( chunkReader.Size - chunkReader.Position >= 4 )
+                {
+                  Settings.GameBinary.CharsetFilenamePattern = chunkReader.ReadString();
+                }
+                // charset compression (appended later; absent = off)
+                if ( chunkReader.Size - chunkReader.Position >= 4 )
+                {
+                  Settings.GameBinary.CompressCharsets = ( chunkReader.ReadInt32() != 0 );
+                }
+                if ( chunkReader.Size - chunkReader.Position >= 4 )
+                {
+                  Settings.GameBinary.CharsetCompressor = chunkReader.ReadString();
+                }
+                if ( chunkReader.Size - chunkReader.Position >= 4 )
+                {
+                  Settings.GameBinary.CharsetOverrideLoadAddress = ( chunkReader.ReadInt32() != 0 );
+                }
+                if ( chunkReader.Size - chunkReader.Position >= 4 )
+                {
+                  Settings.GameBinary.CharsetOverrideLoadAddressHex = chunkReader.ReadString();
+                }
+                if ( chunkReader.Size - chunkReader.Position >= 4 )
+                {
+                  Settings.GameBinary.CharsetCompressFilename = chunkReader.ReadString();
+                }
               }
             }
             break;
@@ -2874,6 +3089,42 @@ namespace RetroDevStudio.Formats
         else
         {
           Charsets[0].ExportName = "";
+        }
+      }
+      // Per-charset entity tiles: a charset whose META carried none (a file
+      // from before them) gets every type's old single tile number, so every
+      // map still draws and exports what it did. Then drop entries of types
+      // that no longer exist - an older build may have deleted a type, and
+      // its ID can come back with the next new type.
+      for ( int ci = 0; ci < Charsets.Count; ++ci )
+      {
+        if ( entityTilesSeen.Contains( ci ) )
+        {
+          continue;
+        }
+        foreach ( var pair in legacyEntityTiles )
+        {
+          Charsets[ci].SetEntityTile( pair.Key, pair.Value );
+        }
+      }
+      var liveEntityTypeIds = new HashSet<int>();
+      foreach ( var type in EntityTypes )
+      {
+        liveEntityTypeIds.Add( type.ID );
+      }
+      foreach ( var cs in Charsets )
+      {
+        var staleIds = new List<int>();
+        foreach ( int typeId in cs.EntityTiles.Keys )
+        {
+          if ( !liveEntityTypeIds.Contains( typeId ) )
+          {
+            staleIds.Add( typeId );
+          }
+        }
+        foreach ( int typeId in staleIds )
+        {
+          cs.EntityTiles.Remove( typeId );
         }
       }
       ClampCharsetReferences();
@@ -4263,6 +4514,58 @@ namespace RetroDevStudio.Formats
 
 
     /// <summary>
+    /// Placed entities whose type has no usable tile in their map's charset:
+    /// no tile there at all (the record gets $FF) or a number past the end of
+    /// that charset's library. One line per type and map, exported maps
+    /// only. Warnings - the export still writes the number as it is.
+    /// </summary>
+    public List<string> GetEntityTileExportWarnings()
+    {
+      var warnings = new List<string>();
+      foreach ( var map in ExportedMaps() )
+      {
+        var charset = CharsetOf( map );
+        var reported = new HashSet<int>();
+        foreach ( var entity in map.Entities )
+        {
+          if ( reported.Contains( entity.Type ) )
+          {
+            continue;
+          }
+          EntityType type = null;
+          foreach ( var candidate in EntityTypes )
+          {
+            if ( candidate.ID == entity.Type )
+            {
+              type = candidate;
+              break;
+            }
+          }
+          if ( type == null )
+          {
+            continue;
+          }
+          int tile = charset.EntityTileOf( type );
+          if ( tile < 0 )
+          {
+            reported.Add( entity.Type );
+            warnings.Add( "entity type '" + type.Name + "' has no tile in character set '" + CharsetDisplayNameOf( charset )
+                        + "' (map '" + map.Name + "') - its entities export tile $FF" );
+          }
+          else if ( tile >= charset.Tiles.Count )
+          {
+            reported.Add( entity.Type );
+            warnings.Add( "entity type '" + type.Name + "' uses tile " + tile + ", but character set '" + CharsetDisplayNameOf( charset )
+                        + "' (map '" + map.Name + "') has only " + charset.Tiles.Count + " tiles" );
+          }
+        }
+      }
+      return warnings;
+    }
+
+
+
+    /// <summary>
     /// Hard errors — what the byte layout cannot represent; the export aborts.
     /// (Before multiple charsets these counts wrapped silently to a byte.)
     /// </summary>
@@ -4297,20 +4600,30 @@ namespace RetroDevStudio.Formats
     /// </summary>
     public static string DescribeGameBinaryCharsets( GR.Memory.ByteBuffer buf, MapProject project )
     {
+      var names = new List<string>();
+      foreach ( var cs in project.ExportedCharsets() )
+      {
+        names.Add( string.IsNullOrWhiteSpace( cs.ExportName ) ? "(no export name)" : cs.ExportName );
+      }
+      return DescribeGameBinaryCharsets( buf, names );
+    }
+
+
+
+    /// <summary>The same block with the directory entries named by CharsetNames (directory order).</summary>
+    public static string DescribeGameBinaryCharsets( GR.Memory.ByteBuffer buf, List<string> CharsetNames )
+    {
       const int HDR_CHARSET_COUNT     = 0x3E;
       const int HDR_CHARSET_DIRECTORY = 0x3F;
       const int RECORD_SIZE           = 15;
       var sb = new StringBuilder();
       int count = buf.ByteAt( HDR_CHARSET_COUNT );
       int directory = buf.UInt16At( HDR_CHARSET_DIRECTORY );
-      var exported = project.ExportedCharsets();
       sb.AppendLine( "--- CHARSET DIRECTORY (" + count + " character set(s), " + RECORD_SIZE + " bytes per record, at $" + directory.ToString( "X4" ) + ") ---" );
       for ( int c = 0; c < count; ++c )
       {
         int rec = directory + c * RECORD_SIZE;
-        string name = ( c < exported.Count )
-          ? ( string.IsNullOrWhiteSpace( exported[c].ExportName ) ? "(no export name)" : exported[c].ExportName )
-          : "?";
+        string name = ( ( CharsetNames != null ) && ( c < CharsetNames.Count ) ) ? CharsetNames[c] : "?";
         sb.Append( "$" + rec.ToString( "X4" ) + ": charset " + c + " '" + name + "' tile_count=" + buf.ByteAt( rec ) );
         sb.Append( " width->$" + buf.UInt16At( rec + 1 ).ToString( "X4" ) );
         sb.Append( " height->$" + buf.UInt16At( rec + 3 ).ToString( "X4" ) );
@@ -4467,6 +4780,15 @@ namespace RetroDevStudio.Formats
         label = UniqueLabel( usedLabels, label );
         sb.AppendLine( ".const MAP_INDEX_" + label.PadRight( 32 ) + " = " + i + "  // " + map.Name );
       }
+      if ( exported.Count > 0 )
+      {
+        // The map the game begins on ("Set start map" on the Map tab), as an
+        // exported index: with one file per map, the loader needs it before
+        // any map file is loaded (each file's own start byte is 0).
+        int start = StartMapExportIndex();
+        sb.AppendLine();
+        sb.AppendLine( ".const MAP_START_INDEX = " + start + "  // " + exported[start].Name );
+      }
       bool anyExcluded = false;
       foreach ( var map in Maps )
       {
@@ -4507,6 +4829,50 @@ namespace RetroDevStudio.Formats
       {
         return null;
       }
+      // Every exported map in ONE file (the per-map export writes one file per
+      // map instead, see ExportAsGameBinaryFiles - kept for a later "which
+      // maps go into which file" grouping). Maps flagged "not exported" are
+      // skipped WHOLESALE: they occupy no slot in any per-map array, so the
+      // exported map indices are positions in this filtered list, not in the
+      // editor's map list.
+      return BuildGameBinary( ExportedMaps(), StartMapExportIndex(), ExportedCharsets(), GetMapStringsForExport(),
+                              ExportMarkers, ExportColors, ExportPassable, Errors );
+    }
+
+
+
+    /// <summary>
+    /// The start map's position among the exported maps - what the MAP_INDEX_*
+    /// constants and the per-map file numbers count. StartMapIndex refers to
+    /// the editor's map list; a start map that is itself excluded (or out of
+    /// range) falls back to 0, the first exported map.
+    /// </summary>
+    public int StartMapExportIndex()
+    {
+      if ( ( StartMapIndex >= 0 )
+      &&   ( StartMapIndex < Maps.Count ) )
+      {
+        int remapped = ExportedMaps().IndexOf( Maps[StartMapIndex] );
+        if ( remapped >= 0 )
+        {
+          return remapped;
+        }
+      }
+      return 0;
+    }
+
+
+
+    /// <summary>
+    /// The game binary of exportMaps in one file: the 65-byte header, one tile
+    /// section per charset of exportCharsets (compacted order = directory
+    /// order), the per-map tables, and emittableStrings with their authored
+    /// String IDs. Null on a hard error (added to Errors).
+    /// </summary>
+    private GR.Memory.ByteBuffer BuildGameBinary( List<Map> exportMaps, int startMapExportIndex, List<MapCharset> exportCharsets,
+                                                  List<MapString> emittableStrings,
+                                                  bool ExportMarkers, bool ExportColors, bool ExportPassable, List<string> Errors )
+    {
       var buf = new GR.Memory.ByteBuffer();
 
       // Every pointer written below is a FILE-RELATIVE OFFSET — the distance in
@@ -4514,25 +4880,6 @@ namespace RetroDevStudio.Formats
       // runtime is responsible for adding wherever it loaded the file to, so the
       // data can be relocated freely. (There used to be an absolute BaseAddress
       // parameter that baked a load address into every pointer; it was removed.)
-
-      // Maps flagged "not exported" are skipped WHOLESALE: they occupy no slot
-      // in any per-map array below, so the exported map indices are positions
-      // in this filtered list, not in the editor's map list.
-      var exportMaps = ExportedMaps();
-
-      // StartMapIndex refers to the editor's map list — remap it to the
-      // exported ordinal. A start map that is itself excluded (or out of
-      // range) falls back to 0, the first exported map.
-      int startMapExportIndex = 0;
-      if ( ( StartMapIndex >= 0 )
-      &&   ( StartMapIndex < Maps.Count ) )
-      {
-        int remapped = exportMaps.IndexOf( Maps[StartMapIndex] );
-        if ( remapped >= 0 )
-        {
-          startMapExportIndex = remapped;
-        }
-      }
 
       // ========== HEADER (65 bytes, 0x41) ==========
       buf.AppendU8( 11 );   // +$00 marker_stride (bytes per marker record: tag, x, y, value1, value2, flags, group_id, link_to_id, link_id, value3, value4) — flags is a bitfield: bit0 = Enabled, bit1 = Triggered, bit2 = AutoDisableGroupAfterTrigger; value3/value4 are appended last (offsets $09, $0A)
@@ -4605,7 +4952,6 @@ namespace RetroDevStudio.Formats
       const int CHARSET_RECORD_SIZE   = 15;
 
       // ========== TILE SECTIONS — one per exported charset, compacted order ==========
-      var exportCharsets = ExportedCharsets();
       var sections = new List<TileSectionPointers>( exportCharsets.Count );
       foreach ( var cs in exportCharsets )
       {
@@ -4993,7 +5339,10 @@ namespace RetroDevStudio.Formats
               if ( et.ID == entity.Type )
               {
                 tagId = (byte)et.TagID;
-                tileIdx = (byte)et.TileIndex;
+                // The type's tile in THIS map's charset, written raw: "none"
+                // stays $FF as it always did (GetEntityTileExportWarnings
+                // reports it before the export).
+                tileIdx = (byte)mapCharset.EntityTileOf( et );
                 break;
               }
             }
@@ -5045,7 +5394,6 @@ namespace RetroDevStudio.Formats
       // position. Labels are editor metadata, not part of the binary; the
       // .asm sidecar walks the SAME export list so its .const indices
       // always line up with the tables here.
-      var emittableStrings = GetMapStringsForExport();
       if ( emittableStrings.Count > 0 )
       {
         // Pre-build every byte stream so we know each one's exact length
@@ -5111,6 +5459,232 @@ namespace RetroDevStudio.Formats
 
 
     /// <summary>
+    /// The game binary of ONE map: the same 65-byte layout with a map count of
+    /// 1. The start map byte is 0 (the only map in the file - the project's
+    /// start map is MAP_START_INDEX in the map labels sidecar), the map's own
+    /// charset is the file's only tile section (directory entry 0,
+    /// map_charset_index[0] = 0), and only the strings its own markers show
+    /// are included, with their authored String IDs. Null on a hard error
+    /// (Errors lists it).
+    /// </summary>
+    public GR.Memory.ByteBuffer ExportMapAsGameBinary( Map Map, bool ExportMarkers, bool ExportColors, bool ExportPassable, out List<string> Errors )
+    {
+      Errors = new List<string>();
+      var charset = CharsetOf( Map );
+      if ( charset.Tiles.Count > 255 )
+      {
+        Errors.Add( "map '" + Map.Name + "' uses character set '" + CharsetDisplayNameOf( charset ) + "' with " + charset.Tiles.Count
+                  + " tiles; tile counts are one byte (max 255)" );
+        return null;
+      }
+      var mapErrors = new List<string>();
+      var buffer = BuildGameBinary( new List<Map>() { Map }, 0, new List<MapCharset>() { charset }, GetMapStringsForExport( Map ),
+                                    ExportMarkers, ExportColors, ExportPassable, mapErrors );
+      foreach ( var error in mapErrors )
+      {
+        Errors.Add( "map '" + Map.Name + "': " + error );
+      }
+      return buffer;
+    }
+
+
+
+    /// <summary>One exported map's files in the per-map game-binary export.</summary>
+    public class GameBinaryMapFile
+    {
+      /// <summary>The map's exported index: the number in both file names and its MAP_INDEX_* constant.</summary>
+      public int                  ExportIndex = 0;
+      public Map                  Map = null;
+      /// <summary>File name of the map binary (no directory).</summary>
+      public string               FileName = "";
+      /// <summary>The map binary, see ExportMapAsGameBinary.</summary>
+      public GR.Memory.ByteBuffer Data = null;
+      /// <summary>File name of the map's charset file; "" when no charset file name pattern is set.</summary>
+      public string               CharsetFileName = "";
+      /// <summary>The map's charset characters (CharacterData); null without a charset file.</summary>
+      public GR.Memory.ByteBuffer CharsetData = null;
+    }
+
+
+
+    /// <summary>
+    /// The per-map game-binary export: one file per exported map, named by
+    /// MapFilePattern with the map's exported index, plus - when a
+    /// CharsetFilePattern is given - one charset file per map holding that
+    /// map's charset, numbered the same way (a charset several maps share is
+    /// written once for each of them). Null on a hard error; Errors lists
+    /// every problem found.
+    /// </summary>
+    public List<GameBinaryMapFile> ExportAsGameBinaryFiles( string MapFilePattern, string CharsetFilePattern,
+                                                            bool ExportMarkers, bool ExportColors, bool ExportPassable,
+                                                            out List<string> Errors )
+    {
+      Errors = new List<string>();
+      var exportMaps = ExportedMaps();
+      if ( exportMaps.Count > 255 )
+      {
+        Errors.Add( exportMaps.Count + " maps are exported (max 255 - a map index is one byte)" );
+      }
+      string error = ValidateFileNamePattern( MapFilePattern );
+      if ( error != null )
+      {
+        Errors.Add( "map file name: " + error );
+      }
+      bool charsetFiles = !string.IsNullOrWhiteSpace( CharsetFilePattern );
+      if ( charsetFiles )
+      {
+        error = ValidateFileNamePattern( CharsetFilePattern );
+        if ( error != null )
+        {
+          Errors.Add( "charset file name: " + error );
+        }
+      }
+      if ( Errors.Count > 0 )
+      {
+        return null;
+      }
+
+      var result = new List<GameBinaryMapFile>();
+      var takenNames = new Dictionary<string, string>( StringComparer.OrdinalIgnoreCase );
+      for ( int i = 0; i < exportMaps.Count; ++i )
+      {
+        var map = exportMaps[i];
+        List<string> mapErrors;
+        var data = ExportMapAsGameBinary( map, ExportMarkers, ExportColors, ExportPassable, out mapErrors );
+        if ( data == null )
+        {
+          Errors.AddRange( mapErrors );
+          continue;
+        }
+        var file = new GameBinaryMapFile() { ExportIndex = i, Map = map, Data = data };
+        string name;
+        TryFormatFileNamePattern( MapFilePattern, i, out name, out error );
+        file.FileName = name;
+        ClaimExportFileName( takenNames, name, "the file of map '" + map.Name + "'", Errors );
+        if ( charsetFiles )
+        {
+          TryFormatFileNamePattern( CharsetFilePattern, i, out name, out error );
+          file.CharsetFileName = name;
+          file.CharsetData     = CharsetOf( map ).Charset.CharacterData();
+          ClaimExportFileName( takenNames, name, "the charset file of map '" + map.Name + "'", Errors );
+        }
+        result.Add( file );
+      }
+      return ( Errors.Count > 0 ) ? null : result;
+    }
+
+
+
+    private static void ClaimExportFileName( Dictionary<string, string> Taken, string Name, string Owner, List<string> Errors )
+    {
+      string previous;
+      if ( Taken.TryGetValue( Name, out previous ) )
+      {
+        Errors.Add( Owner + " and " + previous + " would both be written to '" + Name + "'" );
+        return;
+      }
+      Taken[Name] = Owner;
+    }
+
+
+
+    /// <summary>
+    /// Builds a file name from a pattern with a number placeholder: %d, or a
+    /// width like %3d / %03d (zero-padded); %% is a literal percent sign.
+    /// False (Error says why) without a placeholder, with any other %
+    /// sequence, or when the result is not a valid file name.
+    /// </summary>
+    public static bool TryFormatFileNamePattern( string Pattern, int Number, out string FileName, out string Error )
+    {
+      FileName = "";
+      Error    = null;
+      if ( string.IsNullOrWhiteSpace( Pattern ) )
+      {
+        Error = "no file name given - type one with a %d placeholder for the map number, e.g. MAP_%d.bin";
+        return false;
+      }
+      var sb = new StringBuilder();
+      int placeholders = 0;
+      for ( int i = 0; i < Pattern.Length; ++i )
+      {
+        char c = Pattern[i];
+        if ( c != '%' )
+        {
+          sb.Append( c );
+          continue;
+        }
+        if ( ( i + 1 < Pattern.Length )
+        &&   ( Pattern[i + 1] == '%' ) )
+        {
+          sb.Append( '%' );
+          ++i;
+          continue;
+        }
+        // %d, %Nd or %0Nd (N = one or two digits)
+        int  j = i + 1;
+        bool zeroPad = false;
+        if ( ( j < Pattern.Length )
+        &&   ( Pattern[j] == '0' ) )
+        {
+          zeroPad = true;
+          ++j;
+        }
+        int width = 0;
+        int widthDigits = 0;
+        while ( ( j < Pattern.Length )
+        &&      ( Pattern[j] >= '0' )
+        &&      ( Pattern[j] <= '9' )
+        &&      ( widthDigits < 2 ) )
+        {
+          width = width * 10 + ( Pattern[j] - '0' );
+          ++widthDigits;
+          ++j;
+        }
+        if ( ( j < Pattern.Length )
+        &&   ( Pattern[j] == 'd' ) )
+        {
+          string digits = Number.ToString();
+          if ( digits.Length < width )
+          {
+            digits = new string( zeroPad ? '0' : ' ', width - digits.Length ) + digits;
+          }
+          sb.Append( digits );
+          ++placeholders;
+          i = j;
+          continue;
+        }
+        Error = "unknown placeholder '" + Pattern.Substring( i, Math.Min( j + 1, Pattern.Length ) - i )
+              + "' - use %d (or %02d) for the map number and %% for a percent sign";
+        return false;
+      }
+      if ( placeholders == 0 )
+      {
+        Error = "'" + Pattern + "' has no %d placeholder - every map would get the same file name";
+        return false;
+      }
+      FileName = sb.ToString();
+      if ( FileName.IndexOfAny( System.IO.Path.GetInvalidFileNameChars() ) >= 0 )
+      {
+        Error    = "'" + FileName + "' is not a valid file name";
+        FileName = "";
+        return false;
+      }
+      return true;
+    }
+
+
+
+    /// <summary>Null when the pattern formats fine, else the reason (see TryFormatFileNamePattern).</summary>
+    public static string ValidateFileNamePattern( string Pattern )
+    {
+      string fileName;
+      string error;
+      return TryFormatFileNamePattern( Pattern, 0, out fileName, out error ) ? null : error;
+    }
+
+
+
+    /// <summary>
     /// Generates a KickAssembler-style constants file that matches the exact byte
     /// layout used by <see cref="ExportAsGameBinary"/>. Intended to be saved next
     /// to the exported .bin so runtime code can include symbolic offsets instead
@@ -5144,6 +5718,12 @@ namespace RetroDevStudio.Formats
       sb.AppendLine( "// both indirection levels. This is what lets the map be relocated in" );
       sb.AppendLine( "// memory. A pointer of 0 means 'section absent' (the header occupies" );
       sb.AppendLine( "// offsets 0..$40, so no real section can start at offset 0)." );
+      sb.AppendLine( "//" );
+      sb.AppendLine( "// The export writes ONE FILE PER MAP. In each file MAP_HEADER_MAPCOUNT" );
+      sb.AppendLine( "// is 1 and MAP_HEADER_START_MAP_INDEX is 0, every per-map table has a" );
+      sb.AppendLine( "// single entry (index 0) and the charset directory holds the map's own" );
+      sb.AppendLine( "// character set only. The project's start map is MAP_START_INDEX in" );
+      sb.AppendLine( "// map_names.asm. The layout itself still describes N maps per file." );
       sb.AppendLine();
       sb.AppendLine( "// ====== Game binary header (65 bytes) ======" );
       sb.AppendLine( "// Direct byte values at the start of the header:" );
@@ -5516,6 +6096,14 @@ namespace RetroDevStudio.Formats
     /// </summary>
     public Dictionary<int, int> ComputeMapStringUsage()
     {
+      return ComputeMapStringUsage( Maps );
+    }
+
+
+
+    /// <summary>ComputeMapStringUsage over the given maps only (null = the project has neither message marker type).</summary>
+    public Dictionary<int, int> ComputeMapStringUsage( IEnumerable<Map> UsedOn )
+    {
       // Aggregate across ALL types carrying the magic names — the editor
       // doesn't enforce unique marker-type names, and binding to only the
       // first match would silently drop strings referenced through an
@@ -5540,7 +6128,7 @@ namespace RetroDevStudio.Formats
       }
 
       var usage = new Dictionary<int, int>();
-      foreach ( var map in Maps )
+      foreach ( var map in UsedOn )
       {
         foreach ( var marker in map.Markers )
         {
@@ -5608,7 +6196,25 @@ namespace RetroDevStudio.Formats
     /// </summary>
     public List<MapString> GetMapStringsForExport()
     {
-      var usage = ComputeMapStringUsage();
+      return MapStringsUsedBy( ComputeMapStringUsage() );
+    }
+
+
+
+    /// <summary>
+    /// The strings ONE map's file carries: those its own message markers show
+    /// (or every string when the project has neither message marker type),
+    /// in source order, with their authored String IDs.
+    /// </summary>
+    public List<MapString> GetMapStringsForExport( Map Map )
+    {
+      return MapStringsUsedBy( ComputeMapStringUsage( new List<Map>() { Map } ) );
+    }
+
+
+
+    private List<MapString> MapStringsUsedBy( Dictionary<int, int> usage )
+    {
       if ( usage == null )
       {
         return new List<MapString>( MapStrings );

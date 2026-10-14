@@ -186,7 +186,7 @@ namespace TestProject
         }
       }
       Assert.IsFalse( project.UnusedTileIndexes( project.Charsets[0], null ).Contains( 0 ) );
-      StringAssert.Contains( project.ProtectedTiles( project.Charsets[0], project.Maps )[0], "tile 0" );
+      StringAssert.Contains( project.ProtectedTiles( project.Charsets[0] )[0], "tile 0" );
     }
 
 
@@ -195,22 +195,25 @@ namespace TestProject
     public void TestEntityTilesAreProtected()
     {
       var project = BuildProject();
+      var skeleton = new MapProject.EntityType() { Name = "Skeleton", ID = 1 };
+      var lamp     = new MapProject.EntityType() { Name = "Lamp", ID = 2 };
+      project.EntityTypes.Add( skeleton );
+      project.EntityTypes.Add( lamp );
 
-      // designed against charset 0 (its preview charset) - no instance anywhere
-      project.EntityTypes.Add( new MapProject.EntityType() { Name = "Skeleton", ID = 1, TileIndex = 4, PreviewCharsetIndex = 0 } );
-      // previews charset 1, but an instance stands on map A (charset 0): its number is read there
-      project.EntityTypes.Add( new MapProject.EntityType() { Name = "Lamp", ID = 2, TileIndex = 3, PreviewCharsetIndex = 1 } );
+      // Skeleton's picture in charset 0 is tile 4: kept although nothing places it
+      project.Charsets[0].SetEntityTile( skeleton, 4 );
+      // Lamp only has a tile in charset 1 - standing on map A (charset 0) protects nothing there
+      project.Charsets[1].SetEntityTile( lamp, 1 );
       project.Maps[0].Entities.Add( new MapProject.Entity() { Type = 2, X = 0, Y = 0 } );
-      // previews charset 1 and only stands on map B: nothing to do with charset 0
-      project.EntityTypes.Add( new MapProject.EntityType() { Name = "Box", ID = 3, TileIndex = 5, PreviewCharsetIndex = 1 } );
-      project.Maps[1].Entities.Add( new MapProject.Entity() { Type = 3, X = 0, Y = 0 } );
 
-      CollectionAssert.AreEqual( new[] { 5 }, project.UnusedTileIndexes( project.Charsets[0], null ) );
+      CollectionAssert.AreEqual( new[] { 3, 5 }, project.UnusedTileIndexes( project.Charsets[0], null ) );
+      var kept0 = project.ProtectedTiles( project.Charsets[0] );
+      StringAssert.Contains( kept0[4], "Skeleton" );
+      Assert.IsFalse( kept0.ContainsKey( 3 ) );
 
-      var kept = project.ProtectedTiles( project.Charsets[0], project.MapsLinkedTo( project.Charsets[0], null ) );
-      StringAssert.Contains( kept[4], "Skeleton" );
-      StringAssert.Contains( kept[3], "Lamp" );
-      Assert.IsFalse( kept.ContainsKey( 5 ) );
+      // charset 1: Lamp's tile (Wall, not placed on map B) is its picture there
+      Assert.AreEqual( 0, project.UnusedTileIndexes( project.Charsets[1], null ).Count );
+      StringAssert.Contains( project.ProtectedTiles( project.Charsets[1] )[1], "Lamp" );
     }
 
 
@@ -225,7 +228,7 @@ namespace TestProject
 
       Assert.AreEqual( 0, project.UnusedTileIndexes( project.Charsets[0], null ).Count );
 
-      var kept = project.ProtectedTiles( project.Charsets[0], project.Maps );
+      var kept = project.ProtectedTiles( project.Charsets[0] );
       StringAssert.Contains( kept[3], "right-click" );
       StringAssert.Contains( kept[4], "shift-click" );
       StringAssert.Contains( kept[5], "empty tile" );
@@ -271,7 +274,9 @@ namespace TestProject
     public void TestUsedCharactersIncludeProtectedTiles()
     {
       var project = BuildProject();
-      project.EntityTypes.Add( new MapProject.EntityType() { Name = "Skeleton", ID = 1, TileIndex = 4, PreviewCharsetIndex = 0 } );
+      var skeleton = new MapProject.EntityType() { Name = "Skeleton", ID = 1 };
+      project.EntityTypes.Add( skeleton );
+      project.Charsets[0].SetEntityTile( skeleton, 4 );
 
       var used = project.UsedCharacters( project.Charsets[0], null );
       Assert.IsTrue( used[14] );     // the entity's tile is never placed in a cell, but it is drawn

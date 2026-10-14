@@ -198,5 +198,110 @@ namespace RetroDevStudio.Controls
 
 
 
+    // ---- Export folders ------------------------------------------------------
+
+    /// <summary>
+    /// The folders among Directories that do not exist yet: full paths, each
+    /// once (Windows ignores case and a trailing separator), blank entries
+    /// skipped. A path that cannot even be parsed is left out - writing to it
+    /// reports the real problem.
+    /// </summary>
+    public static List<string> MissingDirectories( IEnumerable<string> Directories )
+    {
+      var missing = new List<string>();
+      var seen    = new HashSet<string>( StringComparer.OrdinalIgnoreCase );
+      if ( Directories == null )
+      {
+        return missing;
+      }
+      foreach ( var directory in Directories )
+      {
+        if ( string.IsNullOrWhiteSpace( directory ) )
+        {
+          continue;
+        }
+        string fullPath;
+        try
+        {
+          fullPath = System.IO.Path.GetFullPath( directory.Trim() );
+        }
+        catch ( Exception )
+        {
+          continue;
+        }
+        string key = fullPath.TrimEnd( System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar );
+        if ( !seen.Add( key ) )
+        {
+          continue;
+        }
+        if ( !System.IO.Directory.Exists( fullPath ) )
+        {
+          missing.Add( fullPath );
+        }
+      }
+      return missing;
+    }
+
+
+
+    /// <summary>
+    /// Makes sure every folder an export is about to write to exists: the
+    /// missing ones are listed in ONE question and created on Yes. False when
+    /// the user answers No or a folder cannot be created. Call it before
+    /// writing anything, so a refusal leaves nothing half-exported.
+    /// </summary>
+    protected bool EnsureExportDirectories( IEnumerable<string> Directories )
+    {
+      var missing = MissingDirectories( Directories );
+      if ( missing.Count == 0 )
+      {
+        return true;
+      }
+      if ( !ConfirmCreateDirectories( missing ) )
+      {
+        return false;
+      }
+      foreach ( var directory in missing )
+      {
+        try
+        {
+          System.IO.Directory.CreateDirectory( directory );
+        }
+        catch ( Exception ex )
+        {
+          if ( Core != null )
+          {
+            Core.Notification.MessageBox( "Could not create folder",
+              "Could not create the export folder:\r\n" + directory + "\r\n\r\n" + ex.Message + "\r\n\r\nNothing was exported." );
+          }
+          return false;
+        }
+      }
+      return true;
+    }
+
+
+
+    /// <summary>The question EnsureExportDirectories asks: true = create the listed folders.</summary>
+    protected virtual bool ConfirmCreateDirectories( List<string> Missing )
+    {
+      var sb = new StringBuilder();
+      sb.AppendLine( ( Missing.Count == 1 ) ? "This export folder does not exist:" : "These export folders do not exist:" );
+      sb.AppendLine();
+      foreach ( var directory in Missing )
+      {
+        sb.AppendLine( "  " + directory );
+      }
+      sb.AppendLine();
+      sb.AppendLine( ( Missing.Count == 1 ) ? "Create it?" : "Create them?" );
+      sb.AppendLine( "No cancels the export - nothing is written." );
+      return MessageBox.Show( sb.ToString(),
+                              ( Missing.Count == 1 ) ? "Missing export folder" : "Missing export folders",
+                              MessageBoxButtons.YesNo,
+                              MessageBoxIcon.Question ) == DialogResult.Yes;
+    }
+
+
+
   }
 }
