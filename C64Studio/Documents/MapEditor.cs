@@ -1913,10 +1913,11 @@ namespace RetroDevStudio.Documents
       {
         const uint highlightColor = 0xfff9e2af;   // Catppuccin yellow
         const uint disabledEntityColor = 0xffff0000;   // red — flags a not-enabled entity
-        // Shared computation: given a map-cell (mx, my) and a footprint in
-        // cells (cw × ch), draw a 2-pixel-thick rectangle outline at the
-        // corresponding TargetBuffer pixels.
-        System.Action<int, int, int, int, uint, bool> drawHighlightAt = ( int mx, int my, int cw, int ch, uint outlineColor, bool doubleThick ) =>
+        const uint missingTileColor = 0xffff0000;      // red — flags an entity with nothing to draw
+        // Shared computation: the TargetBuffer pixel rectangle a map-cell
+        // region (mx, my) of cw × ch cells covers; Empty when it is off
+        // screen.
+        System.Func<int, int, int, int, System.Drawing.Rectangle> targetRectOfCells = ( int mx, int my, int cw, int ch ) =>
         {
           if ( cw < 1 ) cw = 1;
           if ( ch < 1 ) ch = 1;
@@ -1929,7 +1930,7 @@ namespace RetroDevStudio.Documents
           ||   ( sourceX >= sourceWidth )
           ||   ( sourceY >= sourceHeight ) )
           {
-            return;
+            return System.Drawing.Rectangle.Empty;
           }
           int tx = Math.Max( 0, Math.Min( targetMaxX, ScaleCoordCeil( sourceX, sourceWidth, targetWidth ) ) );
           int ty = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( sourceY, sourceHeight, targetHeight ) ) );
@@ -1937,37 +1938,67 @@ namespace RetroDevStudio.Documents
           int ty2 = Math.Max( 0, Math.Min( targetMaxY, ScaleCoordCeil( sourceY + sourceH, sourceHeight, targetHeight ) - 1 ) );
           int tw = Math.Max( 1, tx2 - tx + 1 );
           int th = Math.Max( 1, ty2 - ty + 1 );
+          return new System.Drawing.Rectangle( tx, ty, tw, th );
+        };
+        // Given a map-cell (mx, my) and a footprint in cells (cw × ch), draw
+        // a rectangle outline at the corresponding TargetBuffer pixels.
+        System.Action<int, int, int, int, uint, bool> drawHighlightAt = ( int mx, int my, int cw, int ch, uint outlineColor, bool doubleThick ) =>
+        {
+          var rect = targetRectOfCells( mx, my, cw, ch );
+          if ( rect.IsEmpty )
+          {
+            return;
+          }
           // One rectangle = a 1-pixel outline. doubleThick insets and
           // redraws a second for a 2-pixel border (FastImage.Rectangle
           // draws a 1-pixel border only).
-          TargetBuffer.Rectangle( tx,     ty,     tw,     th,     outlineColor );
-          if ( doubleThick && ( tw > 2 ) && ( th > 2 ) )
+          TargetBuffer.Rectangle( rect.X,     rect.Y,     rect.Width,     rect.Height,     outlineColor );
+          if ( doubleThick && ( rect.Width > 2 ) && ( rect.Height > 2 ) )
           {
-            TargetBuffer.Rectangle( tx + 1, ty + 1, tw - 2, th - 2, outlineColor );
+            TargetBuffer.Rectangle( rect.X + 1, rect.Y + 1, rect.Width - 2, rect.Height - 2, outlineColor );
           }
         };
+        // An entity with nothing to draw: a red box with an X across its cell.
+        System.Action<int, int> drawMissingTileAt = ( int mx, int my ) =>
+        {
+          var rect = targetRectOfCells( mx, my, 1, 1 );
+          if ( rect.IsEmpty )
+          {
+            return;
+          }
+          int right  = rect.Right - 1;
+          int bottom = rect.Bottom - 1;
+          TargetBuffer.Rectangle( rect.X, rect.Y, rect.Width, rect.Height, missingTileColor );
+          TargetBuffer.Line( rect.X, rect.Y, right, bottom, missingTileColor );
+          TargetBuffer.Line( right, rect.Y, rect.X, bottom, missingTileColor );
+        };
 
-        // Disabled entities get a thin red outline around their whole
-        // tile footprint — one rectangle for the multi-cell region, not
-        // one per character — so they stand out wherever entities are
-        // shown, in any tool mode.
+        // Wherever entities are shown, in any tool mode: an entity whose
+        // type has no usable tile in the map's charset (none there, a number
+        // past its tiles, or a deleted type) draws nothing in the overlay,
+        // so it gets a red box with an X instead of staying invisible. A
+        // disabled entity gets a thin red outline around its whole tile
+        // footprint — one rectangle for the multi-cell region, not one per
+        // character.
         if ( ( checkShowEntities != null )
         &&   ( checkShowEntities.Checked ) )
         {
           foreach ( var entity in m_CurrentMap.Entities )
           {
+            var etype = m_MapProject.EntityTypes.FirstOrDefault( t => t.ID == entity.Type );
+            int etile = ActiveCharset().EntityTileOf( etype );
+            if ( ( etile < 0 )
+            ||   ( etile >= ActiveCharset().Tiles.Count ) )
+            {
+              drawMissingTileAt( entity.X, entity.Y );
+              continue;
+            }
             if ( entity.Enabled )
             {
               continue;
             }
-            int cw = 1, ch = 1;
-            var etype = m_MapProject.EntityTypes.FirstOrDefault( t => t.ID == entity.Type );
-            int etile = ActiveCharset().EntityTileOf( etype );
-            if ( ( etile >= 0 )
-            &&   ( etile < ActiveCharset().Tiles.Count ) )
-            {
-              GetTileCellFootprint( ActiveCharset().Tiles[etile], out cw, out ch );
-            }
+            int cw, ch;
+            GetTileCellFootprint( ActiveCharset().Tiles[etile], out cw, out ch );
             drawHighlightAt( entity.X, entity.Y, cw, ch, disabledEntityColor, false );
           }
         }
@@ -3058,11 +3089,10 @@ namespace RetroDevStudio.Documents
     private void RefreshCharsetCombos()
     {
       int entityPreview = comboEntityPreviewCharset.SelectedIndex;
-      if ( ( listEntityTypes.SelectedIndices.Count == 1 )
-      &&   ( listEntityTypes.SelectedIndex >= 0 )
-      &&   ( listEntityTypes.SelectedIndex < m_MapProject.EntityTypes.Count ) )
+      var previewType = SingleSelectedEntityType();
+      if ( previewType != null )
       {
-        entityPreview = m_MapProject.EntityTypes[listEntityTypes.SelectedIndex].PreviewCharsetIndex;
+        entityPreview = previewType.PreviewCharsetIndex;
       }
       if ( ( entityPreview < 0 )
       ||   ( entityPreview >= m_MapProject.Charsets.Count ) )
@@ -3565,17 +3595,37 @@ namespace RetroDevStudio.Documents
 
 
 
-    /// <summary>The entity type the Entities tab editor shows: the single selected one, else null.</summary>
+    /// <summary>
+    /// The entity type the Entities tab editor shows: the one type the
+    /// selected rows stand for (two rows of the same type still edit it),
+    /// else null.
+    /// </summary>
     private MapProject.EntityType SingleSelectedEntityType()
     {
-      if ( ( m_MapProject == null )
-      ||   ( listEntityTypes.SelectedIndices.Count != 1 )
-      ||   ( listEntityTypes.SelectedIndex < 0 )
-      ||   ( listEntityTypes.SelectedIndex >= m_MapProject.EntityTypes.Count ) )
+      if ( m_MapProject == null )
       {
         return null;
       }
-      return m_MapProject.EntityTypes[listEntityTypes.SelectedIndex];
+      var types = SelectedEntityTypes();
+      return ( types.Count == 1 ) ? types[0] : null;
+    }
+
+
+
+    /// <summary>The distinct entity types of the selected Entities tab rows, in list order.</summary>
+    private List<MapProject.EntityType> SelectedEntityTypes()
+    {
+      var types = new List<MapProject.EntityType>();
+      foreach ( ListViewItem row in listEntityTypes.SelectedItems )
+      {
+        var type = EntityTypeOfRow( row );
+        if ( ( type != null )
+        &&   ( !types.Contains( type ) ) )
+        {
+          types.Add( type );
+        }
+      }
+      return types;
     }
 
 
@@ -13202,6 +13252,9 @@ namespace RetroDevStudio.Documents
       }
       else if ( tabMapEditor.SelectedPage == tabEntities )
       {
+        // The Charset / Map / Count columns follow entity placements made
+        // anywhere in the project — recompute them on every visit.
+        RefreshEntityTypeList();
         // The tile dropdown lists the preview charset's library, which the
         // Tiles tab may have changed since the last visit.
         RefreshEntityTileCombo();
@@ -13375,17 +13428,40 @@ namespace RetroDevStudio.Documents
       }
       if ( indicesToRemove.Count > 0 )
       {
+        var charset = ActiveCharset();
+
+        // Entities placed on this charset's maps that are drawn with a tile
+        // about to go: ask first - keep the tiles, delete them anyway (the
+        // entities stay and show as a red X), or delete them together with
+        // those entities.
+        var placed = PlacedEntitiesOnTiles( charset, indicesToRemove );
+        var choice = Dialogs.DlgDeleteTileEntities.Choice.DELETE_TILE_ONLY;
+        if ( placed.Count > 0 )
+        {
+          choice = AskDeleteTilesWithEntities( charset, indicesToRemove, placed );
+          if ( choice == Dialogs.DlgDeleteTileEntities.Choice.CANCEL )
+          {
+            return;
+          }
+        }
+
         // Lowest selected index — after the deletions the tile that shifts into
         // this slot is the "next" tile to auto-select below. SelectedIndices is
         // ascending, so [0] is the lowest.
         int firstRemoved = indicesToRemove[0];
 
+        // One undo step for the whole delete, removed entities included.
+        DocumentInfo.UndoManager.StartUndoGroup();
+        if ( choice == Dialogs.DlgDeleteTileEntities.Choice.DELETE_TILE_AND_ENTITIES )
+        {
+          RemovePlacedEntities( placed );
+        }
         for ( int i = 0; i < indicesToRemove.Count; ++i )
         {
           int   indexToRemove = indicesToRemove[indicesToRemove.Count - 1 - i];
 
-          DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapTileRemove( this, m_MapProject, ActiveCharset(), indexToRemove ), i == 0 );
-          RemoveTile( ActiveCharset(), indexToRemove );
+          DocumentInfo.UndoManager.AddGroupedUndoTask( new Undo.UndoMapTileRemove( this, m_MapProject, charset, indexToRemove ) );
+          RemoveTile( charset, indexToRemove );
         }
 
         // Auto-select the next tile (the one that shifted into the first deleted
@@ -13403,6 +13479,132 @@ namespace RetroDevStudio.Documents
           listTileInfo.EnsureVisible( newSelection );
         }
       }
+    }
+
+
+
+    /// <summary>
+    /// Per entity type drawn with one of Tiles in Charset: its entities on
+    /// the maps bound to Charset - the scratch workspaces too, RemoveTile
+    /// sweeps those as well. Types without a placed entity are left out.
+    /// </summary>
+    private List<Formats.MapProject.EntityCharsetUsage> PlacedEntitiesOnTiles( Formats.MapProject.MapCharset Charset, List<int> Tiles )
+    {
+      var result = new List<Formats.MapProject.EntityCharsetUsage>();
+      foreach ( var usage in m_MapProject.EntityUsageByCharset( MapsBoundTo( Charset ) ) )
+      {
+        if ( Tiles.Contains( Charset.EntityTileOf( usage.Type ) ) )
+        {
+          result.Add( usage );
+        }
+      }
+      return result;
+    }
+
+
+
+    /// <summary>
+    /// The question before deleting tiles placed entities are drawn with
+    /// (a test answers it silently): cancel, delete the tiles anyway, or
+    /// delete them together with those entities.
+    /// </summary>
+    protected virtual Dialogs.DlgDeleteTileEntities.Choice AskDeleteTilesWithEntities( Formats.MapProject.MapCharset Charset, List<int> Tiles,
+                                                                                       List<Formats.MapProject.EntityCharsetUsage> Placed )
+    {
+      string headline;
+      string details;
+      DescribeTilesWithEntities( Charset, Tiles, Placed, out headline, out details );
+      using ( var dlg = new Dialogs.DlgDeleteTileEntities( Core, headline, details, Tiles.Count > 1 ) )
+      {
+        dlg.ShowDialog( this.FindForm() );
+        return dlg.ChosenAction;
+      }
+    }
+
+
+
+    /// <summary>The text of the tile-delete question: which entities, on which maps, and what the buttons do.</summary>
+    private void DescribeTilesWithEntities( Formats.MapProject.MapCharset Charset, List<int> Tiles, List<Formats.MapProject.EntityCharsetUsage> Placed,
+                                            out string Headline, out string Details )
+    {
+      Headline = "There are entities on the map using " + ( ( Tiles.Count == 1 ) ? "this tile" : "some of these tiles" )
+               + " (character set " + CharsetIndexOf( Charset ) + ": " + m_MapProject.CharsetDisplayNameOf( Charset ) + ").";
+      var details = new StringBuilder();
+      foreach ( var usage in Placed )
+      {
+        int tile = Charset.EntityTileOf( usage.Type );
+        var mapNames = new List<string>();
+        foreach ( var map in usage.Maps )
+        {
+          mapNames.Add( DescribeMapForList( map ) );
+        }
+        details.Append( "Tile " + tile + " '" + Charset.Tiles[tile].Name + "' - entity type '" + usage.Type.Name + "': "
+                        + usage.Count + ( ( usage.Count == 1 ) ? " entity" : " entities" )
+                        + " on " + ( ( usage.Maps.Count == 1 ) ? "map " : "maps " ) + string.Join( ", ", mapNames ) + "\r\n" );
+      }
+      // Named like the dialog's buttons.
+      string tiles = ( Tiles.Count == 1 ) ? "tile" : "tiles";
+      details.Append( "\r\n" );
+      details.Append( "Delete " + tiles + " and entities: these entities are removed from the maps as well.\r\n" );
+      details.Append( "Delete " + tiles + " anyway: the entities stay, drawn as a red X until their type gets a tile in this character set.\r\n" );
+      details.Append( "Undo brings everything back in one step." );
+      Details = details.ToString();
+    }
+
+
+
+    /// <summary>"index: name" of a project map; a scratch workspace goes by its owner's.</summary>
+    private string DescribeMapForList( Formats.MapProject.Map Map )
+    {
+      int index = m_MapProject.Maps.IndexOf( Map );
+      if ( index >= 0 )
+      {
+        return index + ": " + Map.Name;
+      }
+      foreach ( var pair in m_ScratchMaps )
+      {
+        if ( pair.Value == Map )
+        {
+          return "scratch workspace of " + m_MapProject.Maps.IndexOf( pair.Key ) + ": " + pair.Key.Name;
+        }
+      }
+      return Map.Name;
+    }
+
+
+
+    /// <summary>
+    /// Removes the entities of Placed's types from Placed's maps, each map's
+    /// list snapshotted first - grouped into the caller's undo step.
+    /// </summary>
+    private void RemovePlacedEntities( List<Formats.MapProject.EntityCharsetUsage> Placed )
+    {
+      var typeIDs = new HashSet<int>();
+      var maps    = new List<Formats.MapProject.Map>();
+      foreach ( var usage in Placed )
+      {
+        typeIDs.Add( usage.Type.ID );
+        foreach ( var map in usage.Maps )
+        {
+          if ( !maps.Contains( map ) )
+          {
+            maps.Add( map );
+          }
+        }
+      }
+      foreach ( var map in maps )
+      {
+        DocumentInfo.UndoManager.AddGroupedUndoTask( new Undo.UndoMapEntitiesChange( this, map ) );
+        map.Entities.RemoveAll( en => typeIDs.Contains( en.Type ) );
+      }
+      // The toolbar must not keep editing an entity that is gone.
+      if ( ( m_SelectedEntity != null )
+      &&   ( ( m_CurrentMap == null )
+      ||     ( !m_CurrentMap.Entities.Contains( m_SelectedEntity ) ) ) )
+      {
+        SelectEntity( null );
+      }
+      UpdateEntityCountLabel();
     }
 
 
@@ -20260,10 +20462,10 @@ namespace RetroDevStudio.Documents
     // the ListView's built-in InsertionMark bar - the same mechanism the Tiles list
     // uses. Reordering is purely positional: a placed marker/entity references its
     // type by ID (never by list position) and the export orders by TagID, so moving
-    // a row changes display/persistence order only. Each row's icon is a generated
-    // "$TT"-on-colour bitmap held in these per-list image lists.
+    // a row changes display/persistence order only. A marker type's row icon is a
+    // generated "$TT"-on-its-colour bitmap held in this image list; entity types
+    // have no colour, so their list shows the tag as plain text instead.
     private System.Windows.Forms.ImageList m_MarkerTypeIcons;
-    private System.Windows.Forms.ImageList m_EntityTypeIcons;
 
     /// <summary>
     /// Small row icon: the tag id as "$TT" centred on BgColor, glyph black/white for
@@ -20476,16 +20678,27 @@ namespace RetroDevStudio.Documents
       var dragged = DraggedRowOf( listEntityTypes, e );
       if ( dragged == null ) return;
 
+      // Rows stand for types - a type placed in several charsets has one row
+      // per charset, always next to each other. Move every selected type
+      // (the grabbed row's is among them), keeping their relative order.
+      var movedTypes = SelectedEntityTypes();
+      if ( movedTypes.Count == 0 )
+      {
+        var draggedType = EntityTypeOfRow( dragged );
+        if ( draggedType == null ) return;
+        movedTypes.Add( draggedType );
+      }
       var sources = new List<int>();
-      foreach ( int idx in listEntityTypes.SelectedIndices ) sources.Add( idx );
-      if ( sources.Count == 0 ) sources.Add( dragged.Index );
+      foreach ( var type in movedTypes ) sources.Add( m_MapProject.EntityTypes.IndexOf( type ) );
 
-      int insertBefore = ReorderDropInsertSlot( listEntityTypes, e );
-      if ( insertBefore < 0 ) return;
+      int insertBeforeRow = ReorderDropInsertSlot( listEntityTypes, e );
+      if ( insertBeforeRow < 0 ) return;
+      // Row slot -> type slot: a drop between or inside a type's rows lands after that type.
+      int insertBefore = ( insertBeforeRow == 0 ) ? 0 : m_MapProject.EntityTypes.IndexOf( EntityTypeOfRow( listEntityTypes.Items[insertBeforeRow - 1] ) ) + 1;
 
       var before = new object[m_MapProject.EntityTypes.Count];
       for ( int i = 0; i < before.Length; ++i ) before[i] = m_MapProject.EntityTypes[i];
-      int newFirst = MoveListItems( m_MapProject.EntityTypes, sources, insertBefore );
+      MoveListItems( m_MapProject.EntityTypes, sources, insertBefore );
 
       bool changed = false;
       for ( int i = 0; i < before.Length; ++i )
@@ -20495,7 +20708,7 @@ namespace RetroDevStudio.Documents
       if ( !changed ) return;
 
       RefreshEntityTypes();
-      SelectListViewRange( listEntityTypes, newFirst, sources.Count );
+      SelectEntityTypeRows( movedTypes );
       SetModified();
     }
 
@@ -20932,6 +21145,14 @@ namespace RetroDevStudio.Documents
         }
       }
       labelEntityCount.Text = "Count: " + count;
+
+      // The Entities tab list counts placements too: keep it current while
+      // it is showing (e.g. an undo there); otherwise its next visit does.
+      if ( ( tabMapEditor != null )
+      &&   ( tabMapEditor.SelectedPage == tabEntities ) )
+      {
+        RefreshEntityTypeList();
+      }
     }
 
 
@@ -22311,44 +22532,15 @@ namespace RetroDevStudio.Documents
 
     private void RefreshEntityTypes()
     {
-      int savedListIndex = listEntityTypes.SelectedIndex;
       int savedComboIndex = comboEntityTypes.SelectedIndex;
 
-      if ( m_EntityTypeIcons == null )
-      {
-        m_EntityTypeIcons = new System.Windows.Forms.ImageList();
-        m_EntityTypeIcons.ImageSize  = new System.Drawing.Size( 34, 22 );
-        m_EntityTypeIcons.ColorDepth = System.Windows.Forms.ColorDepth.Depth32Bit;
-        listEntityTypes.SmallImageList = m_EntityTypeIcons;
-      }
+      RefreshEntityTypeList();
 
-      listEntityTypes.BeginUpdate();
-      listEntityTypes.Items.Clear();
-      m_EntityTypeIcons.Images.Clear();
       comboEntityTypes.Items.Clear();
       comboEntityTypes.Items.Add( "None" );
-
-      // Entity types have no colour of their own -> neutral icon background.
-      var entityIconBg = System.Drawing.Color.FromArgb( 80, 80, 80 );
       foreach ( var type in m_MapProject.EntityTypes )
       {
-        m_EntityTypeIcons.Images.Add( MakeTypeTagIcon( type.TagID, entityIconBg ) );
-
-        var item = new System.Windows.Forms.ListViewItem();
-        item.ImageIndex = m_EntityTypeIcons.Images.Count - 1;
-        item.SubItems.Add( type.Name ?? "" );                             // col 1: Name
-        item.SubItems.Add( "$" + ( type.TagID & 0xFF ).ToString( "X2" ) ); // col 2: Tag (hex)
-        item.SubItems.Add( type.ExportSymbol ?? "" );                     // col 3: Export symbol
-        item.Tag = type;
-        listEntityTypes.Items.Add( item );
-
         comboEntityTypes.Items.Add( type.Name );
-      }
-      listEntityTypes.EndUpdate();
-
-      if ( ( savedListIndex >= 0 ) && ( savedListIndex < listEntityTypes.Items.Count ) )
-      {
-        listEntityTypes.SelectedIndex = savedListIndex;
       }
 
       // Restore combo: match by current map's SelectedEntityType ID if we have one.
@@ -22365,6 +22557,175 @@ namespace RetroDevStudio.Documents
       else
       {
         comboEntityTypes.SelectedIndex = 0;
+      }
+    }
+
+
+
+    /// <summary>
+    /// Rebuilds the Entities tab list. A type gets one row per charset its
+    /// entities are placed in - Charset / Map / Count: that charset, the
+    /// project maps bound to it holding the type, its entities on them
+    /// together - or a single row with Count 0 when it is placed nowhere. A
+    /// type's rows sit together, in EntityTypes order. The selection is kept
+    /// (the same rows, else rows of the same types, else the same position)
+    /// with the selection handler detached: it only runs when the selected
+    /// types changed, so a refresh never overwrites what is being edited.
+    /// </summary>
+    private void RefreshEntityTypeList()
+    {
+      if ( m_MapProject == null )
+      {
+        return;
+      }
+      var selectedRows = new List<GR.Generic.Tupel<MapProject.EntityType, int>>();
+      foreach ( ListViewItem row in listEntityTypes.SelectedItems )
+      {
+        selectedRows.Add( (GR.Generic.Tupel<MapProject.EntityType, int>)row.Tag );
+      }
+      var selectedTypes      = SelectedEntityTypes();
+      int firstSelectedIndex = listEntityTypes.SelectedIndex;
+
+      var usageByType = new Dictionary<MapProject.EntityType, List<MapProject.EntityCharsetUsage>>();
+      foreach ( var usage in m_MapProject.EntityUsageByCharset( m_MapProject.Maps ) )
+      {
+        List<MapProject.EntityCharsetUsage> usages;
+        if ( !usageByType.TryGetValue( usage.Type, out usages ) )
+        {
+          usages = new List<MapProject.EntityCharsetUsage>();
+          usageByType[usage.Type] = usages;
+        }
+        usages.Add( usage );
+      }
+
+      listEntityTypes.SelectedIndexChanged -= listEntityTypes_SelectedIndexChanged;
+      try
+      {
+        listEntityTypes.BeginUpdate();
+        listEntityTypes.Items.Clear();
+        foreach ( var type in m_MapProject.EntityTypes )
+        {
+          List<MapProject.EntityCharsetUsage> usages;
+          if ( !usageByType.TryGetValue( type, out usages ) )
+          {
+            listEntityTypes.Items.Add( EntityTypeRow( type, -1, "", "", 0 ) );
+            continue;
+          }
+          foreach ( var usage in usages )
+          {
+            var mapNames = new List<string>();
+            foreach ( var map in usage.Maps )
+            {
+              mapNames.Add( DescribeMapForList( map ) );
+            }
+            listEntityTypes.Items.Add( EntityTypeRow( type, usage.CharsetIndex,
+                                                      usage.CharsetIndex + ": " + m_MapProject.CharsetDisplayNameAt( usage.CharsetIndex ),
+                                                      string.Join( ", ", mapNames ), usage.Count ) );
+          }
+        }
+
+        // The same rows; else the rows of the same types (the row is gone -
+        // its entities were moved or removed); else, when even the type is
+        // gone (deleted), the row that moved into its place.
+        foreach ( ListViewItem row in listEntityTypes.Items )
+        {
+          var key = (GR.Generic.Tupel<MapProject.EntityType, int>)row.Tag;
+          if ( selectedRows.Any( selected => ( selected.first == key.first ) && ( selected.second == key.second ) ) )
+          {
+            row.Selected = true;
+          }
+        }
+        if ( listEntityTypes.SelectedIndices.Count == 0 )
+        {
+          foreach ( ListViewItem row in listEntityTypes.Items )
+          {
+            if ( selectedTypes.Contains( EntityTypeOfRow( row ) ) )
+            {
+              row.Selected = true;
+            }
+          }
+        }
+        if ( ( listEntityTypes.SelectedIndices.Count == 0 )
+        &&   ( firstSelectedIndex >= 0 )
+        &&   ( listEntityTypes.Items.Count > 0 ) )
+        {
+          listEntityTypes.Items[Math.Min( firstSelectedIndex, listEntityTypes.Items.Count - 1 )].Selected = true;
+        }
+      }
+      finally
+      {
+        listEntityTypes.EndUpdate();
+        listEntityTypes.SelectedIndexChanged += listEntityTypes_SelectedIndexChanged;
+      }
+      if ( listEntityTypes.SelectedIndices.Count > 0 )
+      {
+        listEntityTypes.Items[listEntityTypes.SelectedIndices[0]].Focused = true;
+        listEntityTypes.EnsureVisible( listEntityTypes.SelectedIndices[0] );
+      }
+
+      var nowSelected = SelectedEntityTypes();
+      if ( ( nowSelected.Count != selectedTypes.Count )
+      ||   ( nowSelected.Any( type => !selectedTypes.Contains( type ) ) ) )
+      {
+        listEntityTypes_SelectedIndexChanged( listEntityTypes, EventArgs.Empty );
+      }
+    }
+
+
+
+    /// <summary>One Entities tab row; its Tag is (type, charset index), -1 = the row of a type placed nowhere.</summary>
+    private static ListViewItem EntityTypeRow( MapProject.EntityType Type, int CharsetIndex, string Charset, string Maps, int Count )
+    {
+      var row = new ListViewItem( "$" + ( Type.TagID & 0xFF ).ToString( "X2" ) ); // col 0: Tag (hex)
+      row.SubItems.Add( Type.Name ?? "" );                                        // col 1: Name
+      row.SubItems.Add( Type.ExportSymbol ?? "" );                                // col 2: Export symbol
+      row.SubItems.Add( Charset );                                                // col 3: Charset
+      row.SubItems.Add( Maps );                                                   // col 4: Map(s)
+      row.SubItems.Add( Count.ToString() );                                       // col 5: Count
+      row.Tag = new GR.Generic.Tupel<MapProject.EntityType, int>( Type, CharsetIndex );
+      return row;
+    }
+
+
+
+    /// <summary>The entity type an Entities tab row stands for.</summary>
+    private static MapProject.EntityType EntityTypeOfRow( ListViewItem Row )
+    {
+      var key = ( Row == null ) ? null : Row.Tag as GR.Generic.Tupel<MapProject.EntityType, int>;
+      return ( key == null ) ? null : key.first;
+    }
+
+
+
+    /// <summary>The charset an Entities tab row counts entities in, -1 = none (its type is placed nowhere).</summary>
+    private static int EntityCharsetOfRow( ListViewItem Row )
+    {
+      var key = ( Row == null ) ? null : Row.Tag as GR.Generic.Tupel<MapProject.EntityType, int>;
+      return ( key == null ) ? -1 : key.second;
+    }
+
+
+
+    /// <summary>Selects every row of Types and nothing else, the first one scrolled into view.</summary>
+    private void SelectEntityTypeRows( List<MapProject.EntityType> Types )
+    {
+      listEntityTypes.SelectedIndices.Clear();
+      ListViewItem firstRow = null;
+      foreach ( ListViewItem row in listEntityTypes.Items )
+      {
+        if ( Types.Contains( EntityTypeOfRow( row ) ) )
+        {
+          row.Selected = true;
+          if ( firstRow == null )
+          {
+            firstRow = row;
+          }
+        }
+      }
+      if ( firstRow != null )
+      {
+        firstRow.Focused = true;
+        firstRow.EnsureVisible();
       }
     }
 
@@ -22422,13 +22783,11 @@ namespace RetroDevStudio.Documents
 
     private void btnUpdateEntityType_Click( DecentForms.ControlBase Sender )
     {
-      if ( ( listEntityTypes.SelectedIndex < 0 )
-      ||   ( listEntityTypes.SelectedIndex >= m_MapProject.EntityTypes.Count ) )
+      var type = SingleSelectedEntityType();
+      if ( type == null )
       {
         return;
       }
-
-      var type = m_MapProject.EntityTypes[listEntityTypes.SelectedIndex];
       int newTagID = (int)editEntityTagID.Value;
 
       // Warn if another entity type already uses this TagID.
@@ -22449,8 +22808,6 @@ namespace RetroDevStudio.Documents
         }
       }
 
-      int savedSelection = listEntityTypes.SelectedIndex;
-
       type.Name = editEntityName.Text;
       type.ExportSymbol = editEntityExportSymbol.Text ?? "";
       type.PreviewCharsetIndex = Math.Max( 0, comboEntityPreviewCharset.SelectedIndex );
@@ -22459,12 +22816,8 @@ namespace RetroDevStudio.Documents
       m_MapProject.CharsetAt( type.PreviewCharsetIndex ).SetEntityTile( type, EntityTileFromCombo() );
       type.TagID = newTagID;
 
+      // Keeps the selected rows (the editor already shows what was committed).
       RefreshEntityTypes();
-      if ( ( savedSelection >= 0 )
-      &&   ( savedSelection < listEntityTypes.Items.Count ) )
-      {
-        listEntityTypes.SelectedIndex = savedSelection;
-      }
       // The Map tab renders entities with each type's tile in the map's
       // charset, so a change here has to invalidate the cached map image —
       // otherwise switching back to the Map tab shows the old tile.
@@ -22476,14 +22829,7 @@ namespace RetroDevStudio.Documents
     private void btnDeleteEntityType_Click( DecentForms.ControlBase Sender )
     {
       // Snapshot the selected types up front (list indices shift as we remove).
-      var types = new List<MapProject.EntityType>();
-      foreach ( int idx in listEntityTypes.SelectedIndices )
-      {
-        if ( ( idx >= 0 ) && ( idx < m_MapProject.EntityTypes.Count ) )
-        {
-          types.Add( m_MapProject.EntityTypes[idx] );
-        }
-      }
+      var types = SelectedEntityTypes();
       if ( types.Count == 0 ) return;
 
       // Count instances across all maps for all selected types — scratch
@@ -22545,17 +22891,25 @@ namespace RetroDevStudio.Documents
 
     private void listEntityTypes_SelectedIndexChanged( object sender, EventArgs e )
     {
-      int selCount = listEntityTypes.SelectedIndices.Count;
-      btnDeleteEntityType.Enabled = ( selCount >= 1 );
-      btnUpdateEntityType.Enabled = ( selCount == 1 );
-      SetEntityTypeEditorEnabled( selCount == 1 );
-      if ( selCount != 1 ) return;
+      // Rows stand for types: two rows of one type still edit that type.
+      var types = SelectedEntityTypes();
+      btnDeleteEntityType.Enabled = ( types.Count >= 1 );
+      btnUpdateEntityType.Enabled = ( types.Count == 1 );
+      SetEntityTypeEditorEnabled( types.Count == 1 );
+      if ( types.Count != 1 ) return;
 
-      var type = m_MapProject.EntityTypes[listEntityTypes.SelectedIndex];
+      var type = types[0];
       editEntityName.Text = type.Name;
       editEntityExportSymbol.Text = type.ExportSymbol ?? "";
-      // Preview charset first (its handler rebuilds the tile list), then the tile.
-      int previewIndex = type.PreviewCharsetIndex;
+      // Preview charset first (its handler rebuilds the tile list), then the
+      // tile. A row counted in a charset shows the type's tile in THAT one -
+      // what its entities on those maps are drawn and exported with; the row
+      // of a type placed nowhere shows the type's own preview charset.
+      int previewIndex = EntityCharsetOfRow( listEntityTypes.SelectedItems[0] );
+      if ( previewIndex < 0 )
+      {
+        previewIndex = type.PreviewCharsetIndex;
+      }
       if ( ( previewIndex < 0 )
       ||   ( previewIndex >= comboEntityPreviewCharset.Items.Count ) )
       {
@@ -22619,14 +22973,7 @@ namespace RetroDevStudio.Documents
 
       // Exclude the selected type so reassigning it can keep its own slot
       // (identical logic to btnFindFreeMarkerTagID for marker types).
-      MapProject.EntityType selectedType = null;
-      if ( ( listEntityTypes.SelectedIndices.Count == 1 )
-      &&   ( listEntityTypes.SelectedIndex >= 0 )
-      &&   ( listEntityTypes.SelectedIndex < m_MapProject.EntityTypes.Count ) )
-      {
-        selectedType = m_MapProject.EntityTypes[listEntityTypes.SelectedIndex];
-      }
-      int candidate = FindNextUnusedEntityTagID( selectedType );
+      int candidate = FindNextUnusedEntityTagID( SingleSelectedEntityType() );
       if ( candidate < 0 )
       {
         System.Windows.Forms.MessageBox.Show(

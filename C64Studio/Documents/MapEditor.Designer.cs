@@ -133,10 +133,12 @@
             editEntityName = new System.Windows.Forms.TextBox();
             labelEntityName = new System.Windows.Forms.Label();
             listEntityTypes = new RetroDevStudio.Controls.CSListView();
-            columnHeaderEntityIcon = new System.Windows.Forms.ColumnHeader();
-            columnHeaderEntityName = new System.Windows.Forms.ColumnHeader();
             columnHeaderEntityTag = new System.Windows.Forms.ColumnHeader();
+            columnHeaderEntityName = new System.Windows.Forms.ColumnHeader();
             columnHeaderEntitySymbol = new System.Windows.Forms.ColumnHeader();
+            columnHeaderEntityCharset = new System.Windows.Forms.ColumnHeader();
+            columnHeaderEntityMap = new System.Windows.Forms.ColumnHeader();
+            columnHeaderEntityCount = new System.Windows.Forms.ColumnHeader();
             menuStrip1 = new System.Windows.Forms.MenuStrip();
             fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             exportMapToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -1534,7 +1536,7 @@
             btnDeleteEntityType.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnDeleteEntityType.Enabled = false;
             btnDeleteEntityType.Image = null;
-            btnDeleteEntityType.Location = new System.Drawing.Point(558, 154);
+            btnDeleteEntityType.Location = new System.Drawing.Point(808, 154);
             btnDeleteEntityType.Name = "btnDeleteEntityType";
             btnDeleteEntityType.Size = new System.Drawing.Size(80, 23);
             btnDeleteEntityType.TabIndex = 9;
@@ -1549,7 +1551,7 @@
             btnUpdateEntityType.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnUpdateEntityType.Enabled = false;
             btnUpdateEntityType.Image = null;
-            btnUpdateEntityType.Location = new System.Drawing.Point(472, 154);
+            btnUpdateEntityType.Location = new System.Drawing.Point(722, 154);
             btnUpdateEntityType.Name = "btnUpdateEntityType";
             btnUpdateEntityType.Size = new System.Drawing.Size(75, 23);
             btnUpdateEntityType.TabIndex = 8;
@@ -1563,7 +1565,7 @@
             btnAddEntityType.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             btnAddEntityType.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnAddEntityType.Image = null;
-            btnAddEntityType.Location = new System.Drawing.Point(386, 154);
+            btnAddEntityType.Location = new System.Drawing.Point(636, 154);
             btnAddEntityType.Name = "btnAddEntityType";
             btnAddEntityType.Size = new System.Drawing.Size(75, 23);
             btnAddEntityType.TabIndex = 7;
@@ -1572,7 +1574,7 @@
             // 
             // editEntityExportSymbol
             // 
-            editEntityExportSymbol.Location = new System.Drawing.Point(472, 96);
+            editEntityExportSymbol.Location = new System.Drawing.Point(722, 96);
             editEntityExportSymbol.Name = "editEntityExportSymbol";
             editEntityExportSymbol.Size = new System.Drawing.Size(120, 20);
             editEntityExportSymbol.TabIndex = 6;
@@ -1581,7 +1583,7 @@
             // labelEntityExportSymbol
             // 
             labelEntityExportSymbol.AutoSize = true;
-            labelEntityExportSymbol.Location = new System.Drawing.Point(386, 98);
+            labelEntityExportSymbol.Location = new System.Drawing.Point(636, 98);
             labelEntityExportSymbol.Name = "labelEntityExportSymbol";
             labelEntityExportSymbol.Size = new System.Drawing.Size(77, 13);
             labelEntityExportSymbol.TabIndex = 5;
@@ -1589,7 +1591,7 @@
             // 
             // editEntityTagID
             // 
-            editEntityTagID.Location = new System.Drawing.Point(472, 124);
+            editEntityTagID.Location = new System.Drawing.Point(722, 124);
             editEntityTagID.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
             editEntityTagID.Name = "editEntityTagID";
             editEntityTagID.Size = new System.Drawing.Size(120, 20);
@@ -1602,18 +1604,18 @@
             btnFindNextEntityTagID.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             btnFindNextEntityTagID.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnFindNextEntityTagID.Image = null;
-            btnFindNextEntityTagID.Location = new System.Drawing.Point(598, 122);
+            btnFindNextEntityTagID.Location = new System.Drawing.Point(848, 122);
             btnFindNextEntityTagID.Name = "btnFindNextEntityTagID";
-            btnFindNextEntityTagID.Size = new System.Drawing.Size(24, 23);
+            btnFindNextEntityTagID.Size = new System.Drawing.Size(100, 23);
             btnFindNextEntityTagID.TabIndex = 13;
-            btnFindNextEntityTagID.Text = "?";
+            btnFindNextEntityTagID.Text = "Find free tag ID";
             toolTip1.SetToolTip(btnFindNextEntityTagID, "Find the lowest unused Tag ID (starting at 1, max 255) among the entity types and assign it to the spinner - Update commits it.");
             btnFindNextEntityTagID.Click += btnFindNextEntityTagID_Click;
             //
             // labelEntityTagID
             // 
             labelEntityTagID.AutoSize = true;
-            labelEntityTagID.Location = new System.Drawing.Point(386, 126);
+            labelEntityTagID.Location = new System.Drawing.Point(636, 126);
             labelEntityTagID.Name = "labelEntityTagID";
             labelEntityTagID.Size = new System.Drawing.Size(43, 13);
             labelEntityTagID.TabIndex = 11;
@@ -1624,7 +1626,7 @@
             comboEntityPreviewCharset.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             comboEntityPreviewCharset.DropDownWidth = 120;
             comboEntityPreviewCharset.FormattingEnabled = true;
-            comboEntityPreviewCharset.Location = new System.Drawing.Point(472, 36);
+            comboEntityPreviewCharset.Location = new System.Drawing.Point(722, 36);
             comboEntityPreviewCharset.Name = "comboEntityPreviewCharset";
             comboEntityPreviewCharset.Size = new System.Drawing.Size(120, 22);
             comboEntityPreviewCharset.TabIndex = 4;
@@ -1641,7 +1643,7 @@
             comboEntityTile.FormattingEnabled = true;
             comboEntityTile.IntegralHeight = false;
             comboEntityTile.ItemHeight = 20;
-            comboEntityTile.Location = new System.Drawing.Point(472, 64);
+            comboEntityTile.Location = new System.Drawing.Point(722, 64);
             comboEntityTile.Name = "comboEntityTile";
             comboEntityTile.Size = new System.Drawing.Size(120, 26);
             comboEntityTile.TabIndex = 5;
@@ -1656,7 +1658,7 @@
             btnEntityTileFromSelection.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             btnEntityTileFromSelection.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnEntityTileFromSelection.Image = null;
-            btnEntityTileFromSelection.Location = new System.Drawing.Point(598, 64);
+            btnEntityTileFromSelection.Location = new System.Drawing.Point(848, 64);
             btnEntityTileFromSelection.Name = "btnEntityTileFromSelection";
             btnEntityTileFromSelection.Size = new System.Drawing.Size(90, 23);
             btnEntityTileFromSelection.TabIndex = 12;
@@ -1667,7 +1669,7 @@
             // labelEntityPreviewCharset
             //
             labelEntityPreviewCharset.AutoSize = true;
-            labelEntityPreviewCharset.Location = new System.Drawing.Point(386, 40);
+            labelEntityPreviewCharset.Location = new System.Drawing.Point(636, 40);
             labelEntityPreviewCharset.Name = "labelEntityPreviewCharset";
             labelEntityPreviewCharset.Size = new System.Drawing.Size(47, 13);
             labelEntityPreviewCharset.TabIndex = 3;
@@ -1676,7 +1678,7 @@
             // labelEntityTile
             //
             labelEntityTile.AutoSize = true;
-            labelEntityTile.Location = new System.Drawing.Point(386, 68);
+            labelEntityTile.Location = new System.Drawing.Point(636, 68);
             labelEntityTile.Name = "labelEntityTile";
             labelEntityTile.Size = new System.Drawing.Size(27, 13);
             labelEntityTile.TabIndex = 14;
@@ -1684,7 +1686,7 @@
             // 
             // editEntityName
             // 
-            editEntityName.Location = new System.Drawing.Point(432, 8);
+            editEntityName.Location = new System.Drawing.Point(682, 8);
             editEntityName.Name = "editEntityName";
             editEntityName.Size = new System.Drawing.Size(160, 20);
             editEntityName.TabIndex = 2;
@@ -1692,7 +1694,7 @@
             // labelEntityName
             // 
             labelEntityName.AutoSize = true;
-            labelEntityName.Location = new System.Drawing.Point(386, 10);
+            labelEntityName.Location = new System.Drawing.Point(636, 10);
             labelEntityName.Name = "labelEntityName";
             labelEntityName.Size = new System.Drawing.Size(38, 13);
             labelEntityName.TabIndex = 1;
@@ -1702,7 +1704,7 @@
             // 
             listEntityTypes.AllowDrop = true;
             listEntityTypes.Dock = System.Windows.Forms.DockStyle.Left;
-            listEntityTypes.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] { columnHeaderEntityIcon, columnHeaderEntityName, columnHeaderEntityTag, columnHeaderEntitySymbol });
+            listEntityTypes.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] { columnHeaderEntityTag, columnHeaderEntityName, columnHeaderEntitySymbol, columnHeaderEntityCharset, columnHeaderEntityMap, columnHeaderEntityCount });
             listEntityTypes.FullRowSelect = true;
             listEntityTypes.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
             listEntityTypes.HideSelection = false;
@@ -1710,7 +1712,7 @@
             listEntityTypes.Location = new System.Drawing.Point(8, 8);
             listEntityTypes.MultiSelect = true;
             listEntityTypes.Name = "listEntityTypes";
-            listEntityTypes.Size = new System.Drawing.Size(370, 867);
+            listEntityTypes.Size = new System.Drawing.Size(620, 867);
             listEntityTypes.TabIndex = 0;
             listEntityTypes.UseCompatibleStateImageBehavior = false;
             listEntityTypes.View = System.Windows.Forms.View.Details;
@@ -1721,25 +1723,35 @@
             listEntityTypes.DragOver += listEntityTypes_DragOver;
             listEntityTypes.DragLeave += listEntityTypes_DragLeave;
             //
-            // columnHeaderEntityIcon
+            // columnHeaderEntityTag
             //
-            columnHeaderEntityIcon.Text = "";
-            columnHeaderEntityIcon.Width = 42;
+            columnHeaderEntityTag.Text = "Tag";
+            columnHeaderEntityTag.Width = 44;
             //
             // columnHeaderEntityName
             //
             columnHeaderEntityName.Text = "Name";
-            columnHeaderEntityName.Width = 138;
-            //
-            // columnHeaderEntityTag
-            //
-            columnHeaderEntityTag.Text = "Tag";
-            columnHeaderEntityTag.Width = 40;
+            columnHeaderEntityName.Width = 130;
             //
             // columnHeaderEntitySymbol
             //
             columnHeaderEntitySymbol.Text = "Symbol";
-            columnHeaderEntitySymbol.Width = 142;
+            columnHeaderEntitySymbol.Width = 130;
+            //
+            // columnHeaderEntityCharset
+            //
+            columnHeaderEntityCharset.Text = "Charset";
+            columnHeaderEntityCharset.Width = 100;
+            //
+            // columnHeaderEntityMap
+            //
+            columnHeaderEntityMap.Text = "Map";
+            columnHeaderEntityMap.Width = 140;
+            //
+            // columnHeaderEntityCount
+            //
+            columnHeaderEntityCount.Text = "Count";
+            columnHeaderEntityCount.Width = 50;
             // 
             // menuStrip1
             // 
@@ -6387,10 +6399,12 @@
         private System.Windows.Forms.Label labelEntityName;
         private System.Windows.Forms.Label labelEntityTagID;
         private RetroDevStudio.Controls.CSListView listEntityTypes;
-        private System.Windows.Forms.ColumnHeader columnHeaderEntityIcon;
-        private System.Windows.Forms.ColumnHeader columnHeaderEntityName;
         private System.Windows.Forms.ColumnHeader columnHeaderEntityTag;
+        private System.Windows.Forms.ColumnHeader columnHeaderEntityName;
         private System.Windows.Forms.ColumnHeader columnHeaderEntitySymbol;
+        private System.Windows.Forms.ColumnHeader columnHeaderEntityCharset;
+        private System.Windows.Forms.ColumnHeader columnHeaderEntityMap;
+        private System.Windows.Forms.ColumnHeader columnHeaderEntityCount;
         private RetroDevStudio.Controls.CSListView listMarkerTypes;
         private System.Windows.Forms.ColumnHeader columnHeaderMarkerIcon;
         private System.Windows.Forms.ColumnHeader columnHeaderMarkerName;

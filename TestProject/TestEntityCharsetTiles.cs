@@ -460,5 +460,66 @@ namespace TestProject
 
       Assert.AreEqual( 0, project.GetEntityTileExportWarnings().Count );
     }
+
+
+
+    // ------------------------------------------------- usage per type and charset
+
+    [TestMethod]
+    public void TestEntityUsageSumsTheMapsSharingACharset()
+    {
+      var project = new MapProject();
+      int second = project.AddCharset();
+      var skeleton = Type( project, 0, "Skeleton" );
+      var rat = Type( project, 1, "Rat" );
+      Type( project, 2, "Unplaced" );
+      var mapA = AddMap( project, "A", 0 );
+      var mapB = AddMap( project, "B", second );
+      var mapC = AddMap( project, "C", 0 );
+      mapA.Entities.Add( new MapProject.Entity() { Type = skeleton.ID, X = 0, Y = 0 } );
+      mapA.Entities.Add( new MapProject.Entity() { Type = skeleton.ID, X = 1, Y = 0 } );
+      mapC.Entities.Add( new MapProject.Entity() { Type = skeleton.ID, X = 0, Y = 1, Enabled = false } );
+      mapB.Entities.Add( new MapProject.Entity() { Type = skeleton.ID, X = 0, Y = 0 } );
+      mapB.Entities.Add( new MapProject.Entity() { Type = rat.ID, X = 1, Y = 1 } );
+      mapB.Entities.Add( new MapProject.Entity() { Type = 99, X = 1, Y = 0 } );     // its type was deleted
+
+      var usage = project.EntityUsageByCharset( project.Maps );
+
+      Assert.AreEqual( 3, usage.Count, "Skeleton in both charsets, Rat in one; unplaced and deleted types have none" );
+      Assert.AreSame( skeleton, usage[0].Type );
+      Assert.AreEqual( 0, usage[0].CharsetIndex );
+      Assert.AreEqual( 3, usage[0].Count, "maps A and C share charset 0: 2 + 1, a disabled one counts" );
+      CollectionAssert.AreEqual( new[] { mapA, mapC }, usage[0].Maps );
+      Assert.AreSame( skeleton, usage[1].Type );
+      Assert.AreEqual( second, usage[1].CharsetIndex );
+      Assert.AreEqual( 1, usage[1].Count );
+      CollectionAssert.AreEqual( new[] { mapB }, usage[1].Maps );
+      Assert.AreSame( rat, usage[2].Type );
+      Assert.AreEqual( second, usage[2].CharsetIndex );
+      Assert.AreEqual( 1, usage[2].Count );
+    }
+
+
+
+    [TestMethod]
+    public void TestEntityUsageFollowsTheTypeOrderAndTheGivenMaps()
+    {
+      var project = new MapProject();
+      var first = Type( project, 5, "First" );
+      var later = Type( project, 2, "Later" );
+      var mapA = AddMap( project, "A", 0 );
+      var mapB = AddMap( project, "B", 0 );
+      mapA.Entities.Add( new MapProject.Entity() { Type = later.ID, X = 0, Y = 0 } );
+      mapB.Entities.Add( new MapProject.Entity() { Type = first.ID, X = 0, Y = 0 } );
+
+      var usage = project.EntityUsageByCharset( project.Maps );
+      Assert.AreEqual( 2, usage.Count );
+      Assert.AreSame( first, usage[0].Type, "rows follow the type list, not where the entities were found first" );
+      Assert.AreSame( later, usage[1].Type );
+
+      var onlyA = project.EntityUsageByCharset( new[] { mapA } );
+      Assert.AreEqual( 1, onlyA.Count, "only the given maps are counted" );
+      Assert.AreSame( later, onlyA[0].Type );
+    }
   }
 }

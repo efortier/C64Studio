@@ -163,6 +163,19 @@ namespace RetroDevStudio.Formats
     };
 
     /// <summary>
+    /// Where one entity type is placed within one charset (see
+    /// EntityUsageByCharset): the maps bound to that charset that hold its
+    /// entities, and how many there are on them together.
+    /// </summary>
+    public class EntityCharsetUsage
+    {
+      public EntityType Type = null;
+      public int        CharsetIndex = 0;
+      public List<Map>  Maps = new List<Map>();
+      public int        Count = 0;
+    };
+
+    /// <summary>
     /// Runtime control-byte values for <see cref="MapStringLine.Terminator"/>
     /// and the asm exporter. Values match Dreadhold's map-string runtime
     /// (see Z:\DevC64\Dreadhold\src\map_strings.asm:11-17). Color bytes are
@@ -1297,6 +1310,65 @@ namespace RetroDevStudio.Formats
       {
         cs.EntityTiles.Remove( Type.ID );
       }
+    }
+
+
+
+    /// <summary>
+    /// The placed entities of UsedOn grouped by type and by the charset of
+    /// the map they sit on - a type keeps one tile per charset, so the
+    /// charset is what decides their picture. One entry per type and charset
+    /// with at least one entity, in EntityTypes order, then by charset index.
+    /// Its maps keep the order of UsedOn and Count adds them all up (disabled
+    /// entities too - they are exported all the same). Entities whose type
+    /// no longer exists are left out.
+    /// </summary>
+    public List<EntityCharsetUsage> EntityUsageByCharset( IEnumerable<Map> UsedOn )
+    {
+      var usageByType = new Dictionary<int, SortedDictionary<int, EntityCharsetUsage>>();
+      foreach ( var map in UsedOn )
+      {
+        int charsetIndex = Charsets.IndexOf( CharsetOf( map ) );
+        foreach ( var entity in map.Entities )
+        {
+          SortedDictionary<int, EntityCharsetUsage> perCharset;
+          if ( !usageByType.TryGetValue( entity.Type, out perCharset ) )
+          {
+            perCharset = new SortedDictionary<int, EntityCharsetUsage>();
+            usageByType[entity.Type] = perCharset;
+          }
+          EntityCharsetUsage usage;
+          if ( !perCharset.TryGetValue( charsetIndex, out usage ) )
+          {
+            usage = new EntityCharsetUsage() { CharsetIndex = charsetIndex };
+            perCharset[charsetIndex] = usage;
+          }
+          // a map's entities are walked in one go: it can only be the last one added
+          if ( ( usage.Maps.Count == 0 )
+          ||   ( usage.Maps[usage.Maps.Count - 1] != map ) )
+          {
+            usage.Maps.Add( map );
+          }
+          ++usage.Count;
+        }
+      }
+
+      var result = new List<EntityCharsetUsage>();
+      foreach ( var type in EntityTypes )
+      {
+        SortedDictionary<int, EntityCharsetUsage> perCharset;
+        if ( usageByType.TryGetValue( type.ID, out perCharset ) )
+        {
+          foreach ( var usage in perCharset.Values )
+          {
+            usage.Type = type;
+            result.Add( usage );
+          }
+          // a damaged file with two types on one ID lists the entities once
+          usageByType.Remove( type.ID );
+        }
+      }
+      return result;
     }
 
 
