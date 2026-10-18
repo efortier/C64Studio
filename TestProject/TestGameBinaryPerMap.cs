@@ -10,11 +10,11 @@ namespace TestProject
 {
   /// <summary>
   /// The per-map game-binary export: one file per exported map named by a
-  /// %d pattern, each holding exactly one map in the usual 65-byte layout
-  /// (map count 1, start byte 0, the map's own charset as the only tile
-  /// section, only its own strings with their authored IDs), one charset
-  /// file per map numbered the same way, the start map as MAP_START_INDEX,
-  /// and the file-name pattern rules.
+  /// %d pattern with its map ID (four digits), each holding exactly one map
+  /// in the usual 65-byte layout (map count 1, start byte 0, the map's own
+  /// charset as the only tile section, only its own strings with their
+  /// authored IDs), one charset file per map numbered the same way, the
+  /// start map as MAP_START_ID, and the file-name pattern rules.
   /// </summary>
   [TestClass]
   public class TestGameBinaryPerMap
@@ -51,9 +51,11 @@ namespace TestProject
 
 
 
+    /// <summary>Adds a map with the lowest free map ID (from 1), like the editor's Add button.</summary>
     private static MapProject.Map AddMap( MapProject Project, string Name, int CharsetIndex, int Width, int Height, int Fill )
     {
       var map = new MapProject.Map() { Name = Name, CharsetIndex = CharsetIndex, TileSpacingX = 1, TileSpacingY = 1 };
+      map.MapID = Project.FindFreeMapID( null );
       map.Tiles.Resize( Width, Height );
       for ( int y = 0; y < Height; ++y )
       {
@@ -70,8 +72,8 @@ namespace TestProject
 
     /// <summary>
     /// Charset 0 (3 tiles, chars $10..) and charset 1 (2 tiles, chars $20..);
-    /// maps Alpha (cs0, tile 1), Hidden (cs0, not exported), Bravo (cs1,
-    /// tile 1), Charlie (cs0, tile 2).
+    /// maps Alpha (cs0, tile 1, ID 1), Hidden (cs0, not exported, ID 2),
+    /// Bravo (cs1, tile 1, ID 3), Charlie (cs0, tile 2, ID 4).
     /// </summary>
     private static MapProject BuildProject()
     {
@@ -129,14 +131,15 @@ namespace TestProject
     // ------------------------------------------------------------- the files
 
     [TestMethod]
-    public void TestOneFilePerExportedMapNumberedLikeTheMapIndices()
+    public void TestOneFilePerExportedMapNamedByItsMapID()
     {
       var files = Export( BuildProject() );
 
       Assert.AreEqual( 3, files.Count, "the map flagged 'not exported' gets no file" );
-      CollectionAssert.AreEqual( new[] { "MAP_0.bin", "MAP_1.bin", "MAP_2.bin" }, files.Select( f => f.FileName ).ToArray() );
+      CollectionAssert.AreEqual( new[] { "MAP_0001.bin", "MAP_0003.bin", "MAP_0004.bin" }, files.Select( f => f.FileName ).ToArray(),
+                                 "four digits; Hidden's ID 2 gets no file and nobody moves up" );
       CollectionAssert.AreEqual( new[] { "Alpha", "Bravo", "Charlie" }, files.Select( f => f.Map.Name ).ToArray() );
-      CollectionAssert.AreEqual( new[] { 0, 1, 2 }, files.Select( f => f.ExportIndex ).ToArray(), "the same numbers as MAP_INDEX_*" );
+      CollectionAssert.AreEqual( new[] { 1, 3, 4 }, files.Select( f => f.MapID ).ToArray(), "the same numbers as MAP_ID_*" );
     }
 
 
@@ -175,7 +178,7 @@ namespace TestProject
       var project = BuildProject();
       var files = Export( project, "MAP_%d.bin", "CHARSET_MAP_%d.dat" );
 
-      CollectionAssert.AreEqual( new[] { "CHARSET_MAP_0.dat", "CHARSET_MAP_1.dat", "CHARSET_MAP_2.dat" }, files.Select( f => f.CharsetFileName ).ToArray() );
+      CollectionAssert.AreEqual( new[] { "CHARSET_MAP_0001.dat", "CHARSET_MAP_0003.dat", "CHARSET_MAP_0004.dat" }, files.Select( f => f.CharsetFileName ).ToArray() );
       Assert.AreEqual( 0xAA, files[0].CharsetData.ByteAt( 0x11 * 8 ), "Alpha's file holds charset 0" );
       Assert.AreEqual( 0xBB, files[1].CharsetData.ByteAt( 0x21 * 8 ), "Bravo's file holds charset 1" );
       // Alpha and Charlie share charset 0: written once for each of them
@@ -244,12 +247,12 @@ namespace TestProject
     public void TestTheStartMapIsAConstantInTheMapLabels()
     {
       var project = BuildProject();
-      project.StartMapIndex = 2;    // Bravo - exported index 1, Hidden is skipped
+      project.StartMapIndex = 2;    // Bravo - map ID 3
       var files = Export( project );
 
       Assert.IsTrue( files.All( f => f.Data.ByteAt( HDR_START_MAP ) == 0 ) );
-      Assert.AreEqual( 1, project.StartMapExportIndex() );
-      StringAssert.Contains( project.GenerateMapLabelsAsm(), ".const MAP_START_INDEX = 1  // Bravo" );
+      Assert.AreEqual( 1, project.StartMapExportIndex(), "the single-file binary still counts positions (Hidden is skipped)" );
+      StringAssert.Contains( project.GenerateMapLabelsAsm(), ".const MAP_START_ID = 3  // Bravo" );
     }
 
 
@@ -304,13 +307,18 @@ namespace TestProject
     [TestMethod]
     public void TestFileNamePatterns()
     {
-      Assert.AreEqual( "MAP_7.bin", Format( "MAP_%d.bin", 7 ) );
-      Assert.AreEqual( "GAMEMAP_12.DAT", Format( "GAMEMAP_%d.DAT", 12 ) );
-      Assert.AreEqual( "MAP_07.bin", Format( "MAP_%02d.bin", 7 ) );
+      Assert.AreEqual( "MAP_0001.bin", Format( "MAP_%d.bin", 1 ), "a plain %d gives four digits" );
+      Assert.AreEqual( "MAP_0056.bin", Format( "MAP_%d.bin", 56 ) );
+      Assert.AreEqual( "MAP_0255.bin", Format( "MAP_%d.bin", 255 ) );
+      Assert.AreEqual( "MAP_0000.bin", Format( "MAP_%d.bin", 0 ) );
+      Assert.AreEqual( "GAMEMAP_0012.DAT", Format( "GAMEMAP_%d.DAT", 12 ) );
+      Assert.AreEqual( "MAP_07.bin", Format( "MAP_%02d.bin", 7 ), "an explicit width is used as given" );
+      Assert.AreEqual( "MAP_7.bin", Format( "MAP_%1d.bin", 7 ) );
+      Assert.AreEqual( "MAP_0007.bin", Format( "MAP_%04d.bin", 7 ) );
       Assert.AreEqual( "MAP_123.bin", Format( "MAP_%02d.bin", 123 ), "padding never truncates" );
       Assert.AreEqual( "MAP_  7.bin", Format( "MAP_%3d.bin", 7 ) );
-      Assert.AreEqual( "100%_7.dat", Format( "100%%_%d.dat", 7 ) );
-      Assert.AreEqual( "L7_7", Format( "L%d_%d", 7 ), "every placeholder gets the number" );
+      Assert.AreEqual( "100%_0007.dat", Format( "100%%_%d.dat", 7 ) );
+      Assert.AreEqual( "L0007_0007", Format( "L%d_%d", 7 ), "every placeholder gets the number" );
     }
 
 

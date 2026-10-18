@@ -290,7 +290,7 @@ namespace RetroDevStudio.Controls
       this.editCompressFilename.Name = "editCompressFilename";
       this.editCompressFilename.Size = new System.Drawing.Size(207, 20);
       this.editCompressFilename.TabIndex = 6;
-      this.toolTip1.SetToolTip(this.editCompressFilename, "File name of each compressed map, with %d for the map number like the map files (e.g. MAP_%d.zx0).");
+      this.toolTip1.SetToolTip(this.editCompressFilename, "File name of each compressed map, with %d for the map ID like the map files (e.g. MAP_%d.zx0 gives MAP_0005.zx0).");
       //
       // checkOverrideLoadAddress
       //
@@ -367,7 +367,7 @@ namespace RetroDevStudio.Controls
       this.editExportFilename.Name = "editExportFilename";
       this.editExportFilename.Size = new System.Drawing.Size(195, 20);
       this.editExportFilename.TabIndex = 10;
-      this.toolTip1.SetToolTip(this.editExportFilename, "File name of each map, with %d for the map number (its exported index, the MAP_INDEX_ value): MAP_%d.bin gives MAP_0.bin, MAP_1.bin ... %02d pads to two digits, %% is a percent sign. Without auto-save the export asks for the folder.");
+      this.toolTip1.SetToolTip(this.editExportFilename, "File name of each map, with %d for its map ID (set on the Map tab, the MAP_ID_ value) as four digits: MAP_%d.bin gives MAP_0001.bin, MAP_0056.bin ... An explicit width like %02d gives that many digits, %% is a percent sign. Without auto-save the export asks for the folder.");
       //
       // checkGenerateDefFile
       //
@@ -764,7 +764,7 @@ namespace RetroDevStudio.Controls
       this.editCharsetFilenamePattern.Name = "editCharsetFilenamePattern";
       this.editCharsetFilenamePattern.Size = new System.Drawing.Size(163, 20);
       this.editCharsetFilenamePattern.TabIndex = 5;
-      this.toolTip1.SetToolTip(this.editCharsetFilenamePattern, "File name of each map's character set file, with %d for the map number - the same number as its map file: CHARSET_MAP_%d.dat gives CHARSET_MAP_0.dat, CHARSET_MAP_1.dat ... %02d pads to two digits, %% is a percent sign. Empty = no charset files.");
+      this.toolTip1.SetToolTip(this.editCharsetFilenamePattern, "File name of each map's character set file, with %d for the map ID - the same number as its map file: CHARSET_MAP_%d.dat gives CHARSET_MAP_0001.dat, CHARSET_MAP_0056.dat ... An explicit width like %02d gives that many digits, %% is a percent sign. Empty = no charset files.");
       //
       // checkCharsetPrefixLoadAddress
       //
@@ -838,7 +838,7 @@ namespace RetroDevStudio.Controls
       this.checkExportMapLabels.Name = "checkExportMapLabels";
       this.checkExportMapLabels.Size = new System.Drawing.Size(220, 17);
       this.checkExportMapLabels.TabIndex = 13;
-      this.checkExportMapLabels.Text = "Map labels sidecar (map name -> index)";
+      this.checkExportMapLabels.Text = "Map labels sidecar (map name -> ID)";
       this.checkExportMapLabels.UseVisualStyleBackColor = true;
       this.checkExportMapLabels.CheckedChanged += new System.EventHandler(this.checkExportMapLabels_CheckedChanged);
       //
@@ -933,7 +933,7 @@ namespace RetroDevStudio.Controls
       this.editCharsetCompressFilename.Name = "editCharsetCompressFilename";
       this.editCharsetCompressFilename.Size = new System.Drawing.Size(225, 20);
       this.editCharsetCompressFilename.TabIndex = 3;
-      this.toolTip1.SetToolTip(this.editCharsetCompressFilename, "File name of each compressed character set file, with %d for the map number like the character set files (e.g. CHARSET_MAP_%d.zx0). Empty = no compression.");
+      this.toolTip1.SetToolTip(this.editCharsetCompressFilename, "File name of each compressed character set file, with %d for the map ID like the character set files (e.g. CHARSET_MAP_%d.zx0 gives CHARSET_MAP_0005.zx0). Empty = no compression.");
       //
       // checkCharsetOverrideLoadAddress
       //

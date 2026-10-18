@@ -67,8 +67,8 @@ namespace RetroDevStudio.Controls
 
     /// <summary>
     /// The game-binary export writes ONE FILE PER MAP: each exported map goes
-    /// to its own binary named by the map file name pattern (%d = the map's
-    /// exported index, its MAP_INDEX_* value), each with its own charset file
+    /// to its own binary named by the map file name pattern (%d = the map ID
+    /// as four digits, its MAP_ID_* value), each with its own charset file
     /// named by the charset file name pattern, numbered the same way. The
     /// sidecars are written once. Nothing is written unless every file can be
     /// built.
@@ -225,7 +225,7 @@ namespace RetroDevStudio.Controls
           string compressedName;
           string patternError;
           if ( ( file.CharsetData != null )
-          &&   ( RetroDevStudio.Formats.MapProject.TryFormatFileNamePattern( editCharsetCompressFilename.Text, file.ExportIndex, out compressedName, out patternError ) )
+          &&   ( RetroDevStudio.Formats.MapProject.TryFormatFileNamePattern( editCharsetCompressFilename.Text, file.MapID, out compressedName, out patternError ) )
           &&   ( string.Equals( compressedName, file.CharsetFileName, StringComparison.OrdinalIgnoreCase ) ) )
           {
             errors.Add( "compressed character set file name " + compressedName + " equals the character set file name " + file.CharsetFileName + " - pick a different name" );
@@ -355,7 +355,7 @@ namespace RetroDevStudio.Controls
         {
           string compressedName;
           string patternError;
-          RetroDevStudio.Formats.MapProject.TryFormatFileNamePattern( editCompressFilename.Text, file.ExportIndex, out compressedName, out patternError );
+          RetroDevStudio.Formats.MapProject.TryFormatFileNamePattern( editCompressFilename.Text, file.MapID, out compressedName, out patternError );
           TryCompressExport( mapPath, compressedName, finalData.Length, mapOverrideAddress, out compressionReport );
         }
 
@@ -396,7 +396,7 @@ namespace RetroDevStudio.Controls
           {
             string compressedName;
             string patternError;
-            RetroDevStudio.Formats.MapProject.TryFormatFileNamePattern( editCharsetCompressFilename.Text, file.ExportIndex, out compressedName, out patternError );
+            RetroDevStudio.Formats.MapProject.TryFormatFileNamePattern( editCharsetCompressFilename.Text, file.MapID, out compressedName, out patternError );
             string compressedPath = System.IO.Path.Combine( charsetDir ?? mapDir, compressedName );
             string charsetCompression;
             if ( TryCompressCharsetFile( charsetPath, compressedPath, charsetData.Length, charsetOverrideAddress, out charsetCompression ) )
@@ -432,7 +432,7 @@ namespace RetroDevStudio.Controls
             // continue - the binary itself was saved
           }
         }
-        summary.AppendLine( "  " + file.FileName + " - map " + file.ExportIndex + " '" + file.Map.Name + "', " + finalData.Length + " bytes"
+        summary.AppendLine( "  " + file.FileName + " - map ID " + file.MapID + " '" + file.Map.Name + "', " + finalData.Length + " bytes"
                           + ( ( file.CharsetData != null ) ? " + " + file.CharsetFileName + ( ( compressedCharsetName != null ) ? " + " + compressedCharsetName : "" ) : "" ) );
         fileLogs.AppendLine( "==================== " + file.FileName + " ====================" );
         fileLogs.AppendLine( fileLog );
@@ -518,7 +518,7 @@ namespace RetroDevStudio.Controls
           () => map.GenerateCharsetLabelsAsm( charsetLabelsPrefix ) );
       }
 
-      // Map-labels sidecar — map name -> exported (compacted) map index.
+      // Map-labels sidecar — map name -> map ID (MAP_ID_*, MAP_START_ID).
       if ( checkExportMapLabels.Checked )
       {
         string mapLabelsPrefix = editMapLabelsPrefix.Text;

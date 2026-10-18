@@ -699,6 +699,11 @@ namespace TestProject
 
 
 
+    /// <summary>MAP_INFO ends with the map ID (I32), appended after the charset byte.</summary>
+    const int MAP_INFO_MAP_ID_BYTES = 4;
+
+
+
     [TestMethod]
     public void TestMapInfoWithoutCharsetByteDefaultsToZero()
     {
@@ -706,16 +711,36 @@ namespace TestProject
       map.NotExported = true;
       var mapChunk = MapProject.BuildMapChunk( map, false );
 
-      var oneShort = DeserializeMapChunk( TruncateSubChunk( mapChunk, FileChunkConstants.MAP_INFO, 1 ) );
+      // a file from before the charset byte has no map ID either
+      var oneShort = DeserializeMapChunk( TruncateSubChunk( mapChunk, FileChunkConstants.MAP_INFO, MAP_INFO_MAP_ID_BYTES + 1 ) );
       Assert.AreEqual( 0, oneShort.CharsetIndex, "missing byte = charset 0" );
       Assert.IsTrue( oneShort.NotExported, "the previous field is intact" );
 
-      var twoShort = DeserializeMapChunk( TruncateSubChunk( mapChunk, FileChunkConstants.MAP_INFO, 2 ) );
+      var twoShort = DeserializeMapChunk( TruncateSubChunk( mapChunk, FileChunkConstants.MAP_INFO, MAP_INFO_MAP_ID_BYTES + 2 ) );
       Assert.AreEqual( 0, twoShort.CharsetIndex );
       Assert.IsFalse( twoShort.NotExported );
 
       var intact = DeserializeMapChunk( mapChunk );
       Assert.AreEqual( 3, intact.CharsetIndex );
+    }
+
+
+
+    [TestMethod]
+    public void TestMapInfoWithoutMapIDReadsAsNoID()
+    {
+      var map = MakeMap( "M", 2, 2, 0, 3 );
+      map.NotExported = true;
+      map.MapID = 17;
+      var mapChunk = MapProject.BuildMapChunk( map, false );
+
+      // saved before map IDs existed: -1 = none yet (the project load numbers it)
+      var older = DeserializeMapChunk( TruncateSubChunk( mapChunk, FileChunkConstants.MAP_INFO, MAP_INFO_MAP_ID_BYTES ) );
+      Assert.AreEqual( -1, older.MapID );
+      Assert.AreEqual( 3, older.CharsetIndex, "the previous fields are intact" );
+      Assert.IsTrue( older.NotExported );
+
+      Assert.AreEqual( 17, DeserializeMapChunk( mapChunk ).MapID );
     }
 
 

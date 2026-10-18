@@ -11530,10 +11530,13 @@ namespace RetroDevStudio.Documents
       btnMapDelete.Enabled = ( comboMaps.SelectedIndex != -1 );
       btnMapClear.Enabled = ( comboMaps.SelectedIndex != -1 );
       btnSetStartMap.Enabled = ( comboMaps.SelectedIndex != -1 );
+      editMapID.Enabled = ( comboMaps.SelectedIndex != -1 );
+      btnFindNextMapID.Enabled = ( comboMaps.SelectedIndex != -1 );
 
       if ( comboMaps.SelectedIndex == -1 )
       {
         comboTiles.Items.Clear();
+        ShowMapIDInUse( null );
         btnCopy.Enabled = false;
         btnMoveMapDown.Enabled = false;
         btnMoveMapUp.Enabled = false;
@@ -11634,6 +11637,9 @@ namespace RetroDevStudio.Documents
       {
         comboMapCharset.SelectedIndex = mapCharsetIndex;
       }
+      // The ID belongs to the LIVE map: the scratch workspace shows its
+      // owner's (the control is locked there, see ApplyScratchViewEnablement).
+      ShowMapID( m_LiveMap ?? m_CurrentMap );
 
       dimSlider.Value = m_CurrentMap.MarkerDimOpacity;
       // A remembered placement type that no longer exists (its type was
@@ -11971,6 +11977,8 @@ namespace RetroDevStudio.Documents
       // OWNER map's face (a workspace mirrors its owner's charset).
       checkMapNotExported.Enabled  = false;
       comboMapCharset.Enabled      = false;
+      editMapID.Enabled            = false;
+      btnFindNextMapID.Enabled     = false;
       btnToggleOutlineMode.Enabled = false;
       // Revisions are the owner's history — locked while its workspace is
       // showing (the combo still lists them; selection is refused too).
@@ -12524,6 +12532,12 @@ namespace RetroDevStudio.Documents
 
     public void AddMap( int MapIndex, Formats.MapProject.Map Map )
     {
+      // A map entering the project without an ID (Add, Cpy) gets the lowest
+      // free one from 1; one coming back (undo of a delete) keeps its own.
+      if ( Map.MapID < 0 )
+      {
+        Map.MapID = m_MapProject.FindFreeMapID( Map );
+      }
       m_MapProject.Maps.Insert( MapIndex, Map );
 
       comboMaps.Items.Insert( MapIndex, new GR.Generic.Tupel<string, Formats.MapProject.Map>( FormatMapDisplayName( MapIndex, Map ), Map ) );
@@ -12720,10 +12734,12 @@ namespace RetroDevStudio.Documents
 
     /// <summary>
     /// Format a map's row in the Current Map dropdown: "★ N: Name" for the
-    /// project's StartMapIndex, "N: Name" otherwise. Centralised so the four
-    /// sites that build dropdown rows (open project, add map, rename,
-    /// reindex-after-move) stay in sync — touching the star convention in
-    /// one place updates them all.
+    /// project's StartMapIndex (Index is the list position), "N: Name"
+    /// otherwise, where N is the map ID - the number in its export file
+    /// names and what door markers store, not its position. Centralised so
+    /// the four sites that build dropdown rows (open project, add map,
+    /// rename, reindex-after-move) stay in sync — touching the star
+    /// convention in one place updates them all.
     /// </summary>
     private string FormatMapDisplayName( int Index, Formats.MapProject.Map Map )
     {
@@ -12732,7 +12748,8 @@ namespace RetroDevStudio.Documents
       string charset = ( ( m_MapProject != null ) && ( m_MapProject.Charsets.Count > 1 ) )
                        ? " [" + m_MapProject.CharsetDisplayNameOf( m_MapProject.CharsetOf( Map ) ) + "]" : "";
       string suffix = Map.NotExported ? " (not exported)" : "";
-      return prefix + Index.ToString() + ": " + Map.Name + charset + suffix;
+      string id = ( Map.MapID >= 0 ) ? Map.MapID.ToString() : "?";
+      return prefix + id + ": " + Map.Name + charset + suffix;
     }
 
 
@@ -12775,6 +12792,120 @@ namespace RetroDevStudio.Documents
       // The dropdown row carries a "(not exported)" suffix.
       RefreshMapListDisplay();
       SetModified();
+    }
+
+
+
+    /// <summary>
+    /// Shows Map's ID in the Map details spinner without recording an edit
+    /// (the handler is detached while the value is set), and whether another
+    /// map uses it too.
+    /// </summary>
+    private void ShowMapID( Formats.MapProject.Map Map )
+    {
+      editMapID.ValueChanged -= editMapID_ValueChanged;
+      try
+      {
+        editMapID.Value = Math.Max( 0, Math.Min( 255, ( Map == null ) ? 0 : Map.MapID ) );
+      }
+      finally
+      {
+        editMapID.ValueChanged += editMapID_ValueChanged;
+      }
+      ShowMapIDInUse( Map );
+    }
+
+
+
+    /// <summary>
+    /// "(in use)" beside Find next map ID: shown while another map in the
+    /// project has Map's ID; the tooltip names them. Sharing an ID is allowed
+    /// while renumbering - the export refuses two exported maps with one ID.
+    /// </summary>
+    private void ShowMapIDInUse( Formats.MapProject.Map Map )
+    {
+      var sharing = new List<string>();
+      if ( ( Map != null )
+      &&   ( m_MapProject != null ) )
+      {
+        foreach ( var other in m_MapProject.Maps )
+        {
+          if ( ( other != Map )
+          &&   ( other.MapID == Map.MapID ) )
+          {
+            sharing.Add( "'" + other.Name + "'" );
+          }
+        }
+      }
+      labelMapIDInUse.Visible = ( sharing.Count > 0 );
+      toolTip1.SetToolTip( labelMapIDInUse, ( sharing.Count > 0 )
+                           ? "Map ID " + Map.MapID + " is also used by " + string.Join( ", ", sharing ) + ". The export refuses two exported maps with the same ID."
+                           : "" );
+    }
+
+
+
+    /// <summary>
+    /// "Map ID": the map's number in its export file names and its MAP_ID_
+    /// constant. Edits the LIVE map - the spinner is locked while a revision
+    /// or the scratch workspace is showing. Two maps may share an ID while
+    /// the user renumbers; the export refuses that. Undoable via
+    /// UndoMapValueChange.
+    /// </summary>
+    private void editMapID_ValueChanged( object sender, EventArgs e )
+    {
+      if ( ( m_LiveMap == null )
+      ||   ( m_LiveMap.MapID == (int)editMapID.Value ) )
+      {
+        return;
+      }
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapValueChange( this, m_LiveMap ) );
+      m_LiveMap.MapID = (int)editMapID.Value;
+      ShowMapIDInUse( m_LiveMap );
+      // The dropdown row starts with the map ID.
+      RefreshMapListDisplay();
+      SetModified();
+    }
+
+
+
+    /// <summary>
+    /// "Find next map ID" beside the map ID: the lowest ID from 1 that no
+    /// OTHER map uses; an error when 1..255 are all taken.
+    /// </summary>
+    private void btnFindNextMapID_Click( object sender, EventArgs e )
+    {
+      if ( m_LiveMap == null )
+      {
+        return;
+      }
+      // The map itself is excluded, so one that already holds the lowest
+      // free ID keeps it (the self-exclusion rule of every other find-free
+      // button).
+      int candidate = m_MapProject.FindFreeMapID( m_LiveMap );
+      if ( candidate < 0 )
+      {
+        ReportNoFreeMapID();
+        return;
+      }
+      // The spinner is live-bound: assigning it runs editMapID_ValueChanged
+      // (undo step, model write, dropdown refresh) - the same path as typing
+      // the value. An unchanged value raises nothing, so clicking again adds
+      // no undo step and does not mark the document modified.
+      editMapID.Value = candidate;
+    }
+
+
+
+    /// <summary>Find next map ID's error when every map ID from 1 to 255 is taken (virtual so tests can answer it).</summary>
+    protected virtual void ReportNoFreeMapID()
+    {
+      System.Windows.Forms.MessageBox.Show(
+        this,
+        "All map IDs from 1 to 255 are already in use by other maps. Map ID 0 is never handed out automatically, and a map ID is one byte so it cannot exceed 255.",
+        "No free map ID",
+        System.Windows.Forms.MessageBoxButtons.OK,
+        System.Windows.Forms.MessageBoxIcon.Error );
     }
 
 
@@ -14712,6 +14843,7 @@ namespace RetroDevStudio.Documents
         map.TileSpacingY = 1;
       }
       map.Name = "Imported Map";
+      map.MapID = m_MapProject.FindFreeMapID( map );
       m_MapProject.Maps.Add( map );
       comboMaps.Items.Add( new GR.Generic.Tupel<string, Formats.MapProject.Map>( FormatMapDisplayName( 0, map ), map ) );
       comboMaps.Enabled = true;
@@ -14993,6 +15125,9 @@ namespace RetroDevStudio.Documents
       // images. Two live maps must never share it, or they would fight
       // over the same outline picture.
       newMap.OutlineGuid = "";
+      // Likewise the map ID: the copy is a new map in the game - AddMap
+      // hands it the lowest free ID from 1.
+      newMap.MapID = -1;
 
 
       DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapAdd( this, m_MapProject, m_MapProject.Maps.Count ) );
@@ -26845,6 +26980,8 @@ namespace RetroDevStudio.Documents
       if ( comboMapAlternativeMode != null ) comboMapAlternativeMode.Enabled = enabled;
       if ( checkMapNotExported != null )     checkMapNotExported.Enabled     = enabled;
       if ( comboMapCharset != null )         comboMapCharset.Enabled         = enabled;
+      if ( editMapID != null )               editMapID.Enabled               = enabled;
+      if ( btnFindNextMapID != null )        btnFindNextMapID.Enabled        = enabled;
       // Extra data is now in a dialog opened from Tools — gate the menu
       // item itself so the dialog can't be opened while read-only.
       if ( editExtraDataToolStripMenuItem != null ) editExtraDataToolStripMenuItem.Enabled = enabled;

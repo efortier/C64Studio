@@ -195,6 +195,10 @@
             checkMapNotExported = new Krypton.Toolkit.KryptonCheckBox();
             labelMapCharset = new System.Windows.Forms.Label();
             comboMapCharset = new Krypton.Toolkit.KryptonComboBox();
+            labelMapID = new System.Windows.Forms.Label();
+            editMapID = new Krypton.Toolkit.KryptonNumericUpDown();
+            btnFindNextMapID = new Krypton.Toolkit.KryptonButton();
+            labelMapIDInUse = new System.Windows.Forms.Label();
             label1 = new System.Windows.Forms.Label();
             comboMapAlternativeBGColor4 = new Krypton.Toolkit.KryptonComboBox();
             label25 = new System.Windows.Forms.Label();
@@ -2306,6 +2310,10 @@
             // collapsiblePanel1
             // 
             collapsiblePanel1.Collapsed = true;
+            collapsiblePanel1.Controls.Add(labelMapIDInUse);
+            collapsiblePanel1.Controls.Add(btnFindNextMapID);
+            collapsiblePanel1.Controls.Add(editMapID);
+            collapsiblePanel1.Controls.Add(labelMapID);
             collapsiblePanel1.Controls.Add(comboMapCharset);
             collapsiblePanel1.Controls.Add(labelMapCharset);
             collapsiblePanel1.Controls.Add(comboMapAlternativeMode);
@@ -2337,7 +2345,7 @@
             collapsiblePanel1.Controls.Add(label23);
             collapsiblePanel1.Controls.Add(label14);
             collapsiblePanel1.Controls.Add(label22);
-            collapsiblePanel1.ExpandedHeight = 284;
+            collapsiblePanel1.ExpandedHeight = 312;
             collapsiblePanel1.Location = new System.Drawing.Point(3, 65);
             collapsiblePanel1.MinimumSize = new System.Drawing.Size(40, 56);
             collapsiblePanel1.Name = "collapsiblePanel1";
@@ -2374,7 +2382,7 @@
             checkMapNotExported.Name = "checkMapNotExported";
             checkMapNotExported.Size = new System.Drawing.Size(120, 20);
             checkMapNotExported.TabIndex = 27;
-            toolTip1.SetToolTip(checkMapNotExported, "Skip this map in every all-maps export (game binary, assembly, raw buffer). Later maps' export indices shift down; the start map is remapped automatically.");
+            toolTip1.SetToolTip(checkMapNotExported, "Skip this map in every all-maps export (game binary, assembly, raw buffer). The game binary names each map's files by its map ID, so the other maps keep their numbers.");
             checkMapNotExported.Values.Text = "Map not exported";
             checkMapNotExported.CheckedChanged += checkMapNotExported_CheckedChanged;
             //
@@ -2398,6 +2406,49 @@
             comboMapCharset.TabIndex = 28;
             toolTip1.SetToolTip(comboMapCharset, "The character set (and tile library) this map is painted with. Switching keeps the tile indices; cells beyond the new library render and export as empty.");
             comboMapCharset.SelectedIndexChanged += comboMapCharset_SelectedIndexChanged;
+            //
+            // labelMapID
+            //
+            labelMapID.AutoSize = true;
+            labelMapID.Location = new System.Drawing.Point(15, 284);
+            labelMapID.Name = "labelMapID";
+            labelMapID.Size = new System.Drawing.Size(44, 13);
+            labelMapID.TabIndex = 32;
+            labelMapID.Text = "Map ID:";
+            //
+            // editMapID
+            //
+            editMapID.Increment = new decimal(new int[] { 1, 0, 0, 0 });
+            editMapID.Location = new System.Drawing.Point(69, 281);
+            editMapID.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
+            editMapID.Minimum = new decimal(new int[] { 0, 0, 0, 0 });
+            editMapID.Name = "editMapID";
+            editMapID.Size = new System.Drawing.Size(50, 22);
+            editMapID.TabIndex = 30;
+            toolTip1.SetToolTip(editMapID, "The map's number in the game (0-255): the number in its export file names (MAP_%d.bin gives MAP_0005.bin) and its MAP_ID_ constant. Door markers store this number. Deleting or moving other maps never changes it. Add, Cpy and Find next map ID pick the lowest unused ID starting at 1.");
+            editMapID.Value = new decimal(new int[] { 0, 0, 0, 0 });
+            editMapID.ValueChanged += editMapID_ValueChanged;
+            //
+            // btnFindNextMapID
+            //
+            btnFindNextMapID.Location = new System.Drawing.Point(125, 280);
+            btnFindNextMapID.Name = "btnFindNextMapID";
+            btnFindNextMapID.Size = new System.Drawing.Size(120, 23);
+            btnFindNextMapID.TabIndex = 31;
+            toolTip1.SetToolTip(btnFindNextMapID, "Assign this map the lowest map ID (starting at 1) that no other map uses.");
+            btnFindNextMapID.Values.DropDownArrowColor = System.Drawing.Color.Empty;
+            btnFindNextMapID.Values.Text = "Find next map ID";
+            btnFindNextMapID.Click += btnFindNextMapID_Click;
+            //
+            // labelMapIDInUse
+            //
+            labelMapIDInUse.AutoSize = true;
+            labelMapIDInUse.Location = new System.Drawing.Point(251, 284);
+            labelMapIDInUse.Name = "labelMapIDInUse";
+            labelMapIDInUse.Size = new System.Drawing.Size(45, 13);
+            labelMapIDInUse.TabIndex = 33;
+            labelMapIDInUse.Text = "(in use)";
+            labelMapIDInUse.Visible = false;
             // 
             // label1
             // 
@@ -6321,6 +6372,10 @@
         private Krypton.Toolkit.KryptonCheckBox checkMapNotExported;
         private System.Windows.Forms.Label labelMapCharset;
         private Krypton.Toolkit.KryptonComboBox comboMapCharset;
+        private System.Windows.Forms.Label labelMapID;
+        private Krypton.Toolkit.KryptonNumericUpDown editMapID;
+        private Krypton.Toolkit.KryptonButton btnFindNextMapID;
+        private System.Windows.Forms.Label labelMapIDInUse;
         private System.Windows.Forms.ToolStripMenuItem editExtraDataToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem mapMemoToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem cropToSelectionToolStripMenuItem;

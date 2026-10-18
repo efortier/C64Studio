@@ -42,9 +42,9 @@ namespace TestProject
 
 
 
-    private static MapProject.Map AddMap( MapProject Project, string Name, int CharsetIndex, int Fill )
+    private static MapProject.Map AddMap( MapProject Project, string Name, int MapID, int CharsetIndex, int Fill )
     {
-      var map = new MapProject.Map() { Name = Name, CharsetIndex = CharsetIndex, TileSpacingX = 1, TileSpacingY = 1 };
+      var map = new MapProject.Map() { Name = Name, MapID = MapID, CharsetIndex = CharsetIndex, TileSpacingX = 1, TileSpacingY = 1 };
       map.Tiles.Resize( 2, 2 );
       for ( int y = 0; y < 2; ++y )
       {
@@ -59,16 +59,16 @@ namespace TestProject
 
 
 
-    /// <summary>Two charsets, maps Alpha (cs0), Hidden (cs0, not exported), Bravo (cs1); auto-save into Folder.</summary>
+    /// <summary>Two charsets, maps Alpha (cs0, ID 7), Hidden (cs0, not exported, ID 3), Bravo (cs1, ID 12); auto-save into Folder.</summary>
     private static MapProject BuildProject( string Folder, string MapPattern )
     {
       var project = new MapProject();
       AddTiles( project.Charsets[0], 3, 0x10 );
       int second = project.AddCharset();
       AddTiles( project.Charsets[second], 2, 0x20 );
-      AddMap( project, "Alpha", 0, 1 );
-      AddMap( project, "Hidden", 0, 0 ).NotExported = true;
-      AddMap( project, "Bravo", second, 1 );
+      AddMap( project, "Alpha", 7, 0, 1 );
+      AddMap( project, "Hidden", 3, 0, 0 ).NotExported = true;
+      AddMap( project, "Bravo", 12, second, 1 );
       project.StartMapIndex = 2;
 
       var settings = project.Settings.GameBinary;
@@ -126,9 +126,9 @@ namespace TestProject
           var written = Directory.GetFiles( folder ).Select( Path.GetFileName ).ToArray();
           CollectionAssert.AreEquivalent( new[]
           {
-            "MAP_0.bin", "MAP_1.bin",
-            "CHARSET_MAP_0.dat", "CHARSET_MAP_1.dat",
-            "MAP_0.def", "MAP_1.def",
+            "MAP_0007.bin", "MAP_0012.bin",
+            "CHARSET_MAP_0007.dat", "CHARSET_MAP_0012.dat",
+            "MAP_0007.def", "MAP_0012.def",
             "map_names.asm"
           }, written, string.Join( ", ", written ) );
 
@@ -140,8 +140,9 @@ namespace TestProject
             CollectionAssert.AreEqual( files[i].Data.Data(), File.ReadAllBytes( Path.Combine( folder, files[i].FileName ) ), files[i].FileName );
             CollectionAssert.AreEqual( files[i].CharsetData.Data(), File.ReadAllBytes( Path.Combine( folder, files[i].CharsetFileName ) ), files[i].CharsetFileName );
           }
-          StringAssert.Contains( File.ReadAllText( Path.Combine( folder, "map_names.asm" ) ), ".const MAP_START_INDEX = 1  // Bravo" );
-          StringAssert.Contains( File.ReadAllText( Path.Combine( folder, "MAP_1.def" ) ), "map_count = 1" );
+          StringAssert.Contains( File.ReadAllText( Path.Combine( folder, "map_names.asm" ) ), ".const MAP_START_ID = 12  // Bravo" );
+          StringAssert.Contains( File.ReadAllText( Path.Combine( folder, "MAP_0012.def" ) ), "map_count = 1" );
+          StringAssert.Contains( log, "MAP_0012.bin - map ID 12 'Bravo'" );
           StringAssert.Contains( log, "Exported 2 map file(s)" );
         }
         finally

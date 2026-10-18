@@ -206,23 +206,27 @@ namespace TestProject
     public void TestMapLabelsAsm()
     {
       var proj = new MapProject();
-      foreach ( var name in new[] { "Start", "cave-2", "Start", "Secret" } )
+      var ids = new[] { 10, 3, 7, 4 };
+      var names = new[] { "Start", "cave-2", "Start", "Secret" };
+      for ( int i = 0; i < names.Length; ++i )
       {
-        var map = new MapProject.Map() { Name = name, TileSpacingX = 1, TileSpacingY = 1 };
+        var map = new MapProject.Map() { Name = names[i], MapID = ids[i], TileSpacingX = 1, TileSpacingY = 1 };
         map.Tiles.Resize( 1, 1 );
         proj.Maps.Add( map );
       }
       proj.Maps[3].NotExported = true;
       string asm = proj.GenerateMapLabelsAsm();
       var lines = asm.Split( new[] { "\r\n", "\n" }, StringSplitOptions.None );
-      Assert.IsTrue( lines.Any( l => l.StartsWith( ".const MAP_INDEX_START " ) && l.Contains( " = 0 " ) ), asm );
-      Assert.IsTrue( lines.Any( l => l.StartsWith( ".const MAP_INDEX_CAVE_2 " ) && l.Contains( " = 1 " ) ), asm );
-      Assert.IsTrue( lines.Any( l => l.StartsWith( ".const MAP_INDEX_START_2 " ) && l.Contains( " = 2 " ) ), asm );
-      Assert.IsFalse( asm.Contains( ".const MAP_INDEX_SECRET" ) );
-      Assert.IsTrue( lines.Any( l => l.StartsWith( "// " ) && l.Contains( "Secret" ) ) );
-      Assert.AreEqual( 3, lines.Count( l => l.StartsWith( ".const MAP_INDEX_" ) ) );
+      // the map IDs, not the list positions
+      Assert.IsTrue( lines.Any( l => l.StartsWith( ".const MAP_ID_START " ) && l.Contains( " = 10 " ) ), asm );
+      Assert.IsTrue( lines.Any( l => l.StartsWith( ".const MAP_ID_CAVE_2 " ) && l.Contains( " = 3 " ) ), asm );
+      Assert.IsTrue( lines.Any( l => l.StartsWith( ".const MAP_ID_START_2 " ) && l.Contains( " = 7 " ) ), asm );
+      Assert.IsFalse( asm.Contains( ".const MAP_ID_SECRET" ) );
+      Assert.IsTrue( lines.Any( l => l.StartsWith( "// " ) && l.Contains( "Secret (map ID 4)" ) ), asm );
+      Assert.AreEqual( 3, lines.Count( l => l.StartsWith( ".const MAP_ID_" ) ) );
+      Assert.IsFalse( asm.Contains( "MAP_INDEX_" ), "the old positional labels are gone" );
       // the start map (none set = the first exported map) for the loader's first file
-      Assert.IsTrue( lines.Any( l => l.StartsWith( ".const MAP_START_INDEX = 0" ) ), asm );
+      Assert.IsTrue( lines.Any( l => l.StartsWith( ".const MAP_START_ID = 10" ) ), asm );
     }
 
 
@@ -231,16 +235,17 @@ namespace TestProject
     public void TestMapLabelsSkipUnnamedMap()
     {
       var proj = new MapProject();
+      int id = 1;
       foreach ( var name in new[] { "", "Named" } )
       {
-        var map = new MapProject.Map() { Name = name, TileSpacingX = 1, TileSpacingY = 1 };
+        var map = new MapProject.Map() { Name = name, MapID = id++, TileSpacingX = 1, TileSpacingY = 1 };
         map.Tiles.Resize( 1, 1 );
         proj.Maps.Add( map );
       }
       string asm = proj.GenerateMapLabelsAsm();
       var lines = asm.Split( new[] { "\r\n", "\n" }, StringSplitOptions.None );
-      Assert.IsTrue( lines.Any( l => l.StartsWith( "// index 0" ) && l.Contains( "no map name" ) ) );
-      Assert.IsTrue( lines.Any( l => l.StartsWith( ".const MAP_INDEX_NAMED " ) && l.Contains( " = 1 " ) ), "the unnamed map still occupies index 0" );
+      Assert.IsTrue( lines.Any( l => l.StartsWith( "// map ID 1" ) && l.Contains( "no map name" ) ), asm );
+      Assert.IsTrue( lines.Any( l => l.StartsWith( ".const MAP_ID_NAMED " ) && l.Contains( " = 2 " ) ), asm );
     }
 
 

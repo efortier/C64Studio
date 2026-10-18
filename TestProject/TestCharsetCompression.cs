@@ -440,22 +440,22 @@ namespace TestProject
 
           // The usual files plus one compressed copy per charset file.
           var written = Directory.GetFiles( folder ).Select( Path.GetFileName ).ToArray();
-          CollectionAssert.AreEquivalent( new[] { "CHARSET_MAP_0.dat", "CHARSET_MAP_1.dat", "charset_map_0.zx0", "charset_map_1.zx0",
-                                                  "MAP_0.bin", "MAP_1.bin", "map_names.asm" },
+          CollectionAssert.AreEquivalent( new[] { "CHARSET_MAP_0000.dat", "CHARSET_MAP_0001.dat", "charset_map_0000.zx0", "charset_map_0001.zx0",
+                                                  "MAP_0000.bin", "MAP_0001.bin", "map_names.asm" },
                                           written, string.Join( ", ", written ) );
 
           byte[] raw = RawCharsetFile( project );
           for ( int i = 0; i < 2; ++i )
           {
-            CollectionAssert.AreEqual( raw, File.ReadAllBytes( Path.Combine( folder, "CHARSET_MAP_" + i + ".dat" ) ), "the charset file itself stays" );
-            byte[] compressed = File.ReadAllBytes( Path.Combine( folder, "charset_map_" + i + ".zx0" ) );
+            CollectionAssert.AreEqual( raw, File.ReadAllBytes( Path.Combine( folder, "CHARSET_MAP_" + i.ToString( "D4" ) + ".dat" ) ), "the charset file itself stays" );
+            byte[] compressed = File.ReadAllBytes( Path.Combine( folder, "charset_map_" + i.ToString( "D4" ) + ".zx0" ) );
             Assert.IsTrue( compressed.Length > 0 );
-            Assert.IsTrue( compressed.Length < raw.Length, "charset_map_" + i + ".zx0: " + compressed.Length + " bytes is not smaller than the " + raw.Length + " raw bytes" );
+            Assert.IsTrue( compressed.Length < raw.Length, "charset_map_" + i.ToString( "D4" ) + ".zx0: " + compressed.Length + " bytes is not smaller than the " + raw.Length + " raw bytes" );
             CollectionAssert.AreNotEqual( raw, compressed );
           }
           StringAssert.Contains( log, "(+ compressed copies)" );
           StringAssert.Contains( log, "Compressed (ZX0): " + raw.Length + " -> " );
-          StringAssert.Contains( log, "CHARSET_MAP_1.dat + charset_map_1.zx0" );
+          StringAssert.Contains( log, "CHARSET_MAP_0001.dat + charset_map_0001.zx0" );
         }
         finally
         {
@@ -485,10 +485,10 @@ namespace TestProject
               Assert.IsTrue( RunExport( form, project, out log ), log );
             }
             var written = Directory.GetFiles( folder ).Select( Path.GetFileName ).ToArray();
-            CollectionAssert.AreEquivalent( new[] { "CHARSET_MAP_0.dat", "CHARSET_MAP_1.dat", "MAP_0.bin", "MAP_1.bin", "map_names.asm" },
+            CollectionAssert.AreEquivalent( new[] { "CHARSET_MAP_0000.dat", "CHARSET_MAP_0001.dat", "MAP_0000.bin", "MAP_0001.bin", "map_names.asm" },
                                             written, string.Join( ", ", written ) );
             byte[] raw = RawCharsetFile( project );
-            CollectionAssert.AreEqual( raw, File.ReadAllBytes( Path.Combine( folder, "CHARSET_MAP_0.dat" ) ) );
+            CollectionAssert.AreEqual( raw, File.ReadAllBytes( Path.Combine( folder, "CHARSET_MAP_0000.dat" ) ) );
             Assert.IsFalse( log.Contains( "Compressed (" ), log );
           }
           finally
@@ -561,7 +561,7 @@ namespace TestProject
               StringAssert.Contains( form.Aborted[0], "compressed character set file name" );
               if ( pattern.EndsWith( ".dat" ) )
               {
-                StringAssert.Contains( form.Aborted[0], "charset_map_0.dat equals the character set file name CHARSET_MAP_0.dat" );
+                StringAssert.Contains( form.Aborted[0], "charset_map_0000.dat equals the character set file name CHARSET_MAP_0000.dat" );
               }
             }
             Assert.AreEqual( 0, Directory.GetFileSystemEntries( folder ).Length, "nothing written for " + pattern );

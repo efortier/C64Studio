@@ -222,8 +222,8 @@ namespace TestProject
             CollectionAssert.AreEqual( new[] { Path.GetFullPath( mapFolder ), Path.GetFullPath( charsetFolder ) }, form.Asked,
                                        "one question listing both folders" );
           }
-          foreach ( var file in new[] { Path.Combine( mapFolder, "MAP_0.bin" ), Path.Combine( mapFolder, "MAP_1.bin" ),
-                                        Path.Combine( charsetFolder, "CHARSET_MAP_0.dat" ), Path.Combine( charsetFolder, "CHARSET_MAP_1.dat" ),
+          foreach ( var file in new[] { Path.Combine( mapFolder, "MAP_0000.bin" ), Path.Combine( mapFolder, "MAP_0001.bin" ),
+                                        Path.Combine( charsetFolder, "CHARSET_MAP_0000.dat" ), Path.Combine( charsetFolder, "CHARSET_MAP_0001.dat" ),
                                         Path.Combine( charsetFolder, "map_names.asm" ) } )
           {
             Assert.IsTrue( File.Exists( file ), file );
@@ -277,7 +277,7 @@ namespace TestProject
             Assert.IsTrue( RunGameBinaryExport( form, GameBinaryProject( root, root ) ) );
             Assert.IsNull( form.Asked, "nothing to ask" );
           }
-          Assert.IsTrue( File.Exists( Path.Combine( root, "MAP_0.bin" ) ) );
+          Assert.IsTrue( File.Exists( Path.Combine( root, "MAP_0000.bin" ) ) );
         }
         finally
         {
