@@ -769,6 +769,7 @@ namespace RetroDevStudio.Documents
     // The modeless Map-memo popup (Tools -> Map memo...). Null = closed;
     // non-null = open, and retargeted to the current map on every switch.
     private Dialogs.DlgMapMemo          m_MemoDialog = null;
+    private Dialogs.DlgCustomExportFields m_CustomExportFieldsDialog = null;
     // Set during programmatic comboRevisions repopulation so the
     // SelectedIndexChanged handler doesn't try to swap maps mid-rebuild.
     private bool                        m_PopulatingRevisionsCombo = false;
@@ -1205,6 +1206,7 @@ namespace RetroDevStudio.Documents
       comboMapStringLineControl4.SelectedIndex = 0;
 
       InitMapStringsTab();
+      InitCustomExportsTab();
 
       // "Default" + 16 C64 colors for the tile placement color override.
       // Default index 0 means no override; placing leaves the tile's
@@ -2743,6 +2745,11 @@ namespace RetroDevStudio.Documents
       // Theme may have flipped between light and dark — re-derive the tool
       // glyph ink (restores the pristine images on light themes).
       ApplyThemedToolIcons();
+      // The template memo takes the source editor's font and colours. Its
+      // highlight refresh raises TextChanged; the write-back handler only
+      // touches the model when the text really differs, so this never
+      // dirties the document.
+      memoCustomExportContent.ApplyTheme( Core );
     }
 
 
@@ -7581,6 +7588,7 @@ namespace RetroDevStudio.Documents
       RefreshEntityTypes();
       RefreshEntityTileCombo();
       RefreshMapStrings();
+      RefreshCustomExportList( -1 );
       PopulateMapStringPreviewIndices();
       LoadMapStringPreviewFont();
       // Outline paint-mode tool settings (brush/eraser/border sizes, stamp
@@ -25767,6 +25775,778 @@ namespace RetroDevStudio.Documents
 
 
 
+    // ======================================================================
+    // Custom Exports tab
+    // ======================================================================
+    //
+    // User-authored text templates (MapProject.CustomExports), rendered by
+    // the game-binary export against the data it just wrote. The list shows
+    // the model's order; a row's Tag is its CustomExport - rows are never
+    // identified by name, the name is free to change. The text fields write
+    // to the selected definition on every change and keep their own undo
+    // (Ctrl+Z in them is routed below); the structural steps - add, delete,
+    // clear, reorder, Active - are whole-list snapshots on the document's
+    // undo stack. The populate detaches the field handlers, so loading or
+    // selecting never dirties the document.
+
+    private void InitCustomExportsTab()
+    {
+      AttachCustomExportEditFieldHandlers();
+      foreach ( var field in CustomExportTextFields() )
+      {
+        field.Enter += customExportTextField_Enter;
+        field.Leave += customExportTextField_Leave;
+      }
+      RefreshCustomExportList( -1 );
+    }
+
+
+
+    private IEnumerable<Control> CustomExportTextFields()
+    {
+      yield return editCustomExportName;
+      yield return editCustomExportDirectory;
+      yield return editCustomExportFileName;
+      yield return editCustomExportDescription;
+      yield return memoCustomExportContent;
+    }
+
+
+
+    private void AttachCustomExportEditFieldHandlers()
+    {
+      editCustomExportName.TextChanged        += editCustomExportName_TextChanged;
+      editCustomExportDirectory.TextChanged   += editCustomExportDirectory_TextChanged;
+      editCustomExportFileName.TextChanged    += editCustomExportFileName_TextChanged;
+      editCustomExportDescription.TextChanged += editCustomExportDescription_TextChanged;
+      memoCustomExportContent.TextChanged     += memoCustomExportContent_TextChanged;
+      checkCustomExportActive.CheckedChanged  += checkCustomExportActive_CheckedChanged;
+    }
+
+
+
+    private void DetachCustomExportEditFieldHandlers()
+    {
+      editCustomExportName.TextChanged        -= editCustomExportName_TextChanged;
+      editCustomExportDirectory.TextChanged   -= editCustomExportDirectory_TextChanged;
+      editCustomExportFileName.TextChanged    -= editCustomExportFileName_TextChanged;
+      editCustomExportDescription.TextChanged -= editCustomExportDescription_TextChanged;
+      memoCustomExportContent.TextChanged     -= memoCustomExportContent_TextChanged;
+      checkCustomExportActive.CheckedChanged  -= checkCustomExportActive_CheckedChanged;
+    }
+
+
+
+    /// <summary>ID of the one selected definition; -1 when none or several are selected.</summary>
+    public int SelectedCustomExportID
+    {
+      get
+      {
+        var export = GetSelectedCustomExport();
+        return ( export != null ) ? export.ID : -1;
+      }
+    }
+
+
+
+    private Formats.MapProject.CustomExport GetSelectedCustomExport()
+    {
+      if ( ( m_MapProject == null )
+      ||   ( listCustomExports.SelectedItems.Count != 1 ) )
+      {
+        return null;
+      }
+      return listCustomExports.SelectedItems[0].Tag as Formats.MapProject.CustomExport;
+    }
+
+
+
+    private static void SetCustomExportListRow( ListViewItem Item, Formats.MapProject.CustomExport Export )
+    {
+      Item.Text = string.IsNullOrEmpty( Export.Name ) ? "(unnamed)" : Export.Name;
+      while ( Item.SubItems.Count < 3 )
+      {
+        Item.SubItems.Add( "" );
+      }
+      Item.SubItems[1].Text = Export.Active ? "yes" : "no";
+      Item.SubItems[2].Text = Export.FileName ?? "";
+      Item.Tag = Export;
+    }
+
+
+
+    /// <summary>
+    /// Rebuilds the list from the model and selects the definition with
+    /// SelectID - the previously selected one when -1, row 0 when there is
+    /// none - then mirrors it into the fields. Called on load, after every
+    /// structural change and by the undo task.
+    /// </summary>
+    public void RefreshCustomExportList( int SelectID )
+    {
+      if ( listCustomExports == null )
+      {
+        return;
+      }
+      if ( SelectID < 0 )
+      {
+        SelectID = SelectedCustomExportID;
+      }
+      listCustomExports.SelectedIndexChanged -= listCustomExports_SelectedIndexChanged;
+      try
+      {
+        listCustomExports.BeginUpdate();
+        listCustomExports.Items.Clear();
+        int selectIndex = -1;
+        if ( m_MapProject != null )
+        {
+          for ( int i = 0; i < m_MapProject.CustomExports.Count; ++i )
+          {
+            var item = new ListViewItem();
+            SetCustomExportListRow( item, m_MapProject.CustomExports[i] );
+            listCustomExports.Items.Add( item );
+            if ( m_MapProject.CustomExports[i].ID == SelectID )
+            {
+              selectIndex = i;
+            }
+          }
+        }
+        listCustomExports.EndUpdate();
+        if ( ( selectIndex < 0 )
+        &&   ( listCustomExports.Items.Count > 0 ) )
+        {
+          selectIndex = 0;
+        }
+        if ( selectIndex >= 0 )
+        {
+          listCustomExports.SelectedIndex = selectIndex;
+        }
+      }
+      finally
+      {
+        listCustomExports.SelectedIndexChanged += listCustomExports_SelectedIndexChanged;
+      }
+      PopulateCustomExportFieldsFromSelection();
+      UpdateCustomExportButtonStates();
+    }
+
+
+
+    private void listCustomExports_SelectedIndexChanged( object sender, EventArgs e )
+    {
+      PopulateCustomExportFieldsFromSelection();
+      UpdateCustomExportButtonStates();
+    }
+
+
+
+    /// <summary>
+    /// Mirrors the selected definition into the fields with the write-back
+    /// handlers detached. The fields are enabled for exactly one selected
+    /// row. Setting the memo's text clears its undo, so Ctrl+Z can never
+    /// bring another definition's text back.
+    /// </summary>
+    private void PopulateCustomExportFieldsFromSelection()
+    {
+      var export = GetSelectedCustomExport();
+      DetachCustomExportEditFieldHandlers();
+      try
+      {
+        bool enabled = ( export != null );
+        editCustomExportName.Enabled           = enabled;
+        editCustomExportDirectory.Enabled      = enabled;
+        btnCustomExportBrowseDirectory.Enabled = enabled;
+        editCustomExportFileName.Enabled       = enabled;
+        checkCustomExportActive.Enabled        = enabled;
+        editCustomExportDescription.Enabled    = enabled;
+        memoCustomExportContent.Enabled        = enabled;
+
+        editCustomExportName.Text        = ( export != null ) ? ( export.Name ?? "" ) : "";
+        editCustomExportDirectory.Text   = ( export != null ) ? ( export.Directory ?? "" ) : "";
+        editCustomExportFileName.Text    = ( export != null ) ? ( export.FileName ?? "" ) : "";
+        checkCustomExportActive.Checked  = ( export != null ) && export.Active;
+        editCustomExportDescription.Text = ( export != null ) ? ( export.Description ?? "" ) : "";
+        editCustomExportDescription.ClearUndo();
+        memoCustomExportContent.Text     = ( export != null ) ? ( export.Content ?? "" ) : "";
+      }
+      finally
+      {
+        AttachCustomExportEditFieldHandlers();
+      }
+    }
+
+
+
+    private void UpdateCustomExportButtonStates()
+    {
+      bool any = ( m_MapProject != null ) && ( m_MapProject.CustomExports.Count > 0 );
+      btnCustomExportDelete.Enabled  = ( listCustomExports.SelectedIndices.Count > 0 );
+      btnCustomExportClear.Enabled   = any;
+      btnCustomExportPreview.Enabled = ( GetSelectedCustomExport() != null );
+    }
+
+
+
+    private void UpdateSelectedCustomExportRow()
+    {
+      if ( listCustomExports.SelectedItems.Count != 1 )
+      {
+        return;
+      }
+      var item = listCustomExports.SelectedItems[0];
+      var export = item.Tag as Formats.MapProject.CustomExport;
+      if ( export != null )
+      {
+        SetCustomExportListRow( item, export );
+      }
+    }
+
+
+
+    // -------- Field write-back (the value is written only when it differs) --------
+
+    private void editCustomExportName_TextChanged( object sender, EventArgs e )
+    {
+      var export = GetSelectedCustomExport();
+      if ( export == null )
+      {
+        return;
+      }
+      string value = editCustomExportName.Text ?? "";
+      if ( value == export.Name )
+      {
+        return;
+      }
+      export.Name = value;
+      SetModified();
+      UpdateSelectedCustomExportRow();
+    }
+
+
+
+    private void editCustomExportDirectory_TextChanged( object sender, EventArgs e )
+    {
+      var export = GetSelectedCustomExport();
+      if ( export == null )
+      {
+        return;
+      }
+      string value = editCustomExportDirectory.Text ?? "";
+      if ( value == export.Directory )
+      {
+        return;
+      }
+      export.Directory = value;
+      SetModified();
+    }
+
+
+
+    private void editCustomExportFileName_TextChanged( object sender, EventArgs e )
+    {
+      var export = GetSelectedCustomExport();
+      if ( export == null )
+      {
+        return;
+      }
+      string value = editCustomExportFileName.Text ?? "";
+      if ( value == export.FileName )
+      {
+        return;
+      }
+      export.FileName = value;
+      SetModified();
+      UpdateSelectedCustomExportRow();
+    }
+
+
+
+    private void editCustomExportDescription_TextChanged( object sender, EventArgs e )
+    {
+      var export = GetSelectedCustomExport();
+      if ( export == null )
+      {
+        return;
+      }
+      string value = Formats.MapProject.NormalizeLineEndings( editCustomExportDescription.Text );
+      if ( value == export.Description )
+      {
+        return;
+      }
+      export.Description = value;
+      SetModified();
+    }
+
+
+
+    private void memoCustomExportContent_TextChanged( object sender, EventArgs e )
+    {
+      var export = GetSelectedCustomExport();
+      if ( export == null )
+      {
+        return;
+      }
+      string value = Formats.MapProject.NormalizeLineEndings( memoCustomExportContent.Text );
+      if ( value == export.Content )
+      {
+        return;
+      }
+      export.Content = value;
+      SetModified();
+    }
+
+
+
+    private void checkCustomExportActive_CheckedChanged( object sender, EventArgs e )
+    {
+      var export = GetSelectedCustomExport();
+      if ( ( export == null )
+      ||   ( checkCustomExportActive.Checked == export.Active ) )
+      {
+        return;
+      }
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapCustomExportsChange( this, m_MapProject, export.ID ) );
+      export.Active = checkCustomExportActive.Checked;
+      SetModified();
+      UpdateSelectedCustomExportRow();
+    }
+
+
+
+    private void customExportTextField_Enter( object sender, EventArgs e )
+    {
+      Core.MainForm.UpdateUndoSettings();
+    }
+
+
+
+    private void customExportTextField_Leave( object sender, EventArgs e )
+    {
+      Core.MainForm.UpdateUndoSettings();
+    }
+
+
+
+    // -------- Buttons --------
+
+    private void btnCustomExportAdd_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_MapProject == null )
+      {
+        return;
+      }
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapCustomExportsChange( this, m_MapProject, SelectedCustomExportID ) );
+      var export = m_MapProject.AddCustomExport( "Export " + ( m_MapProject.CustomExports.Count + 1 ) );
+      RefreshCustomExportList( export.ID );
+      SetModified();
+      editCustomExportName.Focus();
+      editCustomExportName.SelectAll();
+    }
+
+
+
+    private void btnCustomExportDelete_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_MapProject == null )
+      {
+        return;
+      }
+      var selected = new List<Formats.MapProject.CustomExport>();
+      var names = new List<string>();
+      int firstIndex = int.MaxValue;
+      foreach ( ListViewItem item in listCustomExports.SelectedItems )
+      {
+        var export = item.Tag as Formats.MapProject.CustomExport;
+        if ( export == null )
+        {
+          continue;
+        }
+        selected.Add( export );
+        names.Add( string.IsNullOrEmpty( export.Name ) ? "(unnamed)" : export.Name );
+        firstIndex = Math.Min( firstIndex, item.Index );
+      }
+      if ( selected.Count == 0 )
+      {
+        return;
+      }
+      if ( !AskDeleteCustomExports( names ) )
+      {
+        return;
+      }
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapCustomExportsChange( this, m_MapProject, SelectedCustomExportID ) );
+      foreach ( var export in selected )
+      {
+        m_MapProject.CustomExports.Remove( export );
+      }
+      // Select the definition that moved up into the first deleted slot, or
+      // the last one when the deletion ran off the end (the Tiles list rule).
+      int selectID = -1;
+      if ( m_MapProject.CustomExports.Count > 0 )
+      {
+        selectID = m_MapProject.CustomExports[Math.Min( firstIndex, m_MapProject.CustomExports.Count - 1 )].ID;
+      }
+      RefreshCustomExportList( selectID );
+      SetModified();
+    }
+
+
+
+    /// <summary>The delete confirmation (a test answers it silently).</summary>
+    protected virtual bool AskDeleteCustomExports( List<string> Names )
+    {
+      string question = ( Names.Count == 1 )
+                      ? "Delete custom export '" + Names[0] + "'?"
+                      : "Delete these " + Names.Count + " custom exports?\r\n\r\n" + JoinLimited( Names, 20 );
+      return System.Windows.Forms.MessageBox.Show(
+        this,
+        question + "\r\n\r\nThis can be undone.",
+        "Confirm delete",
+        System.Windows.Forms.MessageBoxButtons.OKCancel,
+        System.Windows.Forms.MessageBoxIcon.Warning,
+        System.Windows.Forms.MessageBoxDefaultButton.Button2 ) == System.Windows.Forms.DialogResult.OK;
+    }
+
+
+
+    private void btnCustomExportClear_Click( DecentForms.ControlBase Sender )
+    {
+      if ( ( m_MapProject == null )
+      ||   ( m_MapProject.CustomExports.Count == 0 ) )
+      {
+        return;
+      }
+      if ( !AskClearCustomExports( m_MapProject.CustomExports.Count ) )
+      {
+        return;
+      }
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapCustomExportsChange( this, m_MapProject, SelectedCustomExportID ) );
+      m_MapProject.CustomExports.Clear();
+      RefreshCustomExportList( -1 );
+      SetModified();
+    }
+
+
+
+    /// <summary>The clear-all confirmation (a test answers it silently).</summary>
+    protected virtual bool AskClearCustomExports( int Count )
+    {
+      return System.Windows.Forms.MessageBox.Show(
+        this,
+        "Delete all " + Count + " custom export(s)?\r\n\r\nThis can be undone.",
+        "Confirm clear",
+        System.Windows.Forms.MessageBoxButtons.OKCancel,
+        System.Windows.Forms.MessageBoxIcon.Warning,
+        System.Windows.Forms.MessageBoxDefaultButton.Button2 ) == System.Windows.Forms.DialogResult.OK;
+    }
+
+
+
+    private void btnCustomExportBrowseDirectory_Click( object sender, EventArgs e )
+    {
+      if ( GetSelectedCustomExport() == null )
+      {
+        return;
+      }
+      using ( var dlg = new FolderBrowserDialog() )
+      {
+        dlg.Description = "Folder for this custom export (leave the field blank for the map export folder)";
+        if ( !string.IsNullOrEmpty( editCustomExportDirectory.Text ) )
+        {
+          dlg.SelectedPath = editCustomExportDirectory.Text;
+        }
+        if ( dlg.ShowDialog( this ) != DialogResult.OK )
+        {
+          return;
+        }
+        // The write-back handler stores it.
+        editCustomExportDirectory.Text = dlg.SelectedPath;
+      }
+    }
+
+
+
+    /// <summary>
+    /// Renders the selected definition against a dry run of the game-binary
+    /// export (nothing written) and shows the text - or the compile errors -
+    /// in the preview dialog, which can save that one file.
+    /// </summary>
+    private void btnCustomExportPreview_Click( DecentForms.ControlBase Sender )
+    {
+      var export = GetSelectedCustomExport();
+      if ( ( export == null )
+      ||   ( m_MapProject == null ) )
+      {
+        return;
+      }
+      string name = Formats.CustomExportRunner.DisplayName( export );
+      var errors = new List<string>();
+      string fileNameError = Formats.CustomExportRunner.ValidateFileName( export.FileName );
+      if ( fileNameError != null )
+      {
+        errors.Add( fileNameError );
+      }
+      List<Formats.TextTemplate.TemplateError> templateErrors;
+      var template = Formats.TextTemplate.Template.Compile( export.Content ?? "", Formats.MapExportSchema.Schema, out templateErrors );
+      foreach ( var error in templateErrors )
+      {
+        errors.Add( error.ToString() );
+      }
+      string documentPath = DocumentInfo.FullPath ?? "";
+      string documentFolder = "";
+      try
+      {
+        documentFolder = ( documentPath.Length > 0 ) ? ( System.IO.Path.GetDirectoryName( documentPath ) ?? "" ) : "";
+      }
+      catch ( Exception )
+      {
+      }
+      Formats.MapExportContext context = null;
+      if ( errors.Count == 0 )
+      {
+        List<string> exportErrors;
+        context = Formats.MapExportSchema.BuildPreviewContext( m_MapProject, documentPath, out exportErrors );
+        if ( context == null )
+        {
+          foreach ( var error in exportErrors )
+          {
+            errors.Add( "the export itself would be refused: " + error );
+          }
+        }
+      }
+      string outputPath = "";
+      if ( errors.Count == 0 )
+      {
+        string directory = Formats.CustomExportRunner.ResolveDirectory( export.Directory, context.Write.MapDirectory, documentFolder );
+        try
+        {
+          outputPath = System.IO.Path.GetFullPath( System.IO.Path.Combine( directory, ( export.FileName ?? "" ).Trim() ) );
+        }
+        catch ( Exception ex )
+        {
+          errors.Add( "cannot resolve the output path: " + ex.Message );
+        }
+      }
+      string rendered = "";
+      string info;
+      if ( errors.Count == 0 )
+      {
+        rendered = template.Render( context );
+        info = "Dry run - nothing was written and compressed sizes are unknown. Map folder assumed: " + context.Write.MapDirectory
+             + "\r\nOutput file: " + outputPath;
+      }
+      else
+      {
+        info = errors.Count + " problem(s) - double-click a line to jump to it in the template:";
+      }
+      using ( var dlg = new Dialogs.DlgCustomExportPreview( Core, name, info, outputPath, rendered, ( errors.Count > 0 ) ? errors : null ) )
+      {
+        dlg.ErrorLineActivated += line => memoCustomExportContent.GoToLine( line );
+        dlg.ShowDialog( this );
+      }
+    }
+
+
+
+    private void btnCustomExportFields_Click( DecentForms.ControlBase Sender )
+    {
+      if ( m_CustomExportFieldsDialog != null )
+      {
+        m_CustomExportFieldsDialog.Focus();
+        return;
+      }
+      m_CustomExportFieldsDialog = new Dialogs.DlgCustomExportFields( Core, Formats.MapExportSchema.Schema );
+      m_CustomExportFieldsDialog.InsertRequested += text =>
+      {
+        if ( GetSelectedCustomExport() != null )
+        {
+          memoCustomExportContent.InsertAtCaret( text );
+        }
+      };
+      m_CustomExportFieldsDialog.FormClosed += ( s, ev ) =>
+      {
+        m_CustomExportFieldsDialog = null;
+      };
+      m_CustomExportFieldsDialog.Show( this );
+    }
+
+
+
+    // -------- Drag & drop reordering (the Map Strings list's handlers) --------
+
+    private void listCustomExports_ItemDrag( object sender, ItemDragEventArgs e )
+    {
+      EnsureListAutoScrollTimer();
+      listCustomExports.DoDragDrop( e.Item, DragDropEffects.Move );
+      StopListAutoScroll();
+      listCustomExports.InsertionMark.Index = -1;
+    }
+
+
+
+    private void listCustomExports_DragEnter( object sender, DragEventArgs e )
+    {
+      UpdateReorderInsertionMark( listCustomExports, e );
+    }
+
+
+
+    private void listCustomExports_DragOver( object sender, DragEventArgs e )
+    {
+      UpdateReorderInsertionMark( listCustomExports, e );
+      if ( e.Effect == DragDropEffects.Move )
+      {
+        UpdateListAutoScroll( listCustomExports, listCustomExports.PointToClient( new System.Drawing.Point( e.X, e.Y ) ) );
+      }
+    }
+
+
+
+    private void listCustomExports_DragLeave( object sender, EventArgs e )
+    {
+      StopListAutoScroll();
+      listCustomExports.InsertionMark.Index = -1;
+    }
+
+
+
+    private void listCustomExports_DragDrop( object sender, DragEventArgs e )
+    {
+      StopListAutoScroll();
+      listCustomExports.InsertionMark.Index = -1;
+      if ( m_MapProject == null )
+      {
+        return;
+      }
+      var dragged = DraggedRowOf( listCustomExports, e );
+      if ( dragged == null )
+      {
+        return;
+      }
+      var sources = new List<int>();
+      foreach ( int idx in listCustomExports.SelectedIndices )
+      {
+        if ( idx < m_MapProject.CustomExports.Count )
+        {
+          sources.Add( idx );
+        }
+      }
+      if ( sources.Count == 0 )
+      {
+        if ( dragged.Index >= m_MapProject.CustomExports.Count )
+        {
+          return;
+        }
+        sources.Add( dragged.Index );
+      }
+      int insertBefore = ReorderDropInsertSlot( listCustomExports, e );
+      if ( insertBefore < 0 )
+      {
+        return;
+      }
+      int newFirst = ReorderCustomExports( sources, insertBefore );
+      if ( newFirst >= 0 )
+      {
+        SelectListViewRange( listCustomExports, newFirst, sources.Count );
+      }
+    }
+
+
+
+    /// <summary>
+    /// Moves the definitions at Sources (ascending) as one block before
+    /// InsertBefore - one undo step. A drop that leaves the order as it was
+    /// changes nothing (no undo step, not modified). Returns the block's new
+    /// first index, -1 when nothing moved.
+    /// </summary>
+    private int ReorderCustomExports( List<int> Sources, int InsertBefore )
+    {
+      var reordered = new List<Formats.MapProject.CustomExport>( m_MapProject.CustomExports );
+      int newFirst = MoveListItems( reordered, Sources, InsertBefore );
+      bool changed = false;
+      for ( int i = 0; i < reordered.Count; ++i )
+      {
+        if ( !ReferenceEquals( reordered[i], m_MapProject.CustomExports[i] ) )
+        {
+          changed = true;
+          break;
+        }
+      }
+      if ( !changed )
+      {
+        return -1;
+      }
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapCustomExportsChange( this, m_MapProject, SelectedCustomExportID ) );
+      m_MapProject.CustomExports.Clear();
+      m_MapProject.CustomExports.AddRange( reordered );
+      RefreshCustomExportList( -1 );
+      SetModified();
+      return newFirst;
+    }
+
+
+
+    // -------- Undo routing for the text fields --------
+    //
+    // While a text field of this tab owns the keyboard, Ctrl+Z / Ctrl+Y are
+    // that field's own undo - never the map's history (MainForm gates
+    // Ctrl+Z on UndoPossible before calling Undo(), so all six virtuals
+    // branch, like the outline routing below).
+
+    private bool CustomExportTextFieldFocused()
+    {
+      return ( tabMapEditor != null )
+          && ( tabMapEditor.SelectedPage == tabCustomExports )
+          && ( memoCustomExportContent.EditorFocused || ( FocusedCustomExportTextBox() != null ) );
+    }
+
+
+
+    private TextBox FocusedCustomExportTextBox()
+    {
+      foreach ( var field in CustomExportTextFields() )
+      {
+        var box = field as TextBox;
+        if ( ( box != null )
+        &&   box.Focused )
+        {
+          return box;
+        }
+      }
+      return null;
+    }
+
+
+
+    private bool CustomExportFocusedCanUndo()
+    {
+      if ( memoCustomExportContent.EditorFocused )
+      {
+        return memoCustomExportContent.CanUndo;
+      }
+      var box = FocusedCustomExportTextBox();
+      return ( box != null ) && box.CanUndo;
+    }
+
+
+
+    private void CustomExportFocusedUndo()
+    {
+      if ( memoCustomExportContent.EditorFocused )
+      {
+        memoCustomExportContent.Undo();
+      }
+      else
+      {
+        var box = FocusedCustomExportTextBox();
+        if ( box != null )
+        {
+          box.Undo();
+        }
+      }
+      Core.MainForm.UpdateUndoSettings();
+    }
+
+
+
     // ---- Outline undo routing --------------------------------------------
     // All six BaseDocument virtuals branch to the outline stack while the
     // outline face is showing. Overriding only Undo()/Redo() would NOT be
@@ -25779,6 +26559,10 @@ namespace RetroDevStudio.Documents
     {
       get
       {
+        if ( CustomExportTextFieldFocused() )
+        {
+          return CustomExportFocusedCanUndo();
+        }
         if ( OutlineModeActive )
         {
           var stack = CurrentOutlineUndoStack( false );
@@ -25794,6 +26578,10 @@ namespace RetroDevStudio.Documents
     {
       get
       {
+        if ( CustomExportTextFieldFocused() )
+        {
+          return memoCustomExportContent.EditorFocused && memoCustomExportContent.CanRedo;
+        }
         if ( OutlineModeActive )
         {
           var stack = CurrentOutlineUndoStack( false );
@@ -25809,6 +26597,10 @@ namespace RetroDevStudio.Documents
     {
       get
       {
+        if ( CustomExportTextFieldFocused() )
+        {
+          return "Undo typing";
+        }
         if ( OutlineModeActive )
         {
           var stack = CurrentOutlineUndoStack( false );
@@ -25824,6 +26616,10 @@ namespace RetroDevStudio.Documents
     {
       get
       {
+        if ( CustomExportTextFieldFocused() )
+        {
+          return "Redo typing";
+        }
         if ( OutlineModeActive )
         {
           var stack = CurrentOutlineUndoStack( false );
@@ -25837,6 +26633,11 @@ namespace RetroDevStudio.Documents
 
     public override void Undo()
     {
+      if ( CustomExportTextFieldFocused() )
+      {
+        CustomExportFocusedUndo();
+        return;
+      }
       if ( OutlineModeActive )
       {
         // Classic text-box behavior: with a pending edit open (typed but
@@ -25863,6 +26664,15 @@ namespace RetroDevStudio.Documents
 
     public override void Redo()
     {
+      if ( CustomExportTextFieldFocused() )
+      {
+        if ( memoCustomExportContent.EditorFocused )
+        {
+          memoCustomExportContent.Redo();
+          Core.MainForm.UpdateUndoSettings();
+        }
+        return;
+      }
       if ( OutlineModeActive )
       {
         if ( outlineCanvas.ToolHasPendingEdit )

@@ -54,7 +54,11 @@ namespace RetroDevStudio
           return focusedControl is ComboBox;
         case FocusControlReason.COPY_PASTE:
         default:
-          return focusedControl is TextBoxBase;
+          // The source editor control is a text editor too (it derives from
+          // UserControl, not TextBoxBase): letters, Delete and the clipboard
+          // chords typed into it are its own, never a document shortcut.
+          return ( focusedControl is TextBoxBase )
+              || ( focusedControl is FastColoredTextBoxNS.FastColoredTextBox );
       }
     }
 

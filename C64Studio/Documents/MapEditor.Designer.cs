@@ -60,6 +60,29 @@
             columnHeaderMarkerTag = new System.Windows.Forms.ColumnHeader();
             columnHeaderMarkerSymbol = new System.Windows.Forms.ColumnHeader();
             checkMarkerAutoDisableGroup = new System.Windows.Forms.CheckBox();
+            tabCustomExports = new Krypton.Navigator.KryptonPage();
+            listCustomExports = new RetroDevStudio.Controls.CSListView();
+            columnHeaderCustomExportName = new System.Windows.Forms.ColumnHeader();
+            columnHeaderCustomExportActive = new System.Windows.Forms.ColumnHeader();
+            columnHeaderCustomExportFile = new System.Windows.Forms.ColumnHeader();
+            btnCustomExportAdd = new DecentForms.Button();
+            btnCustomExportDelete = new DecentForms.Button();
+            btnCustomExportClear = new DecentForms.Button();
+            labelCustomExportName = new System.Windows.Forms.Label();
+            editCustomExportName = new System.Windows.Forms.TextBox();
+            checkCustomExportActive = new System.Windows.Forms.CheckBox();
+            labelCustomExportDirectory = new System.Windows.Forms.Label();
+            editCustomExportDirectory = new System.Windows.Forms.TextBox();
+            btnCustomExportBrowseDirectory = new System.Windows.Forms.Button();
+            labelCustomExportFileName = new System.Windows.Forms.Label();
+            editCustomExportFileName = new System.Windows.Forms.TextBox();
+            labelCustomExportHint = new System.Windows.Forms.Label();
+            labelCustomExportDescription = new System.Windows.Forms.Label();
+            editCustomExportDescription = new System.Windows.Forms.TextBox();
+            labelCustomExportContent = new System.Windows.Forms.Label();
+            btnCustomExportFields = new DecentForms.Button();
+            btnCustomExportPreview = new DecentForms.Button();
+            memoCustomExportContent = new RetroDevStudio.Controls.TemplateMemo();
             tabMapStrings = new Krypton.Navigator.KryptonPage();
             listMapStrings = new RetroDevStudio.Controls.CSListView();
             columnHeaderMapStringID = new System.Windows.Forms.ColumnHeader();
@@ -512,6 +535,8 @@
             ((System.ComponentModel.ISupportInitialize)tabMarkers).BeginInit();
             tabMarkers.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)editMarkerTagID).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)tabCustomExports).BeginInit();
+            tabCustomExports.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)tabMapStrings).BeginInit();
             tabMapStrings.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)editMapStringID).BeginInit();
@@ -4908,7 +4933,7 @@
             tabMapEditor.NavigatorMode = Krypton.Navigator.NavigatorMode.BarTabGroup;
             tabMapEditor.Owner = null;
             tabMapEditor.PageBackStyle = Krypton.Toolkit.PaletteBackStyle.PanelClient;
-            tabMapEditor.Pages.AddRange(new Krypton.Navigator.KryptonPage[] { tabEditor, tabTiles, tabCharset, tabExport, tabImport, tabMapStrings, tabMarkers, tabEntities });
+            tabMapEditor.Pages.AddRange(new Krypton.Navigator.KryptonPage[] { tabEditor, tabTiles, tabCharset, tabExport, tabCustomExports, tabImport, tabMapStrings, tabMarkers, tabEntities });
             tabMapEditor.SelectedIndex = 0;
             tabMapEditor.Size = new System.Drawing.Size(1953, 910);
             tabMapEditor.TabIndex = 0;
@@ -5649,9 +5674,270 @@
             btnCharsetClearUnused.Text = "Clear unused characters";
             toolTip1.SetToolTip(btnCharsetClearUnused, "Blanks every character of this character set that no tile used on its linked maps draws (every layer, scratch workspaces included). Asks for confirmation. One undo step.");
             btnCharsetClearUnused.Click += btnCharsetClearUnused_Click;
-            // 
+            //
+            // tabCustomExports
+            //
+            tabCustomExports.AutoHiddenSlideSize = new System.Drawing.Size(200, 200);
+            tabCustomExports.Controls.Add(listCustomExports);
+            tabCustomExports.Controls.Add(btnCustomExportAdd);
+            tabCustomExports.Controls.Add(btnCustomExportDelete);
+            tabCustomExports.Controls.Add(btnCustomExportClear);
+            tabCustomExports.Controls.Add(labelCustomExportName);
+            tabCustomExports.Controls.Add(editCustomExportName);
+            tabCustomExports.Controls.Add(checkCustomExportActive);
+            tabCustomExports.Controls.Add(labelCustomExportDirectory);
+            tabCustomExports.Controls.Add(editCustomExportDirectory);
+            tabCustomExports.Controls.Add(btnCustomExportBrowseDirectory);
+            tabCustomExports.Controls.Add(labelCustomExportFileName);
+            tabCustomExports.Controls.Add(editCustomExportFileName);
+            tabCustomExports.Controls.Add(labelCustomExportHint);
+            tabCustomExports.Controls.Add(labelCustomExportDescription);
+            tabCustomExports.Controls.Add(editCustomExportDescription);
+            tabCustomExports.Controls.Add(labelCustomExportContent);
+            tabCustomExports.Controls.Add(btnCustomExportFields);
+            tabCustomExports.Controls.Add(btnCustomExportPreview);
+            tabCustomExports.Controls.Add(memoCustomExportContent);
+            tabCustomExports.Flags = 65534;
+            tabCustomExports.LastVisibleSet = true;
+            tabCustomExports.MinimumSize = new System.Drawing.Size(150, 50);
+            tabCustomExports.Name = "tabCustomExports";
+            tabCustomExports.Padding = new System.Windows.Forms.Padding(3);
+            tabCustomExports.Size = new System.Drawing.Size(1668, 883);
+            tabCustomExports.Text = "Custom Exports";
+            tabCustomExports.ToolTipTitle = "Page ToolTip";
+            tabCustomExports.UniqueName = "5d0c7a1e9b2f4c3d8e6a1b0c9d2e3f47";
+            //
+            // listCustomExports
+            //
+            listCustomExports.AllowDrop = true;
+            listCustomExports.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
+            listCustomExports.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] { columnHeaderCustomExportName, columnHeaderCustomExportActive, columnHeaderCustomExportFile });
+            listCustomExports.FullRowSelect = true;
+            listCustomExports.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
+            listCustomExports.HideSelection = false;
+            listCustomExports.Location = new System.Drawing.Point(8, 8);
+            listCustomExports.MultiSelect = true;
+            listCustomExports.Name = "listCustomExports";
+            listCustomExports.Size = new System.Drawing.Size(312, 820);
+            listCustomExports.TabIndex = 0;
+            listCustomExports.UseCompatibleStateImageBehavior = false;
+            listCustomExports.View = System.Windows.Forms.View.Details;
+            listCustomExports.SelectedIndexChanged += listCustomExports_SelectedIndexChanged;
+            listCustomExports.ItemDrag += listCustomExports_ItemDrag;
+            listCustomExports.DragDrop += listCustomExports_DragDrop;
+            listCustomExports.DragEnter += listCustomExports_DragEnter;
+            listCustomExports.DragOver += listCustomExports_DragOver;
+            listCustomExports.DragLeave += listCustomExports_DragLeave;
+            //
+            // columnHeaderCustomExportName
+            //
+            columnHeaderCustomExportName.Text = "Name";
+            columnHeaderCustomExportName.Width = 160;
+            //
+            // columnHeaderCustomExportActive
+            //
+            columnHeaderCustomExportActive.Text = "Active";
+            columnHeaderCustomExportActive.Width = 50;
+            //
+            // columnHeaderCustomExportFile
+            //
+            columnHeaderCustomExportFile.Text = "File";
+            columnHeaderCustomExportFile.Width = 96;
+            //
+            // btnCustomExportAdd
+            //
+            btnCustomExportAdd.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnCustomExportAdd.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
+            btnCustomExportAdd.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnCustomExportAdd.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnCustomExportAdd.Image = null;
+            btnCustomExportAdd.Location = new System.Drawing.Point(8, 836);
+            btnCustomExportAdd.Name = "btnCustomExportAdd";
+            btnCustomExportAdd.Size = new System.Drawing.Size(100, 23);
+            btnCustomExportAdd.TabIndex = 1;
+            btnCustomExportAdd.Text = "Add";
+            btnCustomExportAdd.Click += btnCustomExportAdd_Click;
+            //
+            // btnCustomExportDelete
+            //
+            btnCustomExportDelete.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnCustomExportDelete.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
+            btnCustomExportDelete.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnCustomExportDelete.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnCustomExportDelete.Image = null;
+            btnCustomExportDelete.Location = new System.Drawing.Point(112, 836);
+            btnCustomExportDelete.Name = "btnCustomExportDelete";
+            btnCustomExportDelete.Size = new System.Drawing.Size(100, 23);
+            btnCustomExportDelete.TabIndex = 2;
+            btnCustomExportDelete.Text = "Delete";
+            btnCustomExportDelete.Click += btnCustomExportDelete_Click;
+            //
+            // btnCustomExportClear
+            //
+            btnCustomExportClear.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnCustomExportClear.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
+            btnCustomExportClear.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnCustomExportClear.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnCustomExportClear.Image = null;
+            btnCustomExportClear.Location = new System.Drawing.Point(216, 836);
+            btnCustomExportClear.Name = "btnCustomExportClear";
+            btnCustomExportClear.Size = new System.Drawing.Size(104, 23);
+            btnCustomExportClear.TabIndex = 3;
+            btnCustomExportClear.Text = "Clear";
+            btnCustomExportClear.Click += btnCustomExportClear_Click;
+            //
+            // labelCustomExportName
+            //
+            labelCustomExportName.AutoSize = true;
+            labelCustomExportName.Location = new System.Drawing.Point(332, 11);
+            labelCustomExportName.Name = "labelCustomExportName";
+            labelCustomExportName.Size = new System.Drawing.Size(38, 13);
+            labelCustomExportName.TabIndex = 20;
+            labelCustomExportName.Text = "Name:";
+            //
+            // editCustomExportName
+            //
+            editCustomExportName.Location = new System.Drawing.Point(420, 8);
+            editCustomExportName.Name = "editCustomExportName";
+            editCustomExportName.Size = new System.Drawing.Size(500, 20);
+            editCustomExportName.TabIndex = 4;
+            toolTip1.SetToolTip(editCustomExportName, "Free to change - the definition is identified by its ID, never by its name.");
+            //
+            // checkCustomExportActive
+            //
+            checkCustomExportActive.AutoSize = true;
+            checkCustomExportActive.Location = new System.Drawing.Point(940, 10);
+            checkCustomExportActive.Name = "checkCustomExportActive";
+            checkCustomExportActive.Size = new System.Drawing.Size(56, 17);
+            checkCustomExportActive.TabIndex = 5;
+            checkCustomExportActive.Text = "Active";
+            checkCustomExportActive.UseVisualStyleBackColor = true;
+            toolTip1.SetToolTip(checkCustomExportActive, "Only active definitions are written by the game-binary export.");
+            //
+            // labelCustomExportDirectory
+            //
+            labelCustomExportDirectory.AutoSize = true;
+            labelCustomExportDirectory.Location = new System.Drawing.Point(332, 37);
+            labelCustomExportDirectory.Name = "labelCustomExportDirectory";
+            labelCustomExportDirectory.Size = new System.Drawing.Size(52, 13);
+            labelCustomExportDirectory.TabIndex = 21;
+            labelCustomExportDirectory.Text = "Directory:";
+            //
+            // editCustomExportDirectory
+            //
+            editCustomExportDirectory.Location = new System.Drawing.Point(420, 34);
+            editCustomExportDirectory.Name = "editCustomExportDirectory";
+            editCustomExportDirectory.Size = new System.Drawing.Size(500, 20);
+            editCustomExportDirectory.TabIndex = 6;
+            toolTip1.SetToolTip(editCustomExportDirectory, "Blank = the map export folder; a relative path = from the project file's folder; a full path as is.");
+            //
+            // btnCustomExportBrowseDirectory
+            //
+            btnCustomExportBrowseDirectory.Location = new System.Drawing.Point(926, 33);
+            btnCustomExportBrowseDirectory.Name = "btnCustomExportBrowseDirectory";
+            btnCustomExportBrowseDirectory.Size = new System.Drawing.Size(30, 22);
+            btnCustomExportBrowseDirectory.TabIndex = 7;
+            btnCustomExportBrowseDirectory.Text = "...";
+            btnCustomExportBrowseDirectory.UseVisualStyleBackColor = true;
+            btnCustomExportBrowseDirectory.Click += btnCustomExportBrowseDirectory_Click;
+            //
+            // labelCustomExportFileName
+            //
+            labelCustomExportFileName.AutoSize = true;
+            labelCustomExportFileName.Location = new System.Drawing.Point(332, 63);
+            labelCustomExportFileName.Name = "labelCustomExportFileName";
+            labelCustomExportFileName.Size = new System.Drawing.Size(55, 13);
+            labelCustomExportFileName.TabIndex = 22;
+            labelCustomExportFileName.Text = "File name:";
+            //
+            // editCustomExportFileName
+            //
+            editCustomExportFileName.Location = new System.Drawing.Point(420, 60);
+            editCustomExportFileName.Name = "editCustomExportFileName";
+            editCustomExportFileName.Size = new System.Drawing.Size(500, 20);
+            editCustomExportFileName.TabIndex = 8;
+            toolTip1.SetToolTip(editCustomExportFileName, "The file written into the directory (no folder here).");
+            //
+            // labelCustomExportHint
+            //
+            labelCustomExportHint.AutoSize = true;
+            labelCustomExportHint.Location = new System.Drawing.Point(332, 86);
+            labelCustomExportHint.Name = "labelCustomExportHint";
+            labelCustomExportHint.Size = new System.Drawing.Size(700, 13);
+            labelCustomExportHint.TabIndex = 23;
+            labelCustomExportHint.Text = "Active definitions are written by the 'as game binary' export, after its files - every index, label and file name a template prints is the exported one.";
+            //
+            // labelCustomExportDescription
+            //
+            labelCustomExportDescription.AutoSize = true;
+            labelCustomExportDescription.Location = new System.Drawing.Point(332, 108);
+            labelCustomExportDescription.Name = "labelCustomExportDescription";
+            labelCustomExportDescription.Size = new System.Drawing.Size(63, 13);
+            labelCustomExportDescription.TabIndex = 24;
+            labelCustomExportDescription.Text = "Description:";
+            //
+            // editCustomExportDescription
+            //
+            editCustomExportDescription.AcceptsReturn = true;
+            editCustomExportDescription.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
+            editCustomExportDescription.Location = new System.Drawing.Point(332, 124);
+            editCustomExportDescription.MaxLength = 1000000;
+            editCustomExportDescription.Multiline = true;
+            editCustomExportDescription.Name = "editCustomExportDescription";
+            editCustomExportDescription.ScrollBars = System.Windows.Forms.ScrollBars.Both;
+            editCustomExportDescription.Size = new System.Drawing.Size(1320, 90);
+            editCustomExportDescription.TabIndex = 9;
+            editCustomExportDescription.WordWrap = false;
+            //
+            // labelCustomExportContent
+            //
+            labelCustomExportContent.AutoSize = true;
+            labelCustomExportContent.Location = new System.Drawing.Point(332, 222);
+            labelCustomExportContent.Name = "labelCustomExportContent";
+            labelCustomExportContent.Size = new System.Drawing.Size(101, 13);
+            labelCustomExportContent.TabIndex = 25;
+            labelCustomExportContent.Text = "Content (template):";
+            //
+            // btnCustomExportFields
+            //
+            btnCustomExportFields.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnCustomExportFields.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
+            btnCustomExportFields.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnCustomExportFields.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnCustomExportFields.Image = null;
+            btnCustomExportFields.Location = new System.Drawing.Point(1444, 218);
+            btnCustomExportFields.Name = "btnCustomExportFields";
+            btnCustomExportFields.Size = new System.Drawing.Size(100, 23);
+            btnCustomExportFields.TabIndex = 11;
+            btnCustomExportFields.Text = "Fields...";
+            toolTip1.SetToolTip(btnCustomExportFields, "The template syntax and every field a template can use, with Insert.");
+            btnCustomExportFields.Click += btnCustomExportFields_Click;
+            //
+            // btnCustomExportPreview
+            //
+            btnCustomExportPreview.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            btnCustomExportPreview.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
+            btnCustomExportPreview.BorderStyle = DecentForms.BorderStyle.FLAT;
+            btnCustomExportPreview.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            btnCustomExportPreview.Image = null;
+            btnCustomExportPreview.Location = new System.Drawing.Point(1552, 218);
+            btnCustomExportPreview.Name = "btnCustomExportPreview";
+            btnCustomExportPreview.Size = new System.Drawing.Size(100, 23);
+            btnCustomExportPreview.TabIndex = 12;
+            btnCustomExportPreview.Text = "Preview...";
+            toolTip1.SetToolTip(btnCustomExportPreview, "Renders this definition against a dry run of the game-binary export (nothing written) - with Save for just this file.");
+            btnCustomExportPreview.Click += btnCustomExportPreview_Click;
+            //
+            // memoCustomExportContent
+            //
+            memoCustomExportContent.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
+            memoCustomExportContent.Location = new System.Drawing.Point(332, 246);
+            memoCustomExportContent.Name = "memoCustomExportContent";
+            memoCustomExportContent.Size = new System.Drawing.Size(1320, 630);
+            memoCustomExportContent.TabIndex = 10;
+            //
             // tabExport
-            // 
+            //
             tabExport.AutoHiddenSlideSize = new System.Drawing.Size(200, 200);
             tabExport.Controls.Add(label5);
             tabExport.Controls.Add(comboExportOrientation);
@@ -5978,6 +6264,9 @@
             ((System.ComponentModel.ISupportInitialize)tabMapStrings).EndInit();
             tabMapStrings.ResumeLayout(false);
             tabMapStrings.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)tabCustomExports).EndInit();
+            tabCustomExports.ResumeLayout(false);
+            tabCustomExports.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)editMapStringID).EndInit();
             ((System.ComponentModel.ISupportInitialize)editMapStringTextAreaWidth).EndInit();
             ((System.ComponentModel.ISupportInitialize)editMapStringLowercase).EndInit();
@@ -6382,6 +6671,29 @@
         private System.Windows.Forms.ToolStripMenuItem brightnessTablesToolStripMenuItem;
         private Krypton.Navigator.KryptonPage tabMarkers;
         private Krypton.Navigator.KryptonPage tabEntities;
+        private Krypton.Navigator.KryptonPage tabCustomExports;
+        private RetroDevStudio.Controls.CSListView listCustomExports;
+        private System.Windows.Forms.ColumnHeader columnHeaderCustomExportName;
+        private System.Windows.Forms.ColumnHeader columnHeaderCustomExportActive;
+        private System.Windows.Forms.ColumnHeader columnHeaderCustomExportFile;
+        private DecentForms.Button btnCustomExportAdd;
+        private DecentForms.Button btnCustomExportDelete;
+        private DecentForms.Button btnCustomExportClear;
+        private System.Windows.Forms.Label labelCustomExportName;
+        private System.Windows.Forms.TextBox editCustomExportName;
+        private System.Windows.Forms.CheckBox checkCustomExportActive;
+        private System.Windows.Forms.Label labelCustomExportDirectory;
+        private System.Windows.Forms.TextBox editCustomExportDirectory;
+        private System.Windows.Forms.Button btnCustomExportBrowseDirectory;
+        private System.Windows.Forms.Label labelCustomExportFileName;
+        private System.Windows.Forms.TextBox editCustomExportFileName;
+        private System.Windows.Forms.Label labelCustomExportHint;
+        private System.Windows.Forms.Label labelCustomExportDescription;
+        private System.Windows.Forms.TextBox editCustomExportDescription;
+        private System.Windows.Forms.Label labelCustomExportContent;
+        private DecentForms.Button btnCustomExportFields;
+        private DecentForms.Button btnCustomExportPreview;
+        private RetroDevStudio.Controls.TemplateMemo memoCustomExportContent;
         private Krypton.Navigator.KryptonPage tabMapStrings;
         private RetroDevStudio.Controls.CSListView listMapStrings;
         private System.Windows.Forms.ColumnHeader columnHeaderMapStringID;

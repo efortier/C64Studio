@@ -271,6 +271,26 @@ namespace RetroDevStudio.Formats
       public byte            StringID           = 0;
     };
 
+    /// <summary>
+    /// One user-authored text export of the project (the "Custom Exports"
+    /// tab): a template in Content, rendered against the exported data at the
+    /// end of the game-binary export and written to Directory/FileName when
+    /// Active. ID is the definition's identity - the Name is free to change.
+    /// Directory: "" = the map export folder, relative = from the project
+    /// file's folder, rooted = as is. Description and Content hold CRLF line
+    /// endings (normalized on load). Persisted as MAP_CUSTOM_EXPORT.
+    /// </summary>
+    public class CustomExport
+    {
+      public int             ID                 = 0;
+      public string          Name               = "";
+      public bool            Active             = true;
+      public string          Directory          = "";
+      public string          FileName           = "";
+      public string          Description        = "";
+      public string          Content            = "";
+    };
+
     public class Tile
     {
       public GR.Game.Layer<TileChar> Chars = new GR.Game.Layer<TileChar>();
@@ -903,6 +923,8 @@ namespace RetroDevStudio.Formats
     public List<MarkerType>             MarkerTypes = new List<MarkerType>();
     public List<EntityType>             EntityTypes = new List<EntityType>();
     public List<MapString>              MapStrings = new List<MapString>();
+    /// <summary>The custom text exports in list order (see CustomExport).</summary>
+    public List<CustomExport>           CustomExports = new List<CustomExport>();
     public List<Map>                    Maps = new List<Map>();
 
     public string                       ExternalCharset = "";
@@ -1135,6 +1157,7 @@ namespace RetroDevStudio.Formats
       ResetCharsetsToSingleDefault();
       Maps.Clear();
       MapStrings.Clear();
+      CustomExports.Clear();
       ExternalCharset = "";
       CharactersPerRow = 16;
       CharacterEditorMode = 1;
@@ -1148,6 +1171,45 @@ namespace RetroDevStudio.Formats
       MemoFontFamily = "";
       MemoFontSize = 9;
       Settings = new ExportSettings();
+    }
+
+
+
+    /// <summary>
+    /// Appends a new custom export named Name with the next ID (the highest
+    /// existing one + 1, so the first is 1) and returns it. Nothing refers to
+    /// these IDs, so an ID freed by deleting the newest definition is handed
+    /// out again.
+    /// </summary>
+    public CustomExport AddCustomExport( string Name )
+    {
+      int highest = 0;
+      foreach ( var export in CustomExports )
+      {
+        if ( export.ID > highest )
+        {
+          highest = export.ID;
+        }
+      }
+      var result = new CustomExport() { ID = highest + 1, Name = Name ?? "" };
+      CustomExports.Add( result );
+      return result;
+    }
+
+
+
+    /// <summary>
+    /// Every line break (CRLF, lone CR, lone LF) as CRLF - the canonical form
+    /// of the custom export memos, so what the text boxes hold, what is saved
+    /// and what a template renders never differ by line endings alone.
+    /// </summary>
+    public static string NormalizeLineEndings( string Text )
+    {
+      if ( string.IsNullOrEmpty( Text ) )
+      {
+        return "";
+      }
+      return System.Text.RegularExpressions.Regex.Replace( Text, "\r\n|\r|\n", "\r\n" );
     }
 
 
@@ -2154,6 +2216,25 @@ namespace RetroDevStudio.Formats
         chunkProjectData.Append( chunkMapString.ToBuffer() );
       }
 
+      // Custom text exports, one chunk each in list order. Written here, inside
+      // MAP_PROJECT_DATA, so the export-settings chunk stays the file's last
+      // chunk. No definitions = no chunks (a file without them is byte-identical
+      // to one saved before the feature). Strings are UTF-8 with a byte-length
+      // prefix - templates may hold any character.
+      foreach ( var export in CustomExports )
+      {
+        GR.IO.FileChunk chunkExport = new GR.IO.FileChunk( FileChunkConstants.MAP_CUSTOM_EXPORT );
+        chunkExport.AppendI32( export.ID );
+        chunkExport.AppendU8( export.Active ? (byte)1 : (byte)0 );
+        Util.AppendStringUTF8( chunkExport, export.Name );
+        Util.AppendStringUTF8( chunkExport, export.Directory );
+        Util.AppendStringUTF8( chunkExport, export.FileName );
+        Util.AppendStringUTF8( chunkExport, export.Description );
+        Util.AppendStringUTF8( chunkExport, export.Content );
+        // New fields go AFTER Content, read with a position guard.
+        chunkProjectData.Append( chunkExport.ToBuffer() );
+      }
+
       // Charset 0's tiles keep their historical place inside MAP_PROJECT_DATA.
       foreach ( Tile tile in Charsets[0].Tiles )
       {
@@ -2891,6 +2972,24 @@ namespace RetroDevStudio.Formats
                       // Chunk reads are size-bounded, so the leftover byte in
                       // files saved by those builds is simply ignored.)
                       MapStrings.Add( ms );
+                    }
+                    break;
+                  case FileChunkConstants.MAP_CUSTOM_EXPORT:
+                    {
+                      // Layout: see FileChunkConstants.MAP_CUSTOM_EXPORT. A string
+                      // cut off by a shorter (older) chunk reads as "" - the
+                      // UTF-8 reader is size-bounded like ReadString.
+                      var export = new CustomExport();
+                      export.ID          = subChunkReader.ReadInt32();
+                      export.Active      = ( subChunkReader.ReadUInt8() != 0 );
+                      export.Name        = Util.ReadStringUTF8( subChunkReader );
+                      export.Directory   = Util.ReadStringUTF8( subChunkReader );
+                      export.FileName    = Util.ReadStringUTF8( subChunkReader );
+                      export.Description = NormalizeLineEndings( Util.ReadStringUTF8( subChunkReader ) );
+                      export.Content     = NormalizeLineEndings( Util.ReadStringUTF8( subChunkReader ) );
+                      // Fields appended after Content are read here with
+                      // "if ( subChunkReader.Position < subChunkReader.Size )".
+                      CustomExports.Add( export );
                     }
                     break;
                   case FileChunkConstants.MAP_TILE:
@@ -4016,7 +4115,12 @@ namespace RetroDevStudio.Formats
 
 
 
-    private string NormalizeAsLabel( string Label )
+    /// <summary>
+    /// Label as an identifier: diacritics stripped, every other character
+    /// that is not a letter, digit or underscore replaced by "_". The one
+    /// sanitizer behind every exported label (sidecars, custom exports).
+    /// </summary>
+    public static string NormalizeAsLabel( string Label )
     {
       StringBuilder   sb = new StringBuilder();
 
@@ -4768,7 +4872,7 @@ namespace RetroDevStudio.Formats
 
 
 
-    private static string ExportNameWithoutExtension( string ExportName )
+    public static string ExportNameWithoutExtension( string ExportName )
     {
       if ( string.IsNullOrWhiteSpace( ExportName ) )
       {
@@ -4782,6 +4886,54 @@ namespace RetroDevStudio.Formats
       {
         return ExportName.Trim();
       }
+    }
+
+
+
+    /// <summary>
+    /// The CHARSET_INDEX_ label of every export-enabled charset that has an
+    /// export name, de-duplicated with _2, _3 ... in compacted order - exactly
+    /// what map_charsets.asm emits (it iterates this). Charsets without an
+    /// export name or not enabled for export are absent.
+    /// </summary>
+    public Dictionary<MapCharset, string> CharsetIndexLabels()
+    {
+      var result = new Dictionary<MapCharset, string>();
+      var usedLabels = new Dictionary<string, int>();
+      foreach ( var cs in ExportedCharsets() )
+      {
+        string baseName = ExportNameWithoutExtension( cs.ExportName );
+        if ( string.IsNullOrEmpty( baseName ) )
+        {
+          continue;
+        }
+        result[cs] = UniqueLabel( usedLabels, NormalizeAsLabel( baseName ).ToUpper() );
+      }
+      return result;
+    }
+
+
+
+    /// <summary>
+    /// The MAP_ID_ label of every exported map whose name normalizes to
+    /// something, de-duplicated with _2, _3 ... in exported order - exactly
+    /// what map_names.asm emits (it iterates this). Maps not exported or
+    /// without a usable name are absent.
+    /// </summary>
+    public Dictionary<Map, string> MapIdLabels()
+    {
+      var result = new Dictionary<Map, string>();
+      var usedLabels = new Dictionary<string, int>();
+      foreach ( var map in ExportedMaps() )
+      {
+        string label = NormalizeAsLabel( map.Name ?? "" ).ToUpper();
+        if ( string.IsNullOrEmpty( label ) )
+        {
+          continue;
+        }
+        result[map] = UniqueLabel( usedLabels, label );
+      }
+      return result;
     }
 
 
@@ -4808,17 +4960,16 @@ namespace RetroDevStudio.Formats
       {
         sb.AppendLine( "// (no character set is enabled for export)" );
       }
-      var usedLabels = new Dictionary<string, int>();
+      var labels = CharsetIndexLabels();
       for ( int i = 0; i < exported.Count; ++i )
       {
         var cs = exported[i];
-        string baseName = ExportNameWithoutExtension( cs.ExportName );
-        if ( string.IsNullOrEmpty( baseName ) )
+        string label;
+        if ( !labels.TryGetValue( cs, out label ) )
         {
           sb.AppendLine( "// index " + i + ": '" + CharsetDisplayNameOf( cs ) + "' has no export name — reference it by raw index." );
           continue;
         }
-        string label = UniqueLabel( usedLabels, NormalizeAsLabel( baseName ).ToUpper() );
         sb.AppendLine( ".const CHARSET_INDEX_" + label.PadRight( 32 ) + " = " + i + "  // " + CharsetDisplayNameOf( cs ) );
       }
       bool anyDisabled = false;
@@ -4861,16 +5012,15 @@ namespace RetroDevStudio.Formats
       {
         sb.AppendLine( "// (no map is exported)" );
       }
-      var usedLabels = new Dictionary<string, int>();
+      var labels = MapIdLabels();
       foreach ( var map in exported )
       {
-        string label = NormalizeAsLabel( map.Name ?? "" ).ToUpper();
-        if ( string.IsNullOrEmpty( label ) )
+        string label;
+        if ( !labels.TryGetValue( map, out label ) )
         {
           sb.AppendLine( "// map ID " + map.MapID + ": (no map name) — reference it by raw ID." );
           continue;
         }
-        label = UniqueLabel( usedLabels, label );
         sb.AppendLine( ".const MAP_ID_" + label.PadRight( 32 ) + " = " + map.MapID + "  // " + map.Name );
       }
       var start = StartMapForExport();
@@ -5038,8 +5188,12 @@ namespace RetroDevStudio.Formats
     /// </summary>
     private GR.Memory.ByteBuffer BuildGameBinary( List<Map> exportMaps, int startMapExportIndex, List<MapCharset> exportCharsets,
                                                   List<MapString> emittableStrings,
-                                                  bool ExportMarkers, bool ExportColors, bool ExportPassable, List<string> Errors )
+                                                  bool ExportMarkers, bool ExportColors, bool ExportPassable, List<string> Errors,
+                                                  GameBinaryLayout Capture = null )
     {
+      // Capture (optional) is filled at the very points the values are
+      // written - the custom text exports read the exported data from it.
+      // It never changes a byte of the binary.
       var buf = new GR.Memory.ByteBuffer();
 
       // Every pointer written below is a FILE-RELATIVE OFFSET — the distance in
@@ -5155,6 +5309,11 @@ namespace RetroDevStudio.Formats
         buf.AppendU16( section.TileColorOffHi );
       }
       System.Diagnostics.Debug.Assert( CHARSET_RECORD_SIZE == 15 );
+      if ( Capture != null )
+      {
+        Capture.TileCount              = ( sections.Count > 0 ) ? sections[0].TileCount : 0;
+        Capture.CharsetDirectoryOffset = buf.UInt16At( HDR_CHARSET_DIRECTORY );
+      }
 
       // ========== MAP METADATA ARRAYS ==========
 
@@ -5298,6 +5457,25 @@ namespace RetroDevStudio.Formats
         int ew = exportWidths[m];
         int eh = exportHeights[m];
 
+        GameBinaryMapLayout mapLayout = null;
+        if ( Capture != null )
+        {
+          // The colours and the charset index are read back from the tables
+          // written above, so the capture holds the bytes, not a formula.
+          mapLayout = new GameBinaryMapLayout()
+          {
+            Map             = map,
+            ExportIndex     = m,
+            Width           = ew,
+            Height          = eh,
+            BackgroundColor = buf.ByteAt( buf.UInt16At( HDR_MAP_BG_COLOR ) + m ),
+            MultiColor1     = buf.ByteAt( buf.UInt16At( HDR_MAP_MC1_COLOR ) + m ),
+            MultiColor2     = buf.ByteAt( buf.UInt16At( HDR_MAP_MC2_COLOR ) + m ),
+            CharsetIndex    = buf.ByteAt( buf.UInt16At( HDR_MAP_CHARSET_INDEX ) + m )
+          };
+          Capture.Maps.Add( mapLayout );
+        }
+
         // Build char grid and color grid
         var charGrid = new byte[ew * eh];
         var colorGrid = new byte[ew * eh];
@@ -5345,6 +5523,10 @@ namespace RetroDevStudio.Formats
 
         // Write char grid, patch lookup table
         int charGridAddr = (int)buf.Length;
+        if ( mapLayout != null )
+        {
+          mapLayout.CharGridOffset = charGridAddr;
+        }
         buf.SetU8At( mapCharGridLoPos + m, (byte)( charGridAddr & 0xFF ) );
         buf.SetU8At( mapCharGridHiPos + m, (byte)( ( charGridAddr >> 8 ) & 0xFF ) );
         for ( int i = 0; i < charGrid.Length; ++i )
@@ -5354,6 +5536,10 @@ namespace RetroDevStudio.Formats
         if ( ExportColors )
         {
           int colorGridAddr = (int)buf.Length;
+          if ( mapLayout != null )
+          {
+            mapLayout.ColorGridOffset = colorGridAddr;
+          }
           buf.SetU8At( mapColorGridLoPos + m, (byte)( colorGridAddr & 0xFF ) );
           buf.SetU8At( mapColorGridHiPos + m, (byte)( ( colorGridAddr >> 8 ) & 0xFF ) );
           for ( int i = 0; i < colorGrid.Length; ++i )
@@ -5364,6 +5550,10 @@ namespace RetroDevStudio.Formats
         if ( ExportPassable )
         {
           int passableAddr = (int)buf.Length;
+          if ( mapLayout != null )
+          {
+            mapLayout.PassableOffset = passableAddr;
+          }
           buf.SetU8At( mapPassableLoPos + m, (byte)( passableAddr & 0xFF ) );
           buf.SetU8At( mapPassableHiPos + m, (byte)( ( passableAddr >> 8 ) & 0xFF ) );
 
@@ -5434,6 +5624,10 @@ namespace RetroDevStudio.Formats
         if ( ExportMarkers )
         {
           int markersAddr = (int)buf.Length;
+          if ( mapLayout != null )
+          {
+            mapLayout.MarkersOffset = markersAddr;
+          }
           buf.SetU8At( mapMarkersLoPos + m, (byte)( markersAddr & 0xFF ) );
           buf.SetU8At( mapMarkersHiPos + m, (byte)( ( markersAddr >> 8 ) & 0xFF ) );
 
@@ -5484,6 +5678,18 @@ namespace RetroDevStudio.Formats
             // record offsets (tag..link_id) stay put for backward compatibility.
             buf.AppendU8( marker.Value3 );
             buf.AppendU8( marker.Value4 );
+            if ( mapLayout != null )
+            {
+              // The record just written: the expanded 1x1 marker, in sorted order.
+              mapLayout.Markers.Add( new GameBinaryMarkerRecord()
+              {
+                Index  = mapLayout.Markers.Count,
+                Offset = markersAddr + mapLayout.Markers.Count * 11,
+                Tag    = tagId,
+                Flags  = flags,
+                Marker = marker
+              } );
+            }
           }
         }
 
@@ -5491,6 +5697,10 @@ namespace RetroDevStudio.Formats
         if ( map.Entities.Count > 0 )
         {
           int entitiesAddr = (int)buf.Length;
+          if ( mapLayout != null )
+          {
+            mapLayout.EntitiesOffset = entitiesAddr;
+          }
           buf.SetU8At( mapEntitiesLoPos + m, (byte)( entitiesAddr & 0xFF ) );
           buf.SetU8At( mapEntitiesHiPos + m, (byte)( ( entitiesAddr >> 8 ) & 0xFF ) );
 
@@ -5538,6 +5748,17 @@ namespace RetroDevStudio.Formats
             buf.AppendU8( entity.Value2 );
             buf.AppendU8( (byte)( entity.Enabled ? 1 : 0 ) );
             buf.AppendU8( (byte)( entity.Triggered ? 1 : 0 ) );
+            if ( mapLayout != null )
+            {
+              mapLayout.Entities.Add( new GameBinaryEntityRecord()
+              {
+                Index  = entityIndex,
+                Offset = entitiesAddr + entityIndex * 9,
+                Tag    = tagId,
+                Tile   = tileIdx,
+                Entity = entity
+              } );
+            }
             ++entityIndex;
           }
         }
@@ -5602,6 +5823,16 @@ namespace RetroDevStudio.Formats
           buf.SetU8At( loTablePos + i, (byte)( streamAddr & 0xFF ) );
           buf.SetU8At( hiTablePos + i, (byte)( ( streamAddr >> 8 ) & 0xFF ) );
           buf.Append( streams[i] );
+          if ( Capture != null )
+          {
+            Capture.Strings.Add( new GameBinaryStringRecord()
+            {
+              Index  = i,
+              Offset = streamAddr,
+              Size   = (int)streams[i].Length,
+              String = emittableStrings[i]
+            } );
+          }
         }
 
         // Stash the count last — clamp at 255 because the field is one byte.
@@ -5620,6 +5851,10 @@ namespace RetroDevStudio.Formats
         Errors.Add( "the game binary is " + buf.Length + " bytes; every pointer in it is 16-bit, so it cannot exceed 65535 bytes" );
         return null;
       }
+      if ( Capture != null )
+      {
+        Capture.Length = (int)buf.Length;
+      }
       return buf;
     }
 
@@ -5634,7 +5869,8 @@ namespace RetroDevStudio.Formats
     /// are included, with their authored String IDs. Null on a hard error
     /// (Errors lists it).
     /// </summary>
-    public GR.Memory.ByteBuffer ExportMapAsGameBinary( Map Map, bool ExportMarkers, bool ExportColors, bool ExportPassable, out List<string> Errors )
+    public GR.Memory.ByteBuffer ExportMapAsGameBinary( Map Map, bool ExportMarkers, bool ExportColors, bool ExportPassable, out List<string> Errors,
+                                                       GameBinaryLayout Capture = null )
     {
       Errors = new List<string>();
       var charset = CharsetOf( Map );
@@ -5646,7 +5882,7 @@ namespace RetroDevStudio.Formats
       }
       var mapErrors = new List<string>();
       var buffer = BuildGameBinary( new List<Map>() { Map }, 0, new List<MapCharset>() { charset }, GetMapStringsForExport( Map ),
-                                    ExportMarkers, ExportColors, ExportPassable, mapErrors );
+                                    ExportMarkers, ExportColors, ExportPassable, mapErrors, Capture );
       foreach ( var error in mapErrors )
       {
         Errors.Add( "map '" + Map.Name + "': " + error );
@@ -5670,6 +5906,8 @@ namespace RetroDevStudio.Formats
       public string               CharsetFileName = "";
       /// <summary>The map's charset characters (CharacterData); null without a charset file.</summary>
       public GR.Memory.ByteBuffer CharsetData = null;
+      /// <summary>What was written into Data, record by record (one map, its own string table).</summary>
+      public GameBinaryLayout     Layout = null;
     }
 
 
@@ -5734,13 +5972,14 @@ namespace RetroDevStudio.Formats
       {
         var map = exportMaps[i];
         List<string> mapErrors;
-        var data = ExportMapAsGameBinary( map, ExportMarkers, ExportColors, ExportPassable, out mapErrors );
+        var layout = new GameBinaryLayout();
+        var data = ExportMapAsGameBinary( map, ExportMarkers, ExportColors, ExportPassable, out mapErrors, layout );
         if ( data == null )
         {
           Errors.AddRange( mapErrors );
           continue;
         }
-        var file = new GameBinaryMapFile() { MapID = map.MapID, Map = map, Data = data };
+        var file = new GameBinaryMapFile() { MapID = map.MapID, Map = map, Data = data, Layout = layout };
         string name;
         TryFormatFileNamePattern( MapFilePattern, map.MapID, out name, out error );
         file.FileName = name;

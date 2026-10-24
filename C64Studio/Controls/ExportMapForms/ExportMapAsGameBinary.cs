@@ -233,6 +233,12 @@ namespace RetroDevStudio.Controls
           }
         }
       }
+      // Custom text exports: every active definition is compiled NOW, so a
+      // broken template or file name aborts before anything is written, in
+      // the same box as a bad file name pattern.
+      List<string> customErrors;
+      var customJobs = RetroDevStudio.Formats.CustomExportRunner.Prepare( Info.Map.CustomExports, out customErrors );
+      errors.AddRange( customErrors );
       if ( ( files == null )
       ||   ( errors.Count > 0 ) )
       {
@@ -283,6 +289,28 @@ namespace RetroDevStudio.Controls
       int maxExportSize = 0;
       int.TryParse( editMaxExportSize.Text, out maxExportSize );
 
+      // Custom exports: their folders resolve now that the map folder is known
+      // (blank = the map folder, relative = from the project's folder). Two on
+      // one path, or one on a file this export writes, abort - nothing is
+      // written yet.
+      string documentFolder = DocumentFolderOf( DocInfo );
+      var reservedPaths = new List<string>();
+      foreach ( var file in files )
+      {
+        reservedPaths.Add( System.IO.Path.Combine( mapDir, file.FileName ) );
+        if ( file.CharsetData != null )
+        {
+          reservedPaths.Add( System.IO.Path.Combine( charsetDir ?? mapDir, file.CharsetFileName ) );
+        }
+      }
+      List<string> customPathErrors;
+      RetroDevStudio.Formats.CustomExportRunner.ResolveDirectories( customJobs, mapDir, documentFolder, reservedPaths, out customPathErrors );
+      if ( customPathErrors.Count > 0 )
+      {
+        ReportExportAborted( customPathErrors );
+        return false;
+      }
+
       // Every folder this export writes to: the missing ones are offered for
       // creation in one question, before anything is written.
       var folders = new List<string>() { mapDir };
@@ -312,6 +340,10 @@ namespace RetroDevStudio.Controls
       {
         folders.Add( SidecarDirectory( editMapStringsDirectory.Text, firstMapPath ) );
       }
+      foreach ( var job in customJobs )
+      {
+        folders.Add( job.Directory );
+      }
       if ( !EnsureExportDirectories( folders ) )
       {
         return false;
@@ -320,6 +352,28 @@ namespace RetroDevStudio.Controls
       var summary   = new StringBuilder();
       var fileLogs  = new StringBuilder();
       var oversized = new List<string>();
+
+      // What the custom exports get to see of this run: the settings now, the
+      // files as they are written below.
+      var write = new RetroDevStudio.Formats.MapExportWriteResult();
+      write.ProjectFilePath              = ( DocInfo != null ) ? ( DocInfo.FullPath ?? "" ) : "";
+      write.MapDirectory                 = mapDir;
+      write.CharsetDirectory             = charsetDir ?? mapDir;
+      write.CompressDirectory            = string.IsNullOrEmpty( editCompressDirectory.Text ) ? mapDir : editCompressDirectory.Text;
+      write.MapFilePattern               = mapPattern;
+      write.CharsetFilePattern           = charsetPattern;
+      write.CompressedFilePattern        = editCompressFilename.Text ?? "";
+      write.CharsetCompressedFilePattern = editCharsetCompressFilename.Text ?? "";
+      write.LoadAddress                  = checkPrefixLoadAddress.Checked ? GR.Convert.ToU16( editPrefixLoadAddress.Text, 16 ) : -1;
+      write.CharsetLoadAddress           = charsetPrefix ? charsetLoadAddress : -1;
+      write.Compress                     = compress;
+      write.CompressCharsets             = compressCharsets;
+      write.Compressor                   = ( comboCompressor.SelectedItem != null ) ? comboCompressor.SelectedItem.ToString() : "ZX0";
+      write.CharsetCompressor            = ( comboCharsetCompressor.SelectedItem != null ) ? comboCharsetCompressor.SelectedItem.ToString() : "ZX0";
+      write.ExportMarkers                = exportMarkers;
+      write.ExportColors                 = exportColors;
+      write.ExportPassable               = exportPassable;
+      write.DefFiles                     = checkGenerateDefFile.Checked;
       summary.AppendLine( "Exported " + files.Count + " map file(s) to " + mapDir
                         + ( ( files[0].CharsetData != null ) ? ", their charset files" + ( compressCharsets ? " (+ compressed copies)" : "" ) + " to " + charsetDir : " (no charset files - the charset file name is empty)" ) );
       foreach ( var file in files )
@@ -334,6 +388,8 @@ namespace RetroDevStudio.Controls
           finalData = addressData + finalData;
         }
         string mapPath = System.IO.Path.Combine( mapDir, file.FileName );
+        var result = new RetroDevStudio.Formats.MapExportFileResult() { MapPath = mapPath, MapSize = (int)finalData.Length };
+        write.Files[file.MapID] = result;
         try
         {
           GR.IO.File.WriteAllBytes( mapPath, finalData );
@@ -356,7 +412,12 @@ namespace RetroDevStudio.Controls
           string compressedName;
           string patternError;
           RetroDevStudio.Formats.MapProject.TryFormatFileNamePattern( editCompressFilename.Text, file.MapID, out compressedName, out patternError );
-          TryCompressExport( mapPath, compressedName, finalData.Length, mapOverrideAddress, out compressionReport );
+          string compressedPath;
+          if ( TryCompressExport( mapPath, compressedName, finalData.Length, mapOverrideAddress, out compressionReport, out compressedPath ) )
+          {
+            result.CompressedPath = compressedPath;
+            result.CompressedSize = FileSizeOf( compressedPath );
+          }
         }
 
         // The map's charset file, numbered like the map file.
@@ -375,6 +436,8 @@ namespace RetroDevStudio.Controls
             charsetData = prefixed;
           }
           string charsetPath = System.IO.Path.Combine( charsetDir ?? mapDir, file.CharsetFileName );
+          result.CharsetPath = charsetPath;
+          result.CharsetSize = (int)charsetData.Length;
           try
           {
             GR.IO.File.WriteAllBytes( charsetPath, charsetData );
@@ -403,6 +466,8 @@ namespace RetroDevStudio.Controls
             {
               compressedCharsetName = compressedName;
               charsetReport += "\r\n" + charsetCompression;
+              result.CharsetCompressedPath = compressedPath;
+              result.CharsetCompressedSize = FileSizeOf( compressedPath );
             }
           }
           charsetNames.Add( file.CharsetFileName + " ('" + charsetName + "')" );
@@ -421,6 +486,7 @@ namespace RetroDevStudio.Controls
           try
           {
             System.IO.File.WriteAllText( defPath, fileLog );
+            result.DefPath = defPath;
           }
           catch ( Exception ex )
           {
@@ -532,6 +598,29 @@ namespace RetroDevStudio.Controls
           () => map.GenerateMapLabelsAsm( mapLabelsPrefix ) );
       }
 
+      // Custom text exports - rendered LAST, against what was just written, so
+      // every index, label and file name a template prints is the exported
+      // one. A file that cannot be written is reported; the others still go.
+      if ( customJobs.Count > 0 )
+      {
+        var context = RetroDevStudio.Formats.MapExportSchema.BuildContext( Info.Map, files, write, DateTime.Now );
+        foreach ( var job in customJobs )
+        {
+          string name = RetroDevStudio.Formats.CustomExportRunner.DisplayName( job.Definition );
+          string text = RetroDevStudio.Formats.CustomExportRunner.Render( job, context );
+          try
+          {
+            System.IO.File.WriteAllText( job.Path, text, new System.Text.UTF8Encoding( false ) );
+            summary.AppendLine( "  Custom export '" + name + "' -> " + job.Path + " (" + System.Text.Encoding.UTF8.GetByteCount( text ) + " bytes)" );
+          }
+          catch ( Exception ex )
+          {
+            summary.AppendLine( "  Custom export '" + name + "' FAILED: " + job.Path + " - " + ex.Message );
+            ReportCustomExportWriteError( name, job.Path, ex.Message );
+          }
+        }
+      }
+
       if ( EditOutput != null )
       {
         EditOutput.Text = summary.ToString() + "\r\n" + fileLogs.ToString();
@@ -552,6 +641,52 @@ namespace RetroDevStudio.Controls
       }
 
       return true;
+    }
+
+
+
+    /// <summary>The box for a custom export file that could not be written (a test captures it instead).</summary>
+    protected virtual void ReportCustomExportWriteError( string Name, string Path, string Message )
+    {
+      if ( Core != null )
+      {
+        Core.Notification.MessageBox( "Error saving custom export",
+          "Could not save the custom export '" + Name + "' to:\r\n" + Path + "\r\n\r\n" + Message );
+      }
+    }
+
+
+
+    /// <summary>The folder of the document's file; "" when it has none (never saved, or no document).</summary>
+    private static string DocumentFolderOf( DocumentInfo DocInfo )
+    {
+      try
+      {
+        if ( ( DocInfo != null )
+        &&   ( !string.IsNullOrEmpty( DocInfo.FullPath ) ) )
+        {
+          return System.IO.Path.GetDirectoryName( DocInfo.FullPath ) ?? "";
+        }
+      }
+      catch ( Exception )
+      {
+      }
+      return "";
+    }
+
+
+
+    /// <summary>The size of a file just written, -1 when it cannot be read.</summary>
+    private static int FileSizeOf( string Path )
+    {
+      try
+      {
+        return (int)new System.IO.FileInfo( Path ).Length;
+      }
+      catch ( Exception )
+      {
+        return -1;
+      }
     }
 
 
@@ -666,9 +801,10 @@ namespace RetroDevStudio.Controls
     /// same-as-original name, compressor error) is reported via a message box
     /// and leaves the export itself successful.
     /// </summary>
-    private bool TryCompressExport( string MainFilePath, string OutputName, long UncompressedSize, int OverrideAddress, out string Report )
+    private bool TryCompressExport( string MainFilePath, string OutputName, long UncompressedSize, int OverrideAddress, out string Report, out string OutputPath )
     {
       Report = null;
+      OutputPath = null;
       if ( !checkCompressMap.Checked )
       {
         return false;
@@ -692,6 +828,7 @@ namespace RetroDevStudio.Controls
       string outPath = System.IO.Path.IsPathRooted( outName )
                        ? outName
                        : System.IO.Path.Combine( outDir, outName );
+      OutputPath = outPath;
 
       // Never overwrite the original map file.
       try

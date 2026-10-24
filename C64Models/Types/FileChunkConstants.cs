@@ -131,6 +131,14 @@
     public const ushort    MAP_CHARSET_ENTRY_INFO         = 0x1351;
     public const ushort    MAP_CHARSET_ENTRY_DATA         = 0x1352;
     public const ushort    MAP_CHARSET_META               = 0x1353;
+    // One user-authored custom text export of a map project (the "Custom
+    // Exports" tab): [i32 ID][u8 Active][utf8 Name][utf8 Directory]
+    // [utf8 FileName][utf8 Description][utf8 Content], where utf8 =
+    // [u32 byteLength][UTF-8 bytes] (Util.AppendStringUTF8 - the plain
+    // AppendString is one byte per char). Sub-chunk of MAP_PROJECT_DATA, one
+    // per definition in list order; append-only with guarded reads. Absent =
+    // no definitions (fully back-compat; older builds skip it).
+    public const ushort    MAP_CUSTOM_EXPORT              = 0x1354;
 
     public const ushort    CHARSET_PROJECT                = 0x1340;
     public const ushort    CHARSET_INFO                   = 0x1341;

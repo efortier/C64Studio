@@ -108,6 +108,17 @@ namespace TestProject
       project.Charsets[0].SetEntityTile( skeleton, 1 );
       project.MapStrings.Add( new MapProject.MapString() { Label = "HELLO", StringID = 1 } );
 
+      // Custom exports with everything that could trip the populate: tabs,
+      // CRLF and bare-LF line endings, non-ASCII, an inactive definition.
+      var disk = project.AddCustomExport( "Disk files" );
+      disk.Directory   = "..\\src";
+      disk.FileName    = "map_files.asm";
+      disk.Description = "lf\nonly é";
+      disk.Content     = "{% for m in exported_maps %}\r\n\tRefAddFile(\"MAP-{{ m.id:D4 }}\")\n{% endfor %}\r\n→";
+      var off = project.AddCustomExport( "Off" );
+      off.Active  = false;
+      off.Content = "{{ nope }}";
+
       var alpha = AddMap( project, "Alpha", 0, 4, 3 );
       alpha.SelectedMarkerType = 1;
       alpha.SelectedEntityType = 0;
@@ -252,6 +263,11 @@ namespace TestProject
               SetSelectedIndex( tabs, page );
               Assert.IsFalse( editor.Modified, "showing tab page " + page + " must not mark the project modified" );
             }
+            // A theme/settings refresh re-highlights the template memo, which
+            // raises its TextChanged - the write-back must not dirty anything.
+            editor.RefreshDisplayOptions();
+            Application.DoEvents();
+            Assert.IsFalse( editor.Modified, "refreshing the display options" );
             // and switching maps while on the last tab, then going back to the map tab
             SetSelectedIndex( Field( editor, "comboMaps" ), 1 );
             Assert.IsFalse( editor.Modified, "switching maps from another tab" );

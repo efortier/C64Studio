@@ -29,6 +29,56 @@ namespace RetroDevStudio
 
 
 
+    /// <summary>
+    /// Appends Text as [u32 byteLength][UTF-8 bytes]. The plain
+    /// ByteBuffer.AppendString writes one byte per char (anything above
+    /// U+00FF is cut down) and grows the buffer byte by byte; this keeps
+    /// every character and appends in one block. Read back with
+    /// ReadStringUTF8. Null writes an empty string.
+    /// </summary>
+    public static void AppendStringUTF8( GR.Memory.ByteBuffer Buffer, string Text )
+    {
+      if ( string.IsNullOrEmpty( Text ) )
+      {
+        Buffer.AppendU32( 0 );
+        return;
+      }
+      byte[] bytes = Encoding.UTF8.GetBytes( Text );
+      Buffer.AppendU32( (uint)bytes.Length );
+      Buffer.Append( bytes );
+    }
+
+
+
+    /// <summary>
+    /// Reads a string written by AppendStringUTF8. Returns "" when fewer than
+    /// four bytes remain or the length runs past the data (a truncated chunk
+    /// from an older file), like ByteBuffer's ReadString does.
+    /// </summary>
+    public static string ReadStringUTF8( GR.IO.IReader Reader )
+    {
+      if ( Reader.Size - Reader.Position < 4 )
+      {
+        return "";
+      }
+      uint length = Reader.ReadUInt32();
+      if ( ( length == 0 )
+      ||   ( length > Reader.Size - Reader.Position ) )
+      {
+        return "";
+      }
+      var bytes = new GR.Memory.ByteBuffer();
+      Reader.ReadBlock( bytes, length );
+      byte[] data = bytes.Data();
+      if ( data == null )
+      {
+        return "";
+      }
+      return Encoding.UTF8.GetString( data );
+    }
+
+
+
     public static GR.Memory.ByteBuffer ToFilename( MediaFilenameType Type, string Name )
     {
       GR.Memory.ByteBuffer bufName = new GR.Memory.ByteBuffer();
