@@ -152,6 +152,11 @@ namespace TestProject
     private static MapProject AssemblyProject( string SaveFolder, string CharsetFolder )
     {
       var project = BuildProject();
+      // The charset file the assembly export writes is a STANDALONE charset's
+      // (a map charset ships with its maps; its export name is ignored).
+      int standalone = project.AddCharset();
+      project.Charsets[standalone].Standalone = true;
+      project.Charsets[standalone].ExportName = "cs0.bin";
       var settings = project.Settings.Assembly;
       settings.SaveOnExport           = true;
       settings.ExportDirectory        = SaveFolder;

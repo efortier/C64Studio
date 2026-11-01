@@ -77,7 +77,12 @@ namespace RetroDevStudio.Undo
       AffectedMap.TileSpacingY        = TileSpacingY;
       AffectedMap.AlternativeMode     = AlternativeMode;
       AffectedMap.NotExported         = NotExported;
-      AffectedMap.CharsetIndex        = CharsetIndex;
+      // A charset that became standalone after this entry was recorded can
+      // never be a map's again: the map keeps its current one then.
+      if ( !MapEditor.IsStandaloneCharset( CharsetIndex ) )
+      {
+        AffectedMap.CharsetIndex      = CharsetIndex;
+      }
       AffectedMap.MapID               = MapID;
       // The scratch mirrors the owner's charset — before the resync below
       // re-populates from the scratch when it is the visible face.

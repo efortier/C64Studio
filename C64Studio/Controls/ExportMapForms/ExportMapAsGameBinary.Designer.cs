@@ -793,7 +793,7 @@ namespace RetroDevStudio.Controls
       this.checkExportCharsetLabels.Name = "checkExportCharsetLabels";
       this.checkExportCharsetLabels.Size = new System.Drawing.Size(240, 17);
       this.checkExportCharsetLabels.TabIndex = 8;
-      this.checkExportCharsetLabels.Text = "Charset labels sidecar (export name -> index)";
+      this.checkExportCharsetLabels.Text = "Charset labels sidecar (filename -> index, modes)";
       this.checkExportCharsetLabels.UseVisualStyleBackColor = true;
       this.checkExportCharsetLabels.CheckedChanged += new System.EventHandler(this.checkExportCharsetLabels_CheckedChanged);
       //

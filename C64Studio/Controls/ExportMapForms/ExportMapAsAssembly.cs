@@ -261,8 +261,9 @@ namespace RetroDevStudio.Controls
       {
         Info.Map.ExportSparseTileAndMapData( !Info.RowByRow, out mapData, "", checkExportToDataWrap.Checked, GR.Convert.ToI32( editWrapByteCount.Text ), prefix, checkEmptyTile.Checked, GR.Convert.ToI32( editEmptyTileIndex.Text ), checkAddFilenamespace.Checked, editFilenamespace.Text, checkWrapMapData.Checked, EditorCharsetIndex( Info ) );
       }
-      // Character set files — one per set with "Export character set" enabled
-      // on the Character Set tab, named by each set's export name.
+      // Character set files — one per STANDALONE set with "Export character
+      // set" checked on the Character Set tab, named by its exported filename
+      // (a map charset ships with its maps and has no file of its own).
       {
         var fileWarnings = Info.Map.GetCharsetFileWarnings();
         if ( fileWarnings.Count > 0 )
@@ -292,7 +293,7 @@ namespace RetroDevStudio.Controls
         // auto-saved file's: the missing ones are offered for creation in one
         // question, before anything is written.
         var folders = new List<string>();
-        if ( Info.Map.ExportedCharsets().Any( cs => !string.IsNullOrWhiteSpace( cs.ExportName ) ) )
+        if ( Info.Map.HasStandaloneCharsetFiles() )
         {
           folders.Add( charsetDir );
         }

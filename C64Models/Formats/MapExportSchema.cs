@@ -72,6 +72,7 @@ namespace RetroDevStudio.Formats
       s.RootType.AddField<MapExportContext>( "exported_maps", maps, "the exported maps in export order", c => c.ExportedMaps );
       s.RootType.AddField<MapExportContext>( "charsets", charsets, "every character set in editor order", c => c.Charsets );
       s.RootType.AddField<MapExportContext>( "exported_charsets", charsets, "the export-enabled character sets in compacted order", c => c.ExportedCharsets );
+      s.RootType.AddField<MapExportContext>( "standalone_charsets", charsets, "the standalone character sets that write a file (export-checked and named), in editor order", c => c.StandaloneCharsets );
       s.RootType.AddField<MapExportContext>( "marker_types", markerTypes, "the marker types in list order", c => c.MarkerTypes );
       s.RootType.AddField<MapExportContext>( "entity_types", entityTypes, "the entity types in list order", c => c.EntityTypes );
       s.RootType.AddField<MapExportContext>( "map_strings", mapStrings, "every map string in list order", c => c.MapStrings );
@@ -87,6 +88,7 @@ namespace RetroDevStudio.Formats
       project.AddField<MapExportContext>( "exported_maps", maps, "the exported maps in export order", c => c.ExportedMaps );
       project.AddField<MapExportContext>( "charsets", charsets, "every character set", c => c.Charsets );
       project.AddField<MapExportContext>( "exported_charsets", charsets, "the export-enabled character sets", c => c.ExportedCharsets );
+      project.AddField<MapExportContext>( "standalone_charsets", charsets, "the standalone character sets that write a file (export-checked and named)", c => c.StandaloneCharsets );
       project.AddField<MapExportContext>( "marker_types", markerTypes, "the marker types", c => c.MarkerTypes );
       project.AddField<MapExportContext>( "entity_types", entityTypes, "the entity types", c => c.EntityTypes );
       project.AddField<MapExportContext>( "map_strings", mapStrings, "every map string", c => c.MapStrings );
@@ -95,6 +97,7 @@ namespace RetroDevStudio.Formats
       project.AddField<MapExportContext>( "exported_map_count", TemplateType.Int, "number of exported maps", c => c.ExportedMaps.Count );
       project.AddField<MapExportContext>( "charset_count", TemplateType.Int, "number of character sets", c => c.Charsets.Count );
       project.AddField<MapExportContext>( "exported_charset_count", TemplateType.Int, "number of export-enabled character sets", c => c.ExportedCharsets.Count );
+      project.AddField<MapExportContext>( "standalone_charset_count", TemplateType.Int, "number of standalone character sets that write a file", c => c.StandaloneCharsets.Count );
       project.AddField<MapExportContext>( "marker_type_count", TemplateType.Int, "number of marker types", c => c.MarkerTypes.Count );
       project.AddField<MapExportContext>( "entity_type_count", TemplateType.Int, "number of entity types", c => c.EntityTypes.Count );
       project.AddField<MapExportContext>( "map_string_count", TemplateType.Int, "number of map strings", c => c.MapStrings.Count );
@@ -271,6 +274,17 @@ namespace RetroDevStudio.Formats
       charset.AddField<MapExportCharsetEntry>( "export_base_name", TemplateType.String, "the export name without extension", c => MapProject.ExportNameWithoutExtension( c.Charset.ExportName ) );
       charset.AddField<MapExportCharsetEntry>( "label", TemplateType.String, "the label part of its CHARSET_INDEX_ constant in map_charsets.asm; empty when not exported or without export name", c => c.Label );
       charset.AddField<MapExportCharsetEntry>( "has_label", TemplateType.Bool, "whether the set has a CHARSET_INDEX_ label", c => c.Label.Length > 0 );
+      charset.AddField<MapExportCharsetEntry>( "standalone", TemplateType.Bool, "whether the set is a standalone charset (UI / menus; never a map's, exported under its own file name)", c => c.Standalone );
+      charset.AddField<MapExportCharsetEntry>( "mode", TemplateType.String, "the set's text mode: hires, multicolor or ecm for the Commodore modes, else the lower-case mode name", c => ModeName( c.Mode ) );
+      charset.AddField<MapExportCharsetEntry>( "mode_index", TemplateType.Int, "the set's text mode as the CHARSET_MODE_ constants hold it: 0 hires, 1 multicolor, 2 ECM", c => (int)c.Mode );
+      charset.AddField<MapExportCharsetEntry>( "has_file", TemplateType.Bool, "whether the set is written under its own exported file name (standalone, export-checked, named)", c => ( c.FileName.Length > 0 ) && c.Charset.ExportEnabled );
+      charset.AddField<MapExportCharsetEntry>( "file_name", TemplateType.String, "the standalone set's exported file name (\".bin\" appended when none was given); empty for a map charset", c => c.FileName );
+      charset.AddField<MapExportCharsetEntry>( "file_base_name", TemplateType.String, "the exported file name without extension", c => MapProject.ExportNameWithoutExtension( c.FileName ) );
+      charset.AddField<MapExportCharsetEntry>( "file_path", TemplateType.String, "the exported file's full path; empty without a file", c => c.FilePath );
+      charset.AddField<MapExportCharsetEntry>( "file_size", TemplateType.Int, "the exported file's size including its load address; -1 without a file", c => c.FileSize );
+      charset.AddField<MapExportCharsetEntry>( "compressed_name", TemplateType.String, "the compressed copy's name (the compressor's extension); empty without compression", c => c.CompressedName );
+      charset.AddField<MapExportCharsetEntry>( "compressed_path", TemplateType.String, "the compressed copy's full path; empty without compression", c => c.CompressedPath );
+      charset.AddField<MapExportCharsetEntry>( "compressed_size", TemplateType.Int, "the compressed copy's size; -1 when not produced or in a preview", c => c.CompressedSize );
       charset.AddField<MapExportCharsetEntry>( "tiles", s.ListOf( tile ), "the tile library in list order", c => c.Tiles );
       charset.AddField<MapExportCharsetEntry>( "tile_count", TemplateType.Int, "number of tiles", c => c.Tiles.Count );
       charset.AddField<MapExportCharsetEntry>( "entity_tiles", s.ListOf( entityTile ), "one entry per entity type that has a tile in this set, in entity type order", c => c.EntityTiles );
@@ -377,6 +391,24 @@ namespace RetroDevStudio.Formats
         sb.Append( line.Line.Text );
       }
       return sb.ToString();
+    }
+
+
+
+    /// <summary>A charset's text mode for templates: hires / multicolor / ecm for the Commodore modes, else the lower-case mode name.</summary>
+    private static string ModeName( TextCharMode Mode )
+    {
+      switch ( Mode )
+      {
+        case TextCharMode.COMMODORE_HIRES:
+          return "hires";
+        case TextCharMode.COMMODORE_MULTICOLOR:
+          return "multicolor";
+        case TextCharMode.COMMODORE_ECM:
+          return "ecm";
+        default:
+          return Mode.ToString().ToLowerInvariant();
+      }
     }
 
 

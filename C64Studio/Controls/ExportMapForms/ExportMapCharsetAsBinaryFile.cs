@@ -39,12 +39,13 @@ namespace RetroDevStudio.Controls
     {
       System.Windows.Forms.SaveFileDialog saveDlg = new System.Windows.Forms.SaveFileDialog();
 
-      // The charset selected on the Character Set tab; its export name is the
-      // natural default file name.
+      // The charset selected on the Character Set tab; a standalone set's
+      // exported filename is the natural default file name.
       var charsetToExport = Info.Map.CharsetAt( Info.Map.CurrentCharsetIndex );
-      saveDlg.FileName = string.IsNullOrWhiteSpace( charsetToExport.ExportName )
-        ? GR.Path.RenameExtension( DocInfo.DocumentFilename, ".chr" )
-        : charsetToExport.ExportName;
+      string standaloneName = MapProject.StandaloneCharsetFileName( charsetToExport );
+      saveDlg.FileName = ( standaloneName.Length > 0 )
+        ? standaloneName
+        : GR.Path.RenameExtension( DocInfo.DocumentFilename, ".chr" );
       saveDlg.Title = "Export Charset to";
       saveDlg.Filter = "Charset|*.chr|All Files|*.*";
       if ( DocInfo.Project != null )

@@ -502,6 +502,7 @@
             labelCharsetExportName = new System.Windows.Forms.Label();
             editCharsetExportName = new Krypton.Toolkit.KryptonTextBox();
             checkCharsetExport = new Krypton.Toolkit.KryptonCheckBox();
+            checkCharsetStandalone = new Krypton.Toolkit.KryptonCheckBox();
             tabExport = new Krypton.Navigator.KryptonPage();
             label5 = new System.Windows.Forms.Label();
             comboExportOrientation = new System.Windows.Forms.ComboBox();
@@ -847,7 +848,7 @@
             // 
             listMarkerTypes.AllowDrop = true;
             listMarkerTypes.Dock = System.Windows.Forms.DockStyle.Left;
-            listMarkerTypes.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] { columnHeaderMarkerIcon, columnHeaderMarkerName, columnHeaderMarkerTag, columnHeaderMarkerSymbol });
+            listMarkerTypes.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] { columnHeaderMarkerIcon, columnHeaderMarkerTag, columnHeaderMarkerName, columnHeaderMarkerSymbol });
             listMarkerTypes.FullRowSelect = true;
             listMarkerTypes.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
             listMarkerTypes.HideSelection = false;
@@ -871,15 +872,16 @@
             columnHeaderMarkerIcon.Text = "";
             columnHeaderMarkerIcon.Width = 42;
             //
+            // columnHeaderMarkerTag
+            //
+            columnHeaderMarkerTag.Text = "Tag";
+            columnHeaderMarkerTag.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            columnHeaderMarkerTag.Width = 40;
+            //
             // columnHeaderMarkerName
             //
             columnHeaderMarkerName.Text = "Name";
             columnHeaderMarkerName.Width = 138;
-            //
-            // columnHeaderMarkerTag
-            //
-            columnHeaderMarkerTag.Text = "Tag";
-            columnHeaderMarkerTag.Width = 40;
             //
             // columnHeaderMarkerSymbol
             //
@@ -1661,6 +1663,7 @@
             comboEntityPreviewCharset.TabIndex = 4;
             toolTip1.SetToolTip(comboEntityPreviewCharset, "Character set whose tile for this entity type you see and set below. Each entity type has its own tile in every character set; a map draws and exports the tile of its own character set.");
             comboEntityPreviewCharset.SelectedIndexChanged += comboEntityPreviewCharset_SelectedIndexChanged;
+            comboEntityPreviewCharset.DropDown += ComboFitDropDownWidth;
             //
             // comboEntityTile
             //
@@ -1999,6 +2002,7 @@
             comboMarkerTypes.Size = new System.Drawing.Size(150, 22);
             comboMarkerTypes.TabIndex = 3;
             comboMarkerTypes.SelectedIndexChanged += comboMarkerTypes_SelectedIndexChanged;
+            comboMarkerTypes.DropDown += ComboFitDropDownWidth;
             // 
             // labelMarkerValue1
             // 
@@ -2331,6 +2335,7 @@
             comboMaps.Size = new System.Drawing.Size(246, 22);
             comboMaps.TabIndex = 0;
             comboMaps.SelectedIndexChanged += comboMaps_SelectedIndexChanged;
+            comboMaps.DropDown += ComboFitDropDownWidth;
             // 
             // collapsiblePanel1
             // 
@@ -2431,6 +2436,7 @@
             comboMapCharset.TabIndex = 28;
             toolTip1.SetToolTip(comboMapCharset, "The character set (and tile library) this map is painted with. Switching keeps the tile indices; cells beyond the new library render and export as empty.");
             comboMapCharset.SelectedIndexChanged += comboMapCharset_SelectedIndexChanged;
+            comboMapCharset.DropDown += ComboFitDropDownWidth;
             //
             // labelMapID
             //
@@ -3328,6 +3334,7 @@
             comboSpriteAnimations.TabIndex = 4;
             toolTip1.SetToolTip(comboSpriteAnimations, "Animation to place; the selection is saved with the map project.");
             comboSpriteAnimations.SelectedIndexChanged += comboSpriteAnimations_SelectedIndexChanged;
+            comboSpriteAnimations.DropDown += ComboFitDropDownWidth;
             //
             // btnSpritePlace
             //
@@ -3517,6 +3524,7 @@
             comboEntityTypes.Size = new System.Drawing.Size(150, 22);
             comboEntityTypes.TabIndex = 41;
             comboEntityTypes.SelectedIndexChanged += comboEntityTypes_SelectedIndexChanged;
+            comboEntityTypes.DropDown += ComboFitDropDownWidth;
             // 
             // labelEntityValue1
             // 
@@ -5495,7 +5503,7 @@
             // 
             // characterEditor
             // 
-            characterEditor.AllowModeChange = false;
+            characterEditor.AllowModeChange = true;
             characterEditor.CharacterMapUsageText = "[map use]";
             characterEditor.CharactersPerRow = 64;
             characterEditor.CharacterUsageText = "[tile use]";
@@ -5514,6 +5522,7 @@
             // panelCharsetTools
             //
             panelCharsetTools.Controls.Add(btnCharsetClearUnused);
+            panelCharsetTools.Controls.Add(checkCharsetStandalone);
             panelCharsetTools.Controls.Add(checkCharsetExport);
             panelCharsetTools.Controls.Add(editCharsetExportName);
             panelCharsetTools.Controls.Add(labelCharsetExportName);
@@ -5551,6 +5560,7 @@
             comboCharsets.TabIndex = 1;
             toolTip1.SetToolTip(comboCharsets, "The character set edited on this tab. Each character set owns its own tile library; every map picks one on the Map tab.");
             comboCharsets.SelectedIndexChanged += comboCharsets_SelectedIndexChanged;
+            comboCharsets.DropDown += ComboFitDropDownWidth;
             //
             // btnCharsetAdd
             //
@@ -5579,7 +5589,7 @@
             btnCharsetDuplicate.Size = new System.Drawing.Size(70, 23);
             btnCharsetDuplicate.TabIndex = 3;
             btnCharsetDuplicate.Text = "Duplicate";
-            toolTip1.SetToolTip(btnCharsetDuplicate, "Append a deep copy of this character set, tiles included (the export name is cleared).");
+            toolTip1.SetToolTip(btnCharsetDuplicate, "Append a deep copy of this character set, tiles included (the exported filename is cleared).");
             btnCharsetDuplicate.Click += btnCharsetDuplicate_Click;
             //
             // btnCharsetRemove
@@ -5634,17 +5644,17 @@
             labelCharsetExportName.AutoSize = true;
             labelCharsetExportName.Location = new System.Drawing.Point(284, 36);
             labelCharsetExportName.Name = "labelCharsetExportName";
-            labelCharsetExportName.Size = new System.Drawing.Size(72, 13);
+            labelCharsetExportName.Size = new System.Drawing.Size(97, 13);
             labelCharsetExportName.TabIndex = 8;
-            labelCharsetExportName.Text = "Export name:";
+            labelCharsetExportName.Text = "Exported filename:";
             //
             // editCharsetExportName
             //
-            editCharsetExportName.Location = new System.Drawing.Point(362, 32);
+            editCharsetExportName.Location = new System.Drawing.Point(390, 32);
             editCharsetExportName.Name = "editCharsetExportName";
-            editCharsetExportName.Size = new System.Drawing.Size(129, 23);
+            editCharsetExportName.Size = new System.Drawing.Size(160, 23);
             editCharsetExportName.TabIndex = 9;
-            toolTip1.SetToolTip(editCharsetExportName, "File name of this character set's exported file (map exports write it into the charset export directory). Committed on Enter or when leaving the field.");
+            toolTip1.SetToolTip(editCharsetExportName, "Exported filename of a STANDALONE character set: the game-binary export writes the set under this name into the charset export directory (\".bin\" is appended when no extension is given; the compressed copy takes the compressor's extension). Grayed for a map charset, which ships as its maps' numbered charset files. Committed on Enter or when leaving the field.");
             editCharsetExportName.KeyDown += editCharsetExportName_KeyDown;
             editCharsetExportName.Leave += editCharsetExportName_Leave;
             //
@@ -5652,13 +5662,23 @@
             //
             checkCharsetExport.Checked = true;
             checkCharsetExport.CheckState = System.Windows.Forms.CheckState.Checked;
-            checkCharsetExport.Location = new System.Drawing.Point(500, 34);
+            checkCharsetExport.Location = new System.Drawing.Point(556, 34);
             checkCharsetExport.Name = "checkCharsetExport";
             checkCharsetExport.Size = new System.Drawing.Size(150, 20);
             checkCharsetExport.TabIndex = 10;
-            toolTip1.SetToolTip(checkCharsetExport, "Unchecked: this character set (and its tile tables) is dropped from the game-binary export; later character sets shift down.");
+            toolTip1.SetToolTip(checkCharsetExport, "Standalone character sets only. Checked: written under its Exported filename on export (checked without a filename aborts the export). Unchecked: not written. Grayed for a map charset, which always ships with its maps.");
             checkCharsetExport.Values.Text = "Export character set";
             checkCharsetExport.CheckedChanged += checkCharsetExport_CheckedChanged;
+            //
+            // checkCharsetStandalone
+            //
+            checkCharsetStandalone.Location = new System.Drawing.Point(712, 34);
+            checkCharsetStandalone.Name = "checkCharsetStandalone";
+            checkCharsetStandalone.Size = new System.Drawing.Size(140, 20);
+            checkCharsetStandalone.TabIndex = 11;
+            toolTip1.SetToolTip(checkCharsetStandalone, "Checked: a standalone character set for the UI / menus - no map can be bound to it, and the export writes it under its Exported filename. Unchecked: a map charset, exported with its maps. Refused while a map still uses the set; character set 0 is always a map charset.");
+            checkCharsetStandalone.Values.Text = "Standalone charset";
+            checkCharsetStandalone.CheckedChanged += checkCharsetStandalone_CheckedChanged;
             //
             // btnCharsetClearUnused
             //
@@ -5667,10 +5687,10 @@
             btnCharsetClearUnused.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             btnCharsetClearUnused.DialogResult = System.Windows.Forms.DialogResult.OK;
             btnCharsetClearUnused.Image = null;
-            btnCharsetClearUnused.Location = new System.Drawing.Point(660, 32);
+            btnCharsetClearUnused.Location = new System.Drawing.Point(706, 3);
             btnCharsetClearUnused.Name = "btnCharsetClearUnused";
             btnCharsetClearUnused.Size = new System.Drawing.Size(150, 23);
-            btnCharsetClearUnused.TabIndex = 11;
+            btnCharsetClearUnused.TabIndex = 12;
             btnCharsetClearUnused.Text = "Clear unused characters";
             toolTip1.SetToolTip(btnCharsetClearUnused, "Blanks every character of this character set that no tile used on its linked maps draws (every layer, scratch workspaces included). Asks for confirmation. One undo step.");
             btnCharsetClearUnused.Click += btnCharsetClearUnused_Click;
@@ -6507,6 +6527,7 @@
         private System.Windows.Forms.Label labelCharsetExportName;
         private Krypton.Toolkit.KryptonTextBox editCharsetExportName;
         private Krypton.Toolkit.KryptonCheckBox checkCharsetExport;
+        private Krypton.Toolkit.KryptonCheckBox checkCharsetStandalone;
         private DecentForms.Button btnCharsetClearUnused;
     private Krypton.Toolkit.KryptonButton btnShiftLeft;
     private Krypton.Toolkit.KryptonButton btnShiftUp;

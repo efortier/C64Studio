@@ -320,13 +320,27 @@ namespace RetroDevStudio.Formats
       public List<Tile>       Tiles = new List<Tile>();
       /// <summary>Editor-only label; "" = the editor shows "Charset N".</summary>
       public string           DisplayName = "";
-      /// <summary>File name of this charset's exported file (map exports).</summary>
+      /// <summary>
+      /// The "Exported filename" of a STANDALONE charset: the game-binary and
+      /// assembly exports write the charset under this name (".bin" appended
+      /// when it has no extension, see StandaloneCharsetFileName). Ignored for
+      /// a map charset, which ships only as its maps' numbered charset files.
+      /// </summary>
       public string           ExportName = "";
       /// <summary>
-      /// Unchecked = dropped from the game-binary export; later exported
-      /// charsets shift down (see ExportedCharsets / ExportCharsetIndex).
+      /// "Export character set": for a standalone charset, whether its file is
+      /// written at all (checked without an ExportName is an export error).
+      /// Map charsets ignore it in the per-map export; the all-maps binary
+      /// (ExportedCharsets / ExportCharsetIndex) still compacts by it.
       /// </summary>
       public bool             ExportEnabled = true;
+      /// <summary>
+      /// A standalone charset belongs to the UI / menus, not to maps: no map
+      /// can be bound to it (the editor hides it from the Map tab, the loader
+      /// drops the flag when a file binds a map to it anyway) and the exports
+      /// write it under its own ExportName. Charset 0 is never standalone.
+      /// </summary>
+      public bool             Standalone = false;
       // Tile-NAME settings that used to be project-wide: tile names are per
       // tile library now, so the settings follow the library. Stored by name
       // (not index) because tile indices shift when the list is rearranged.
@@ -360,6 +374,27 @@ namespace RetroDevStudio.Formats
           {
             Charset.Characters[i].Tile.CustomColor = 1;
             Charset.Characters[i].Tile.Data.SetU8At( j, ConstantData.UpperCaseCharsetC64.ByteAt( i * 8 + j ) );
+          }
+        }
+      }
+
+      /// <summary>
+      /// Sets this charset's text mode and re-derives what every character
+      /// keeps per mode (its graphic tile mode from mode + custom color, its
+      /// bitmap size) - the model side of the character editor's mode combo,
+      /// for the paths without an editor (load migration, a new charset, the
+      /// imports). Images are not rebuilt here; the editor renders on display.
+      /// </summary>
+      public void SetMode( TextCharMode Mode )
+      {
+        Charset.Mode = Mode;
+        uint numBytes = (uint)Lookup.NumBytesOfSingleCharacterBitmap( Mode );
+        foreach ( var character in Charset.Characters )
+        {
+          character.Tile.Mode = Lookup.GraphicTileModeFromTextCharMode( Mode, character.Tile.CustomColor );
+          if ( character.Tile.Data.Length != numBytes )
+          {
+            character.Tile.Data.Resize( numBytes );
           }
         }
       }
@@ -499,6 +534,7 @@ namespace RetroDevStudio.Formats
         copy.DisplayName         = DisplayName;
         copy.ExportName          = ExportName;
         copy.ExportEnabled       = ExportEnabled;
+        copy.Standalone          = Standalone;
         copy.RightClickAction    = RightClickAction;
         copy.ShiftClickBlankTile = ShiftClickBlankTile;
         copy.EntityTiles         = new Dictionary<int, int>( EntityTiles );
@@ -703,7 +739,9 @@ namespace RetroDevStudio.Formats
       public int                CharsetIndex = 0;
 
       /// <summary>
-      /// overrides Project.Mode when set (e.g. display MC instead of hires)
+      /// Display override: when set, the map renders in this text-char mode
+      /// instead of its charset's own ("From charset" = UNKNOWN, the editor
+      /// default). Persisted with the map; the export never looks at it.
       /// </summary>
       public TextCharMode       AlternativeMode = TextCharMode.UNKNOWN;
 
@@ -1129,6 +1167,14 @@ namespace RetroDevStudio.Formats
     /// </summary>
     public bool                         CharsetTabFollowsMap = true;
     /// <summary>
+    /// Character Set tab: height of the character list (the splitter under
+    /// it) in thousandths of its column's height, one value for the project
+    /// - every charset shows with it. -1 = never set, keep the editor's
+    /// default. Editor view state: rides along with the next real save, never
+    /// dirties the document.
+    /// </summary>
+    public int                          CharacterListHeightPermille = -1;
+    /// <summary>
     /// Vestigial. The map editor's "Keep map character aspect ratio" toggle
     /// was removed once rendering switched to integer-scale (which preserves
     /// aspect by construction), so nothing reads this anymore. The field and
@@ -1161,6 +1207,7 @@ namespace RetroDevStudio.Formats
       ExternalCharset = "";
       CharactersPerRow = 16;
       CharacterEditorMode = 1;
+      CharacterListHeightPermille = -1;
       SpriteProjectFilename = "";
       SelectedSpriteAnimID = -1;
       FullscreenReservedTopLines = 0;
@@ -1239,6 +1286,7 @@ namespace RetroDevStudio.Formats
       first.DisplayName = "";
       first.ExportName = "";
       first.ExportEnabled = true;
+      first.Standalone = false;
       first.RightClickAction = "";
       first.ShiftClickBlankTile = "";
       first.EntityTiles.Clear();
@@ -1666,9 +1714,11 @@ namespace RetroDevStudio.Formats
 
 
     /// <summary>
-    /// Appends a fresh charset (default font, empty tile list) whose mode,
-    /// colors and palettes are copied from charset 0. Returns the new index,
-    /// or -1 when 256 charsets exist (CharsetIndex is one byte on the wire).
+    /// Appends a fresh charset (default font, empty tile list): colors and
+    /// palettes copied from charset 0, the mode the PROJECT mode (the "map"
+    /// mode - a map charset by default; another mode is picked per charset on
+    /// the Character Set tab). Returns the new index, or -1 when 256 charsets
+    /// exist (CharsetIndex is one byte on the wire).
     /// </summary>
     public int AddCharset()
     {
@@ -1678,6 +1728,7 @@ namespace RetroDevStudio.Formats
       }
       var cs = new MapCharset();
       CopyModeAndColors( Charsets[0].Charset, cs.Charset );
+      cs.SetMode( Lookup.TextCharModeFromTextMode( Mode ) );
       Charsets.Add( cs );
       return Charsets.Count - 1;
     }
@@ -1894,12 +1945,12 @@ namespace RetroDevStudio.Formats
 
 
 
-    /// <summary>Mirrors a text-char mode into every charset.</summary>
+    /// <summary>Sets every charset to one text-char mode (see MapCharset.SetMode) - the pre-version-7 load migration.</summary>
     public void SetAllCharsetsMode( TextCharMode CharMode )
     {
       foreach ( var cs in Charsets )
       {
-        cs.Charset.Mode = CharMode;
+        cs.SetMode( CharMode );
       }
     }
 
@@ -1968,13 +2019,22 @@ namespace RetroDevStudio.Formats
 
 
 
+    /// <summary>
+    /// MAP_PROJECT_INFO's version. 7 = modes are per charset: a file below 7
+    /// gets the project mode stamped into every charset ONCE on load (what the
+    /// editor did on every load before), see ReadFromBuffer.
+    /// </summary>
+    public const uint PROJECT_INFO_VERSION = 7;
+
+
+
     public GR.Memory.ByteBuffer SaveToBuffer()
     {
       GR.Memory.ByteBuffer projectFile = new GR.Memory.ByteBuffer();
 
       GR.IO.FileChunk chunkProjectInfo = new GR.IO.FileChunk( FileChunkConstants.MAP_PROJECT_INFO );
       // version
-      chunkProjectInfo.AppendU32( 6 );
+      chunkProjectInfo.AppendU32( PROJECT_INFO_VERSION );
       chunkProjectInfo.AppendString( ExternalCharset );
       chunkProjectInfo.AppendI32( ShowGrid ? 1 : 0 );
       // Charset 0's right-click tile name in its historical slot (old builds
@@ -2045,6 +2105,9 @@ namespace RetroDevStudio.Formats
       // Append-only; old files keep the defaults (0 / true).
       chunkProjectInfo.AppendI32( CurrentCharsetIndex );
       chunkProjectInfo.AppendU8( CharsetTabFollowsMap ? (byte)1 : (byte)0 );
+      // Character Set tab: the character list's height (splitter), added
+      // later - append-only; old files keep the default -1.
+      chunkProjectInfo.AppendI32( CharacterListHeightPermille );
       projectFile.Append( chunkProjectInfo.ToBuffer() );
 
       // Per-project CRT display filters. Written only once the editor has
@@ -2138,6 +2201,8 @@ namespace RetroDevStudio.Formats
           chunkMeta.AppendI32( typeId );
           chunkMeta.AppendI32( cs.EntityTiles[typeId] );
         }
+        // Standalone flag (appended later; older readers stop before it).
+        chunkMeta.AppendU8( cs.Standalone ? (byte)1 : (byte)0 );
         projectFile.Append( chunkMeta.ToBuffer() );
       }
 
@@ -2410,6 +2475,9 @@ namespace RetroDevStudio.Formats
       string legacyRightClickAction    = "";
       string legacyShiftClickBlankTile = "";
       var    charsetMetaSeen           = new HashSet<int>();
+      // MAP_PROJECT_INFO's version (0 without the chunk): below 7 the charset
+      // modes are stamped from the project mode in the post-pass.
+      uint   projectInfoVersion        = 0;
       // Charsets whose META carried entity tiles, and each type's single
       // pre-per-charset tile number (the migration source for the others).
       var    entityTilesSeen           = new HashSet<int>();
@@ -2428,6 +2496,7 @@ namespace RetroDevStudio.Formats
           case FileChunkConstants.MAP_PROJECT_INFO:
             {
               uint version  = chunkReader.ReadUInt32();
+              projectInfoVersion = version;
               importedCharSet = chunkReader.ReadString();
 
               ShowGrid = ( chunkReader.ReadInt32() == 1 );
@@ -2607,6 +2676,16 @@ namespace RetroDevStudio.Formats
               {
                 CharsetTabFollowsMap = ( chunkReader.ReadUInt8() != 0 );
               }
+              // Character list height on the Character Set tab (append-only;
+              // clamped, a corrupt value must not hide the list).
+              if ( chunkReader.Size - chunkReader.Position >= 4 )
+              {
+                CharacterListHeightPermille = Math.Max( -1, Math.Min( 1000, chunkReader.ReadInt32() ) );
+              }
+              else
+              {
+                CharacterListHeightPermille = -1;
+              }
             }
             break;
           case FileChunkConstants.MAP_DISPLAY_FILTERS:
@@ -2767,6 +2846,12 @@ namespace RetroDevStudio.Formats
                   }
                   entityTilesSeen.Add( index );
                 }
+              }
+              // Standalone flag (appended later): a charset for the UI / menus
+              // that no map may use.
+              if ( chunkReader.Size - chunkReader.Position >= 1 )
+              {
+                cs.Standalone = ( chunkReader.ReadUInt8() != 0 );
               }
             }
             break;
@@ -3268,6 +3353,7 @@ namespace RetroDevStudio.Formats
         Charsets[0].RightClickAction    = legacyRightClickAction ?? "";
         Charsets[0].ShiftClickBlankTile = legacyShiftClickBlankTile ?? "";
         Charsets[0].ExportEnabled       = true;
+        Charsets[0].Standalone          = false;
         if ( ( Settings.GameBinary.ExportCharset )
         &&   ( !string.IsNullOrEmpty( Settings.GameBinary.CharsetExportFilename ) ) )
         {
@@ -3320,6 +3406,21 @@ namespace RetroDevStudio.Formats
         }
       }
       ClampCharsetReferences();
+      // Modes are per charset since project-info version 7. Older files were
+      // kept in lockstep by the editor (the project mode stamped into every
+      // charset on load), so they are stamped ONCE here and look exactly as
+      // they did; from then on each charset keeps its own mode.
+      if ( projectInfoVersion < 7 )
+      {
+        SetAllCharsetsMode( Lookup.TextCharModeFromTextMode( Mode ) );
+      }
+      // No map may use a standalone charset. A file that binds one anyway
+      // (hand-edited, or re-saved by a build without the flag) keeps the
+      // binding and loses the flag - nothing is silently rebound.
+      foreach ( var map in Maps )
+      {
+        CharsetOf( map ).Standalone = false;
+      }
       SyncCharsetColorsFromProject();
       return true;
     }
@@ -4599,14 +4700,14 @@ namespace RetroDevStudio.Formats
 
 
 
-    /// <summary>One charset file the map export writes.</summary>
+    /// <summary>One standalone charset file the assembly export writes (the game-binary export uses StandaloneCharsetFile).</summary>
     public class CharsetExportFile
     {
       /// <summary>Index in Charsets (editor order).</summary>
       public int                  CharsetIndex = 0;
-      /// <summary>Compacted index (= position in ExportedCharsets()).</summary>
+      /// <summary>Position in ExportedStandaloneCharsets().</summary>
       public int                  ExportIndex = 0;
-      /// <summary>ExportName verbatim, no directory.</summary>
+      /// <summary>StandaloneCharsetFileName( Charset ), no directory.</summary>
       public string               FileName = "";
       /// <summary>CharacterData() [+ the 2-byte load address when requested].</summary>
       public GR.Memory.ByteBuffer Data = null;
@@ -4615,19 +4716,22 @@ namespace RetroDevStudio.Formats
 
 
     /// <summary>
-    /// One entry per ENABLED charset with a non-empty ExportName, in compacted
-    /// order. Data honours CharsetProject.ExportNumCharacters (CharacterData).
-    /// Duplicate names are NOT collapsed (GetCharsetFileWarnings reports them;
-    /// the last writer wins on disk). The export forms only write the files.
+    /// One entry per export-checked STANDALONE charset with an exported
+    /// filename, in list order (a map charset ships with its maps and has no
+    /// file of its own). Data honours CharsetProject.ExportNumCharacters
+    /// (CharacterData). Duplicate names are NOT collapsed
+    /// (GetCharsetFileWarnings reports them; the last writer wins on disk).
+    /// The export forms only write the files.
     /// </summary>
     public List<CharsetExportFile> BuildCharsetExportFiles( bool PrefixLoadAddress, ushort LoadAddress )
     {
       var result = new List<CharsetExportFile>();
-      var exported = ExportedCharsets();
+      var exported = ExportedStandaloneCharsets();
       for ( int e = 0; e < exported.Count; ++e )
       {
         var cs = exported[e];
-        if ( string.IsNullOrWhiteSpace( cs.ExportName ) )
+        string fileName = StandaloneCharsetFileName( cs );
+        if ( fileName.Length == 0 )
         {
           continue;
         }
@@ -4643,7 +4747,7 @@ namespace RetroDevStudio.Formats
         {
           CharsetIndex = Charsets.IndexOf( cs ),
           ExportIndex  = e,
-          FileName     = cs.ExportName,
+          FileName     = fileName,
           Data         = data
         } );
       }
@@ -4653,32 +4757,204 @@ namespace RetroDevStudio.Formats
 
 
     /// <summary>
-    /// File-name problems only (shared by every form that writes charset
-    /// files): two enabled charsets exporting to the same file name
-    /// (case-insensitive — Windows). An enabled charset WITHOUT a name is not
-    /// a warning: it simply writes no file (an export-log line), so a legacy
-    /// project that never wrote a charset file is not nagged on every export.
+    /// The standalone charset file problems as the assembly export's Yes/No
+    /// warnings (the game-binary export aborts on the same list): see
+    /// GetStandaloneCharsetExportErrors.
     /// </summary>
     public List<string> GetCharsetFileWarnings()
     {
-      var warnings = new List<string>();
-      var exported = ExportedCharsets();
-      for ( int a = 0; a < exported.Count; ++a )
+      return GetStandaloneCharsetExportErrors( null );
+    }
+
+
+
+    // ---- Standalone charsets (UI / menus): exported under their own file name
+
+    /// <summary>
+    /// The file a standalone charset exports under: its ExportName as typed
+    /// when that has an extension, else with ".bin" appended. "" for a map
+    /// charset (it has no file of its own) and for an empty name.
+    /// </summary>
+    public static string StandaloneCharsetFileName( MapCharset Charset )
+    {
+      if ( ( Charset == null )
+      ||   ( !Charset.Standalone )
+      ||   ( string.IsNullOrWhiteSpace( Charset.ExportName ) ) )
       {
-        if ( string.IsNullOrWhiteSpace( exported[a].ExportName ) )
+        return "";
+      }
+      string name = Charset.ExportName.Trim();
+      return HasFileExtension( name ) ? name : name + ".bin";
+    }
+
+
+
+    /// <summary>Whether a file name carries an extension: a dot with something after it, not at the start.</summary>
+    private static bool HasFileExtension( string FileName )
+    {
+      int dot = FileName.LastIndexOf( '.' );
+      return ( dot > 0 ) && ( dot < FileName.Length - 1 );
+    }
+
+
+
+    /// <summary>
+    /// The compressed copy's name for a charset file: the extension replaced
+    /// by - or, without one, followed by - the compressor's: ui.bin -> ui.zx0.
+    /// </summary>
+    public static string CompressedFileNameFor( string FileName, string CompressorExtension )
+    {
+      string name = ( FileName ?? "" ).Trim();
+      string ext  = ( CompressorExtension ?? "" ).Trim();
+      if ( ( ext.Length > 0 )
+      &&   ( !ext.StartsWith( "." ) ) )
+      {
+        ext = "." + ext;
+      }
+      if ( HasFileExtension( name ) )
+      {
+        name = name.Substring( 0, name.LastIndexOf( '.' ) );
+      }
+      return name + ext;
+    }
+
+
+
+    /// <summary>The file extension a compressor's output gets (the compressed copies of standalone charset files): ZX0 -> ".zx0".</summary>
+    public static string CompressorFileExtension( string Compressor )
+    {
+      string name = ( Compressor ?? "" ).Trim();
+      switch ( name.ToUpperInvariant() )
+      {
+        case "ZX0":
+        case "":
+          return ".zx0";
+        default:
+          return "." + name.ToLowerInvariant();
+      }
+    }
+
+
+
+    /// <summary>The standalone charsets with "Export character set" checked, in list order - the ones that write a file.</summary>
+    public List<MapCharset> ExportedStandaloneCharsets()
+    {
+      var result = new List<MapCharset>();
+      foreach ( var cs in Charsets )
+      {
+        if ( ( cs.Standalone )
+        &&   ( cs.ExportEnabled ) )
+        {
+          result.Add( cs );
+        }
+      }
+      return result;
+    }
+
+
+
+    /// <summary>Whether any standalone charset file would be written (export-checked and named).</summary>
+    public bool HasStandaloneCharsetFiles()
+    {
+      foreach ( var cs in ExportedStandaloneCharsets() )
+      {
+        if ( StandaloneCharsetFileName( cs ).Length > 0 )
+        {
+          return true;
+        }
+      }
+      return false;
+    }
+
+
+
+    /// <summary>One standalone charset file the game-binary export writes.</summary>
+    public class StandaloneCharsetFile
+    {
+      public MapCharset           Charset = null;
+      /// <summary>Index in Charsets (editor order).</summary>
+      public int                  CharsetIndex = 0;
+      /// <summary>StandaloneCharsetFileName( Charset ), no directory.</summary>
+      public string               FileName = "";
+      /// <summary>CharacterData(); the writer prefixes the load address like the numbered files.</summary>
+      public GR.Memory.ByteBuffer Data = null;
+    }
+
+
+
+    /// <summary>
+    /// The files of the export-checked standalone charsets, each under its
+    /// StandaloneCharsetFileName, in list order. Unnamed ones are left out -
+    /// GetStandaloneCharsetExportErrors reports them, run it first.
+    /// </summary>
+    public List<StandaloneCharsetFile> BuildStandaloneCharsetFiles()
+    {
+      var result = new List<StandaloneCharsetFile>();
+      foreach ( var cs in ExportedStandaloneCharsets() )
+      {
+        string name = StandaloneCharsetFileName( cs );
+        if ( name.Length == 0 )
         {
           continue;
         }
-        for ( int b = a + 1; b < exported.Count; ++b )
+        result.Add( new StandaloneCharsetFile()
         {
-          if ( string.Equals( exported[a].ExportName.Trim(), ( exported[b].ExportName ?? "" ).Trim(), StringComparison.OrdinalIgnoreCase ) )
-          {
-            warnings.Add( "character sets '" + CharsetDisplayNameOf( exported[a] ) + "' and '" + CharsetDisplayNameOf( exported[b] )
-                        + "' both export to '" + exported[a].ExportName + "' — the second overwrites the first" );
-          }
-        }
+          Charset      = cs,
+          CharsetIndex = Charsets.IndexOf( cs ),
+          FileName     = name,
+          Data         = cs.Charset.CharacterData()
+        } );
       }
-      return warnings;
+      return result;
+    }
+
+
+
+    /// <summary>
+    /// What stops the standalone charset files from being written: a
+    /// standalone charset with "Export character set" checked but no exported
+    /// filename, a name with characters a file name cannot hold, two files on
+    /// one name (case-insensitive - Windows; with CompressorExtension the
+    /// compressed copies count too: ui.bin and ui.dat both compress to
+    /// ui.zx0), and a name already ending in the compressor's extension (its
+    /// compressed copy would overwrite it). Clashes with the numbered per-map
+    /// files are the game-binary form's. That export aborts on this list; the
+    /// assembly export shows it as warnings.
+    /// </summary>
+    public List<string> GetStandaloneCharsetExportErrors( string CompressorExtension = null )
+    {
+      var errors = new List<string>();
+      var taken  = new Dictionary<string, string>( StringComparer.OrdinalIgnoreCase );
+      bool compressed = !string.IsNullOrEmpty( CompressorExtension );
+      foreach ( var cs in ExportedStandaloneCharsets() )
+      {
+        string display = CharsetDisplayNameOf( cs );
+        string name    = StandaloneCharsetFileName( cs );
+        if ( name.Length == 0 )
+        {
+          errors.Add( "standalone character set '" + display + "' has 'Export character set' checked but no exported filename - type one on the Character Set tab or uncheck the export" );
+          continue;
+        }
+        if ( name.IndexOfAny( System.IO.Path.GetInvalidFileNameChars() ) >= 0 )
+        {
+          errors.Add( "standalone character set '" + display + "': '" + name + "' is not a valid file name" );
+          continue;
+        }
+        string owner = "standalone character set '" + display + "'";
+        ClaimExportFileName( taken, name, owner, errors );
+        if ( !compressed )
+        {
+          continue;
+        }
+        if ( name.EndsWith( CompressorExtension, StringComparison.OrdinalIgnoreCase ) )
+        {
+          errors.Add( owner + " exports to '" + name + "', which already ends in the compressor's extension " + CompressorExtension
+                    + " - its compressed copy would overwrite it; give the file another extension" );
+          continue;
+        }
+        ClaimExportFileName( taken, CompressedFileNameFor( name, CompressorExtension ), "the compressed copy of " + owner, errors );
+      }
+      return errors;
     }
 
 
@@ -4986,7 +5262,55 @@ namespace RetroDevStudio.Formats
           sb.AppendLine( "// " + CharsetDisplayNameOf( cs ) );
         }
       }
+      AppendCharsetModeConstants( sb );
       return sb.ToString();
+    }
+
+
+
+    /// <summary>
+    /// The CHARSET_MODE_ constants of map_charsets.asm, so the loader knows
+    /// which text mode each charset file wants: one per export-checked
+    /// standalone charset, labelled from its exported filename like the
+    /// CHARSET_INDEX_ constants, and one per exported map by map ID
+    /// (CHARSET_MODE_MAP_0005 for the set in CHARSET_MAP_0005). Values are
+    /// the TextCharMode numbers C64Studio stores.
+    /// </summary>
+    private void AppendCharsetModeConstants( StringBuilder sb )
+    {
+      sb.AppendLine();
+      sb.AppendLine( "// Character set modes: " + (int)TextCharMode.COMMODORE_HIRES + " = Commodore hires, "
+                   + (int)TextCharMode.COMMODORE_MULTICOLOR + " = Commodore multicolor, "
+                   + (int)TextCharMode.COMMODORE_ECM + " = Commodore ECM" );
+      sb.AppendLine( "// (C64Studio's TextCharMode values; the other machines' modes follow in that order)." );
+      var usedLabels = new Dictionary<string, int>();
+      foreach ( var cs in ExportedStandaloneCharsets() )
+      {
+        string fileName = StandaloneCharsetFileName( cs );
+        if ( fileName.Length == 0 )
+        {
+          continue;
+        }
+        string baseLabel = NormalizeAsLabel( ExportNameWithoutExtension( fileName ) ).ToUpper();
+        if ( baseLabel.Length == 0 )
+        {
+          baseLabel = "CHARSET_" + Charsets.IndexOf( cs );
+        }
+        string label = UniqueLabel( usedLabels, baseLabel );
+        sb.AppendLine( ".const CHARSET_MODE_" + label.PadRight( 32 ) + " = " + (int)cs.Charset.Mode
+                     + "  // standalone '" + CharsetDisplayNameOf( cs ) + "' (" + fileName + ")" );
+      }
+      foreach ( var map in ExportedMaps() )
+      {
+        if ( map.MapID < 0 )
+        {
+          continue;
+        }
+        var cs = CharsetOf( map );
+        string label = "MAP_" + map.MapID.ToString( "D" + FILE_NAME_NUMBER_DIGITS );
+        sb.AppendLine( ".const CHARSET_MODE_" + label.PadRight( 32 ) + " = " + (int)cs.Charset.Mode
+                     + "  // map '" + map.Name + "' - '" + CharsetDisplayNameOf( cs ) + "'" );
+      }
     }
 
 
@@ -5998,7 +6322,8 @@ namespace RetroDevStudio.Formats
 
 
 
-    private static void ClaimExportFileName( Dictionary<string, string> Taken, string Name, string Owner, List<string> Errors )
+    /// <summary>Adds Name to Taken under Owner, or an error when another owner already has it (one export writes each name once, whatever the folder).</summary>
+    public static void ClaimExportFileName( Dictionary<string, string> Taken, string Name, string Owner, List<string> Errors )
     {
       string previous;
       if ( Taken.TryGetValue( Name, out previous ) )

@@ -19,6 +19,7 @@ namespace TestProject
   /// <summary>
   /// Deleting tiles that placed entities are drawn with asks first (cancel,
   /// delete anyway, delete together with those entities - one undo step),
+  /// undoing a delete puts the tile back on every map cell it was placed in,
   /// and the Entities tab lists every type once per charset it is placed in,
   /// with the maps and the summed count. Runs a REAL MapEditor whose
   /// question is answered by the test.
@@ -315,6 +316,63 @@ namespace TestProject
 
 
     [TestMethod]
+    public void TestUndoingADeletePutsTheTileBackOnTheMaps()
+    {
+      WithEditor( ( editor, project ) =>
+      {
+        var alpha   = project.Maps[0];
+        var charlie = project.Maps[2];
+        alpha.Tiles[1, 1]           = 1;
+        alpha.Tiles[0, 3]           = 3;      // above the deleted tile: slides down and back
+        alpha.Layers[1].Tiles[3, 3] = 1;      // an upper layer uses it too
+        charlie.Tiles[2, 2]         = 1;      // another map on the same charset
+
+        DeleteTiles( editor, 1 );
+        Assert.AreEqual( 0, alpha.Tiles[1, 1], "the background cell is erased to tile 0" );
+        Assert.AreEqual( -1, alpha.Layers[1].Tiles[3, 3], "the upper-layer cell is erased to transparent" );
+        Assert.AreEqual( 2, alpha.Tiles[0, 3] );
+        Assert.AreEqual( 0, charlie.Tiles[2, 2] );
+
+        editor.DocumentInfo.UndoManager.Undo();
+        Assert.AreEqual( 1, alpha.Tiles[1, 1], "undo puts the tile back where it was placed" );
+        Assert.AreEqual( 1, alpha.Layers[1].Tiles[3, 3], "on every layer" );
+        Assert.AreEqual( 1, charlie.Tiles[2, 2], "on every map of the charset" );
+        Assert.AreEqual( 3, alpha.Tiles[0, 3] );
+        Assert.AreEqual( 0, alpha.Tiles[2, 1], "cells that held tile 0 stay tile 0" );
+
+        editor.DocumentInfo.UndoManager.Redo();
+        Assert.AreEqual( 0, alpha.Tiles[1, 1], "redo erases it again" );
+        editor.DocumentInfo.UndoManager.Undo();
+        Assert.AreEqual( 1, alpha.Tiles[1, 1], "and the next undo restores it again" );
+        Assert.AreEqual( 1, charlie.Tiles[2, 2] );
+      } );
+    }
+
+
+
+    [TestMethod]
+    public void TestUndoingADeleteOfTileZeroPutsItBackOnTheMaps()
+    {
+      WithEditor( ( editor, project ) =>
+      {
+        // Every cell holds tile 0, except one: deleting tile 0 erases them
+        // to the new tile 0 (the old tile 1), and the undo's index shift
+        // alone would turn them all into tile 1.
+        var alpha = project.Maps[0];
+        alpha.Tiles[3, 0] = 2;
+
+        DeleteTiles( editor, 0 );
+        editor.DocumentInfo.UndoManager.Undo();
+        Assert.AreEqual( 0, alpha.Tiles[0, 0], "the cells are tile 0 again, not the tile that followed it" );
+        Assert.AreEqual( 0, alpha.Tiles[3, 3] );
+        Assert.AreEqual( 2, alpha.Tiles[3, 0] );
+        Assert.AreEqual( 0, project.Maps[2].Tiles[1, 1] );
+      } );
+    }
+
+
+
+    [TestMethod]
     public void TestEntitiesTabListsEveryTypePerCharset()
     {
       WithEditor( ( editor, project ) =>
@@ -337,11 +395,18 @@ namespace TestProject
         }
         CollectionAssert.AreEqual( new[]
         {
-          "$01 | Rat |  | 0: Caves | 0: Alpha, 2: Charlie | 3",
-          "$01 | Rat |  | 1: Crypt | 1: Bravo | 1",
-          "$02 | Skeleton |  | 0: Caves | 0: Alpha | 1",
-          "$03 | Ghost |  |  |  | 0",
+          "1 | Rat |  | 0: Caves | 0: Alpha, 2: Charlie | 3",
+          "1 | Rat |  | 1: Crypt | 1: Bravo | 1",
+          "2 | Skeleton |  | 0: Caves | 0: Alpha | 1",
+          "3 | Ghost |  |  |  | 0",
         }, rows );
+        foreach ( ListViewItem row in list.Items )
+        {
+          var tag = row.SubItems[0] as studio::RetroDevStudio.Controls.CSListViewSubItem;
+          Assert.IsNotNull( tag, "the tag cell carries its own alignment" );
+          Assert.AreEqual( HorizontalAlignment.Right, tag.Alignment ?? HorizontalAlignment.Left,
+                           "the decimal tag is right-aligned - per cell, as column 0's TextAlign is always Left" );
+        }
         Assert.IsNull( list.SmallImageList, "the tag is plain text - no badge images" );
         Assert.IsFalse( editor.Modified, "showing the list does not modify the project" );
       } );

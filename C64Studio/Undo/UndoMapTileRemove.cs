@@ -42,6 +42,19 @@ namespace RetroDevStudio.Undo
     // deleted tile (so its footprint isn't left pointing at a stale
     // tile-index after the shift), and Apply must restore them.
     private Dictionary<MapProject.Map, GR.Game.Layer<bool>> _BlockedOverrideSnapshots = new Dictionary<MapProject.Map, GR.Game.Layer<bool>>();
+    // The cells that hold the tile, per map and layer: RemoveTile erases them
+    // (tile 0 on the background, transparent above) and AddTile's index shift
+    // cannot bring them back, so Apply writes the tile into them again.
+    private Dictionary<MapProject.Map, List<PlacedCell>> _PlacedCells = new Dictionary<MapProject.Map, List<PlacedCell>>();
+
+
+
+    private class PlacedCell
+    {
+      public int  Layer = 0;
+      public int  X = 0;
+      public int  Y = 0;
+    }
 
 
 
@@ -96,6 +109,23 @@ namespace RetroDevStudio.Undo
           }
         }
         _BlockedOverrideSnapshots[map] = blkSnap;
+
+        var cells = new List<PlacedCell>();
+        for ( int k = 0; k < map.Layers.Count; ++k )
+        {
+          var tiles = map.Layers[k].Tiles;
+          for ( int j = 0; j < tiles.Height; ++j )
+          {
+            for ( int i = 0; i < tiles.Width; ++i )
+            {
+              if ( tiles[i, j] == TileIndex )
+              {
+                cells.Add( new PlacedCell() { Layer = k, X = i, Y = j } );
+              }
+            }
+          }
+        }
+        _PlacedCells[map] = cells;
       }
     }
 
@@ -122,6 +152,26 @@ namespace RetroDevStudio.Undo
     public override void Apply()
     {
       _MapEditor.AddTile( _Charset, _TileIndex, _RemovedTile );
+
+      // The tile goes back into its cells only now: AddTile's insert shift
+      // bumps every cell >= the index, the erased background cells (tile 0)
+      // too when the tile was tile 0.
+      foreach ( var pair in _PlacedCells )
+      {
+        var map = pair.Key;
+        foreach ( var cell in pair.Value )
+        {
+          if ( cell.Layer < map.Layers.Count )
+          {
+            var tiles = map.Layers[cell.Layer].Tiles;
+            if ( ( cell.X < tiles.Width )
+            &&   ( cell.Y < tiles.Height ) )
+            {
+              tiles[cell.X, cell.Y] = _TileIndex;
+            }
+          }
+        }
+      }
 
       // Restore the charset's entity tiles exactly - including the one that
       // sat on the deleted tile. Done after AddTile, whose insert shift has
@@ -181,6 +231,9 @@ namespace RetroDevStudio.Undo
           }
         }
       }
+
+      // AddTile redrew the map before its cells and colours were back.
+      _MapEditor.TileModified( _Charset, _TileIndex );
     }
   }
 }

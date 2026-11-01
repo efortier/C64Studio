@@ -215,6 +215,17 @@ namespace RetroDevStudio.Controls
       {
         errors.AddRange( exportErrors );
       }
+      // Standalone charsets (UI / menus) are written under their exported
+      // filenames: an export-checked one without a filename, an invalid or
+      // duplicate name, one ending in the compressor's extension, or a name
+      // one of the numbered files already takes aborts.
+      string charsetCompressorExtension = compressCharsets ? RetroDevStudio.Formats.MapProject.CompressorFileExtension( CharsetCompressorName() ) : null;
+      errors.AddRange( Info.Map.GetStandaloneCharsetExportErrors( charsetCompressorExtension ) );
+      var standaloneFiles = Info.Map.BuildStandaloneCharsetFiles();
+      if ( files != null )
+      {
+        errors.AddRange( StandaloneFileNameClashes( Info.Map, files, standaloneFiles, compress, charsetCompressorExtension ) );
+      }
       // The compressed charset files land beside the charset files, so a
       // pattern yielding the same name would overwrite the original.
       if ( ( compressCharsets )
@@ -303,6 +314,14 @@ namespace RetroDevStudio.Controls
           reservedPaths.Add( System.IO.Path.Combine( charsetDir ?? mapDir, file.CharsetFileName ) );
         }
       }
+      foreach ( var standalone in standaloneFiles )
+      {
+        reservedPaths.Add( System.IO.Path.Combine( charsetDir ?? mapDir, standalone.FileName ) );
+        if ( compressCharsets )
+        {
+          reservedPaths.Add( System.IO.Path.Combine( charsetDir ?? mapDir, RetroDevStudio.Formats.MapProject.CompressedFileNameFor( standalone.FileName, charsetCompressorExtension ) ) );
+        }
+      }
       List<string> customPathErrors;
       RetroDevStudio.Formats.CustomExportRunner.ResolveDirectories( customJobs, mapDir, documentFolder, reservedPaths, out customPathErrors );
       if ( customPathErrors.Count > 0 )
@@ -319,6 +338,7 @@ namespace RetroDevStudio.Controls
         folders.Add( string.IsNullOrEmpty( editCompressDirectory.Text ) ? mapDir : editCompressDirectory.Text );
       }
       if ( ( files[0].CharsetData != null )
+      ||   ( standaloneFiles.Count > 0 )
       ||   ( checkExportCharsetLabels.Checked )
       ||   ( checkExportMapLabels.Checked ) )
       {
@@ -375,7 +395,8 @@ namespace RetroDevStudio.Controls
       write.ExportPassable               = exportPassable;
       write.DefFiles                     = checkGenerateDefFile.Checked;
       summary.AppendLine( "Exported " + files.Count + " map file(s) to " + mapDir
-                        + ( ( files[0].CharsetData != null ) ? ", their charset files" + ( compressCharsets ? " (+ compressed copies)" : "" ) + " to " + charsetDir : " (no charset files - the charset file name is empty)" ) );
+                        + ( ( files[0].CharsetData != null ) ? ", their charset files" + ( compressCharsets ? " (+ compressed copies)" : "" ) + " to " + charsetDir : " (no charset files - the charset file name is empty)" )
+                        + ( ( standaloneFiles.Count > 0 ) ? ", " + standaloneFiles.Count + " standalone charset file(s) to " + charsetDir : "" ) );
       foreach ( var file in files )
       {
         // The map binary (+ the optional 2-byte PRG load address).
@@ -509,6 +530,55 @@ namespace RetroDevStudio.Controls
         {
           oversized.Add( file.FileName + " (" + finalData.Length + " bytes)" );
         }
+      }
+
+      // Standalone charsets (UI / menus): one file each under its exported
+      // filename beside the numbered charset files, with the same load
+      // address prefix and, when charsets are compressed, a compressed copy
+      // named with the compressor's extension (ui.bin -> ui.zx0).
+      foreach ( var standalone in standaloneFiles )
+      {
+        GR.Memory.ByteBuffer charsetData = standalone.Data;
+        if ( charsetPrefix )
+        {
+          var prefixed = new ByteBuffer();
+          prefixed.AppendU16( charsetLoadAddress );
+          prefixed.Append( charsetData );
+          charsetData = prefixed;
+        }
+        string charsetName = Info.Map.CharsetDisplayNameOf( standalone.Charset );
+        string charsetPath = System.IO.Path.Combine( charsetDir ?? mapDir, standalone.FileName );
+        var standaloneResult = new RetroDevStudio.Formats.MapExportStandaloneFileResult() { Path = charsetPath, Size = (int)charsetData.Length };
+        write.StandaloneFiles[standalone.CharsetIndex] = standaloneResult;
+        try
+        {
+          GR.IO.File.WriteAllBytes( charsetPath, charsetData );
+        }
+        catch ( Exception ex )
+        {
+          if ( Core != null )
+          {
+            Core.Notification.MessageBox( "Error saving file",
+              "Could not save the standalone charset file:\r\n" + charsetPath + "\r\n\r\n" + ex.Message );
+          }
+          return false;
+        }
+        string line = "  " + standalone.FileName + " - standalone character set '" + charsetName + "', " + charsetData.Length + " bytes";
+        if ( compressCharsets )
+        {
+          string compressedName = RetroDevStudio.Formats.MapProject.CompressedFileNameFor( standalone.FileName, charsetCompressorExtension );
+          string compressedPath = System.IO.Path.Combine( charsetDir ?? mapDir, compressedName );
+          string charsetCompression;
+          if ( TryCompressCharsetFile( charsetPath, compressedPath, charsetData.Length, charsetOverrideAddress, out charsetCompression ) )
+          {
+            standaloneResult.CompressedPath = compressedPath;
+            standaloneResult.CompressedSize = FileSizeOf( compressedPath );
+            line += " + " + compressedName;
+            fileLogs.AppendLine( "==================== " + standalone.FileName + " ====================" );
+            fileLogs.AppendLine( charsetCompression );
+          }
+        }
+        summary.AppendLine( line );
       }
 
       // Optional map_header.asm — opt-in. Uses the explicit directory/filename
@@ -687,6 +757,69 @@ namespace RetroDevStudio.Controls
       {
         return -1;
       }
+    }
+
+
+
+    /// <summary>The charset compressor picked on the form ("ZX0" by default).</summary>
+    private string CharsetCompressorName()
+    {
+      return ( comboCharsetCompressor.SelectedItem != null ) ? comboCharsetCompressor.SelectedItem.ToString() : "ZX0";
+    }
+
+
+
+    /// <summary>
+    /// The names a standalone charset file (or its compressed copy) shares
+    /// with a numbered map or charset file (or their compressed copies) - one
+    /// export writes every name once, whatever the folder. Clashes among the
+    /// standalone files themselves are the model's (GetStandaloneCharsetExportErrors).
+    /// </summary>
+    private List<string> StandaloneFileNameClashes( RetroDevStudio.Formats.MapProject Project,
+                                                     List<RetroDevStudio.Formats.MapProject.GameBinaryMapFile> Files,
+                                                     List<RetroDevStudio.Formats.MapProject.StandaloneCharsetFile> StandaloneFiles,
+                                                     bool CompressMaps, string CharsetCompressorExtension )
+    {
+      var errors   = new List<string>();
+      var numbered = new Dictionary<string, string>( StringComparer.OrdinalIgnoreCase );
+      foreach ( var file in Files )
+      {
+        string name;
+        string error;
+        numbered[file.FileName] = "the file of map '" + file.Map.Name + "'";
+        if ( ( CompressMaps )
+        &&   ( RetroDevStudio.Formats.MapProject.TryFormatFileNamePattern( editCompressFilename.Text, file.MapID, out name, out error ) ) )
+        {
+          numbered[name] = "the compressed file of map '" + file.Map.Name + "'";
+        }
+        if ( file.CharsetData != null )
+        {
+          numbered[file.CharsetFileName] = "the charset file of map '" + file.Map.Name + "'";
+          if ( ( CharsetCompressorExtension != null )
+          &&   ( RetroDevStudio.Formats.MapProject.TryFormatFileNamePattern( editCharsetCompressFilename.Text, file.MapID, out name, out error ) ) )
+          {
+            numbered[name] = "the compressed charset file of map '" + file.Map.Name + "'";
+          }
+        }
+      }
+      foreach ( var standalone in StandaloneFiles )
+      {
+        string owner = "standalone character set '" + Project.CharsetDisplayNameOf( standalone.Charset ) + "'";
+        string previous;
+        if ( numbered.TryGetValue( standalone.FileName, out previous ) )
+        {
+          errors.Add( owner + " and " + previous + " would both be written to '" + standalone.FileName + "'" );
+        }
+        if ( CharsetCompressorExtension != null )
+        {
+          string compressedName = RetroDevStudio.Formats.MapProject.CompressedFileNameFor( standalone.FileName, CharsetCompressorExtension );
+          if ( numbered.TryGetValue( compressedName, out previous ) )
+          {
+            errors.Add( "the compressed copy of " + owner + " and " + previous + " would both be written to '" + compressedName + "'" );
+          }
+        }
+      }
+      return errors;
     }
 
 

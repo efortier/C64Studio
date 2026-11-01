@@ -38,6 +38,20 @@ namespace RetroDevStudio.Formats
     public bool     DefFiles = true;
     /// <summary>Per exported map (by map ID) what was actually written; empty in a preview.</summary>
     public Dictionary<int, MapExportFileResult> Files = new Dictionary<int, MapExportFileResult>();
+    /// <summary>Per standalone charset (by charset index) the file(s) written; empty in a preview.</summary>
+    public Dictionary<int, MapExportStandaloneFileResult> StandaloneFiles = new Dictionary<int, MapExportStandaloneFileResult>();
+  }
+
+
+
+  /// <summary>The file(s) one standalone charset's export wrote; "" / -1 = not produced.</summary>
+  public class MapExportStandaloneFileResult
+  {
+    public string   Path = "";
+    /// <summary>Bytes written, including the 2-byte load address when enabled.</summary>
+    public int      Size = -1;
+    public string   CompressedPath = "";
+    public int      CompressedSize = -1;
   }
 
 
@@ -173,6 +187,16 @@ namespace RetroDevStudio.Formats
     public string                         Name = "";
     public string                         Label = "";
     public int                            DataSize = 0;
+    /// <summary>A standalone (UI / menus) charset: never a map's, exported under its own file name.</summary>
+    public bool                           Standalone = false;
+    public TextCharMode                   Mode = TextCharMode.COMMODORE_HIRES;
+    /// <summary>The standalone set's exported file name (".bin" appended when none given); "" for a map charset or without a name.</summary>
+    public string                         FileName = "";
+    public string                         FilePath = "";
+    public int                            FileSize = -1;
+    public string                         CompressedName = "";
+    public string                         CompressedPath = "";
+    public int                            CompressedSize = -1;
     public List<MapExportTileEntry>       Tiles = new List<MapExportTileEntry>();
     public List<MapExportEntityTileEntry> EntityTiles = new List<MapExportEntityTileEntry>();
     public List<MapExportMapEntry>        Maps = new List<MapExportMapEntry>();
@@ -248,6 +272,8 @@ namespace RetroDevStudio.Formats
     public List<MapExportMapEntry>            ExportedMaps = new List<MapExportMapEntry>();
     public List<MapExportCharsetEntry>        Charsets = new List<MapExportCharsetEntry>();
     public List<MapExportCharsetEntry>        ExportedCharsets = new List<MapExportCharsetEntry>();
+    /// <summary>The standalone charsets that write a file (export-checked and named), in editor order.</summary>
+    public List<MapExportCharsetEntry>        StandaloneCharsets = new List<MapExportCharsetEntry>();
     public List<MapExportMarkerTypeEntry>     MarkerTypes = new List<MapExportMarkerTypeEntry>();
     public List<MapExportEntityTypeEntry>     EntityTypes = new List<MapExportEntityTypeEntry>();
     public List<MapExportStringEntry>         MapStrings = new List<MapExportStringEntry>();
@@ -405,6 +431,28 @@ namespace RetroDevStudio.Formats
             TileIndex = tileIndex,
             Tile      = ( tileIndex < entry.Tiles.Count ) ? entry.Tiles[tileIndex] : null
           } );
+        }
+        entry.Standalone = charset.Standalone;
+        entry.Mode       = charset.Charset.Mode;
+        entry.FileName   = MapProject.StandaloneCharsetFileName( charset );
+        if ( ( entry.FileName.Length > 0 )
+        &&   ( charset.ExportEnabled ) )
+        {
+          MapExportStandaloneFileResult file;
+          if ( !Write.StandaloneFiles.TryGetValue( i, out file ) )
+          {
+            file = null;
+          }
+          entry.FilePath = Pick( ( file != null ) ? file.Path : null, Combine( Write.CharsetDirectory, entry.FileName ) );
+          int prefix = ( Write.CharsetLoadAddress >= 0 ) ? 2 : 0;
+          entry.FileSize = PickSize( ( file != null ) ? file.Size : -1, entry.DataSize + prefix );
+          if ( Write.CompressCharsets )
+          {
+            entry.CompressedName = MapProject.CompressedFileNameFor( entry.FileName, MapProject.CompressorFileExtension( Write.CharsetCompressor ) );
+            entry.CompressedPath = Pick( ( file != null ) ? file.CompressedPath : null, Combine( Write.CharsetDirectory, entry.CompressedName ) );
+            entry.CompressedSize = ( file != null ) ? file.CompressedSize : -1;
+          }
+          StandaloneCharsets.Add( entry );
         }
         Charsets.Add( entry );
         if ( charset.ExportEnabled )

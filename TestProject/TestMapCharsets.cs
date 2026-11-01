@@ -354,6 +354,13 @@ namespace TestProject
           }
           else if ( field.FieldType == typeof( bool ) )
           {
+            if ( field.Name == "Standalone" )
+            {
+              // Both fixture charsets are bound to maps, and a load drops the
+              // flag of a bound charset by design - TestStandaloneCharsets
+              // covers its META round-trip on an unbound charset.
+              continue;
+            }
             field.SetValue( cs, !(bool)field.GetValue( cs ) );
           }
           else if ( field.FieldType == typeof( int ) )
@@ -856,11 +863,12 @@ namespace TestProject
     // ---------------------------------------------------------------- add / duplicate / remove
 
     [TestMethod]
-    public void TestAddCharsetCopiesModeAndColors()
+    public void TestAddCharsetCopiesColorsAndSeedsTheProjectMode()
     {
       var proj = new MapProject();
+      proj.Mode = TextMode.COMMODORE_40_X_25_MULTICOLOR;
       var cs0 = proj.Charsets[0].Charset;
-      cs0.Mode = TextCharMode.COMMODORE_MULTICOLOR;
+      cs0.Mode = TextCharMode.COMMODORE_ECM;   // charset 0's own mode is NOT the seed any more
       cs0.Colors.BackgroundColor = 6;
       cs0.Colors.MultiColor1 = 2;
       cs0.Colors.MultiColor2 = 3;
@@ -871,7 +879,9 @@ namespace TestProject
       int index = proj.AddCharset();
       Assert.AreEqual( 1, index );
       var cs1 = proj.Charsets[1];
-      Assert.AreEqual( TextCharMode.COMMODORE_MULTICOLOR, cs1.Charset.Mode );
+      Assert.AreEqual( TextCharMode.COMMODORE_MULTICOLOR, cs1.Charset.Mode, "a new charset starts in the project (map) mode, whatever charset 0 uses" );
+      Assert.AreEqual( GraphicTileMode.COMMODORE_HIRES, cs1.Charset.Characters[1].Tile.Mode, "custom color 1 in multicolor mode = a hires character tile" );
+      Assert.IsFalse( cs1.Standalone, "a new charset is a map charset" );
       Assert.AreEqual( 6, cs1.Charset.Colors.BackgroundColor );
       Assert.AreEqual( 2, cs1.Charset.Colors.MultiColor1 );
       Assert.AreEqual( 3, cs1.Charset.Colors.MultiColor2 );

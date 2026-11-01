@@ -133,25 +133,26 @@ namespace RetroDevStudio.Controls
 
     /// <summary>
     /// Writes every BuildCharsetExportFiles() entry into Directory — one file
-    /// per character set with "Export character set" enabled and a non-empty
-    /// export name. Returns a report for the export log (one line per file,
-    /// and a line for every enabled set that has no export name). A "No" on
-    /// the overwrite prompt skips THAT file and continues with the next.
+    /// per STANDALONE character set with "Export character set" checked and an
+    /// exported filename. Returns a report for the export log (one line per
+    /// file, and a line for every checked standalone set without a filename).
+    /// A "No" on the overwrite prompt skips THAT file and continues with the
+    /// next.
     /// </summary>
     protected string WriteCharsetExportFiles( MapProject Project, string Directory, bool PrefixLoadAddress, ushort LoadAddress, bool AskBeforeOverwrite )
     {
       var report = new StringBuilder();
-      var exported = Project.ExportedCharsets();
+      var exported = Project.ExportedStandaloneCharsets();
       if ( exported.Count == 0 )
       {
-        report.AppendLine( "Character sets: none enabled for export." );
+        report.AppendLine( "Standalone character sets: none to export." );
         return report.ToString();
       }
       foreach ( var cs in exported )
       {
-        if ( string.IsNullOrWhiteSpace( cs.ExportName ) )
+        if ( MapProject.StandaloneCharsetFileName( cs ).Length == 0 )
         {
-          report.AppendLine( "Character set '" + Project.CharsetDisplayNameOf( cs ) + "': no export name, no file written." );
+          report.AppendLine( "Standalone character set '" + Project.CharsetDisplayNameOf( cs ) + "': no exported filename, no file written." );
         }
       }
       foreach ( var file in Project.BuildCharsetExportFiles( PrefixLoadAddress, LoadAddress ) )
@@ -168,7 +169,7 @@ namespace RetroDevStudio.Controls
             fullPath = file.FileName;
           }
         }
-        string label = "Character set " + file.ExportIndex + " (" + Project.CharsetDisplayNameAt( file.CharsetIndex ) + ")";
+        string label = "Standalone character set '" + Project.CharsetDisplayNameAt( file.CharsetIndex ) + "'";
         if ( ( AskBeforeOverwrite )
         &&   ( System.IO.File.Exists( fullPath ) ) )
         {

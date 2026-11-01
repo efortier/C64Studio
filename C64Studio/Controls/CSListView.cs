@@ -82,10 +82,26 @@ namespace RetroDevStudio.Controls
 
     protected override void OnDrawSubItem( DrawListViewSubItemEventArgs e )
     {
+      // Text alignment as in a plain ListView - the column's TextAlign - unless
+      // the cell sets its own (see CSListViewSubItem.Alignment).
       var trimming = StringTrimming.None;
+      var textAlign = ( e.Header != null ) ? e.Header.TextAlign : HorizontalAlignment.Left;
       if ( e.SubItem is CSListViewSubItem )
       {
         trimming = ( (CSListViewSubItem)e.SubItem ).Trimming;
+        if ( ( (CSListViewSubItem)e.SubItem ).Alignment.HasValue )
+        {
+          textAlign = ( (CSListViewSubItem)e.SubItem ).Alignment.Value;
+        }
+      }
+      var alignment = StringAlignment.Near;
+      if ( textAlign == HorizontalAlignment.Center )
+      {
+        alignment = StringAlignment.Center;
+      }
+      else if ( textAlign == HorizontalAlignment.Right )
+      {
+        alignment = StringAlignment.Far;
       }
       int subItemIndex = e.Item.SubItems.IndexOf( e.SubItem );
       bool firstItem = ( subItemIndex == 0 );
@@ -144,7 +160,7 @@ namespace RetroDevStudio.Controls
         }
 
         e.Graphics.DrawString( e.SubItem.Text, e.SubItem.Font, new SolidBrush( GR.Color.Helper.FromARGB( SelectedTextColor ) ), textBounds,
-          new StringFormat() { Trimming = trimming, LineAlignment = StringAlignment.Center, FormatFlags = StringFormatFlags.NoWrap } );
+          new StringFormat() { Alignment = alignment, Trimming = trimming, LineAlignment = StringAlignment.Center, FormatFlags = StringFormatFlags.NoWrap } );
       }
       else
       {
@@ -188,7 +204,7 @@ namespace RetroDevStudio.Controls
           textColor = csSub.OverrideForeColor.Value;
         }
         e.Graphics.DrawString( e.SubItem.Text, e.SubItem.Font, new SolidBrush( textColor ), textBounds,
-          new StringFormat() { Trimming = trimming, LineAlignment = StringAlignment.Center, FormatFlags = StringFormatFlags.NoWrap } );
+          new StringFormat() { Alignment = alignment, Trimming = trimming, LineAlignment = StringAlignment.Center, FormatFlags = StringFormatFlags.NoWrap } );
       }
 
       if ( e.ItemState == ListViewItemStates.Focused )
@@ -217,6 +233,14 @@ namespace RetroDevStudio.Controls
     /// listview's SelectedTextColor for legibility.
     /// </summary>
     public Color? OverrideForeColor { get; set; } = null;
+
+    /// <summary>
+    /// Horizontal alignment of this cell's text; null (the default) follows its
+    /// column's <see cref="ColumnHeader.TextAlign"/>, as in a plain ListView.
+    /// Only needed in the first column, whose TextAlign WinForms always forces
+    /// to Left - e.g. Right for a number there.
+    /// </summary>
+    public HorizontalAlignment? Alignment { get; set; } = null;
 
 
     public CSListViewSubItem()

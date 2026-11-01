@@ -33,7 +33,11 @@ namespace TestProject
 
 
 
-    /// <summary>Three charsets with distinctive art on char 1; the middle one disabled.</summary>
+    /// <summary>
+    /// Three charsets with distinctive art on char 1: charset 0 is the map's
+    /// (a map charset - its export name is ignored by the file exports), the
+    /// other two are standalone, the middle one disabled.
+    /// </summary>
     private static MapProject BuildThreeCharsetProject()
     {
       var proj = new MapProject();
@@ -46,12 +50,14 @@ namespace TestProject
       proj.Charsets[a].ExportName = "middle.bin";
       proj.Charsets[a].DisplayName = "Middle";
       proj.Charsets[a].ExportEnabled = false;
+      proj.Charsets[a].Standalone = true;
       FillTiles( proj.Charsets[a], 5, 0x40 );
       proj.Charsets[a].Charset.Characters[1].Tile.Data.SetU8At( 0, 0x22 );
 
       int b = proj.AddCharset();
       proj.Charsets[b].ExportName = "last.bin";
       proj.Charsets[b].DisplayName = "Last";
+      proj.Charsets[b].Standalone = true;
       FillTiles( proj.Charsets[b], 3, 0x80 );
       proj.Charsets[b].Charset.Characters[1].Tile.Data.SetU8At( 0, 0x33 );
 
@@ -70,16 +76,12 @@ namespace TestProject
     {
       var proj = BuildThreeCharsetProject();
       var files = proj.BuildCharsetExportFiles( false, 0 );
-      Assert.AreEqual( 2, files.Count );
+      Assert.AreEqual( 1, files.Count, "only an export-checked STANDALONE charset writes a file: the map charset's name is ignored, the disabled one skipped" );
       Assert.AreEqual( 0, files[0].ExportIndex );
-      Assert.AreEqual( 1, files[1].ExportIndex );
-      Assert.AreEqual( 0, files[0].CharsetIndex );
-      Assert.AreEqual( 2, files[1].CharsetIndex );
-      Assert.AreEqual( "charset0.bin", files[0].FileName );
-      Assert.AreEqual( "last.bin", files[1].FileName );
+      Assert.AreEqual( 2, files[0].CharsetIndex );
+      Assert.AreEqual( "last.bin", files[0].FileName );
       Assert.AreEqual( 2048, (int)files[0].Data.Length, "256 characters x 8 bytes" );
-      Assert.AreEqual( (byte)0x11, files[0].Data.ByteAt( 8 ), "char 1 byte 0 of charset 0" );
-      Assert.AreEqual( (byte)0x33, files[1].Data.ByteAt( 8 ), "char 1 byte 0 of charset 2" );
+      Assert.AreEqual( (byte)0x33, files[0].Data.ByteAt( 8 ), "char 1 byte 0 of charset 2" );
     }
 
 
@@ -92,7 +94,7 @@ namespace TestProject
       Assert.AreEqual( 2050, (int)files[0].Data.Length );
       Assert.AreEqual( (byte)0x00, files[0].Data.ByteAt( 0 ) );
       Assert.AreEqual( (byte)0x30, files[0].Data.ByteAt( 1 ) );
-      Assert.AreEqual( (byte)0x11, files[0].Data.ByteAt( 10 ) );
+      Assert.AreEqual( (byte)0x33, files[0].Data.ByteAt( 10 ) );
     }
 
 
@@ -101,13 +103,15 @@ namespace TestProject
     public void TestBuildCharsetExportFilesSkipsEmptyName()
     {
       var proj = BuildThreeCharsetProject();
-      proj.Charsets[0].ExportName = "   ";
+      proj.Charsets[2].ExportName = "   ";
       var files = proj.BuildCharsetExportFiles( false, 0 );
-      Assert.AreEqual( 1, files.Count, "an enabled charset without a name writes no file" );
-      Assert.AreEqual( 2, files[0].CharsetIndex );
-      Assert.AreEqual( 1, files[0].ExportIndex, "but it still occupies its compacted slot" );
+      Assert.AreEqual( 0, files.Count, "a standalone charset without a filename writes no file" );
+      var warnings = proj.GetCharsetFileWarnings();
+      Assert.AreEqual( 1, warnings.Count, "but it is reported: export checked, no exported filename" );
+      StringAssert.Contains( warnings[0], "Last" );
+      StringAssert.Contains( warnings[0], "no exported filename" );
       var buf = proj.ExportAsGameBinary( true, true, true );
-      Assert.AreEqual( (byte)2, buf.ByteAt( 0x3E ), "and it is still counted in the binary" );
+      Assert.AreEqual( (byte)2, buf.ByteAt( 0x3E ), "the all-maps binary still counts it" );
     }
 
 
@@ -116,7 +120,7 @@ namespace TestProject
     public void TestBuildCharsetExportFilesHonoursExportNumCharacters()
     {
       var proj = BuildThreeCharsetProject();
-      proj.Charsets[0].Charset.ExportNumCharacters = 128;
+      proj.Charsets[2].Charset.ExportNumCharacters = 128;
       var files = proj.BuildCharsetExportFiles( false, 0 );
       Assert.AreEqual( 1024, (int)files[0].Data.Length );
     }
@@ -129,10 +133,11 @@ namespace TestProject
     public void TestDuplicateExportNameWarning()
     {
       var proj = BuildThreeCharsetProject();
-      proj.Charsets[2].ExportName = "Charset0.BIN";
+      proj.Charsets[1].ExportEnabled = true;
+      proj.Charsets[2].ExportName = "Middle.BIN";
       var warnings = proj.GetCharsetFileWarnings();
-      Assert.AreEqual( 1, warnings.Count, "case-insensitive duplicate" );
-      StringAssert.Contains( warnings[0], "Base" );
+      Assert.AreEqual( 1, warnings.Count, "case-insensitive duplicate among the standalone charsets" );
+      StringAssert.Contains( warnings[0], "Middle" );
       StringAssert.Contains( warnings[0], "Last" );
 
       proj.Charsets[2].ExportEnabled = false;
@@ -140,7 +145,13 @@ namespace TestProject
 
       proj.Charsets[2].ExportEnabled = true;
       proj.Charsets[2].ExportName = "";
-      Assert.AreEqual( 0, proj.GetCharsetFileWarnings().Count, "an empty name is not a warning" );
+      warnings = proj.GetCharsetFileWarnings();
+      Assert.AreEqual( 1, warnings.Count, "an export-checked standalone charset without a filename IS reported" );
+      StringAssert.Contains( warnings[0], "no exported filename" );
+
+      proj.Charsets[2].ExportName = "last.bin";
+      proj.Charsets[0].ExportName = "Middle.BIN";
+      Assert.AreEqual( 0, proj.GetCharsetFileWarnings().Count, "the map charset's name is ignored - it duplicates nothing" );
     }
 
 

@@ -7,7 +7,8 @@ namespace RetroDevStudio.Undo
 {
   /// <summary>
   /// Undo entry for a character set's editor-side metadata: display name,
-  /// export name and the "Export character set" flag.
+  /// exported filename, the "Export character set" flag and the
+  /// "Standalone charset" flag.
   /// </summary>
   public class UndoMapCharsetMetaChange : UndoTask
   {
@@ -16,6 +17,7 @@ namespace RetroDevStudio.Undo
     private string                 _DisplayName = "";
     private string                 _ExportName = "";
     private bool                   _ExportEnabled = true;
+    private bool                   _Standalone = false;
 
 
 
@@ -26,6 +28,7 @@ namespace RetroDevStudio.Undo
       _DisplayName   = Charset.DisplayName;
       _ExportName    = Charset.ExportName;
       _ExportEnabled = Charset.ExportEnabled;
+      _Standalone    = Charset.Standalone;
     }
 
 
@@ -52,6 +55,7 @@ namespace RetroDevStudio.Undo
       _Charset.DisplayName   = _DisplayName;
       _Charset.ExportName    = _ExportName;
       _Charset.ExportEnabled = _ExportEnabled;
+      _Charset.Standalone    = _Standalone;
       _Editor.CharsetMetaChanged( _Charset );
       _Editor.SetModified();
     }

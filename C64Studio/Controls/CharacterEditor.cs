@@ -154,6 +154,69 @@ namespace RetroDevStudio.Controls
       }
     }
 
+
+
+    /// <summary>
+    /// Fires when the user clicks "Clear character and tile" — the host
+    /// (MapEditor) clears the characters of the tile the current character
+    /// is part of and deletes that tile, as one undo step.
+    /// </summary>
+    public event EventHandler ClearCharacterAndTile;
+
+
+
+    /// <summary>
+    /// Whether "Clear character and tile" can be clicked. Set by the host,
+    /// which knows the tiles: enabled while the current character is part of
+    /// one. The button always shows (no empty row under Clear): without a
+    /// host that sets this - a charset project has no tiles - it stays
+    /// disabled.
+    /// </summary>
+    public bool ClearCharacterAndTileEnabled
+    {
+      get
+      {
+        return btnClearCharacterAndTile.Enabled;
+      }
+      set
+      {
+        btnClearCharacterAndTile.Enabled = value;
+      }
+    }
+
+
+
+    /// <summary>
+    /// Height of the character list - the panel above the splitter under it -
+    /// in thousandths of its column's height; -1 while the column is too short
+    /// to hold the list, the splitter and the panel below. Setting it moves the
+    /// splitter (a negative value, or a column too short, leaves it alone); a
+    /// resize keeps the share, as when the splitter is dragged.
+    /// </summary>
+    public int CharacterListHeightPermille
+    {
+      get
+      {
+        int maxDistance = splitContainer2.Height - splitContainer2.SplitterWidth - splitContainer2.Panel2MinSize;
+        if ( maxDistance < splitContainer2.Panel1MinSize )
+        {
+          return -1;
+        }
+        return (int)Math.Round( splitContainer2.SplitterDistance * 1000.0 / splitContainer2.Height );
+      }
+      set
+      {
+        int maxDistance = splitContainer2.Height - splitContainer2.SplitterWidth - splitContainer2.Panel2MinSize;
+        if ( ( value < 0 )
+        ||   ( maxDistance < splitContainer2.Panel1MinSize ) )
+        {
+          return;
+        }
+        int distance = (int)Math.Round( splitContainer2.Height * Math.Min( value, 1000 ) / 1000.0 );
+        splitContainer2.SplitterDistance = Math.Max( splitContainer2.Panel1MinSize, Math.Min( maxDistance, distance ) );
+      }
+    }
+
     /// <summary>
     /// Fires when the user clicks "Create Multiple Tiles" — the host
     /// (MapEditor) prompts for a base name and creates one tile per
@@ -429,6 +492,14 @@ namespace RetroDevStudio.Controls
       if ( CreateMultipleTilesFromCharacters != null )
       {
         CreateMultipleTilesFromCharacters( this, new EventArgs() );
+      }
+    }
+
+    private void btnClearCharacterAndTile_Click( DecentForms.ControlBase Sender )
+    {
+      if ( ClearCharacterAndTile != null )
+      {
+        ClearCharacterAndTile( this, new EventArgs() );
       }
     }
 
@@ -3540,9 +3611,21 @@ namespace RetroDevStudio.Controls
     /// </summary>
     public void ClearCharacters( List<int> Characters )
     {
+      UndoManager.StartUndoGroup();
+      ClearCharactersInCurrentUndoGroup( Characters );
+    }
+
+
+
+    /// <summary>
+    /// Blanks the given characters (no prompt), their undo tasks joining the
+    /// undo group the caller started - the map editor's "Clear character and
+    /// tile" deletes the tile in the same step.
+    /// </summary>
+    public void ClearCharactersInCurrentUndoGroup( List<int> Characters )
+    {
       bool  wasModified = false;
       var   selectedChars = Characters;
-      bool  firstUndoStep = true;
 
       DoNotUpdateFromControls = true;
 
@@ -3555,8 +3638,7 @@ namespace RetroDevStudio.Controls
         }
         wasModified = true;
 
-        UndoManager.AddUndoTask( new Undo.UndoCharacterEditorCharChange( this, m_Project, i, 1 ), firstUndoStep );
-        firstUndoStep = false;
+        UndoManager.AddGroupedUndoTask( new Undo.UndoCharacterEditorCharChange( this, m_Project, i, 1 ) );
 
         for ( int j = 0; j < m_Project.Characters[i].Tile.Data.Length; ++j )
         {

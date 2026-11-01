@@ -68,7 +68,7 @@
             this.splitContainer2 = new System.Windows.Forms.SplitContainer();
             this.panelCharacters = new GR.Forms.ImageListbox();
             this.picturePlayground = new GR.Forms.FastPictureBox();
-            this.groupBox2 = new System.Windows.Forms.GroupBox();
+            this.groupPlayground = new System.Windows.Forms.GroupBox();
             this.btnClearPlayground = new DecentForms.Button();
             this.btnCropPlayground = new DecentForms.Button();
             this.labelSwatchSize = new System.Windows.Forms.Label();
@@ -86,13 +86,14 @@
             this.labelZoom = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
             this.comboCharactersPerRow = new System.Windows.Forms.ComboBox();
-            this.groupBox1 = new System.Windows.Forms.GroupBox();
+            this.groupCharacters = new System.Windows.Forms.GroupBox();
             this.btnMoveSelectionToTarget = new DecentForms.Button();
             this.btnCreateTile = new DecentForms.Button();
             this.btnCreateMultipleTiles = new DecentForms.Button();
             this.btnRestoreDefault = new DecentForms.Button();
             this.btnRemoveDuplicates = new DecentForms.Button();
             this.btnClearChars = new DecentForms.Button();
+            this.btnClearCharacterAndTile = new DecentForms.Button();
             this.panelColorChooser = new System.Windows.Forms.Panel();
             this.groupRightClick = new System.Windows.Forms.GroupBox();
             this.radioRightClickDefault = new DecentForms.RadioButton();
@@ -140,10 +141,10 @@
             this.splitContainer2.Panel1.SuspendLayout();
             this.splitContainer2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.picturePlayground)).BeginInit();
-            this.groupBox2.SuspendLayout();
+            this.groupPlayground.SuspendLayout();
             this.flowLayoutPanel2.SuspendLayout();
             this.flowLayoutPanel1.SuspendLayout();
-            this.groupBox1.SuspendLayout();
+            this.groupCharacters.SuspendLayout();
             this.groupRightClick.SuspendLayout();
             this.groupMoveChar.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.canvasEditor)).BeginInit();
@@ -226,10 +227,10 @@
             // 
             // editMoveTargetIndex
             // 
-            this.editMoveTargetIndex.Location = new System.Drawing.Point(107, 83);
+            this.editMoveTargetIndex.Location = new System.Drawing.Point(107, 112);
             this.editMoveTargetIndex.Name = "editMoveTargetIndex";
             this.editMoveTargetIndex.Size = new System.Drawing.Size(109, 20);
-            this.editMoveTargetIndex.TabIndex = 21;
+            this.editMoveTargetIndex.TabIndex = 22;
             this.editMoveTargetIndex.TextChanged += new System.EventHandler(this.editMoveTargetIndex_TextChanged);
             // 
             // btnShiftLeft
@@ -451,10 +452,10 @@
             this.btnHighlightDuplicates.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             this.btnHighlightDuplicates.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnHighlightDuplicates.Image = null;
-            this.btnHighlightDuplicates.Location = new System.Drawing.Point(10, 110);
+            this.btnHighlightDuplicates.Location = new System.Drawing.Point(10, 139);
             this.btnHighlightDuplicates.Name = "btnHighlightDuplicates";
             this.btnHighlightDuplicates.Size = new System.Drawing.Size(90, 23);
-            this.btnHighlightDuplicates.TabIndex = 22;
+            this.btnHighlightDuplicates.TabIndex = 23;
             this.btnHighlightDuplicates.Text = "Duplicates";
             this.toolTip1.SetToolTip(this.btnHighlightDuplicates, "Highlight duplicates");
             this.btnHighlightDuplicates.Click += new DecentForms.EventHandler(this.btnHighlightDuplicates_Click);
@@ -533,12 +534,12 @@
             // tabEditor
             // 
             this.tabEditor.Controls.Add(this.splitContainer1);
-            this.tabEditor.Controls.Add(this.groupBox2);
+            this.tabEditor.Controls.Add(this.groupPlayground);
             this.tabEditor.Controls.Add(this.flowLayoutPanel2);
             this.tabEditor.Controls.Add(this.flowLayoutPanel1);
             this.tabEditor.Controls.Add(this.label1);
             this.tabEditor.Controls.Add(this.comboCharactersPerRow);
-            this.tabEditor.Controls.Add(this.groupBox1);
+            this.tabEditor.Controls.Add(this.groupCharacters);
             this.tabEditor.Controls.Add(this.panelColorChooser);
             this.tabEditor.Controls.Add(this.groupRightClick);
             this.tabEditor.Controls.Add(this.labelCanvasCustomSize);
@@ -645,21 +646,21 @@
             this.picturePlayground.MouseMove += new System.Windows.Forms.MouseEventHandler(this.picturePlayground_MouseMove);
             this.picturePlayground.MouseUp += new System.Windows.Forms.MouseEventHandler(this.picturePlayground_MouseUp);
             // 
-            // groupBox2
+            // groupPlayground
             // 
-            this.groupBox2.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.groupBox2.Controls.Add(this.btnClearPlayground);
-            this.groupBox2.Controls.Add(this.btnCropPlayground);
-            this.groupBox2.Controls.Add(this.labelSwatchSize);
-            this.groupBox2.Controls.Add(this.editSwatchSize);
-            this.groupBox2.Controls.Add(this.trackGridOpacity);
-            this.groupBox2.Controls.Add(this.checkShowPlaygroundGrid);
-            this.groupBox2.Location = new System.Drawing.Point(1208, 599);
-            this.groupBox2.Name = "groupBox2";
-            this.groupBox2.Size = new System.Drawing.Size(216, 112);
-            this.groupBox2.TabIndex = 67;
-            this.groupBox2.TabStop = false;
-            this.groupBox2.Text = "groupBox2";
+            this.groupPlayground.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.groupPlayground.Controls.Add(this.btnClearPlayground);
+            this.groupPlayground.Controls.Add(this.btnCropPlayground);
+            this.groupPlayground.Controls.Add(this.labelSwatchSize);
+            this.groupPlayground.Controls.Add(this.editSwatchSize);
+            this.groupPlayground.Controls.Add(this.trackGridOpacity);
+            this.groupPlayground.Controls.Add(this.checkShowPlaygroundGrid);
+            this.groupPlayground.Location = new System.Drawing.Point(1208, 599);
+            this.groupPlayground.Name = "groupPlayground";
+            this.groupPlayground.Size = new System.Drawing.Size(216, 112);
+            this.groupPlayground.TabIndex = 67;
+            this.groupPlayground.TabStop = false;
+            this.groupPlayground.Text = "Playground";
             // 
             // btnClearPlayground
             // 
@@ -893,37 +894,38 @@
             this.comboCharactersPerRow.Size = new System.Drawing.Size(126, 21);
             this.comboCharactersPerRow.TabIndex = 60;
             // 
-            // groupBox1
+            // groupCharacters
             // 
-            this.groupBox1.Controls.Add(this.btnCopy);
-            this.groupBox1.Controls.Add(this.btnMoveSelectionToTarget);
-            this.groupBox1.Controls.Add(this.btnPasteFromClipboard);
-            this.groupBox1.Controls.Add(this.btnPaste);
-            this.groupBox1.Controls.Add(this.btnCreateTile);
-            this.groupBox1.Controls.Add(this.btnCreateMultipleTiles);
-            this.groupBox1.Controls.Add(this.editMoveTargetIndex);
-            this.groupBox1.Controls.Add(this.btnHighlightDuplicates);
-            this.groupBox1.Controls.Add(this.btnRestoreDefault);
-            this.groupBox1.Controls.Add(this.btnRemoveDuplicates);
-            this.groupBox1.Controls.Add(this.btnClearChars);
-            this.groupBox1.Location = new System.Drawing.Point(382, 350);
-            this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(232, 176);
-            this.groupBox1.TabIndex = 55;
-            this.groupBox1.TabStop = false;
-            this.groupBox1.Text = "groupBox1";
-            // 
+            this.groupCharacters.Controls.Add(this.btnCopy);
+            this.groupCharacters.Controls.Add(this.btnMoveSelectionToTarget);
+            this.groupCharacters.Controls.Add(this.btnPasteFromClipboard);
+            this.groupCharacters.Controls.Add(this.btnPaste);
+            this.groupCharacters.Controls.Add(this.btnCreateTile);
+            this.groupCharacters.Controls.Add(this.btnCreateMultipleTiles);
+            this.groupCharacters.Controls.Add(this.editMoveTargetIndex);
+            this.groupCharacters.Controls.Add(this.btnHighlightDuplicates);
+            this.groupCharacters.Controls.Add(this.btnRestoreDefault);
+            this.groupCharacters.Controls.Add(this.btnRemoveDuplicates);
+            this.groupCharacters.Controls.Add(this.btnClearChars);
+            this.groupCharacters.Controls.Add(this.btnClearCharacterAndTile);
+            this.groupCharacters.Location = new System.Drawing.Point(382, 350);
+            this.groupCharacters.Name = "groupCharacters";
+            this.groupCharacters.Size = new System.Drawing.Size(232, 205);
+            this.groupCharacters.TabIndex = 55;
+            this.groupCharacters.TabStop = false;
+            this.groupCharacters.Text = "Characters";
+            //
             // btnMoveSelectionToTarget
-            // 
+            //
             this.btnMoveSelectionToTarget.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
             this.btnMoveSelectionToTarget.BorderStyle = DecentForms.BorderStyle.FLAT;
             this.btnMoveSelectionToTarget.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             this.btnMoveSelectionToTarget.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnMoveSelectionToTarget.Image = null;
-            this.btnMoveSelectionToTarget.Location = new System.Drawing.Point(10, 81);
+            this.btnMoveSelectionToTarget.Location = new System.Drawing.Point(10, 110);
             this.btnMoveSelectionToTarget.Name = "btnMoveSelectionToTarget";
             this.btnMoveSelectionToTarget.Size = new System.Drawing.Size(90, 23);
-            this.btnMoveSelectionToTarget.TabIndex = 20;
+            this.btnMoveSelectionToTarget.TabIndex = 21;
             this.btnMoveSelectionToTarget.Text = "Move to Index";
             this.btnMoveSelectionToTarget.Click += new DecentForms.EventHandler(this.btnMoveSelectionToTarget_Click);
             // 
@@ -934,10 +936,10 @@
             this.btnCreateTile.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             this.btnCreateTile.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnCreateTile.Image = null;
-            this.btnCreateTile.Location = new System.Drawing.Point(10, 139);
+            this.btnCreateTile.Location = new System.Drawing.Point(10, 168);
             this.btnCreateTile.Name = "btnCreateTile";
             this.btnCreateTile.Size = new System.Drawing.Size(90, 23);
-            this.btnCreateTile.TabIndex = 24;
+            this.btnCreateTile.TabIndex = 25;
             this.btnCreateTile.Text = "Create Tile";
             this.btnCreateTile.Visible = false;
             this.btnCreateTile.Click += new DecentForms.EventHandler(this.btnCreateTile_Click);
@@ -949,10 +951,10 @@
             this.btnCreateMultipleTiles.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             this.btnCreateMultipleTiles.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnCreateMultipleTiles.Image = null;
-            this.btnCreateMultipleTiles.Location = new System.Drawing.Point(105, 139);
+            this.btnCreateMultipleTiles.Location = new System.Drawing.Point(107, 168);
             this.btnCreateMultipleTiles.Name = "btnCreateMultipleTiles";
-            this.btnCreateMultipleTiles.Size = new System.Drawing.Size(150, 23);
-            this.btnCreateMultipleTiles.TabIndex = 25;
+            this.btnCreateMultipleTiles.Size = new System.Drawing.Size(109, 23);
+            this.btnCreateMultipleTiles.TabIndex = 26;
             this.btnCreateMultipleTiles.Text = "Create Multiple Tiles";
             this.btnCreateMultipleTiles.Visible = false;
             this.btnCreateMultipleTiles.Enabled = false;
@@ -979,10 +981,10 @@
             this.btnRemoveDuplicates.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
             this.btnRemoveDuplicates.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnRemoveDuplicates.Image = null;
-            this.btnRemoveDuplicates.Location = new System.Drawing.Point(107, 110);
+            this.btnRemoveDuplicates.Location = new System.Drawing.Point(107, 139);
             this.btnRemoveDuplicates.Name = "btnRemoveDuplicates";
             this.btnRemoveDuplicates.Size = new System.Drawing.Size(109, 23);
-            this.btnRemoveDuplicates.TabIndex = 23;
+            this.btnRemoveDuplicates.TabIndex = 24;
             this.btnRemoveDuplicates.Text = "Remove Duplicates";
             this.btnRemoveDuplicates.Click += new DecentForms.EventHandler(this.btnRemoveDuplicates_Click);
             // 
@@ -999,7 +1001,23 @@
             this.btnClearChars.TabIndex = 18;
             this.btnClearChars.Text = "Clear";
             this.btnClearChars.Click += new DecentForms.EventHandler(this.btnClear_Click);
-            // 
+            //
+            // btnClearCharacterAndTile
+            //
+            this.btnClearCharacterAndTile.AccessibleRole = System.Windows.Forms.AccessibleRole.PushButton;
+            this.btnClearCharacterAndTile.BorderStyle = DecentForms.BorderStyle.FLAT;
+            this.btnClearCharacterAndTile.ButtonBorder = DecentForms.Button.ButtonStyle.RAISED;
+            this.btnClearCharacterAndTile.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnClearCharacterAndTile.Enabled = false;
+            this.btnClearCharacterAndTile.Image = null;
+            this.btnClearCharacterAndTile.Location = new System.Drawing.Point(10, 81);
+            this.btnClearCharacterAndTile.Name = "btnClearCharacterAndTile";
+            this.btnClearCharacterAndTile.Size = new System.Drawing.Size(206, 23);
+            this.btnClearCharacterAndTile.TabIndex = 20;
+            this.btnClearCharacterAndTile.Text = "Clear character and tile";
+            this.toolTip1.SetToolTip(this.btnClearCharacterAndTile, "Clear the characters of the tile this character is part of and delete the tile (one undo step)");
+            this.btnClearCharacterAndTile.Click += new DecentForms.EventHandler(this.btnClearCharacterAndTile_Click);
+            //
             // panelColorChooser
             // 
             this.panelColorChooser.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
@@ -1465,13 +1483,13 @@
             this.splitContainer2.Panel1.ResumeLayout(false);
             this.splitContainer2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.picturePlayground)).EndInit();
-            this.groupBox2.ResumeLayout(false);
-            this.groupBox2.PerformLayout();
+            this.groupPlayground.ResumeLayout(false);
+            this.groupPlayground.PerformLayout();
             this.flowLayoutPanel2.ResumeLayout(false);
             this.flowLayoutPanel1.ResumeLayout(false);
             this.flowLayoutPanel1.PerformLayout();
-            this.groupBox1.ResumeLayout(false);
-            this.groupBox1.PerformLayout();
+            this.groupCharacters.ResumeLayout(false);
+            this.groupCharacters.PerformLayout();
             this.groupRightClick.ResumeLayout(false);
             this.groupMoveChar.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.canvasEditor)).EndInit();
@@ -1546,7 +1564,8 @@
     private DecentForms.Button btnCharMoveLeft;
     private DecentForms.Button btnRestoreDefault;
 
-        private System.Windows.Forms.GroupBox groupBox1;
+        private System.Windows.Forms.GroupBox groupCharacters;
+        private DecentForms.Button btnClearCharacterAndTile;
         private DecentForms.Button btnZoomOut;
         private DecentForms.Button btnZoomIn;
         private System.Windows.Forms.Label labelCharUsageCount;
@@ -1582,7 +1601,7 @@
         private DecentForms.RadioButton radioRightClickCharColor;
         private System.Windows.Forms.Label labelSwatchSize;
         private System.Windows.Forms.TextBox editSwatchSize;
-        private System.Windows.Forms.GroupBox groupBox2;
+        private System.Windows.Forms.GroupBox groupPlayground;
         private System.Windows.Forms.SaveFileDialog saveFileDialog1;
         private System.Windows.Forms.SplitContainer splitContainer1;
         private System.Windows.Forms.SplitContainer splitContainer2;
