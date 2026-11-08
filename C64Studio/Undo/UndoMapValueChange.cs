@@ -89,8 +89,7 @@ namespace RetroDevStudio.Undo
       MapEditor.MirrorCharsetIndexToScratch( AffectedMap );
 
       MapEditor.InvalidateCurrentMap();
-      // The dropdown row shows the map ID and a "(not exported)" suffix —
-      // keep it current.
+      // The dropdown row shows the map ID and name — keep it current.
       MapEditor.RefreshMapListDisplay();
     }
   }

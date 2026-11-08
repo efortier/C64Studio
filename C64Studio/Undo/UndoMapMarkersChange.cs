@@ -45,7 +45,8 @@ namespace RetroDevStudio.Undo
           LinkToID = m.LinkToID,
           LinkID = m.LinkID,
           Width = m.Width,
-          Height = m.Height
+          Height = m.Height,
+          LayerIndex = m.LayerIndex
         } );
       }
     }
@@ -89,7 +90,8 @@ namespace RetroDevStudio.Undo
           LinkToID = m.LinkToID,
           LinkID = m.LinkID,
           Width = m.Width,
-          Height = m.Height
+          Height = m.Height,
+          LayerIndex = m.LayerIndex
         } );
       }
       MapEditor.UpdateArea( 0, 0, AffectedMap.Tiles.Width, AffectedMap.Tiles.Height );

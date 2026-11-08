@@ -398,6 +398,18 @@ namespace RetroDevStudio.Controls
         return false;
       }
 
+      int totalFrames = Info.Project.TotalAnimationFrames;
+      if ( totalFrames > SpriteProject.SPRITE_TOTAL_FRAMES_MAX )
+      {
+        if ( Core != null )
+        {
+          Core.Notification.MessageBox( "Too many animation frames",
+            "The animations have " + totalFrames + " frames in total; at most "
+            + SpriteProject.SPRITE_TOTAL_FRAMES_MAX + " are allowed (SPRITE_TOTAL_FRAMES).\r\n\r\nNothing was exported." );
+        }
+        return false;
+      }
+
       GR.Memory.ByteBuffer animDefs, spriteData;
       int animationCount, spriteCount;
       Info.Project.ExportAsGameBinarySprites( out animDefs, out spriteData, out animationCount, out spriteCount );

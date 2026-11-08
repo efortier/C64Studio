@@ -43,9 +43,9 @@ namespace TestProject
       map.TileColorOverrides[3, 4] = 11;
       map.CharBlockedOverrides[5, 6] = true;
 
-      // Two upper layers — the editor's fixed 3-layer shape
-      // (ReadMapFromBody pads to 3 via EnsureDefaultLayers regardless, so
-      // matching it keeps the count assertion exact).
+      // Two upper layers with content. ReadMapFromBody pads the restored map
+      // to DEFAULT_LAYER_COUNT via EnsureDefaultLayers regardless, so the
+      // count assertion below uses that constant, not a literal.
       var upper = new MapProject.MapLayer() { Name = "Detail", Visible = false };
       upper.Tiles.Resize( 4, 3 );
       upper.Tiles[0, 0] = 3;
@@ -137,7 +137,7 @@ namespace TestProject
       Assert.AreEqual( 11, restored.TileColorOverrides[3, 4] );
       Assert.IsTrue( restored.CharBlockedOverrides[5, 6] );
 
-      Assert.AreEqual( 3, restored.Layers.Count );
+      Assert.AreEqual( MapProject.Map.DEFAULT_LAYER_COUNT, restored.Layers.Count );
       Assert.AreEqual( "Detail", restored.Layers[1].Name );
       Assert.IsFalse( restored.Layers[1].Visible );
       Assert.AreEqual( 3, restored.Layers[1].Tiles[0, 0] );

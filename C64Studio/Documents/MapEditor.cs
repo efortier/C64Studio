@@ -105,6 +105,74 @@ namespace RetroDevStudio.Documents
     }
 
     /// <summary>
+    /// Whether an editor tile layer is ticked in the layer list. An
+    /// out-of-range index reads as VISIBLE on purpose: a stray value must never
+    /// make a marker or an entity permanently invisible and unclickable (the
+    /// load path clamps them into range anyway).
+    /// </summary>
+    private bool LayerIsVisible( int LayerIndex )
+    {
+      if ( m_CurrentMap == null )
+      {
+        return true;
+      }
+      if ( ( LayerIndex < 0 )
+      ||   ( LayerIndex >= m_CurrentMap.Layers.Count ) )
+      {
+        return true;
+      }
+      return m_CurrentMap.Layers[LayerIndex].Visible;
+    }
+
+    /// <summary>
+    /// Markers and entities follow their layer's tick box exactly like the
+    /// characters do: on a hidden layer they are neither drawn nor hit-tested,
+    /// so they cannot be selected, dragged, resized or right-clicked. THE
+    /// EXPORT IGNORES THIS COMPLETELY - every marker and entity of the map is
+    /// written whatever its layer's visibility. Both overloads are the single
+    /// gate; grep for IsOnVisibleLayer to audit every display/selection site.
+    ///
+    /// Entities have one more rule: with "Show only when layer selected"
+    /// ticked, only the entities on the ACTIVE layer count as visible - the
+    /// others are hidden and unclickable until their layer is selected in the
+    /// layer list. It lives in this same gate so no draw or hit-test site can
+    /// forget it.
+    /// </summary>
+    private bool IsOnVisibleLayer( Formats.MapProject.Marker M )
+    {
+      return ( M != null ) && LayerIsVisible( M.LayerIndex );
+    }
+    private bool IsOnVisibleLayer( Formats.MapProject.Entity E )
+    {
+      if ( ( E == null )
+      ||   ( !LayerIsVisible( E.LayerIndex ) ) )
+      {
+        return false;
+      }
+      if ( ( checkShowEntitiesOnlyOnActiveLayer != null )
+      &&   ( checkShowEntitiesOnlyOnActiveLayer.Checked ) )
+      {
+        return ( E.LayerIndex == ClampedActiveLayerIndex() );
+      }
+      return true;
+    }
+
+    /// <summary>
+    /// The entity selection has to follow the display gate: an entity that is
+    /// no longer shown (its layer unticked, or no longer the active layer with
+    /// "Show only when layer selected" on) cannot stay selected, or the
+    /// toolbar would keep editing something the user cannot see.
+    /// </summary>
+    private void DropHiddenEntitySelection()
+    {
+      if ( ( m_SelectedEntity != null )
+      &&   ( !IsOnVisibleLayer( m_SelectedEntity ) ) )
+      {
+        SelectEntity( null );
+      }
+    }
+
+    /// <summary>
     /// Rebuilds the layer-list panel from the current map's Layers (data-driven
     /// — never assumes a fixed count). Each row's checkbox = Visible; the
     /// selected row = the active drawing layer. A ListView (not a CheckedListBox)
@@ -173,8 +241,7 @@ namespace RetroDevStudio.Documents
 
     private void listLayers_SelectedIndexChanged( object sender, EventArgs e )
     {
-      // Selecting a row picks the active drawing layer. No redraw needed — the
-      // composite is unchanged; only where edits land changes. ListView raises a
+      // Selecting a row picks the active drawing layer. ListView raises a
       // transient empty selection mid-change; ignore it and keep the last index.
       if ( listLayers.SelectedIndices.Count > 0 )
       {
@@ -185,6 +252,16 @@ namespace RetroDevStudio.Documents
         if ( m_CurrentMap != null )
         {
           m_CurrentMap.SelectedLayerIndex = m_ActiveLayerIndex;
+        }
+        // The composite itself does not depend on the active layer - except
+        // with "Show only when layer selected" on, where the set of drawn
+        // entities just changed (and the selected one may have left it).
+        if ( ( checkShowEntitiesOnlyOnActiveLayer != null )
+        &&   ( checkShowEntitiesOnlyOnActiveLayer.Checked ) )
+        {
+          DropHiddenEntitySelection();
+          RedrawMap();
+          Redraw();
         }
       }
     }
@@ -206,6 +283,12 @@ namespace RetroDevStudio.Documents
         return;
       }
       m_CurrentMap.Layers[idx].Visible = e.Item.Checked;
+      // Hiding a layer puts its markers and entities out of reach - they stop
+      // being drawn and stop being hit-tested - so a selection that lives on
+      // it has to go too, or the marker / entity toolbars would keep editing
+      // something the user cannot see.
+      RevalidateMarkerSelection();
+      DropHiddenEntitySelection();
       SetModified();
       RedrawMap();
       Redraw();
@@ -1865,6 +1948,10 @@ namespace RetroDevStudio.Documents
       {
         foreach ( var marker in m_CurrentMap.Markers )
         {
+          if ( !IsOnVisibleLayer( marker ) )
+          {
+            continue;
+          }
           int sourceX = renderOffsetX + ( marker.X - m_CurEditorOffsetX ) * m_CurrentMap.TileSpacingX * 8;
           int sourceY = renderOffsetY + ( marker.Y - m_CurEditorOffsetY ) * m_CurrentMap.TileSpacingY * 8;
           // The box spans the marker's full Width x Height footprint.
@@ -1993,6 +2080,10 @@ namespace RetroDevStudio.Documents
         {
           foreach ( var entity in m_CurrentMap.Entities )
           {
+            if ( !IsOnVisibleLayer( entity ) )
+            {
+              continue;
+            }
             var etype = m_MapProject.EntityTypes.FirstOrDefault( t => t.ID == entity.Type );
             int etile = ActiveCharset().EntityTileOf( etype );
             if ( ( etile < 0 )
@@ -2019,7 +2110,8 @@ namespace RetroDevStudio.Documents
           // undo (which replaces the map's marker instances).
           foreach ( var selectedMarker in m_SelectedMarkers )
           {
-            if ( !m_CurrentMap.Markers.Contains( selectedMarker ) )
+            if ( ( !m_CurrentMap.Markers.Contains( selectedMarker ) )
+            ||   ( !IsOnVisibleLayer( selectedMarker ) ) )
             {
               continue;
             }
@@ -2042,7 +2134,8 @@ namespace RetroDevStudio.Documents
             foreach ( var marker in m_CurrentMap.Markers )
             {
               if ( ( marker.Type != spriteAnimType.ID )
-              ||   ( m_SpriteAnimLookup.ContainsKey( marker.Value1 ) ) )
+              ||   ( m_SpriteAnimLookup.ContainsKey( marker.Value1 ) )
+              ||   ( !IsOnVisibleLayer( marker ) ) )
               {
                 continue;
               }
@@ -2121,7 +2214,8 @@ namespace RetroDevStudio.Documents
         }
         if ( ( m_SelectedEntity != null )
         &&   ( m_ToolMode == ToolMode.ENTITY )
-        &&   ( m_CurrentMap.Entities.Contains( m_SelectedEntity ) ) )
+        &&   ( m_CurrentMap.Entities.Contains( m_SelectedEntity ) )
+        &&   ( IsOnVisibleLayer( m_SelectedEntity ) ) )
         {
           // Entity outline = footprint of the entity's referenced tile, so
           // a multi-character entity sprite gets boxed at full size rather
@@ -3180,7 +3274,6 @@ namespace RetroDevStudio.Documents
     public void CharsetListChanged()
     {
       RefreshCharsetCombos();
-      RefreshMapListDisplay();
       EnsureDisplayedCharset();
       RefreshOutlineStampBitmap();
       BindCharsetTab();
@@ -3193,7 +3286,6 @@ namespace RetroDevStudio.Documents
     public void CharsetMetaChanged( Formats.MapProject.MapCharset Charset )
     {
       RefreshCharsetCombos();
-      RefreshMapListDisplay();
       BindCharsetTab();
     }
 
@@ -3621,7 +3713,6 @@ namespace RetroDevStudio.Documents
       DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapValueChange( this, m_CurrentMap ) );
       m_CurrentMap.CharsetIndex = charsetIndex;
       MirrorCharsetIndexToScratch( m_CurrentMap );
-      RefreshMapListDisplay();
       ActiveCharsetChanged();
       SetModified();
     }
@@ -4032,6 +4123,13 @@ namespace RetroDevStudio.Documents
     private void pictureEditor_MouseDown( object sender, MouseEventArgs e )
     {
       pictureEditor.Focus();
+      // The "Move to layer" popup is a press-only gesture - see
+      // TryShowMoveToLayerMenu for why it cannot live in HandleMouseOnEditor.
+      if ( ( e.Button == MouseButtons.Right )
+      &&   ( TryShowMoveToLayerMenu( e.X, e.Y ) ) )
+      {
+        return;
+      }
       HandleMouseOnEditor( e.X, e.Y, e.Button );
       RedrawMap();
       pictureEditor.Invalidate();
@@ -5514,7 +5612,7 @@ namespace RetroDevStudio.Documents
               {
                 anyChange = true;
               }
-              if ( MarkerFootprintOverlaps( newX, newY, pair.Key.Width, pair.Key.Height, m_MarkerDragOrigins.Keys ) )
+              if ( MarkerFootprintOverlaps( newX, newY, pair.Key.Width, pair.Key.Height, pair.Key.LayerIndex, m_MarkerDragOrigins.Keys ) )
               {
                 blocked = true;
                 break;
@@ -5543,7 +5641,7 @@ namespace RetroDevStudio.Documents
             int newX = Math.Max( 0, Math.Min( cursorX, 255 ) );
             int newY = Math.Max( 0, Math.Min( cursorY, 255 ) );
             if ( ( ( m_PressedMarker.X != newX ) || ( m_PressedMarker.Y != newY ) )
-            &&   ( !MarkerFootprintOverlaps( newX, newY, m_PressedMarker.Width, m_PressedMarker.Height, m_PressedMarker ) ) )
+            &&   ( !MarkerFootprintOverlaps( newX, newY, m_PressedMarker.Width, m_PressedMarker.Height, m_PressedMarker.LayerIndex, m_PressedMarker ) ) )
             {
               m_PressedMarker.X = newX;
               m_PressedMarker.Y = newY;
@@ -5575,7 +5673,7 @@ namespace RetroDevStudio.Documents
               if ( newW < 1 ) newW = 1;
               if ( newH < 1 ) newH = 1;
               if ( ( ( m_PressedMarker.Width != newW ) || ( m_PressedMarker.Height != newH ) )
-              &&   ( !MarkerFootprintOverlaps( m_PressedMarker.X, m_PressedMarker.Y, newW, newH, m_PressedMarker ) ) )
+              &&   ( !MarkerFootprintOverlaps( m_PressedMarker.X, m_PressedMarker.Y, newW, newH, m_PressedMarker.LayerIndex, m_PressedMarker ) ) )
               {
                 m_PressedMarker.Width = newW;
                 m_PressedMarker.Height = newH;
@@ -5762,8 +5860,7 @@ namespace RetroDevStudio.Documents
         if ( m_MouseButtonReleased )
         {
           bool markerOutranks = ( m_ToolMode == ToolMode.MARKER )
-                             && ( m_CurrentMap.Markers.Any(
-                                    m => MarkerContainsPoint( m, trueX + offsetX, trueY + offsetY ) ) );
+                             && ( MarkerHitAt( trueX + offsetX, trueY + offsetY ) != null );
           if ( !markerOutranks )
           {
             var pressedSprite = HitTestSprite( absPxX, absPxY );
@@ -6144,7 +6241,7 @@ namespace RetroDevStudio.Documents
                // selects it (pictureEditor_MouseUp), a drag moves it, and a
                // Shift+drag resizes it (see the marker drag block above).
                // Nothing is selected or moved on the press itself.
-               var pressed = m_CurrentMap.Markers.FirstOrDefault( m => MarkerContainsPoint( m, placeX, placeY ) );
+               var pressed = MarkerHitAt( placeX, placeY );
                if ( pressed != null )
                {
                  m_PressedMarker = pressed;
@@ -6203,6 +6300,8 @@ namespace RetroDevStudio.Documents
                    marker.GroupId = (byte)editMarkerGroupId.Value;
                    marker.LinkToID = (byte)editMarkerLinkToID.Value;
                    marker.LinkID = (byte)editMarkerLinkID.Value;
+                   // Placed on the layer selected in the layer list.
+                   marker.LayerIndex = ClampedActiveLayerIndex();
                    m_CurrentMap.Markers.Add( marker );
                    RedrawMap();
                    pictureEditor.Invalidate();
@@ -6256,8 +6355,14 @@ namespace RetroDevStudio.Documents
                    DocumentInfo.UndoManager.AddUndoTask(
                      new Undo.UndoMapEntitiesChange( this, m_CurrentMap ) );
 
-                   // Unique-per-tile: replace any entity already at this position.
-                   var existing = m_CurrentMap.Entities.FirstOrDefault( en => en.X == placeX && en.Y == placeY );
+                   // Unique-per-tile PER LAYER: a cell can hold one entity on
+                   // each layer (that is what the stacking is for), so only an
+                   // entity already on the ACTIVE layer gets replaced.
+                   int placeLayer = ClampedActiveLayerIndex();
+                   var existing = m_CurrentMap.Entities.FirstOrDefault(
+                                    en => ( en.X == placeX )
+                                       && ( en.Y == placeY )
+                                       && ( en.LayerIndex == placeLayer ) );
                    if ( existing != null )
                    {
                      existing.Type = type.ID;
@@ -6276,6 +6381,7 @@ namespace RetroDevStudio.Documents
                      entity.Value2 = (byte)editEntityValue2Default.Value;
                      entity.Enabled = checkEntityDefaultEnabled.Checked;
                      entity.Triggered = checkEntityDefaultTriggered.Checked;
+                     entity.LayerIndex = placeLayer;
                      m_CurrentMap.Entities.Add( entity );
                    }
                    RedrawMap();
@@ -6478,7 +6584,7 @@ namespace RetroDevStudio.Documents
            &&   ( clickX < m_CurrentMap.Tiles.Width )
            &&   ( clickY < m_CurrentMap.Tiles.Height ) )
            {
-             var entityHit = m_CurrentMap.Entities.FirstOrDefault( en => en.X == clickX && en.Y == clickY );
+             var entityHit = EntityHitAt( clickX, clickY );
              if ( entityHit != null )
              {
                // SELECT — not remove. The toolbar controls now mirror this
@@ -6498,9 +6604,11 @@ namespace RetroDevStudio.Documents
         }
         else if ( m_ToolMode == ToolMode.MARKER )
         {
-           // Right-click does nothing in MARKER mode — marker selection is
-           // left-click only. The branch is kept (empty) so a right-click
-           // here doesn't fall through to the tile-eyedrop action below.
+           // Right-click on a marker opens the "Move to layer" popup, which
+           // pictureEditor_MouseDown handles BEFORE this method is reached.
+           // Reaching here means the right-click hit no marker: nothing to
+           // do. The branch is kept (empty) so a right-click here doesn't
+           // fall through to the tile-eyedrop action below.
         }
         else if ( string.IsNullOrEmpty( ActiveCharset().RightClickAction ) )
         {
@@ -7614,6 +7722,7 @@ namespace RetroDevStudio.Documents
 
         foreach ( var entity in m_CurrentMap.Entities )
         {
+          if ( !IsOnVisibleLayer( entity ) ) continue;
           var type = m_MapProject.EntityTypes.FirstOrDefault( t => t.ID == entity.Type );
           if ( type == null ) continue;
           // The type's tile in the map's own charset (one per charset).
@@ -9577,6 +9686,15 @@ namespace RetroDevStudio.Documents
         cutValid = ( cutRefs.Count > 0 );
       }
 
+      // Pasted markers land on the layer selected in the layer list, exactly
+      // like a freshly placed one - so the overlap check below only has to
+      // clear that one layer.
+      int pasteLayer = ClampedActiveLayerIndex();
+      foreach ( var floatingMarker in m_FloatingMarkers )
+      {
+        floatingMarker.LayerIndex = pasteLayer;
+      }
+
       // Overlap check against the destination as it will be AFTER the cut
       // deletion (a same-map cut may legally land on its own old footprint).
       var excluded = ( ( cutValid )
@@ -9585,7 +9703,7 @@ namespace RetroDevStudio.Documents
       foreach ( var floatingMarker in m_FloatingMarkers )
       {
         if ( MarkerFootprintOverlaps( AnchorX + floatingMarker.X, AnchorY + floatingMarker.Y,
-                                      floatingMarker.Width, floatingMarker.Height, excluded ) )
+                                      floatingMarker.Width, floatingMarker.Height, pasteLayer, excluded ) )
         {
           System.Media.SystemSounds.Beep.Play();
           labelEditInfo.Text = "Cannot paste here - markers would overlap";
@@ -10809,30 +10927,55 @@ namespace RetroDevStudio.Documents
 
 
 
-    private void btnFlattenLayers_Click( object sender, EventArgs e )
+    /// <summary>
+    /// Whether anything at all sits above the Background: a tile on an upper
+    /// layer, or a marker / entity assigned to one. "Flatten to Background" is
+    /// a no-op when this is false, and must then neither push an undo step nor
+    /// dirty the document. A map whose only layered content is a marker DOES
+    /// have something to flatten - markers and entities come down with the
+    /// characters.
+    /// </summary>
+    private bool HasContentAboveBackground()
     {
-      if ( m_CurrentMap == null ) return;
-      if ( !IsMapEditable ) return;
-
-      // Nothing above the Background to merge? Don't push an undo step / dirty
-      // the document for a no-op.
-      bool hasUpperContent = false;
-      for ( int li = 1; ( li < m_CurrentMap.Layers.Count ) && ( !hasUpperContent ); ++li )
+      if ( m_CurrentMap == null )
+      {
+        return false;
+      }
+      for ( int li = 1; li < m_CurrentMap.Layers.Count; ++li )
       {
         var lay = m_CurrentMap.Layers[li];
-        for ( int j = 0; ( j < lay.Tiles.Height ) && ( !hasUpperContent ); ++j )
+        for ( int j = 0; j < lay.Tiles.Height; ++j )
         {
           for ( int i = 0; i < lay.Tiles.Width; ++i )
           {
             if ( lay.Tiles[i, j] >= 0 )
             {
-              hasUpperContent = true;
-              break;
+              return true;
             }
           }
         }
       }
-      if ( !hasUpperContent )
+      if ( m_CurrentMap.Markers.Any( m => m.LayerIndex != 0 ) )
+      {
+        return true;
+      }
+      if ( m_CurrentMap.Entities.Any( en => en.LayerIndex != 0 ) )
+      {
+        return true;
+      }
+      return false;
+    }
+
+
+
+    private void btnFlattenLayers_Click( object sender, EventArgs e )
+    {
+      if ( m_CurrentMap == null ) return;
+      if ( !IsMapEditable ) return;
+
+      bool hasUpperMarkers  = m_CurrentMap.Markers.Any( m => m.LayerIndex != 0 );
+      bool hasUpperEntities = m_CurrentMap.Entities.Any( en => en.LayerIndex != 0 );
+      if ( !HasContentAboveBackground() )
       {
         Core.Notification.MessageBox( "Flatten layers", "There is nothing above the Background layer to flatten." );
         return;
@@ -10892,6 +11035,29 @@ namespace RetroDevStudio.Documents
           {
             lay.TileColorOverrides[i, j] = -1;
           }
+        }
+      }
+
+      // Markers and entities come down with the characters - that is what
+      // "flatten to Background" promises. Their snapshots join the SAME undo
+      // group as the tile snapshots above, so one Ctrl+Z puts everything back.
+      // Two markers that sat on one cell on different layers end up stacked on
+      // the Background; that is allowed by design (the user handles same-spot
+      // markers in game code) and they can still be dragged apart.
+      if ( hasUpperMarkers )
+      {
+        DocumentInfo.UndoManager.AddGroupedUndoTask( new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
+        foreach ( var marker in m_CurrentMap.Markers )
+        {
+          marker.LayerIndex = 0;
+        }
+      }
+      if ( hasUpperEntities )
+      {
+        DocumentInfo.UndoManager.AddGroupedUndoTask( new Undo.UndoMapEntitiesChange( this, m_CurrentMap ) );
+        foreach ( var entity in m_CurrentMap.Entities )
+        {
+          entity.LayerIndex = 0;
         }
       }
 
@@ -13117,20 +13283,17 @@ namespace RetroDevStudio.Documents
     /// Format a map's row in the Current Map dropdown: "★ N: Name" for the
     /// project's StartMapIndex (Index is the list position), "N: Name"
     /// otherwise, where N is the map ID - the number in its export file
-    /// names and what door markers store, not its position. Centralised so
-    /// the four sites that build dropdown rows (open project, add map,
-    /// rename, reindex-after-move) stay in sync — touching the star
+    /// names and what door markers store, not its position. Nothing else:
+    /// the map's character set and "Map not exported" show in Map details.
+    /// Centralised so the four sites that build dropdown rows (open project,
+    /// add map, rename, reindex-after-move) stay in sync — touching the star
     /// convention in one place updates them all.
     /// </summary>
     private string FormatMapDisplayName( int Index, Formats.MapProject.Map Map )
     {
       string prefix = ( ( m_MapProject != null ) && ( Index == m_MapProject.StartMapIndex ) ) ? "★ " : "";
-      // The charset tag only appears once there is more than one to tell apart.
-      string charset = ( ( m_MapProject != null ) && ( m_MapProject.Charsets.Count > 1 ) )
-                       ? " [" + m_MapProject.CharsetDisplayNameOf( m_MapProject.CharsetOf( Map ) ) + "]" : "";
-      string suffix = Map.NotExported ? " (not exported)" : "";
       string id = ( Map.MapID >= 0 ) ? Map.MapID.ToString() : "?";
-      return prefix + id + ": " + Map.Name + charset + suffix;
+      return prefix + id + ": " + Map.Name;
     }
 
 
@@ -13138,17 +13301,28 @@ namespace RetroDevStudio.Documents
     /// <summary>
     /// Rebuild every visible label in the Current Map dropdown by walking the
     /// items and re-running <see cref="FormatMapDisplayName"/>. Called after
-    /// StartMapIndex changes so the star marker moves to the new start map,
-    /// and after undo/redo of a start-map change.
+    /// a map's ID or name or the start map changed (also by undo/redo) -
+    /// nothing else shows in a row.
     /// </summary>
     public void RefreshMapListDisplay()
     {
-      for ( int i = 0; i < comboMaps.Items.Count; ++i )
+      // Re-setting the selected row raises SelectedIndexChanged even when its
+      // text is unchanged - the map switch must not re-run for a label (it
+      // drops the selection and the scratch / revision view).
+      comboMaps.SelectedIndexChanged -= comboMaps_SelectedIndexChanged;
+      try
       {
-        var mapPair = (GR.Generic.Tupel<string, Formats.MapProject.Map>)comboMaps.Items[i];
-        mapPair.first = FormatMapDisplayName( i, mapPair.second );
-        // Force the combo to repaint the changed row.
-        comboMaps.Items[i] = comboMaps.Items[i];
+        for ( int i = 0; i < comboMaps.Items.Count; ++i )
+        {
+          var mapPair = (GR.Generic.Tupel<string, Formats.MapProject.Map>)comboMaps.Items[i];
+          mapPair.first = FormatMapDisplayName( i, mapPair.second );
+          // Force the combo to repaint the changed row.
+          comboMaps.Items[i] = comboMaps.Items[i];
+        }
+      }
+      finally
+      {
+        comboMaps.SelectedIndexChanged += comboMaps_SelectedIndexChanged;
       }
     }
 
@@ -13170,8 +13344,6 @@ namespace RetroDevStudio.Documents
       }
       DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapValueChange( this, m_CurrentMap ) );
       m_CurrentMap.NotExported = checkMapNotExported.Checked;
-      // The dropdown row carries a "(not exported)" suffix.
-      RefreshMapListDisplay();
       SetModified();
     }
 
@@ -16614,6 +16786,10 @@ namespace RetroDevStudio.Documents
 
       foreach ( var entity in m_CurrentMap.Entities )
       {
+        if ( !IsOnVisibleLayer( entity ) )
+        {
+          continue;
+        }
         var type = m_MapProject.EntityTypes.FirstOrDefault( t => t.ID == entity.Type );
         if ( type == null )
         {
@@ -19240,6 +19416,9 @@ namespace RetroDevStudio.Documents
       var placements = new List<GR.Generic.Tupel<MapSpriteInstance, System.Drawing.Point>>();
       int skippedExisting = 0;
       var claimed = new HashSet<long>();
+      // Auto-created markers land on the selected layer, so the free-cell scan
+      // below only has to avoid the markers already on THAT layer.
+      int markerLayer = ClampedActiveLayerIndex();
       foreach ( var inst in m_SelectedSprites )
       {
         if ( FindLinkedMarkers( inst ).Count > 0 )
@@ -19256,7 +19435,7 @@ namespace RetroDevStudio.Documents
           for ( int x = 0; x < m_CurrentMap.Tiles.Width; ++x )
           {
             if ( ( !claimed.Contains( ( (long)y << 32 ) | (uint)x ) )
-            &&   ( !MarkerFootprintOverlaps( x, y, 1, 1, (Formats.MapProject.Marker)null ) ) )
+            &&   ( !MarkerFootprintOverlaps( x, y, 1, 1, markerLayer, (Formats.MapProject.Marker)null ) ) )
             {
               spot = new System.Drawing.Point( x, y );
               claimed.Add( ( (long)y << 32 ) | (uint)x );
@@ -19292,6 +19471,7 @@ namespace RetroDevStudio.Documents
         marker.Value3 = (byte)inst.CharY;
         marker.Value4 = PackSpriteOffsets( inst.OffsetX, inst.OffsetY );
         marker.Enabled = true;
+        marker.LayerIndex = markerLayer;
         m_CurrentMap.Markers.Add( marker );
       }
       labelSpriteInfo.Text = "Created " + placements.Count + " marker(s)"
@@ -22083,6 +22263,282 @@ namespace RetroDevStudio.Documents
 
 
     /// <summary>True when cell (PX,PY) lies inside marker M's Width x Height footprint.</summary>
+    /// <summary>
+    /// The marker a click at (X, Y) acts on, or null. Markers on HIDDEN layers
+    /// are not candidates at all - they cannot be selected, dragged, resized or
+    /// right-clicked, exactly like the characters of a hidden layer. Among the
+    /// visible candidates the ACTIVE layer wins; otherwise the topmost layer
+    /// does, so a stack of markers on one cell always resolves to the one the
+    /// user is working on. At most one marker per cell per layer exists
+    /// (MarkerFootprintOverlaps still refuses same-layer overlap).
+    /// </summary>
+    private Formats.MapProject.Marker MarkerHitAt( int X, int Y )
+    {
+      if ( m_CurrentMap == null )
+      {
+        return null;
+      }
+      int activeLayer = ClampedActiveLayerIndex();
+      Formats.MapProject.Marker best = null;
+      foreach ( var m in m_CurrentMap.Markers )
+      {
+        if ( !MarkerContainsPoint( m, X, Y ) )
+        {
+          continue;
+        }
+        if ( !IsOnVisibleLayer( m ) )
+        {
+          continue;
+        }
+        if ( m.LayerIndex == activeLayer )
+        {
+          return m;
+        }
+        if ( ( best == null )
+        ||   ( m.LayerIndex > best.LayerIndex ) )
+        {
+          best = m;
+        }
+      }
+      return best;
+    }
+
+    /// <summary>
+    /// The entity a click at (X, Y) acts on, or null. Same rules as
+    /// <see cref="MarkerHitAt"/>: a hidden layer is never a candidate, the
+    /// active layer wins over the others, else the topmost one. Entities match
+    /// on their anchor cell, as they always have.
+    /// </summary>
+    private Formats.MapProject.Entity EntityHitAt( int X, int Y )
+    {
+      if ( m_CurrentMap == null )
+      {
+        return null;
+      }
+      int activeLayer = ClampedActiveLayerIndex();
+      Formats.MapProject.Entity best = null;
+      foreach ( var en in m_CurrentMap.Entities )
+      {
+        if ( ( en.X != X )
+        ||   ( en.Y != Y ) )
+        {
+          continue;
+        }
+        if ( !IsOnVisibleLayer( en ) )
+        {
+          continue;
+        }
+        if ( en.LayerIndex == activeLayer )
+        {
+          return en;
+        }
+        if ( ( best == null )
+        ||   ( en.LayerIndex > best.LayerIndex ) )
+        {
+          best = en;
+        }
+      }
+      return best;
+    }
+
+    /// <summary>
+    /// Right-click gesture that opens the "Move to layer" popup for the marker
+    /// or entity under the cursor. Returns true when the menu was shown, and
+    /// the caller then leaves the click alone.
+    ///
+    /// MARKER mode: a right-click that hits a marker opens the menu (a plain
+    /// right-click in marker mode had no action before).
+    /// ENTITY mode: the FIRST right-click selects the entity (the normal
+    /// right-click path does that); a right-click on the ALREADY selected one
+    /// opens the menu.
+    ///
+    /// This runs from pictureEditor_MouseDown and NOT from HandleMouseOnEditor
+    /// on purpose: that method also runs on every MouseMove with a button held
+    /// (see the fog-of-war branch), so the menu would reopen as the cursor
+    /// moves, and the "already selected" test would be reading the selection
+    /// this very gesture had just made.
+    /// </summary>
+    private bool TryShowMoveToLayerMenu( int ClientX, int ClientY )
+    {
+      if ( !TryClientToMapCell( ClientX, ClientY, out int cellX, out int cellY ) )
+      {
+        return false;
+      }
+      var marker = MoveToLayerMarkerAt( cellX, cellY );
+      if ( marker != null )
+      {
+        BuildMoveToLayerMenu( marker.LayerIndex, "marker",
+                              TargetLayer => MoveMarkerToLayer( marker, TargetLayer ) );
+        contextMenuMoveToLayer.Show( pictureEditor, new System.Drawing.Point( ClientX, ClientY ) );
+        return true;
+      }
+      var entity = MoveToLayerEntityAt( cellX, cellY );
+      if ( entity != null )
+      {
+        BuildMoveToLayerMenu( entity.LayerIndex, "entity",
+                              TargetLayer => MoveEntityToLayer( entity, TargetLayer ) );
+        contextMenuMoveToLayer.Show( pictureEditor, new System.Drawing.Point( ClientX, ClientY ) );
+        return true;
+      }
+      return false;
+    }
+
+    /// <summary>
+    /// Whether a right-click on the map may open the "Move to layer" menu at
+    /// all: there has to be an editable map, and no other gesture may own the
+    /// mouse (the fog-of-war preview repurposes right-click, and an armed
+    /// one-shot placement is cancelled by it).
+    /// </summary>
+    private bool CanShowMoveToLayerMenu()
+    {
+      return ( m_CurrentMap != null )
+          && ( IsMapEditable )
+          && ( !FogOfWarActive )
+          && ( !m_PendingSpritePlacementAnimID.HasValue )
+          && ( m_FloatingSprites == null )
+          && ( m_FloatingMarkers == null )
+          && ( m_FloatingSelection == null );
+    }
+
+    /// <summary>
+    /// The marker a right-click on this cell opens the "Move to layer" menu
+    /// for, or null. MARKER mode only, and only a marker the hit test accepts
+    /// (so never one on a hidden layer).
+    /// </summary>
+    private Formats.MapProject.Marker MoveToLayerMarkerAt( int CellX, int CellY )
+    {
+      if ( ( !CanShowMoveToLayerMenu() )
+      ||   ( m_ToolMode != ToolMode.MARKER ) )
+      {
+        return null;
+      }
+      return MarkerHitAt( CellX, CellY );
+    }
+
+    /// <summary>
+    /// The entity a right-click on this cell opens the menu for, or null.
+    /// ENTITY mode only, and ONLY the entity that is already selected: the
+    /// first right-click on an entity selects it (the normal right-click path
+    /// does that), the next one on the same entity opens the menu.
+    /// </summary>
+    private Formats.MapProject.Entity MoveToLayerEntityAt( int CellX, int CellY )
+    {
+      if ( ( !CanShowMoveToLayerMenu() )
+      ||   ( m_ToolMode != ToolMode.ENTITY ) )
+      {
+        return null;
+      }
+      var entity = EntityHitAt( CellX, CellY );
+      if ( ( entity == null )
+      ||   ( !ReferenceEquals( entity, m_SelectedEntity ) ) )
+      {
+        return null;
+      }
+      return entity;
+    }
+
+    /// <summary>
+    /// The map CELL under a client position, in absolute map coordinates - the
+    /// same arithmetic HandleMouseOnEditor does, for the paths that need the
+    /// cell without going through it.
+    /// </summary>
+    private bool TryClientToMapCell( int ClientX, int ClientY, out int CellX, out int CellY )
+    {
+      CellX = 0;
+      CellY = 0;
+      if ( ( m_CurrentMap == null )
+      ||   ( !TryClientToAbsoluteMapPixel( ClientX, ClientY, out int absPxX, out int absPxY ) ) )
+      {
+        return false;
+      }
+      CellX = FloorDiv( FloorDiv( absPxX, 8 ), m_CurrentMap.TileSpacingX );
+      CellY = FloorDiv( FloorDiv( absPxY, 8 ), m_CurrentMap.TileSpacingY );
+      return true;
+    }
+
+    /// <summary>
+    /// Fills contextMenuMoveToLayer with one row per editor layer. The row of
+    /// the layer the thing is ALREADY on is ticked and DISABLED, so the menu
+    /// also tells the user where it currently is; every other row moves it.
+    /// Rows are rebuilt on every open: the handlers then close over the right
+    /// object, and the list follows Layers.Count - adding a layer needs no
+    /// change here.
+    /// </summary>
+    private void BuildMoveToLayerMenu( int CurrentLayer, string What, Action<int> MoveTo )
+    {
+      contextMenuMoveToLayer.Items.Clear();
+      var header = new System.Windows.Forms.ToolStripMenuItem( "Move " + What + " to layer" );
+      header.Enabled = false;
+      contextMenuMoveToLayer.Items.Add( header );
+      contextMenuMoveToLayer.Items.Add( new System.Windows.Forms.ToolStripSeparator() );
+      for ( int li = 0; li < m_CurrentMap.Layers.Count; ++li )
+      {
+        int targetLayer = li;
+        var lay = m_CurrentMap.Layers[li];
+        string name = string.IsNullOrEmpty( lay.Name ) ? ( "Layer " + li ) : lay.Name;
+        if ( !lay.Visible )
+        {
+          name += "   (hidden)";
+        }
+        var item = new System.Windows.Forms.ToolStripMenuItem( name );
+        item.Enabled = ( li != CurrentLayer );
+        item.Checked = ( li == CurrentLayer );
+        item.Click += ( s, e ) => MoveTo( targetLayer );
+        contextMenuMoveToLayer.Items.Add( item );
+      }
+    }
+
+    /// <summary>
+    /// Move one marker to another editor layer. Undoable as a whole-list
+    /// snapshot (the same task every other marker edit uses). Moving onto a
+    /// hidden layer makes the marker vanish, so the selection is revalidated
+    /// right after - the same rule as unticking a layer.
+    /// </summary>
+    private void MoveMarkerToLayer( Formats.MapProject.Marker Marker, int TargetLayer )
+    {
+      if ( ( m_CurrentMap == null )
+      ||   ( Marker == null )
+      ||   ( !IsMapEditable )
+      ||   ( TargetLayer < 0 )
+      ||   ( TargetLayer >= m_CurrentMap.Layers.Count )
+      ||   ( Marker.LayerIndex == TargetLayer )
+      ||   ( !m_CurrentMap.Markers.Contains( Marker ) ) )
+      {
+        return;
+      }
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapMarkersChange( this, m_CurrentMap ) );
+      Marker.LayerIndex = TargetLayer;
+      RevalidateMarkerSelection();
+      SetModified();
+      RedrawMap();
+      Redraw();
+      pictureEditor.Invalidate();
+    }
+
+    /// <summary>
+    /// Move one entity to another editor layer - see MoveMarkerToLayer.
+    /// </summary>
+    private void MoveEntityToLayer( Formats.MapProject.Entity Entity, int TargetLayer )
+    {
+      if ( ( m_CurrentMap == null )
+      ||   ( Entity == null )
+      ||   ( !IsMapEditable )
+      ||   ( TargetLayer < 0 )
+      ||   ( TargetLayer >= m_CurrentMap.Layers.Count )
+      ||   ( Entity.LayerIndex == TargetLayer )
+      ||   ( !m_CurrentMap.Entities.Contains( Entity ) ) )
+      {
+        return;
+      }
+      DocumentInfo.UndoManager.AddUndoTask( new Undo.UndoMapEntitiesChange( this, m_CurrentMap ) );
+      Entity.LayerIndex = TargetLayer;
+      DropHiddenEntitySelection();
+      SetModified();
+      RedrawMap();
+      Redraw();
+      pictureEditor.Invalidate();
+    }
+
     private static bool MarkerContainsPoint( Formats.MapProject.Marker M, int PX, int PY )
     {
       int w = ( M.Width < 1 ) ? 1 : M.Width;
@@ -22098,7 +22554,7 @@ namespace RetroDevStudio.Documents
     /// current map other than Exclude — used to keep markers non-overlapping
     /// when placing, dragging, or resizing.
     /// </summary>
-    private bool MarkerFootprintOverlaps( int X, int Y, int W, int H, Formats.MapProject.Marker Exclude )
+    private bool MarkerFootprintOverlaps( int X, int Y, int W, int H, int LayerIndex, Formats.MapProject.Marker Exclude )
     {
       if ( m_CurrentMap == null )
       {
@@ -22108,6 +22564,13 @@ namespace RetroDevStudio.Documents
       {
         if ( m == Exclude )
         {
+          continue;
+        }
+        if ( m.LayerIndex != LayerIndex )
+        {
+          // Different editor layer - the whole point of layers is to let
+          // markers sit on top of one another. Only same-layer footprints
+          // collide.
           continue;
         }
         int mw = ( m.Width < 1 ) ? 1 : m.Width;
@@ -22130,7 +22593,7 @@ namespace RetroDevStudio.Documents
     /// other or every group move would be blocked by its own members) and by
     /// paste validation.
     /// </summary>
-    private bool MarkerFootprintOverlaps( int X, int Y, int W, int H, ICollection<Formats.MapProject.Marker> Excluded )
+    private bool MarkerFootprintOverlaps( int X, int Y, int W, int H, int LayerIndex, ICollection<Formats.MapProject.Marker> Excluded )
     {
       if ( m_CurrentMap == null )
       {
@@ -22142,6 +22605,10 @@ namespace RetroDevStudio.Documents
       {
         if ( ( Excluded != null )
         &&   ( Excluded.Contains( m ) ) )
+        {
+          continue;
+        }
+        if ( m.LayerIndex != LayerIndex )
         {
           continue;
         }
@@ -22202,7 +22669,7 @@ namespace RetroDevStudio.Documents
           // Footprint would leave the map.
           return;
         }
-        if ( MarkerFootprintOverlaps( m_SelectedMarker.X, m_SelectedMarker.Y, newW, newH, m_SelectedMarker ) )
+        if ( MarkerFootprintOverlaps( m_SelectedMarker.X, m_SelectedMarker.Y, newW, newH, m_SelectedMarker.LayerIndex, m_SelectedMarker ) )
         {
           // Footprint would collide with another marker.
           return;
@@ -22411,11 +22878,13 @@ namespace RetroDevStudio.Documents
         }
         return;
       }
-      if ( m_SelectedMarkers.All( m => m_CurrentMap.Markers.Contains( m ) ) )
+      // A marker whose layer was just unticked counts as gone too: it is no
+      // longer drawn or hit-testable, so it must not stay selected.
+      if ( m_SelectedMarkers.All( m => m_CurrentMap.Markers.Contains( m ) && IsOnVisibleLayer( m ) ) )
       {
         return;
       }
-      var pruned = m_SelectedMarkers.Where( m => m_CurrentMap.Markers.Contains( m ) ).ToList();
+      var pruned = m_SelectedMarkers.Where( m => m_CurrentMap.Markers.Contains( m ) && IsOnVisibleLayer( m ) ).ToList();
       SetMarkerSelection( pruned );
     }
 
@@ -23644,6 +24113,14 @@ namespace RetroDevStudio.Documents
 
     private void checkShowEntities_CheckedChanged( object sender, EventArgs e )
     {
+      pictureEditor.Invalidate();
+      RedrawMap();
+    }
+
+    private void checkShowEntitiesOnlyOnActiveLayer_CheckedChanged( object sender, EventArgs e )
+    {
+      // A view toggle like Show Entities: never marks the document modified.
+      DropHiddenEntitySelection();
       pictureEditor.Invalidate();
       RedrawMap();
     }

@@ -241,7 +241,7 @@ namespace TestProject
         Assert.IsFalse( editor.Modified, "numbering an older project on load is not an edit" );
 
         Assert.AreEqual( "★ 0: Alpha", Row( editor, 0 ) );
-        Assert.AreEqual( "2: Bravo (not exported)", Row( editor, 1 ) );
+        Assert.AreEqual( "2: Bravo", Row( editor, 1 ), "no 'not exported' tag" );
         Assert.AreEqual( "1: Charlie", Row( editor, 2 ), "the dropdown shows the ID, not the position" );
 
         Assert.AreEqual( 0, ShownMapID( editor ) );
@@ -250,6 +250,29 @@ namespace TestProject
         SetSelectedIndex( Field( editor, "comboMaps" ), 2 );
         Assert.AreEqual( 1, ShownMapID( editor ) );
         Assert.IsFalse( editor.Modified, "switching maps only shows their IDs" );
+      } );
+    }
+
+
+
+    [TestMethod]
+    public void TestTheDropdownRowShowsOnlyTheIDAndTheName()
+    {
+      var project = OneTileProject();
+      project.Charsets[0].DisplayName = "Arrival";
+      project.AddCharset();
+      project.Charsets[1].DisplayName = "Crypt";
+      var tile = new MapProject.Tile() { Name = "T0" };
+      tile.Chars.Resize( 1, 1 );
+      project.Charsets[1].Tiles.Add( tile );
+      project.Charsets[1].ReindexTiles();
+      AddMap( project, "Alpha", 1 );
+      AddMap( project, "Bravo", 2, true ).CharsetIndex = 1;
+
+      WithEditor( project, ( editor, loaded ) =>
+      {
+        Assert.AreEqual( "★ 1: Alpha", Row( editor, 0 ), "no character set tag" );
+        Assert.AreEqual( "2: Bravo", Row( editor, 1 ), "no character set or 'not exported' tag" );
       } );
     }
 

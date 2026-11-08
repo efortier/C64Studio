@@ -121,6 +121,12 @@ namespace RetroDevStudio.Formats
       // one 1x1 record per occupied cell instead of storing Width/Height.
       public int        Width = 1;
       public int        Height = 1;
+      // Which editor tile layer this marker belongs to (0 = Background).
+      // DISPLAY AND SELECTION ONLY: hiding the layer hides the marker and
+      // makes it unclickable, but the export writes every marker of the map
+      // regardless of its layer. Persisted as the last I32 of the
+      // MAP_MARKERS chunk; clamped into the map's layer range on load.
+      public int        LayerIndex = 0;
     };
 
     public class MarkerType
@@ -145,6 +151,11 @@ namespace RetroDevStudio.Formats
       public byte       Value2 = 0;
       public bool       Enabled = true;
       public bool       Triggered = false;
+      // Which editor tile layer this entity belongs to (0 = Background).
+      // Same contract as Marker.LayerIndex: display and selection only, the
+      // export writes every entity of the map. Persisted as the last I32 of
+      // the MAP_ENTITIES chunk; clamped into the map's layer range on load.
+      public int        LayerIndex = 0;
     };
 
     public class EntityType
@@ -754,14 +765,24 @@ namespace RetroDevStudio.Formats
 
 
       /// <summary>
+      /// How many editor tile layers a map gets: the Background plus
+      /// DEFAULT_LAYER_COUNT - 1 upper layers. THE single place to change to
+      /// add or drop layers - the layer list, the render path, the hit tests,
+      /// the "move to layer" popup menus and the load path all work off
+      /// Layers.Count, never off a hard-coded number.
+      /// </summary>
+      public const int DEFAULT_LAYER_COUNT = 5;
+
+      /// <summary>
       /// Ensures the map has at least <paramref name="MinLayerCount"/> editor
-      /// tile layers (default 3: Background + 2). Newly-added upper layers match
+      /// tile layers (default <see cref="DEFAULT_LAYER_COUNT"/>: Background +
+      /// the upper layers). Newly-added upper layers match
       /// the Background's dimensions and are filled with -1 (empty/transparent
       /// tiles, no colour override). Background (Layers[0]) is left untouched.
       /// Called on load of pre-layer files and on new-map creation. The layer
       /// list is treated as data, so a future custom count is a trivial change.
       /// </summary>
-      public void EnsureDefaultLayers( int MinLayerCount = 3 )
+      public void EnsureDefaultLayers( int MinLayerCount = DEFAULT_LAYER_COUNT )
       {
         if ( Layers.Count == 0 )
         {
@@ -8294,6 +8315,10 @@ namespace RetroDevStudio.Formats
         // Appended Value3/Value4 — same forward-compat pattern, default 0 on old files.
         chunkMarker.AppendU8( marker.Value3 );
         chunkMarker.AppendU8( marker.Value4 );
+        // Appended editor layer. Always written (like Value3/Value4 before it)
+        // so the field has one fixed position; old builds stop reading before
+        // it and the chunk's own length skips the extra bytes.
+        chunkMarker.AppendI32( marker.LayerIndex );
         chunkMap.Append( chunkMarker.ToBuffer() );
       }
 
@@ -8309,6 +8334,8 @@ namespace RetroDevStudio.Formats
         // Triggered was added later — old files without this byte get the
         // default false on load (see entity reader for the position check).
         chunkEntity.AppendU8( (byte)( entity.Triggered ? 1 : 0 ) );
+        // Appended editor layer - see the marker chunk above for the contract.
+        chunkEntity.AppendI32( entity.LayerIndex );
         chunkMap.Append( chunkEntity.ToBuffer() );
       }
 
@@ -8770,6 +8797,18 @@ namespace RetroDevStudio.Formats
               {
                 marker.Value4 = 0;
               }
+              // Appended editor layer. Old files stop before it — default 0
+              // (Background). NOT clamped here: the MAP_LAYERS chunk may not
+              // have been read yet, so Layers.Count is not final until the
+              // post-load pass below.
+              if ( mapChunkReader.Size - mapChunkReader.Position >= 4 )
+              {
+                marker.LayerIndex = mapChunkReader.ReadInt32();
+              }
+              else
+              {
+                marker.LayerIndex = 0;
+              }
               map.Markers.Add( marker );
             }
             break;
@@ -8802,6 +8841,15 @@ namespace RetroDevStudio.Formats
               else
               {
                 entity.Triggered = false;
+              }
+              // Appended editor layer — see the marker chunk above.
+              if ( mapChunkReader.Size - mapChunkReader.Position >= 4 )
+              {
+                entity.LayerIndex = mapChunkReader.ReadInt32();
+              }
+              else
+              {
+                entity.LayerIndex = 0;
               }
               map.Entities.Add( entity );
             }
@@ -8836,9 +8884,10 @@ namespace RetroDevStudio.Formats
         }
       }
       // Pre-layer files (and revision snapshots / clones) carry no MAP_LAYERS
-      // chunk — synthesize the default Background + 2 empty upper layers. No-op
-      // when the chunk already supplied >= 3 layers. Empty upper layers are not
-      // written on save, so this keeps pre-layer files byte-identical.
+      // chunk — synthesize the default Background + the empty upper layers.
+      // No-op when the chunk already supplied DEFAULT_LAYER_COUNT layers. Empty
+      // upper layers are not written on save, so this keeps pre-layer files
+      // byte-identical.
       map.EnsureDefaultLayers();
       // Clamp the persisted selected layer to the (now-guaranteed) layer range.
       if ( map.SelectedLayerIndex < 0 )
@@ -8848,6 +8897,23 @@ namespace RetroDevStudio.Formats
       else if ( map.SelectedLayerIndex >= map.Layers.Count )
       {
         map.SelectedLayerIndex = map.Layers.Count - 1;
+      }
+      // Marker / entity layers, clamped HERE and not at chunk-read time: the
+      // MAP_MARKERS and MAP_ENTITIES chunks can precede MAP_LAYERS in the body,
+      // so Layers.Count only becomes final after EnsureDefaultLayers above. A
+      // file written by a build with more layers (or a damaged one) drops its
+      // out-of-range markers onto the topmost layer that exists rather than
+      // making them invisible.
+      int topLayer = map.Layers.Count - 1;
+      foreach ( var marker in map.Markers )
+      {
+        if ( marker.LayerIndex < 0 ) marker.LayerIndex = 0;
+        else if ( marker.LayerIndex > topLayer ) marker.LayerIndex = topLayer;
+      }
+      foreach ( var entity in map.Entities )
+      {
+        if ( entity.LayerIndex < 0 ) entity.LayerIndex = 0;
+        else if ( entity.LayerIndex > topLayer ) entity.LayerIndex = topLayer;
       }
     }
 

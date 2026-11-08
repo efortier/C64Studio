@@ -519,5 +519,90 @@ namespace TestProject
       Assert.AreEqual( (byte)7,  anim.ByteAt( defOff + 9 ) );   // frame0 = sprite 5's colour
       Assert.AreEqual( (byte)11, anim.ByteAt( defOff + 11 ) );  // frame1 = sprite 2's colour
     }
+
+
+
+    // ================================================================
+    // Assembly-time size constants in the .asm sidecar
+    // ================================================================
+    // A map project has ONE sprite project (MapProject.SpriteProjectFilename)
+    // shared by every map, so all levels load the same anim-def set and its
+    // whole-set counts are already the maximum over all levels.
+    private static int AsmConst( string Asm, string Name )
+    {
+      var match = System.Text.RegularExpressions.Regex.Match( Asm, @"\.const " + Name + @"\s+= (\d+)\s" );
+      Assert.IsTrue( match.Success, Name + " is emitted" );
+      return int.Parse( match.Groups[1].Value );
+    }
+
+    [TestMethod]
+    public void TestHeaderAsmSizeConstants()
+    {
+      var proj = MakeProject( 8 );
+      AddOverlay( proj, 0, 1, 2 );
+      AddOverlay( proj, 3, 4, 5, 6, 7 );
+
+      Assert.AreEqual( 8, proj.TotalAnimationFrames );
+
+      string asm = proj.GenerateSpriteGameBinaryHeaderAsm();
+      Assert.AreEqual( 2, AsmConst( asm, "SPRITE_ANIM_DEF_COUNT" ) );
+      Assert.AreEqual( 8, AsmConst( asm, "SPRITE_TOTAL_FRAMES" ) );
+    }
+
+    [TestMethod]
+    public void TestHeaderAsmSizeConstantsMatchAnimDefBinary()
+    {
+      // Animations of different lengths, as different levels may place them:
+      // the constants cover every animation of the shared set, so the tables
+      // fit whichever animations a level uses.
+      var proj = MakeProject( 8 );
+      AddOverlay( proj, 0 );
+      AddOverlay( proj, 1, 2, 3, 4, 5 );
+      AddOverlay( proj, 6, 7, 6 );
+      AddOverlay( proj, 0, 1, 2, 3, 4, 5, 6, 7 );
+
+      ByteBuffer anim, sprdata;
+      int animCount, sprCount;
+      proj.ExportAsGameBinarySprites( out anim, out sprdata, out animCount, out sprCount );
+
+      // Counts as the game reads them from the anim-defs binary.
+      int defCount    = anim.ByteAt( HDR_ANIMATION_COUNT );
+      int loTable     = anim.UInt16At( HDR_OFFSET_ANIM_DEF_LO );
+      int hiTable     = anim.UInt16At( HDR_OFFSET_ANIM_DEF_HI );
+      int totalFrames = 0;
+      for ( int a = 0; a < defCount; ++a )
+      {
+        int defOff = anim.ByteAt( loTable + a ) | ( anim.ByteAt( hiTable + a ) << 8 );
+        totalFrames += anim.ByteAt( defOff + 5 );   // frame count
+      }
+      Assert.AreEqual( 4, defCount );
+      Assert.AreEqual( 17, totalFrames );
+
+      string asm = proj.GenerateSpriteGameBinaryHeaderAsm();
+      Assert.AreEqual( defCount, AsmConst( asm, "SPRITE_ANIM_DEF_COUNT" ) );
+      Assert.AreEqual( totalFrames, AsmConst( asm, "SPRITE_TOTAL_FRAMES" ) );
+    }
+
+    [TestMethod]
+    public void TestHeaderAsmSizeConstantsEmptyAndLimit()
+    {
+      var proj = MakeProject( 8 );
+      string asm = proj.GenerateSpriteGameBinaryHeaderAsm();
+      Assert.AreEqual( 0, AsmConst( asm, "SPRITE_ANIM_DEF_COUNT" ) );
+      Assert.AreEqual( 0, AsmConst( asm, "SPRITE_TOTAL_FRAMES" ) );
+
+      // 128 frames is the most the game's byte indices allow ($FF = finished,
+      // indices tested with bmi).
+      var frames = new int[64];
+      AddOverlay( proj, frames );
+      AddOverlay( proj, frames );
+      Assert.AreEqual( SpriteProject.SPRITE_TOTAL_FRAMES_MAX, proj.TotalAnimationFrames );
+      Assert.AreEqual( 128, AsmConst( proj.GenerateSpriteGameBinaryHeaderAsm(), "SPRITE_TOTAL_FRAMES" ) );
+
+      // One more frame is over the limit (the export form refuses it - see
+      // TestSpriteGameBinaryExportForm).
+      AddOverlay( proj, 0 );
+      Assert.IsTrue( proj.TotalAnimationFrames > SpriteProject.SPRITE_TOTAL_FRAMES_MAX );
+    }
   }
 }

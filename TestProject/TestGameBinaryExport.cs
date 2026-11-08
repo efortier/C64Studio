@@ -112,8 +112,8 @@ namespace TestProject
     {
       var proj = CreateTestProject( 4, 4, 3 );
       var map = proj.Maps[0];
-      map.EnsureDefaultLayers();                  // Background + 2 empty
-      Assert.AreEqual( 3, map.Layers.Count );
+      map.EnsureDefaultLayers();                  // Background + the empty upper layers
+      Assert.AreEqual( MapProject.Map.DEFAULT_LAYER_COUNT, map.Layers.Count );
 
       // Content on the upper layers (tiles + a colour override + metadata).
       map.Layers[1].Name    = "Decor";
@@ -124,7 +124,7 @@ namespace TestProject
 
       var clone = MapProject.CloneMap( map );
 
-      Assert.AreEqual( 3, clone.Layers.Count );
+      Assert.AreEqual( MapProject.Map.DEFAULT_LAYER_COUNT, clone.Layers.Count );
       Assert.AreEqual( "Decor", clone.Layers[1].Name );
       Assert.IsFalse( clone.Layers[1].Visible );
       Assert.AreEqual( 2, clone.Layers[1].Tiles[1, 1] );
@@ -138,14 +138,14 @@ namespace TestProject
     }
 
     [TestMethod]
-    public void TestMapLayersEmptyResynthesizesThree()
+    public void TestMapLayersEmptyResynthesizesTheDefaultCount()
     {
       var proj = CreateTestProject( 2, 4, 3 );
       var map = proj.Maps[0];
       // No upper-layer content -> MAP_LAYERS chunk is suppressed -> the clone
-      // re-synthesizes the default 3 layers with transparent upper cells.
+      // re-synthesizes DEFAULT_LAYER_COUNT layers with transparent upper cells.
       var clone = MapProject.CloneMap( map );
-      Assert.AreEqual( 3, clone.Layers.Count );
+      Assert.AreEqual( MapProject.Map.DEFAULT_LAYER_COUNT, clone.Layers.Count );
       Assert.AreEqual( -1, clone.Layers[1].Tiles[0, 0] );
       Assert.AreEqual( -1, clone.Layers[2].Tiles[0, 0] );
       Assert.AreEqual( 0, clone.Layers[0].Tiles[0, 0] );   // background preserved
@@ -167,7 +167,7 @@ namespace TestProject
 
       var clone = MapProject.CloneMap( map );
 
-      Assert.AreEqual( 3, clone.Layers.Count );
+      Assert.AreEqual( MapProject.Map.DEFAULT_LAYER_COUNT, clone.Layers.Count );
       Assert.IsFalse( clone.Layers[0].Visible );           // Background visibility persisted
       Assert.IsTrue(  clone.Layers[1].Visible );
       Assert.IsFalse( clone.Layers[2].Visible );           // upper-layer visibility persisted

@@ -37,7 +37,8 @@ namespace RetroDevStudio.Undo
           Value1 = e.Value1,
           Value2 = e.Value2,
           Enabled = e.Enabled,
-          Triggered = e.Triggered
+          Triggered = e.Triggered,
+          LayerIndex = e.LayerIndex
         } );
       }
     }
@@ -71,7 +72,8 @@ namespace RetroDevStudio.Undo
           Value1 = e.Value1,
           Value2 = e.Value2,
           Enabled = e.Enabled,
-          Triggered = e.Triggered
+          Triggered = e.Triggered,
+          LayerIndex = e.LayerIndex
         } );
       }
       MapEditor.UpdateArea( 0, 0, AffectedMap.Tiles.Width, AffectedMap.Tiles.Height );

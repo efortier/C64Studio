@@ -979,6 +979,27 @@ namespace RetroDevStudio.Formats
 
     public const int SPRITE_BLOCK_SIZE = 64;   // VIC-II sprite block (63 used + 1 pad)
     public const int SPRITE_ANIM_FRAME_SIZE = 2;
+    // Upper bound for SPRITE_TOTAL_FRAMES: the game indexes flat frame tables
+    // with a byte, marks "finished" with $FF and tests indices with bmi.
+    public const int SPRITE_TOTAL_FRAMES_MAX = 128;
+
+
+
+    /// <summary>
+    /// Frames summed over all animation definitions (SPRITE_TOTAL_FRAMES).
+    /// </summary>
+    public int TotalAnimationFrames
+    {
+      get
+      {
+        int total = 0;
+        foreach ( var overlay in Overlays )
+        {
+          total += overlay.Frames.Count;
+        }
+        return total;
+      }
+    }
 
     // Header byte offsets (mirror the map's HDR_* constants).
     private const int SPR_HDR_OFFSET_ANIM_DEF_LO = 0x04;
@@ -1220,6 +1241,14 @@ namespace RetroDevStudio.Formats
       sb.AppendLine();
       sb.AppendLine( "// ====== Sprite data (separate file) ======" );
       sb.AppendLine( ".const SPRITE_DATA_STRIDE                        = $40  // 64 bytes per sprite block" );
+      // Counts of this whole anim-def set. A map project has one sprite project
+      // shared by every map, so all levels load this same set and these are
+      // already the maximum over all levels.
+      sb.AppendLine();
+      sb.AppendLine( "// ====== Assembly-time sizes (stored values, not offsets) ======" );
+      sb.AppendLine( "// For sizing flat lookup tables at assembly time." );
+      sb.AppendLine( ".const SPRITE_ANIM_DEF_COUNT                     = " + Overlays.Count.ToString().PadRight( 4 ) + " // number of animation definitions" );
+      sb.AppendLine( ".const SPRITE_TOTAL_FRAMES                       = " + TotalAnimationFrames.ToString().PadRight( 4 ) + " // frames summed over all animation definitions (max " + SPRITE_TOTAL_FRAMES_MAX + ")" );
 
       // NOTE: per-animation name symbols ( .const ANIM_<name> = <index> ) are
       // intentionally NOT emitted yet — the naming/indexing scheme is still TBD.

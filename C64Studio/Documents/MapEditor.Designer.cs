@@ -325,6 +325,7 @@
             checkEntityDefaultTriggered = new Krypton.Toolkit.KryptonCheckBox();
             btnDeleteSelectedEntity = new Krypton.Toolkit.KryptonButton();
             checkShowEntities = new Krypton.Toolkit.KryptonCheckBox();
+            checkShowEntitiesOnlyOnActiveLayer = new Krypton.Toolkit.KryptonCheckBox();
             labelEntityCount = new System.Windows.Forms.Label();
             flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
             btnToggleOutlineMode = new Krypton.Toolkit.KryptonCheckButton();
@@ -530,6 +531,7 @@
             fastPictureBox2 = new GR.Forms.FastPictureBox();
             label8 = new System.Windows.Forms.Label();
             toolTip1 = new System.Windows.Forms.ToolTip(components);
+            contextMenuMoveToLayer = new System.Windows.Forms.ContextMenuStrip(components);
             ((System.ComponentModel.ISupportInitialize)m_FileWatcher).BeginInit();
             panelMapContainer.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)pictureEditor).BeginInit();
@@ -3489,6 +3491,7 @@
             flowLayoutPanel2.Controls.Add(checkEntityDefaultTriggered);
             flowLayoutPanel2.Controls.Add(btnDeleteSelectedEntity);
             flowLayoutPanel2.Controls.Add(checkShowEntities);
+            flowLayoutPanel2.Controls.Add(checkShowEntitiesOnlyOnActiveLayer);
             flowLayoutPanel2.Controls.Add(labelEntityCount);
             flowLayoutPanel2.Location = new System.Drawing.Point(177, 42);
             flowLayoutPanel2.Name = "flowLayoutPanel2";
@@ -3621,10 +3624,22 @@
             checkShowEntities.Values.Text = "Show Entities";
             checkShowEntities.CheckedChanged += checkShowEntities_CheckedChanged;
             // 
+            // checkShowEntitiesOnlyOnActiveLayer
+            // 
+            checkShowEntitiesOnlyOnActiveLayer.AutoSize = false;
+            checkShowEntitiesOnlyOnActiveLayer.Location = new System.Drawing.Point(751, 5);
+            checkShowEntitiesOnlyOnActiveLayer.Margin = new System.Windows.Forms.Padding(6, 5, 3, 0);
+            checkShowEntitiesOnlyOnActiveLayer.Name = "checkShowEntitiesOnlyOnActiveLayer";
+            checkShowEntitiesOnlyOnActiveLayer.Size = new System.Drawing.Size(210, 20);
+            checkShowEntitiesOnlyOnActiveLayer.TabIndex = 50;
+            toolTip1.SetToolTip(checkShowEntitiesOnlyOnActiveLayer, "Show only the entities on the layer selected in the layer list. Entities on the other layers are hidden and cannot be clicked until their layer is selected.");
+            checkShowEntitiesOnlyOnActiveLayer.Values.Text = "Show only when layer selected";
+            checkShowEntitiesOnlyOnActiveLayer.CheckedChanged += checkShowEntitiesOnlyOnActiveLayer_CheckedChanged;
+            // 
             // labelEntityCount
             // 
             labelEntityCount.AutoSize = true;
-            labelEntityCount.Location = new System.Drawing.Point(757, 7);
+            labelEntityCount.Location = new System.Drawing.Point(976, 7);
             labelEntityCount.Margin = new System.Windows.Forms.Padding(12, 7, 0, 0);
             labelEntityCount.Name = "labelEntityCount";
             labelEntityCount.Size = new System.Drawing.Size(47, 13);
@@ -3933,6 +3948,11 @@
             // 
             columnLayerName.Text = "Layer";
             columnLayerName.Width = 152;
+            // 
+            // contextMenuMoveToLayer
+            // 
+            contextMenuMoveToLayer.Name = "contextMenuMoveToLayer";
+            contextMenuMoveToLayer.Size = new System.Drawing.Size(61, 4);
             // 
             // btnFlattenLayers
             // 
@@ -6440,6 +6460,7 @@
     private System.Windows.Forms.ListBox comboTiles;
     private System.Windows.Forms.Label labelLayers;
     private System.Windows.Forms.ListView listLayers;
+    private System.Windows.Forms.ContextMenuStrip contextMenuMoveToLayer;
     private System.Windows.Forms.ColumnHeader columnLayerName;
     private Krypton.Toolkit.KryptonButton btnFlattenLayers;
     private Krypton.Toolkit.KryptonButton btnClearLayer;
@@ -6510,6 +6531,7 @@
         private Krypton.Toolkit.KryptonButton btnMarkerHeightDec;
         private System.Windows.Forms.Label labelMarkersOutOfBounds;
         private Krypton.Toolkit.KryptonCheckBox checkShowEntities;
+        private Krypton.Toolkit.KryptonCheckBox checkShowEntitiesOnlyOnActiveLayer;
         private System.Windows.Forms.Label labelEntityCount;
     private DecentForms.Button btnSetNextTileChar;
     private DecentForms.Button btnTileClone;
